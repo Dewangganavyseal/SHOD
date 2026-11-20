@@ -430,7 +430,10 @@ HC.updateWildNPC = function (item, dt, horse, world) {
   // undefined, model lain memakai n.headAngle langsung di lerp().
   st.headAngle = 0;
 
-  HC.animateNPC(root, dt);
+  // Warga yang sedang pakai LOD statis tidak perlu dianimasikan: pose-nya
+  // memang dibekukan, dan animate() di 18 model itu biaya CPU nyata.
+  const lodRec = root.userData && root.userData.__npcLod;
+  if (!(lodRec && lodRec.on)) HC.animateNPC(root, dt);
 };
 
 /* ============================================================================
@@ -477,6 +480,11 @@ HC.NPCParty = class {
       anchor: { ...anchor },
     };
     this.wild[slot] = item;
+    // Hook optimasi (mis. merge mesh NPC untuk HP kentang di js/perf.js).
+    // Error di hook TIDAK boleh menggagalkan spawn warga.
+    if (typeof HC.onNPCSpawn === 'function') {
+      try { HC.onNPCSpawn(item); } catch (e) { HC.npcSpawnHookError = (e && e.message) || String(e); }
+    }
     return item;
   }
   update(x, z, yaw, dt) {

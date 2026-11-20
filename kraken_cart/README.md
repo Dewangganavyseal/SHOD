@@ -30,12 +30,39 @@ ditipiskan supaya tab tidak crash. Itu konsesi sandbox, bukan versi final.
 - **Mobile (wajib landscape):** analog di **kiri**, tombol `LARI` (toggle) / `LOMPAT` /
   `MAKAN` / `MINUM` di **kanan**. Lepas analog = kuda berhenti walau toggle LARI nyala.
 
+## Kualitas grafis (HP kentang)
+
+Kualitas dipilih otomatis dari jumlah core RAM perangkat sebelum `World` dibuat,
+bisa dipaksa lewat URL, dan bisa diganti langsung dari HUD:
+
+```
+http://localhost:8801/index.html?quality=potato
+http://localhost:8811/index.html?quality=medium
+http://localhost:8801/index.html?quality=high
+```
+
+Prioritas: `?quality=` > pilihan tersimpan di `localStorage` > deteksi perangkat.
+- **🥔 Kentang:** bayangan mati, antialias mati, pixel ratio 0.75, rumput 30%, cull 30 m.
+- **📱 Menengah:** bayangan statis (digambar ulang tiap 5 frame), pixel ratio 1.25, rumput 62%.
+- **🖥️ Ultra:** semua detail, NPC utuh, bayangan penuh.
+
+Optimasi terbesar adalah **LOD warga**: 18 NPC = 1.163 mesh (1.154 terlihat) dulu
+menjadi 1-2 mesh statis saat jauh. Hasil uji browser: mesh NPC terlihat 1.154 → 21,
+total scene 2.059 → 926, dan render probe 1.135 → 394 draw call. Warga yang dekat
+(radius `npcLodNear`) tetap memakai model penuh yang beranimasi; yang jauh memakai
+hasil bake yang posenya membeku — nggak kelihatan dari jarak segitu.
+
+Pilihanmu disimpan, jadi HP yang sudah pernah digeser ke "Menengah" nggak balik
+ke Kentang tiap reload. Hapus dengan `localStorage.removeItem('shod.quality')`.
+
 ## Struktur
+
 
 ```
 index.html            entry point + HUD
 css/style.css         HUD, panel upgrade, tombol mobile
 js/main.js            loop render, langit (sky dome shader), fog, window.RIG
+js/perf.js            preset kualitas (potato/medium/high), deteksi perangkat, LOD bake NPC
 js/world.js           medan analitik, jalan, sungai/ford, rumput, situs NPC
 js/map.js             peta tetap: sites, npcGroups, boulders, ramps, hashRand deterministik
 js/blade_grass.js     rumput instanced per chunk + trample + gradasi tinggi

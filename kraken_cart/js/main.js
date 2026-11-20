@@ -11,8 +11,18 @@ import { UpgradeStore } from './upgrades.js';
 import { initUpgradeUI } from './ui.js';
 import { Survival } from './survival.js';
 import { initTouchControls } from './touch_controls.js';
+import {
+  QUALITY_ORDER, QUALITY_PRESETS, resolveQuality, saveQualityKey,
+  bakeNpcLod, setNpcLod, updateNpcLod, cullDistantNpcs
+} from './perf.js';
 
 const THREE = HC.THREE, S = HC.vs;
+
+/* Kualitas dipilih SEBELUM world dibuat: jumlah/blokshadow & pixel ratio
+   tidak boleh baru dipilih setelah mesh dibangun. Pilihan user disimpan di
+   localStorage; bisa dipaksa lewat ?quality=potato untuk debugging. */
+const quality = resolveQuality();
+HC.QUALITY = quality;
 
 const container = document.getElementById('app');
 const scene = new THREE.Scene();
@@ -26,11 +36,16 @@ const initW = Math.max(1, window.innerWidth);
 const initH = Math.max(1, window.innerHeight);
 const camera = new THREE.PerspectiveCamera(46, initW / initH, 0.2, 180);
 
-const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+const renderer = new THREE.WebGLRenderer({
+  antialias: !!quality.antialias,
+  powerPreference: 'high-performance',
+  preserveDrawingBuffer: !!quality.preserveDrawingBuffer
+});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, quality.pixelRatioCap) * (quality.renderScale || 1));
 renderer.setSize(initW, initH);
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.enabled = quality.shadows !== false;
+renderer.shadowMap.autoUpdate = quality.shadows !== 'static';
+renderer.shadowMap.type = quality.shadows === 'static' ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 0.92;
@@ -79,6 +94,83 @@ if (world.placeNPCsInWorld) {
     party.avoidSiteProps(world, w);
   }
 }
+
+// ---------------- kualitas grafis + optimasi mesh NPC ----------------
+/* LOD NPC: model Sylvan penuh dekat, model statis hasil bake jauh. */
+function makeNpcLod(root) {
+  if (!root) return null;
+  return bakeNpcLod(root, THREE);
+}
+
+const mountNpcSquad = party.mount.bind(party);
+party.mount = function (c) {
+  mountNpcSquad(c);
+  // Penumpang selalu di depan kamera: pakai model penuh, jangan LOD beku.
+  // Ini juga menutup bug "warga direkrut dari jauh lalu duduk sebagai patung".
+  for (const p of (c && c.npcPassengers) || []) setNpcLod(p, false);
+};
+
+if (quality.npcLod) for (const w of party.wild) makeNpcLod(w.root);
+// Warga respawn sesudah direkrut: bake supaya nanti kalau dilepas sudah siap.
+HC.onNPCSpawn = (item) => { if (item && item.root && quality.npcLod) makeNpcLod(item.root); };
+
+world.bindRenderer(renderer);
+
+const qualityBar = document.getElementById('quality-bar');
+function refreshQualityBar() {
+  if (!qualityBar) return;
+  qualityBar.querySelectorAll('button').forEach((b) => {
+    b.classList.toggle('active', b.dataset.quality === quality.key);
+  });
+  qualityBar.title = `Grafis: ${quality.label} — ${quality.hint}`;
+}
+function applyQualityLive(key, persist = true) {
+  const preset = QUALITY_PRESETS[key];
+  if (!preset) return null;
+  quality.key = key;
+  Object.assign(quality, preset);
+  HC.QUALITY = quality;
+  if (persist) saveQualityKey(key);
+  if (world.applyQuality) world.applyQuality(quality);
+  for (const w of party.wild) {
+    if (!w.root) continue;
+    if (quality.npcLod) makeNpcLod(w.root);
+    else setNpcLod(w.root, false);
+  }
+  for (const p of cart.npcPassengers || []) {
+    if (quality.npcLod) makeNpcLod(p);
+    else setNpcLod(p, false);
+  }
+  refreshQualityBar();
+  return quality;
+}
+if (qualityBar) {
+  for (const key of QUALITY_ORDER) {
+    const p = QUALITY_PRESETS[key];
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'mood-chip quality-chip';
+    btn.dataset.quality = key;
+    btn.textContent = p.icon + ' ' + p.label;
+    const tap = (e) => { e.preventDefault(); applyQualityLive(key); };
+    btn.addEventListener('click', tap);
+    btn.addEventListener('touchstart', tap, { passive: false });
+    qualityBar.appendChild(btn);
+  }
+  refreshQualityBar();
+}
+
+// Probe QA / tombol dev: ganti preset tanpa reload, lihat angka LOD.
+window.QUALITY_CTL = {
+  apply: applyQualityLive,
+  current: () => quality,
+  presets: QUALITY_PRESETS,
+  stats: () => party.wild.map((w) => {
+    const rec = w.root && w.root.userData.__npcLod;
+    return { role: w.role && w.role.id, lod: rec ? rec.on : null, meshes: rec ? rec.stats.meshes : 0, lods: rec ? rec.stats.lods : 0 };
+  }),
+  lodTick: (near) => updateNpcLod(party.wild, animator.x, animator.z, near || quality.npcLodNear)
+};
 
 // ---------------- soft contact shadows ----------------
 function blobTexture() {
@@ -524,6 +616,12 @@ function stepSim(dt) {
   world.setCartPose(physics.pos.x, physics.pos.z);
   world.update(animator.x, dt, animator.z, animator.yaw);
   party.update(animator.x, animator.z, animator.yaw, dt);
+  cullDistantNpcs(party.wild, animator.x, animator.z, quality.npcCull);
+  // LOD dievaluasi tiap 12 frame saja: hasil tetap sama di mata, biaya CPU
+  // turun (jarak warga jarang berubah signifikan dalam 0.2 s).
+  if (quality.npcLod && (world.frameCounter % 12 === 0)) {
+    updateNpcLod(party.wild, animator.x, animator.z, quality.npcLodNear);
+  }
   party.applyEffects(dt, physics, world);
   for (const p of cart.npcPassengers || []) HC.animateNPC(p, dt);
   physics.damageScale = party.defenseScale();

@@ -16,15 +16,27 @@ const THREE = HC.THREE, P = HC.PAL;
 class World {
   constructor(scene) {
     this.scene = scene;
-    const isMobileDevice = (typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent))
-      || (typeof window !== 'undefined' && window.innerWidth < 820);
+    /* Kualitas datang dari js/perf.js (main.js sudah menaruhnya di HC.QUALITY
+       sebelum World dibuat). Fallback ke deteksi kasar kalau modul itu absen,
+       mis. halaman QA yang mengimpor world.js sendirian. */
+    const QUALITY = (HC.QUALITY && HC.QUALITY.key) ? HC.QUALITY : null;
+    const isMobileDevice = QUALITY
+      ? QUALITY.key !== 'high'
+      : ((typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent))
+        || (typeof window !== 'undefined' && window.innerWidth < 820));
+    const wantsShadows = QUALITY ? QUALITY.shadows !== false : true;
 
     const PERF_PROFILES = {
-      mobile:   { label: 'HP G99 Lancar', pixelRatio: 1.15, cullDistance: 48.0, grassRatio: 0.72 },
-      balanced: { label: 'Seimbang',      pixelRatio: 1.5,  cullDistance: 64.0, grassRatio: 0.90 },
-      ultra:    { label: 'Ultra PC',      pixelRatio: 2.0,  cullDistance: 84.0, grassRatio: 1.0  }
+      potato:   { label: 'Kentang',  pixelRatio: 1.0,  cullDistance: 30.0, grassRatio: 0.30 },
+      medium:   { label: 'Menengah', pixelRatio: 1.25, cullDistance: 52.0, grassRatio: 0.62 },
+      high:     { label: 'Ultra PC', pixelRatio: 2.0,  cullDistance: 84.0, grassRatio: 1.0  },
+      // alias lama supaya kode/probe yang masih menyebut nama ini tetap jalan
+      mobile:   { label: 'Kentang',  pixelRatio: 1.0,  cullDistance: 30.0, grassRatio: 0.30 },
+      balanced: { label: 'Menengah', pixelRatio: 1.25, cullDistance: 52.0, grassRatio: 0.62 },
+      ultra:    { label: 'Ultra PC', pixelRatio: 2.0,  cullDistance: 84.0, grassRatio: 1.0  }
     };
-    let currentPerfMode = isMobileDevice ? 'mobile' : 'ultra';
+    let currentPerfMode = QUALITY ? QUALITY.key : (isMobileDevice ? 'medium' : 'high');
+    this._quality = QUALITY;
 
     scene.background = new THREE.Color(0x6bb0e6);
     scene.fog = null;
@@ -131,9 +143,10 @@ class World {
 
         const dirLight = new THREE.DirectionalLight(activeAtmosphere.sunColor, activeAtmosphere.sunIntensity * Math.PI);
         dirLight.position.copy(activeAtmosphere.sunPos);
-        dirLight.castShadow = true;
-        dirLight.shadow.mapSize.width = isMobileDevice ? 1024 : 2048;
-        dirLight.shadow.mapSize.height = isMobileDevice ? 1024 : 2048;
+        dirLight.castShadow = wantsShadows;
+        const shadowSize = QUALITY ? QUALITY.shadowMapSize : (isMobileDevice ? 1024 : 2048);
+        dirLight.shadow.mapSize.width = shadowSize;
+        dirLight.shadow.mapSize.height = shadowSize;
         dirLight.shadow.camera.near = 2;
         dirLight.shadow.camera.far = 90;
         const shadowRange = 28;
@@ -4259,6 +4272,8 @@ class World {
     this.PARTICLE_COUNT = PARTICLE_COUNT;
     this.PERF_PROFILES = PERF_PROFILES;
     this.currentPerfMode = currentPerfMode;
+    this._quality = QUALITY;
+    this._shadowsStatic = !!QUALITY && QUALITY.shadows === 'static';
     this._getRoadCenterX = getRoadCenterX;
     this._getRoadTangentAngle = getRoadTangentAngle;
     this._getRoadDistance = getRoadDistance;
@@ -4290,6 +4305,10 @@ class World {
     this.ramps = [];
     this.pebbles = [];
     this.siteMeshes = [];
+
+    this.dirLight = dirLight;
+    this.hemiLight = hemiLight;
+    this.renderer = null;
 
     // Pool kerikil instanced (untuk tombol B. Kerikil & efek skill NPC)
     this.pebbleCount = 48;
@@ -4456,6 +4475,43 @@ class World {
     this.isSunbeamsEnabled = forceState !== undefined ? !!forceState : !this.isSunbeamsEnabled;
     this.sunbeamsGroup.visible = this.isSunbeamsEnabled;
     return this.isSunbeamsEnabled;
+  }
+
+  /* --- Kualitas grafis (HP kentang) --- */
+  bindRenderer(renderer) {
+    this.renderer = renderer;
+    if (renderer && this._quality) this.applyQuality(this._quality);
+  }
+
+  applyQuality(quality) {
+    if (!quality) return;
+    this._quality = quality;
+    this._shadowsStatic = quality.shadows === 'static';
+    this.currentPerfMode = quality.key;
+    const on = quality.shadows !== false;
+    if (this.dirLight) {
+      this.dirLight.castShadow = on;
+      const area = quality.shadowArea || 12;
+      const sc = this.dirLight.shadow.camera;
+      sc.left = -area; sc.right = area; sc.top = area; sc.bottom = -area;
+      sc.updateProjectionMatrix();
+      if (this.dirLight.shadow.mapSize.x !== quality.shadowMapSize) {
+        this.dirLight.shadow.mapSize.set(quality.shadowMapSize, quality.shadowMapSize);
+        if (this.dirLight.shadow.map) {
+          this.dirLight.shadow.map.dispose();
+          this.dirLight.shadow.map = null;
+        }
+      }
+    }
+    if (this.renderer) {
+      this.renderer.shadowMap.enabled = on;
+      this.renderer.shadowMap.autoUpdate = !this._shadowsStatic;
+      if (on) this.renderer.shadowMap.needsUpdate = true;
+      const dpr = Math.min(window.devicePixelRatio || 1, quality.pixelRatioCap);
+      this.renderer.setPixelRatio(dpr * (quality.renderScale || 1));
+      this.renderer.toneMappingExposure = quality.renderScale < 1 ? 0.98 : 0.92;
+    }
+    return this.PERF_PROFILES[quality.key];
   }
 
   playTruckHornBeep() {
@@ -4856,6 +4912,13 @@ class World {
     this.elapsed += delta;
     const elapsed = this.elapsed;
     this.frameCounter++;
+
+    // Bayangan mode 'static' (HP menengah): peta bayangan digambar ulang tiap
+    // 5 frame, bukan tiap frame. Gerak lambat tetap dapat bayangan, biaya turun.
+    if (this._shadowsStatic && this.renderer && this.renderer.shadowMap.enabled
+      && (this.frameCounter % 5 === 0)) {
+      this.renderer.shadowMap.needsUpdate = true;
+    }
 
     this.grassUniforms.uTime.value = elapsed;
     this.celShaderUniforms.uTime.value = elapsed;

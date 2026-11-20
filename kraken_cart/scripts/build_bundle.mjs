@@ -174,8 +174,18 @@ function buildTouchControls() {
   return wrapIIFE('js/touch_controls.js', src, '__MOD_TOUCH');
 }
 
+function buildPerf() {
+  let src = read('js/perf.js');
+  src = src.replace(/\bexport\s+(const|class|function)\s+/g, '$1 ');
+  src += '\nreturn { QUALITY_PRESETS, QUALITY_ORDER, detectQualityKey, resolveQuality, saveQualityKey, bakeNpcLod, setNpcLod, updateNpcLod, cullDistantNpcs };\n';
+  return wrapIIFE('js/perf.js', src, '__MOD_PERF');
+}
+
 function buildMain() {
   let src = read('js/main.js');
+  // Urutan PENTING: blok touch_controls diganti duluan. Regex-nya menelan semua
+  // import dari awal file; kalau perf.js diganti duluan, import touch_controls
+  // ikut tersapu regex multi-baris perf dan pola ini tidak ketemu lagi.
   src = mustReplace(
     src,
     /^[\s\S]*?import\s*\{\s*initTouchControls\s*\}\s*from\s*'\.\/touch_controls\.js';\s*\r?\n/,
@@ -187,6 +197,12 @@ function buildMain() {
       ''
     ].join('\n'),
     'js/main.js (imports)'
+  );
+  src = mustReplace(
+    src,
+    /^[ \t]*import\s*\{[\s\S]*?\}\s*from\s*'\.\/perf\.js';\s*\r?\n/m,
+    'const { QUALITY_ORDER, QUALITY_PRESETS, resolveQuality, saveQualityKey, bakeNpcLod, setNpcLod, updateNpcLod, cullDistantNpcs } = __MOD_PERF;\n',
+    'js/main.js (perf imports)'
   );
   return wrapIIFE('js/main.js', src);
 }
@@ -217,6 +233,7 @@ const chunks = [
   buildUI(),
   buildSurvival(),
   buildTouchControls(),
+  buildPerf(),
   buildMain(),
   '})();\n'
 ];

@@ -78,6 +78,8 @@ html, body {
   color: #fff;
   border-color: #1f242c;
 }
+#hud .quality-bar { gap: 3px; margin: 0 0 5px; }
+#hud .quality-chip { padding: 2px 4px; font-size: 9.5px; }
 #hud .env-bar {
   pointer-events: auto;
   display: grid;
