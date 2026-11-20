@@ -1,0 +1,3732 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hutan Cozy 3D — BotW Stylised Grass & Pine Forest</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Three.js & OrbitControls -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #1a1829;
+        }
+        h1, h2, .font-display {
+            font-family: 'Fredoka', sans-serif;
+        }
+        #canvas-container {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            outline: none;
+        }
+        /* Glassmorphism UI */
+        .glass-panel {
+            background: rgba(24, 24, 32, 0.72);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 235, 205, 0.16);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+        }
+        .mood-btn {
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .mood-btn.active {
+            background: linear-gradient(135deg, rgba(251, 146, 60, 0.9), rgba(234, 88, 12, 0.85));
+            color: #fff;
+            border-color: rgba(255, 237, 213, 0.6);
+            box-shadow: 0 4px 15px rgba(249, 115, 22, 0.4);
+            transform: translateY(-1px);
+        }
+        /* Custom Range Slider */
+        input[type=range] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.15);
+            height: 6px;
+            border-radius: 999px;
+            outline: none;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #fb923c;
+            border: 2px solid #fff7ed;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+            transition: transform 0.15s ease, background-color 0.15s ease;
+        }
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.15);
+            background: #f97316;
+        }
+        /* Toast notification animation */
+        @keyframes floatUpFade {
+            0% { opacity: 0; transform: translate(-50%, 10px) scale(0.95); }
+            15% { opacity: 1; transform: translate(-50%, 0px) scale(1); }
+            85% { opacity: 1; transform: translate(-50%, 0px) scale(1); }
+            100% { opacity: 0; transform: translate(-50%, -8px) scale(0.95); }
+        }
+        .toast-anim {
+            animation: floatUpFade 2.6s ease forwards;
+        }
+        /* Custom subtle scrollbar for control panel */
+        .custom-scroll::-webkit-scrollbar {
+            width: 5px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 999px;
+        }
+    </style>
+</head>
+<body class="text-amber-50">
+
+    <!-- 3D Canvas Container -->
+    <div id="canvas-container"></div>
+
+    <!-- Top Left Header Badge -->
+    <div class="fixed top-4 left-4 z-10 flex items-center gap-3 pointer-events-auto">
+        <div class="glass-panel px-4 py-2.5 rounded-2xl flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/30 text-xl">
+                🌿
+            </div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <h1 class="font-display text-lg font-semibold tracking-wide text-amber-100 leading-tight">Hutan Lembah Cozy</h1>
+                    <span id="fps-badge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/25 text-emerald-300 border border-emerald-400/30">60 FPS</span>
+                    <span id="cull-badge" class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-200 border border-amber-400/30">Chunk: --/36</span>
+                </div>
+                <p id="subtitle-mood" class="text-xs text-emerald-200/85">Frustum Culling &bull; Helio G99 Ready</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toggle Button for Mobile/Minimized UI -->
+    <button id="toggle-panel-btn" class="fixed top-4 right-4 z-20 glass-panel p-3 rounded-2xl text-amber-100 hover:text-white hover:bg-white/10 transition flex items-center gap-2 text-sm font-medium shadow-lg">
+        <span id="toggle-icon">✨</span>
+        <span class="hidden sm:inline" id="toggle-text">Pengaturan Suasana</span>
+    </button>
+
+    <!-- Floating Control Panel -->
+    <aside id="control-panel" class="fixed top-16 right-4 z-20 w-80 max-w-[calc(100vw-2rem)] max-h-[calc(100vh-5.5rem)] overflow-y-auto custom-scroll glass-panel rounded-3xl p-5 transition-all duration-300 origin-top-right">
+        <!-- Mood Section -->
+        <div class="mb-4">
+            <label class="block text-xs font-semibold uppercase tracking-wider text-amber-200/80 mb-2.5">
+                Waktu & Suasana Hutan
+            </label>
+            <div class="grid grid-cols-3 gap-2">
+                <button data-mood="morning" class="mood-btn flex flex-col items-center justify-center p-2 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 text-xs font-medium">
+                    <span class="text-lg mb-0.5">🌤️</span>
+                    <span>Pagi BotW</span>
+                </button>
+                <button data-mood="sunset" class="mood-btn active flex flex-col items-center justify-center p-2 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 text-xs font-medium">
+                    <span class="text-lg mb-0.5">🌅</span>
+                    <span>Senja Cozy</span>
+                </button>
+                <button data-mood="night" class="mood-btn flex flex-col items-center justify-center p-2 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 text-xs font-medium">
+                    <span class="text-lg mb-0.5">✨</span>
+                    <span>Kunang-kunang</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Mobile / Helio G99 Performance Mode Selector -->
+        <div class="mb-4 border-t border-white/10 pt-3">
+            <div class="flex items-center justify-between mb-2">
+                <label class="text-[11px] font-bold uppercase tracking-wider text-amber-300 flex items-center gap-1">
+                    ⚡ Optimasi Performa (Helio G99)
+                </label>
+                <span id="perf-status" class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-200 border border-amber-400/30">
+                    HP Lancar
+                </span>
+            </div>
+            <div class="grid grid-cols-3 gap-1.5">
+                <button data-perf="mobile" class="perf-btn active py-1.5 px-2 rounded-xl border border-amber-300/50 bg-orange-500/80 text-[11px] font-semibold text-white transition">
+                    📱 HP G99
+                </button>
+                <button data-perf="balanced" class="perf-btn py-1.5 px-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-[11px] font-medium text-amber-100 transition">
+                    ⚖️ Seimbang
+                </button>
+                <button data-perf="ultra" class="perf-btn py-1.5 px-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-[11px] font-medium text-amber-100 transition">
+                    💻 Ultra PC
+                </button>
+            </div>
+        </div>
+
+        <!-- BotW Grass Shader Controls (Adapted from Daniel Ilett's Tutorial) -->
+        <div class="space-y-3.5 mb-4 border-t border-white/10 pt-3.5">
+            <div class="flex items-center justify-between">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-emerald-300">
+                    🌾 Shader Rumput Breath of the Wild
+                </span>
+                <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-200 border border-emerald-400/30">
+                    Flow Map + TBN
+                </span>
+            </div>
+
+            <!-- Wind Flow Map Speed & Strength -->
+            <div>
+                <div class="flex justify-between text-xs mb-1">
+                    <span class="text-amber-100/90 font-medium flex items-center gap-1.5">🍃 Aliran Wind Flow Map</span>
+                    <span id="wind-val" class="text-amber-300 font-semibold">Sedang</span>
+                </div>
+                <input id="wind-slider" type="range" min="0.1" max="3.0" step="0.1" value="1.25">
+            </div>
+
+            <!-- Blade Height & Falloff Scale -->
+            <div>
+                <div class="flex justify-between text-xs mb-1">
+                    <span class="text-amber-100/90 font-medium flex items-center gap-1.5">🌿 Tinggi Bilah Rumput</span>
+                    <span id="grass-val" class="text-amber-300 font-semibold">100%</span>
+                </div>
+                <input id="grass-slider" type="range" min="0.5" max="1.6" step="0.05" value="1.05">
+            </div>
+
+            <!-- BotW Blade Bend Curve & Forward Distance -->
+            <div>
+                <div class="flex justify-between text-xs mb-1">
+                    <span class="text-amber-100/90 font-medium flex items-center gap-1.5">🏹 Lengkungan Bilah (Bend)</span>
+                    <span id="bend-val" class="text-amber-300 font-semibold">Natural</span>
+                </div>
+                <input id="bend-slider" type="range" min="0.1" max="1.0" step="0.05" value="0.45">
+            </div>
+
+            <!-- Interactive BotW Grass Cutting (_GrassMap Real-time Modification) -->
+            <div class="bg-emerald-950/40 border border-emerald-400/25 rounded-2xl p-2.5 space-y-2">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <span class="text-base">⚔️</span>
+                        <div>
+                            <p class="text-xs font-semibold text-emerald-100">Mode Tebas Rumput & Semak</p>
+                            <p class="text-[10px] text-emerald-200/70">Klik/geser rumput & semak BotW</p>
+                        </div>
+                    </div>
+                    <button id="cut-grass-toggle" class="w-11 h-6 rounded-full bg-white/20 p-0.5 transition-colors duration-200 flex items-center justify-start">
+                        <span class="w-5 h-5 rounded-full bg-white shadow-md transform transition-transform"></span>
+                    </button>
+                </div>
+                <button id="regrow-grass-btn" class="w-full py-1.5 px-3 rounded-xl bg-emerald-500/25 hover:bg-emerald-500/40 border border-emerald-400/30 text-[11px] font-semibold text-emerald-100 transition flex items-center justify-center gap-1.5">
+                    <span>🌱</span>
+                    <span>Tumbuhkan Rumput & Semak BotW</span>
+                </button>
+            </div>
+
+            <!-- Foliage Painterly Palette Selector -->
+            <div>
+                <div class="flex justify-between text-xs mb-1.5">
+                    <span class="text-amber-100/90 font-medium flex items-center gap-1.5">🎨 Palet Daun Pinus</span>
+                </div>
+                <div class="grid grid-cols-4 gap-1.5">
+                    <button data-palette="mixed" class="palette-btn active py-1.5 px-2 rounded-xl border border-amber-300/50 bg-orange-500/80 text-[11px] font-semibold text-white transition">
+                        Harmoni
+                    </button>
+                    <button data-palette="emerald" class="palette-btn py-1.5 px-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-[11px] font-medium text-emerald-200 transition">
+                        Emerald
+                    </button>
+                    <button data-palette="teal" class="palette-btn py-1.5 px-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-[11px] font-medium text-cyan-200 transition">
+                        Spruce
+                    </button>
+                    <button data-palette="olive" class="palette-btn py-1.5 px-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-[11px] font-medium text-lime-200 transition">
+                        Sunlit
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Interactive Toggles -->
+        <div class="space-y-2 border-t border-white/10 pt-3.5">
+            <!-- Campfire Toggle -->
+            <div class="flex items-center justify-between bg-white/5 px-3 py-2 rounded-2xl border border-white/5">
+                <div class="flex items-center gap-2.5">
+                    <span class="text-lg">🔥</span>
+                    <div>
+                        <p class="text-xs font-semibold text-amber-100">Api Unggun Perkemahan</p>
+                        <p class="text-[10px] text-amber-200/60">Cahaya hangat di tengah hutan</p>
+                    </div>
+                </div>
+                <button id="campfire-toggle" class="w-11 h-6 rounded-full bg-orange-500 p-0.5 transition-colors duration-200 flex items-center justify-end">
+                    <span class="w-5 h-5 rounded-full bg-white shadow-md transform transition-transform"></span>
+                </button>
+            </div>
+
+            <!-- Auto Rotate Camera -->
+            <div class="flex items-center justify-between bg-white/5 px-3 py-2 rounded-2xl border border-white/5">
+                <div class="flex items-center gap-2.5">
+                    <span class="text-lg">🎥</span>
+                    <div>
+                        <p class="text-xs font-semibold text-amber-100">Putar Kamera Otomatis</p>
+                        <p class="text-[10px] text-amber-200/60">Menyusuri panorama perlahan</p>
+                    </div>
+                </div>
+                <button id="autorotate-toggle" class="w-11 h-6 rounded-full bg-orange-500 p-0.5 transition-colors duration-200 flex items-center justify-end">
+                    <span class="w-5 h-5 rounded-full bg-white shadow-md transform transition-transform"></span>
+                </button>
+            </div>
+
+            <!-- Cozy Nature Audio Synth Toggle -->
+            <div class="flex items-center justify-between bg-white/5 px-3 py-2 rounded-2xl border border-white/5">
+                <div class="flex items-center gap-2.5">
+                    <span class="text-lg">🎶</span>
+                    <div>
+                        <p class="text-xs font-semibold text-amber-100">Suara Alam & Api Unggun</p>
+                        <p class="text-[10px] text-amber-200/60">Ambience angin & gemeretak kayu</p>
+                    </div>
+                </div>
+                <button id="audio-toggle" class="w-11 h-6 rounded-full bg-white/20 p-0.5 transition-colors duration-200 flex items-center justify-start">
+                    <span class="w-5 h-5 rounded-full bg-white shadow-md transform transition-transform"></span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Quick Camera Views -->
+        <div class="mt-3.5 pt-3 border-t border-white/10 flex gap-2">
+            <button id="cam-overview" class="flex-1 py-2 px-2 rounded-xl bg-white/10 hover:bg-white/15 text-xs font-medium text-amber-100 transition">
+                🏞️ Panorama
+            </button>
+            <button id="cam-campfire" class="flex-1 py-2 px-2 rounded-xl bg-white/10 hover:bg-white/15 text-xs font-medium text-amber-100 transition">
+                ⛺ Dekat Api
+            </button>
+            <button id="cam-pond" class="flex-1 py-2 px-2 rounded-xl bg-white/10 hover:bg-white/15 text-xs font-medium text-amber-100 transition">
+                🪷 Kolam Kecil
+            </button>
+        </div>
+    </aside>
+
+    <!-- Interactive Toast Message -->
+    <div id="interaction-toast" class="fixed bottom-16 left-1/2 -translate-x-1/2 z-20 pointer-events-none hidden">
+        <div class="glass-panel px-4 py-2 rounded-full text-xs font-medium text-amber-100 flex items-center gap-2 shadow-xl">
+            <span id="toast-emoji">✨</span>
+            <span id="toast-text">Interaksi hutan</span>
+        </div>
+    </div>
+
+    <!-- Bottom Hint Bar -->
+    <div class="fixed bottom-4 left-1/2 -translate-x-1/2 z-10 pointer-events-none w-max max-w-[92vw]">
+        <div class="glass-panel px-4 py-2 rounded-full text-[11px] sm:text-xs text-amber-100/80 flex items-center gap-2 shadow-lg">
+            <span>🖱️ Geser untuk memutar &bull; Aktifkan <b>Mode Tebas Rumput</b> atau klik <b>api unggun</b>, <b>pohon</b>, & <b>jamur</b>!</span>
+        </div>
+    </div>
+
+    <script>
+        // ============================================================================
+        // 1. SCENE, CAMERA, RENDERER & HELIO G99 PERFORMANCE PROFILES
+        // ============================================================================
+        const PERF_PROFILES = {
+            mobile: {
+                label: 'HP Lancar',
+                pixelRatio: Math.min(window.devicePixelRatio || 1, 1.25),
+                cullDistance: 46.0,
+                grassRatio: 1.0
+            },
+            balanced: {
+                label: 'Seimbang',
+                pixelRatio: Math.min(window.devicePixelRatio || 1, 1.6),
+                cullDistance: 56.0,
+                grassRatio: 1.0
+            },
+            ultra: {
+                label: 'Ultra PC',
+                pixelRatio: Math.min(window.devicePixelRatio || 1, 2.0),
+                cullDistance: 75.0,
+                grassRatio: 1.0
+            }
+        };
+        let currentPerfMode = 'mobile';
+
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+
+        const camera = new THREE.PerspectiveCamera(48, window.innerWidth / window.innerHeight, 0.25, 220);
+        camera.position.set(0, 8.5, 22);
+
+        const renderer = new THREE.WebGLRenderer({
+            antialias: true,
+            powerPreference: 'high-performance'
+        });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(PERF_PROFILES[currentPerfMode].pixelRatio);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.outputEncoding = THREE.sRGBEncoding;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.08;
+        container.appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.maxPolarAngle = Math.PI / 2 - 0.03;
+        controls.minDistance = 4.0;
+        controls.maxDistance = 42.0;
+        controls.target.set(0, 1.8, 0);
+        controls.autoRotate = true;
+        controls.autoRotateSpeed = 0.45;
+
+        // ============================================================================
+        // 2. MOOD ATMOSPHERE PRESETS, LIGHTS & CEL-SHADING UNIFORMS
+        // ============================================================================
+        const MOODS = {
+            morning: {
+                name: 'Pagi Cerah Hyrule • Segar',
+                bgTop: new THREE.Color(0x56a3f5),
+                bgBottom: new THREE.Color(0xc8ecff),
+                fogColor: new THREE.Color(0xb8e3fa),
+                fogDensity: 0.011,
+                sunColor: new THREE.Color(0xfff6d6),
+                sunIntensity: 1.35,
+                sunPos: new THREE.Vector3(24, 28, -18),
+                hemiSky: new THREE.Color(0xb5e2ff),
+                hemiGround: new THREE.Color(0x4b7043),
+                hemiIntensity: 0.82,
+                mushroomGlow: 0.15,
+                particleColor: new THREE.Color(0xfff3b0),
+                shadowTint: new THREE.Color(0x3b6370),
+                rimTint: new THREE.Color(0xe6f9be),
+                cloudColor: new THREE.Color(0xffffff),
+                cloudShadow: new THREE.Color(0xa6cbe8),
+                grassBaseColor: new THREE.Color(0x2d6a3e),
+                grassTipColor: new THREE.Color(0x8ed058)
+            },
+            sunset: {
+                name: 'Senja Cozy • BotW Warmth',
+                bgTop: new THREE.Color(0x3d315b),
+                bgBottom: new THREE.Color(0xf79d65),
+                fogColor: new THREE.Color(0xe89973),
+                fogDensity: 0.013,
+                sunColor: new THREE.Color(0xffb563),
+                sunIntensity: 1.42,
+                sunPos: new THREE.Vector3(-26, 13, -24),
+                hemiSky: new THREE.Color(0xffb88c),
+                hemiGround: new THREE.Color(0x473844),
+                hemiIntensity: 0.76,
+                mushroomGlow: 0.55,
+                particleColor: new THREE.Color(0xffd166),
+                shadowTint: new THREE.Color(0x4a3959),
+                rimTint: new THREE.Color(0xffd285),
+                cloudColor: new THREE.Color(0xffe3c2),
+                cloudShadow: new THREE.Color(0x9e6374),
+                grassBaseColor: new THREE.Color(0x2b5e38),
+                grassTipColor: new THREE.Color(0x9bc44d)
+            },
+            night: {
+                name: 'Malam Kunang-kunang • Magis',
+                bgTop: new THREE.Color(0x0b132b),
+                bgBottom: new THREE.Color(0x1c2541),
+                fogColor: new THREE.Color(0x162038),
+                fogDensity: 0.016,
+                sunColor: new THREE.Color(0x74a8ff),
+                sunIntensity: 0.58,
+                sunPos: new THREE.Vector3(18, 26, -20),
+                hemiSky: new THREE.Color(0x3a506b),
+                hemiGround: new THREE.Color(0x132226),
+                hemiIntensity: 0.52,
+                mushroomGlow: 1.65,
+                particleColor: new THREE.Color(0x80ffdb),
+                shadowTint: new THREE.Color(0x192a45),
+                rimTint: new THREE.Color(0x72efdd),
+                cloudColor: new THREE.Color(0x4a628a),
+                cloudShadow: new THREE.Color(0x1b263b),
+                grassBaseColor: new THREE.Color(0x183d2e),
+                grassTipColor: new THREE.Color(0x488b58)
+            }
+        };
+
+        let currentMoodKey = 'sunset';
+        let targetMood = MOODS.sunset;
+
+        const activeAtmosphere = {
+            bgTop: targetMood.bgTop.clone(),
+            bgBottom: targetMood.bgBottom.clone(),
+            fogColor: targetMood.fogColor.clone(),
+            fogDensity: targetMood.fogDensity,
+            sunColor: targetMood.sunColor.clone(),
+            sunIntensity: targetMood.sunIntensity,
+            sunPos: targetMood.sunPos.clone(),
+            hemiSky: targetMood.hemiSky.clone(),
+            hemiGround: targetMood.hemiGround.clone(),
+            hemiIntensity: targetMood.hemiIntensity,
+            mushroomGlow: targetMood.mushroomGlow,
+            particleColor: targetMood.particleColor.clone(),
+            shadowTint: targetMood.shadowTint.clone(),
+            rimTint: targetMood.rimTint.clone(),
+            cloudColor: targetMood.cloudColor.clone(),
+            cloudShadow: targetMood.cloudShadow.clone(),
+            grassBaseColor: targetMood.grassBaseColor.clone(),
+            grassTipColor: targetMood.grassTipColor.clone()
+        };
+
+        scene.background = activeAtmosphere.bgBottom.clone();
+        scene.fog = new THREE.FogExp2(activeAtmosphere.fogColor, activeAtmosphere.fogDensity);
+
+        const celShaderUniforms = {
+            uTime: { value: 0 },
+            uSunDir: { value: activeAtmosphere.sunPos.clone().normalize() },
+            uSunColor: { value: activeAtmosphere.sunColor },
+            uShadowTint: { value: activeAtmosphere.shadowTint },
+            uRimTint: { value: activeAtmosphere.rimTint },
+            uCampfirePos: { value: new THREE.Vector3(0, 0.85, 0) },
+            uCampfireColor: { value: new THREE.Color(0xff7b29) },
+            uCampfireStrength: { value: 1.0 }
+        };
+
+        function applyStylizedCelShading(material, options = {}) {
+            const rimStrength = options.rimStrength !== undefined ? options.rimStrength : 0.22;
+            const shadowLift = options.shadowLift !== undefined ? options.shadowLift : 0.55;
+
+            material.onBeforeCompile = (shader) => {
+                shader.uniforms.uSunDir = celShaderUniforms.uSunDir;
+                shader.uniforms.uSunColor = celShaderUniforms.uSunColor;
+                shader.uniforms.uShadowTint = celShaderUniforms.uShadowTint;
+                shader.uniforms.uRimTint = celShaderUniforms.uRimTint;
+                shader.uniforms.uCampfirePos = celShaderUniforms.uCampfirePos;
+                shader.uniforms.uCampfireColor = celShaderUniforms.uCampfireColor;
+                shader.uniforms.uCampfireStrength = celShaderUniforms.uCampfireStrength;
+
+                shader.vertexShader = `
+                    varying vec3 vStylizedWorldPos;
+                    varying vec3 vStylizedWorldNormal;
+                ` + shader.vertexShader;
+
+                shader.vertexShader = shader.vertexShader.replace(
+                    '#include <begin_vertex>',
+                    `
+                    #include <begin_vertex>
+                    vStylizedWorldPos = (modelMatrix * vec4(transformed, 1.0)).xyz;
+                    vStylizedWorldNormal = normalize(mat3(modelMatrix) * objectNormal);
+                    `
+                );
+
+                if (shader.fragmentShader.includes('#include <tonemapping_fragment>')) {
+                    shader.fragmentShader = `
+                        uniform vec3 uSunDir;
+                        uniform vec3 uSunColor;
+                        uniform vec3 uShadowTint;
+                        uniform vec3 uRimTint;
+                        uniform vec3 uCampfirePos;
+                        uniform vec3 uCampfireColor;
+                        uniform float uCampfireStrength;
+                        varying vec3 vStylizedWorldPos;
+                        varying vec3 vStylizedWorldNormal;
+                    ` + shader.fragmentShader;
+
+                    shader.fragmentShader = shader.fragmentShader.replace(
+                        '#include <tonemapping_fragment>',
+                        `
+                        vec3 N = normalize(vStylizedWorldNormal);
+                        vec3 L = normalize(uSunDir);
+                        vec3 V = normalize(cameraPosition - vStylizedWorldPos);
+
+                        float NdotL = dot(N, L) * 0.5 + 0.5;
+                        float band1 = smoothstep(0.32, 0.44, NdotL);
+                        float band2 = smoothstep(0.68, 0.78, NdotL);
+                        float celStep = band1 * 0.65 + band2 * 0.35;
+
+                        vec3 shadowCol = mix(diffuseColor.rgb * uShadowTint * 1.4, diffuseColor.rgb * ${shadowLift.toFixed(2)}, 0.5);
+                        vec3 litCol = diffuseColor.rgb * mix(vec3(1.0), uSunColor, 0.32) * 1.08;
+                        vec3 celResult = mix(shadowCol, litCol, celStep);
+
+                        float rim = pow(1.0 - max(dot(N, V), 0.0), 3.0) * smoothstep(0.3, 0.8, NdotL);
+                        celResult += uRimTint * rim * ${rimStrength.toFixed(2)};
+
+                        float fireDist = length(uCampfirePos - vStylizedWorldPos);
+                        float fireAtten = (1.0 - smoothstep(1.5, 13.5, fireDist)) * uCampfireStrength;
+                        celResult += diffuseColor.rgb * uCampfireColor * fireAtten * 0.65;
+
+                        outgoingLight = mix(outgoingLight, celResult, 0.68);
+                        gl_FragColor = vec4(outgoingLight, diffuseColor.a);
+                        #include <tonemapping_fragment>
+                        `
+                    );
+                }
+            };
+        }
+
+        const hemiLight = new THREE.HemisphereLight(
+            activeAtmosphere.hemiSky,
+            activeAtmosphere.hemiGround,
+            activeAtmosphere.hemiIntensity
+        );
+        hemiLight.position.set(0, 35, 0);
+        scene.add(hemiLight);
+
+        const dirLight = new THREE.DirectionalLight(activeAtmosphere.sunColor, activeAtmosphere.sunIntensity);
+        dirLight.position.copy(activeAtmosphere.sunPos);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 1024;
+        dirLight.shadow.mapSize.height = 1024;
+        dirLight.shadow.camera.near = 2;
+        dirLight.shadow.camera.far = 75;
+        const dSize = 24;
+        dirLight.shadow.camera.left = -dSize;
+        dirLight.shadow.camera.right = dSize;
+        dirLight.shadow.camera.top = dSize;
+        dirLight.shadow.camera.bottom = -dSize;
+        dirLight.shadow.bias = -0.0008;
+        scene.add(dirLight);
+
+        // Ghibli / BotW Painterly Sky Dome (Fixed Smoothstep Order for Mali-G57 GPU)
+        const skyGeo = new THREE.SphereGeometry(95, 24, 16);
+        const skyMat = new THREE.ShaderMaterial({
+            side: THREE.BackSide,
+            depthWrite: false,
+            depthTest: false,
+            uniforms: {
+                uTopColor: { value: activeAtmosphere.bgTop },
+                uBottomColor: { value: activeAtmosphere.bgBottom },
+                uSunDir: celShaderUniforms.uSunDir,
+                uSunColor: { value: activeAtmosphere.sunColor },
+                uCloudColor: { value: activeAtmosphere.cloudColor },
+                uCloudShadow: { value: activeAtmosphere.cloudShadow },
+                uTime: celShaderUniforms.uTime
+            },
+            vertexShader: `
+                precision highp float;
+                varying vec3 vWorldDir;
+                void main() {
+                    vWorldDir = normalize(position);
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                }
+            `,
+            fragmentShader: `
+                precision highp float;
+                uniform vec3 uTopColor;
+                uniform vec3 uBottomColor;
+                uniform vec3 uSunDir;
+                uniform vec3 uSunColor;
+                uniform vec3 uCloudColor;
+                uniform vec3 uCloudShadow;
+                uniform float uTime;
+                varying vec3 vWorldDir;
+
+                void main() {
+                    vec3 dir = normalize(vWorldDir);
+                    float h = clamp(dir.y, 0.0, 1.0);
+                    vec3 sky = mix(uBottomColor, uTopColor, pow(h, 0.62));
+
+                    // Stylized Ghibli Cloud Band (Strict min < max in smoothstep!)
+                    float cloudBand = smoothstep(0.06, 0.22, h) * (1.0 - smoothstep(0.28, 0.68, h));
+                    vec2 cloudUV = dir.xz / (dir.y + 0.35) * 2.2 + vec2(uTime * 0.015, -uTime * 0.008);
+                    float n1 = sin(cloudUV.x * 2.5 + cos(cloudUV.y * 2.2)) * 0.5 + 0.5;
+                    float n2 = cos(cloudUV.x * 5.1 - sin(cloudUV.y * 4.6)) * 0.5 + 0.5;
+                    float puff = (n1 * 0.65 + n2 * 0.35) * cloudBand;
+
+                    float cloudMask = smoothstep(0.42, 0.54, puff);
+                    float cloudLit = smoothstep(0.52, 0.66, puff + dir.y * 0.15);
+                    vec3 cCol = mix(uCloudShadow, uCloudColor, cloudLit);
+                    sky = mix(sky, cCol, cloudMask * 0.78);
+
+                    // Sun / Moon Halo Glow
+                    float sunDot = max(dot(dir, normalize(uSunDir)), 0.0);
+                    float halo = pow(sunDot, 12.0) * 0.38 + smoothstep(0.992, 0.997, sunDot) * 0.65;
+                    sky += uSunColor * halo;
+
+                    gl_FragColor = vec4(sky, 1.0);
+                }
+            `
+        });
+        const skyDome = new THREE.Mesh(skyGeo, skyMat);
+        skyDome.renderOrder = -10;
+        skyDome.frustumCulled = false;
+        scene.add(skyDome);
+
+        const celestialMat = new THREE.MeshBasicMaterial({
+            color: activeAtmosphere.sunColor,
+            fog: false,
+            depthTest: false,
+            depthWrite: false
+        });
+        const celestialOrb = new THREE.Mesh(new THREE.SphereGeometry(3.2, 16, 16), celestialMat);
+        celestialOrb.renderOrder = -9;
+        celestialOrb.frustumCulled = false;
+        scene.add(celestialOrb);
+
+        // ============================================================================
+        // 3. TERRAIN HEIGHT, NORMAL & 36 CHUNKED TERRAIN MESHES (FRUSTUM CULLING)
+        // ============================================================================
+        const POND_CENTER = { x: 8.2, z: 6.2, radius: 4.5 };
+
+        function getTerrainHeight(x, z) {
+            const distFromCenter = Math.hypot(x, z);
+            const clearingFlat = THREE.MathUtils.smoothstep(distFromCenter, 3.5, 11.5);
+            const rollingHills = (
+                Math.sin(x * 0.09) * Math.cos(z * 0.09) * 1.45 +
+                Math.sin((x + z) * 0.05) * 0.85
+            ) * clearingFlat;
+
+            const distToPond = Math.hypot(x - POND_CENTER.x, z - POND_CENTER.z);
+            let pondCarve = 0;
+            if (distToPond < POND_CENTER.radius * 1.35) {
+                const normD = distToPond / (POND_CENTER.radius * 1.1);
+                pondCarve = -1.22 * Math.max(0, 1 - normD * normD);
+            }
+            return rollingHills + pondCarve;
+        }
+
+        function getTerrainNormal(x, z) {
+            const eps = 0.25;
+            const hL = getTerrainHeight(x - eps, z);
+            const hR = getTerrainHeight(x + eps, z);
+            const hD = getTerrainHeight(x, z - eps);
+            const hU = getTerrainHeight(x, z + eps);
+            return new THREE.Vector3(hL - hR, 2.0 * eps, hD - hU).normalize();
+        }
+
+        const terrainMat = new THREE.MeshStandardMaterial({
+            vertexColors: true,
+            roughness: 0.92,
+            metalness: 0.0
+        });
+        applyStylizedCelShading(terrainMat, { rimStrength: 0.08, shadowLift: 0.62 });
+
+        const TERRAIN_TOTAL_SIZE = 96;
+        const CHUNK_GRID = 6;
+        const CHUNK_SIZE = TERRAIN_TOTAL_SIZE / CHUNK_GRID;
+        const terrainChunks = [];
+
+        const colMeadow = new THREE.Color(0x3a7846);
+        const colHill = new THREE.Color(0x4b894d);
+        const colClearing = new THREE.Color(0x8c7355);
+        const colPondBed = new THREE.Color(0x2a5c55);
+
+        for (let gz = 0; gz < CHUNK_GRID; gz++) {
+            for (let gx = 0; gx < CHUNK_GRID; gx++) {
+                const centerX = -TERRAIN_TOTAL_SIZE * 0.5 + (gx + 0.5) * CHUNK_SIZE;
+                const centerZ = -TERRAIN_TOTAL_SIZE * 0.5 + (gz + 0.5) * CHUNK_SIZE;
+
+                const cGeo = new THREE.PlaneGeometry(CHUNK_SIZE, CHUNK_SIZE, 16, 16);
+                cGeo.rotateX(-Math.PI / 2);
+                cGeo.translate(centerX, 0, centerZ);
+
+                const posAttr = cGeo.attributes.position;
+                const colors = new Float32Array(posAttr.count * 3);
+                let minY = Infinity, maxY = -Infinity;
+
+                for (let i = 0; i < posAttr.count; i++) {
+                    const vx = posAttr.getX(i);
+                    const vz = posAttr.getZ(i);
+                    const vy = getTerrainHeight(vx, vz);
+                    posAttr.setY(i, vy);
+                    if (vy < minY) minY = vy;
+                    if (vy > maxY) maxY = vy;
+
+                    const dOrigin = Math.hypot(vx, vz);
+                    const dPond = Math.hypot(vx - POND_CENTER.x, vz - POND_CENTER.z);
+
+                    const c = colMeadow.clone().lerp(colHill, THREE.MathUtils.clamp((vy + 0.5) / 2.5, 0, 1));
+                    if (dOrigin < 4.2) {
+                        c.lerp(colClearing, 1.0 - THREE.MathUtils.smoothstep(dOrigin, 1.2, 4.2));
+                    }
+                    if (dPond < POND_CENTER.radius * 1.15) {
+                        c.lerp(colPondBed, 1.0 - THREE.MathUtils.smoothstep(dPond, POND_CENTER.radius * 0.5, POND_CENTER.radius * 1.15));
+                    }
+                    colors[i * 3] = c.r;
+                    colors[i * 3 + 1] = c.g;
+                    colors[i * 3 + 2] = c.b;
+                }
+
+                cGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+                cGeo.computeVertexNormals();
+
+                const chunkMesh = new THREE.Mesh(cGeo, terrainMat);
+                chunkMesh.receiveShadow = true;
+                const midY = (minY + maxY) * 0.5;
+                const radius = Math.hypot(CHUNK_SIZE * 0.72, (maxY - minY) * 0.5 + 1.5);
+                chunkMesh.userData.boundingSphere = new THREE.Sphere(new THREE.Vector3(centerX, midY, centerZ), radius);
+                scene.add(chunkMesh);
+                terrainChunks.push(chunkMesh);
+            }
+        }
+
+        // Stepping Stones Path from Campfire to Pond
+        const pathStoneMat = new THREE.MeshStandardMaterial({ color: 0x8d948e, roughness: 0.88 });
+        applyStylizedCelShading(pathStoneMat, { rimStrength: 0.12, shadowLift: 0.58 });
+        const steppingStones = [
+            { x: 1.8, z: 1.4, s: 0.45 }, { x: 2.9, z: 2.3, s: 0.52 },
+            { x: 4.1, z: 3.1, s: 0.48 }, { x: 5.2, z: 3.9, s: 0.55 }
+        ];
+        steppingStones.forEach((st, idx) => {
+            const sMesh = new THREE.Mesh(new THREE.CylinderGeometry(st.s, st.s * 1.12, 0.14, 7), pathStoneMat);
+            sMesh.position.set(st.x, getTerrainHeight(st.x, st.z) + 0.04, st.z);
+            sMesh.rotation.y = idx * 1.1;
+            sMesh.receiveShadow = true;
+            scene.add(sMesh);
+        });
+
+        // ============================================================================
+        // 4. ZELDA: BREATH OF THE WILD STYLISED GRASS (Daniel Ilett Adaptation)
+        // ============================================================================
+        const GRASS_MAP_RES = 256;
+        const GRASS_WORLD_SPAN = 88.0;
+        const grassMapCanvas = document.createElement('canvas');
+        grassMapCanvas.width = GRASS_MAP_RES;
+        grassMapCanvas.height = GRASS_MAP_RES;
+        const grassMapCtx = grassMapCanvas.getContext('2d');
+        const grassMapTexture = new THREE.CanvasTexture(grassMapCanvas);
+        grassMapTexture.minFilter = THREE.LinearFilter;
+        grassMapTexture.magFilter = THREE.LinearFilter;
+
+        function paintGrassVisibilityCircle(worldX, worldZ, radius, visibilityVal) {
+            const u = (worldX / GRASS_WORLD_SPAN + 0.5) * GRASS_MAP_RES;
+            const v = (worldZ / GRASS_WORLD_SPAN + 0.5) * GRASS_MAP_RES;
+            const rPx = (radius / GRASS_WORLD_SPAN) * GRASS_MAP_RES;
+
+            const grad = grassMapCtx.createRadialGradient(u, v, rPx * 0.15, u, v, rPx);
+            const cVal = Math.round(visibilityVal * 255);
+            grad.addColorStop(0.0, `rgba(${cVal}, ${cVal}, ${cVal}, 1.0)`);
+            grad.addColorStop(1.0, `rgba(${cVal}, ${cVal}, ${cVal}, 0.0)`);
+
+            grassMapCtx.fillStyle = grad;
+            grassMapCtx.beginPath();
+            grassMapCtx.arc(u, v, rPx, 0, Math.PI * 2);
+            grassMapCtx.fill();
+        }
+
+        function resetBotWGrassMap() {
+            grassMapCtx.fillStyle = 'rgb(255, 255, 255)';
+            grassMapCtx.fillRect(0, 0, GRASS_MAP_RES, GRASS_MAP_RES);
+            // Natural clearings around Campfire, Pond Basin & Stepping Stones
+            paintGrassVisibilityCircle(0, 0, 2.35, 0.0);
+            paintGrassVisibilityCircle(POND_CENTER.x, POND_CENTER.z, POND_CENTER.radius * 1.04, 0.0);
+            steppingStones.forEach(st => paintGrassVisibilityCircle(st.x, st.z, st.s * 1.45, 0.15));
+            grassMapTexture.needsUpdate = true;
+        }
+        resetBotWGrassMap();
+
+        function createWindFlowTexture() {
+            const size = 128;
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            const img = ctx.createImageData(size, size);
+            const d = img.data;
+            const tau = Math.PI * 2;
+            for (let y = 0; y < size; y++) {
+                for (let x = 0; x < size; x++) {
+                    const u = x / size;
+                    const v = y / size;
+                    const wx = Math.sin(u * tau * 2.0 + Math.cos(v * tau)) * 0.5 + 0.5;
+                    const wz = Math.cos(v * tau * 2.0 - Math.sin(u * tau)) * 0.5 + 0.5;
+                    const idx = (y * size + x) * 4;
+                    d[idx] = Math.floor(wx * 255);
+                    d[idx + 1] = Math.floor(wz * 255);
+                    d[idx + 2] = 128;
+                    d[idx + 3] = 255;
+                }
+            }
+            ctx.putImageData(img, 0, 0);
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.wrapS = THREE.RepeatWrapping;
+            tex.wrapT = THREE.RepeatWrapping;
+            return tex;
+        }
+
+        function createBladeShadingTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 64;
+            canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+            const grad = ctx.createLinearGradient(0, 0, 64, 0);
+            grad.addColorStop(0.0, '#d8d8d8');
+            grad.addColorStop(0.46, '#ffffff');
+            grad.addColorStop(0.50, '#b5b5b5');
+            grad.addColorStop(0.54, '#ffffff');
+            grad.addColorStop(1.0, '#d8d8d8');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, 64, 128);
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        function createBotWGrassBladeGeometry(segments = 4) {
+            const geo = new THREE.BufferGeometry();
+            const positions = [];
+            const uvs = [];
+            const normals = [];
+            const indices = [];
+
+            const width = 0.145;
+            const height = 0.98;
+
+            for (let i = 0; i < segments; i++) {
+                const t = i / segments;
+                const w = width * (1.0 - t * 0.72);
+                const y = height * t;
+
+                positions.push(-w * 0.5, y, 0);
+                uvs.push(0, t);
+                normals.push(0, 1, 0);
+
+                positions.push(w * 0.5, y, 0);
+                uvs.push(1, t);
+                normals.push(0, 1, 0);
+            }
+            // Single sharp tip vertex (segments * 2)
+            positions.push(0, height, 0);
+            uvs.push(0.5, 1.0);
+            normals.push(0, 1, 0);
+
+            for (let i = 0; i < segments - 1; i++) {
+                const b = i * 2;
+                indices.push(b, b + 1, b + 2);
+                indices.push(b + 2, b + 1, b + 3);
+            }
+            const lastBase = (segments - 1) * 2;
+            const tipIdx = segments * 2;
+            indices.push(lastBase, lastBase + 1, tipIdx);
+
+            geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+            geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+            geo.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+            geo.setIndex(indices);
+            return geo;
+        }
+
+        const grassUniforms = {
+            uTime: { value: 0 },
+            uWindSpeed: { value: 1.25 },
+            uSwayScale: { value: 1.05 },
+            uBladeBendDistance: { value: 0.45 },
+            uBladeBendCurve: { value: 2.0 },
+            uBaseColor: { value: activeAtmosphere.grassBaseColor },
+            uTipColor: { value: activeAtmosphere.grassTipColor },
+            uWindMap: { value: createWindFlowTexture() },
+            uGrassMap: { value: grassMapTexture },
+            uBladeTex: { value: createBladeShadingTexture() },
+            uSunDir: celShaderUniforms.uSunDir,
+            uSunColor: celShaderUniforms.uSunColor,
+            uCampfirePos: celShaderUniforms.uCampfirePos,
+            uCampfireColor: celShaderUniforms.uCampfireColor,
+            uCampfireStrength: celShaderUniforms.uCampfireStrength
+        };
+
+        const grassMat = new THREE.MeshStandardMaterial({
+            roughness: 0.78,
+            metalness: 0.0,
+            side: THREE.DoubleSide
+        });
+
+        grassMat.onBeforeCompile = (shader) => {
+            Object.assign(shader.uniforms, grassUniforms);
+
+            shader.vertexShader = `
+                attribute vec4 aBladeParams;
+                uniform float uTime;
+                uniform float uWindSpeed;
+                uniform float uSwayScale;
+                uniform float uBladeBendDistance;
+                uniform float uBladeBendCurve;
+                uniform sampler2D uWindMap;
+                uniform sampler2D uGrassMap;
+
+                varying vec2 vGrassUv;
+                varying vec3 vGrassWorldPos;
+                varying float vWindShimmer;
+                varying float vBladeColorVar;
+            ` + shader.vertexShader;
+
+            shader.vertexShader = shader.vertexShader.replace(
+                '#include <begin_vertex>',
+                `
+                #include <begin_vertex>
+                vGrassUv = uv;
+                vBladeColorVar = aBladeParams.w;
+
+                vec3 worldRoot = vec3(instanceMatrix[3][0], instanceMatrix[3][1], instanceMatrix[3][2]);
+                vec2 mapUV = worldRoot.xz / ${GRASS_WORLD_SPAN.toFixed(1)} + 0.5;
+                float visibility = texture2D(uGrassMap, mapUV).r;
+                float grassScale = smoothstep(0.12, 0.55, visibility);
+
+                float t = uv.y;
+                float isBent = step(0.01, t);
+
+                // Forward curvature (pow(t, _BladeBendCurve) * _BladeBendDistance)
+                float bendAmt = pow(t, uBladeBendCurve) * (uBladeBendDistance + aBladeParams.y * 0.22);
+                transformed.x *= aBladeParams.x * grassScale;
+                transformed.y *= aBladeParams.z * uSwayScale * grassScale;
+                transformed.z += bendAmt * isBent * grassScale;
+
+                // Scrolling _WindMap Flow Texture Lookup
+                vec2 windUV = worldRoot.xz * 0.045 + vec2(uTime * 0.08 * uWindSpeed, uTime * 0.06 * uWindSpeed);
+                vec2 windSample = (texture2D(uWindMap, windUV).rg * 2.0 - 1.0) * uWindSpeed;
+                float windWave = sin(dot(worldRoot.xz, vec2(0.32, 0.24)) + uTime * 2.3 * uWindSpeed) * 0.5 + 0.5;
+                vWindShimmer = smoothstep(0.58, 0.88, windWave) * t;
+
+                transformed.x += windSample.x * 0.28 * t * isBent * grassScale;
+                transformed.z += windSample.y * 0.28 * t * isBent * grassScale;
+
+                vGrassWorldPos = (instanceMatrix * vec4(transformed, 1.0)).xyz;
+                `
+            );
+
+            if (shader.fragmentShader.includes('#include <tonemapping_fragment>')) {
+                shader.fragmentShader = `
+                    uniform vec3 uBaseColor;
+                    uniform vec3 uTipColor;
+                    uniform sampler2D uBladeTex;
+                    uniform vec3 uSunDir;
+                    uniform vec3 uSunColor;
+                    uniform vec3 uCampfirePos;
+                    uniform vec3 uCampfireColor;
+                    uniform float uCampfireStrength;
+
+                    varying vec2 vGrassUv;
+                    varying vec3 vGrassWorldPos;
+                    varying float vWindShimmer;
+                    varying float vBladeColorVar;
+                ` + shader.fragmentShader;
+
+                shader.fragmentShader = shader.fragmentShader.replace(
+                    '#include <tonemapping_fragment>',
+                    `
+                    float bladeCrease = texture2D(uBladeTex, vGrassUv).r;
+                    vec3 tipCol = mix(uTipColor, uTipColor * vec3(1.12, 1.06, 0.86), vBladeColorVar);
+                    vec3 gradCol = mix(uBaseColor, tipCol, smoothstep(0.05, 0.92, vGrassUv.y));
+                    gradCol *= mix(0.86, 1.06, bladeCrease);
+
+                    // Golden Wind Wave Shimmer across the Meadow
+                    gradCol += uSunColor * vWindShimmer * 0.24;
+
+                    // Incorporate Directional Cast Shadows while keeping BotW Cel-Shaded Vibrancy
+                    float shadowMask = clamp(length(outgoingLight) / 1.15, 0.48, 1.18);
+                    float steppedShadow = mix(0.62, 1.08, smoothstep(0.52, 0.78, shadowMask));
+                    outgoingLight = gradCol * mix(vec3(1.0), uSunColor, 0.26) * steppedShadow;
+
+                    // Warm Campfire Bounce Glow on Nearby Grass Blades
+                    float fireDist = length(uCampfirePos - vGrassWorldPos);
+                    float fireGlow = (1.0 - smoothstep(1.2, 11.5, fireDist)) * uCampfireStrength;
+                    outgoingLight += gradCol * uCampfireColor * fireGlow * 0.75 * vGrassUv.y;
+
+                    gl_FragColor = vec4(outgoingLight, diffuseColor.a);
+                    #include <tonemapping_fragment>
+                    `
+                );
+            }
+        };
+
+        const TOTAL_GRASS_BLADES = 42000;
+        const baseBladeGeo = createBotWGrassBladeGeometry(4);
+        const grassChunks = [];
+        const chunkBuckets = Array.from({ length: CHUNK_GRID * CHUNK_GRID }, () => []);
+
+        for (let i = 0; i < TOTAL_GRASS_BLADES; i++) {
+            const r = Math.sqrt(Math.random()) * 41.5;
+            const theta = Math.random() * Math.PI * 2;
+            const gx = Math.cos(theta) * r;
+            const gz = Math.sin(theta) * r;
+
+            // Skip deep inside pond or directly inside campfire stone ring
+            if (Math.hypot(gx, gz) < 1.35) continue;
+            if (Math.hypot(gx - POND_CENTER.x, gz - POND_CENTER.z) < POND_CENTER.radius * 0.88) continue;
+
+            const ix = THREE.MathUtils.clamp(Math.floor((gx + TERRAIN_TOTAL_SIZE * 0.5) / CHUNK_SIZE), 0, CHUNK_GRID - 1);
+            const iz = THREE.MathUtils.clamp(Math.floor((gz + TERRAIN_TOTAL_SIZE * 0.5) / CHUNK_SIZE), 0, CHUNK_GRID - 1);
+            chunkBuckets[iz * CHUNK_GRID + ix].push({ x: gx, z: gz });
+        }
+
+        const dummyGrass = new THREE.Object3D();
+        const upAxis = new THREE.Vector3(0, 1, 0);
+
+        chunkBuckets.forEach((blades, cIdx) => {
+            if (blades.length === 0) return;
+            const instGeo = baseBladeGeo.clone();
+            const paramsArr = new Float32Array(blades.length * 4);
+            const instMesh = new THREE.InstancedMesh(instGeo, grassMat, blades.length);
+            instMesh.receiveShadow = true;
+
+            let sumX = 0, sumY = 0, sumZ = 0;
+            for (let i = 0; i < blades.length; i++) {
+                const bx = blades[i].x;
+                const bz = blades[i].z;
+                const by = getTerrainHeight(bx, bz);
+                const tNorm = getTerrainNormal(bx, bz);
+
+                dummyGrass.position.set(bx, by, bz);
+                dummyGrass.quaternion.setFromUnitVectors(upAxis, tNorm);
+                dummyGrass.rotateY(Math.random() * Math.PI * 2);
+                dummyGrass.updateMatrix();
+                instMesh.setMatrixAt(i, dummyGrass.matrix);
+
+                paramsArr[i * 4] = 0.85 + Math.random() * 0.45;     // width var
+                paramsArr[i * 4 + 1] = (Math.random() - 0.5) * 0.5; // bend delta
+                paramsArr[i * 4 + 2] = 0.72 + Math.random() * 0.62; // height var
+                paramsArr[i * 4 + 3] = Math.random();               // color tint var
+
+                sumX += bx;
+                sumY += by;
+                sumZ += bz;
+            }
+
+            instGeo.setAttribute('aBladeParams', new THREE.InstancedBufferAttribute(paramsArr, 4));
+            instMesh.instanceMatrix.needsUpdate = true;
+
+            const cx = sumX / blades.length;
+            const cy = sumY / blades.length;
+            const cz = sumZ / blades.length;
+            instMesh.userData = {
+                maxCount: blades.length,
+                boundingSphere: new THREE.Sphere(new THREE.Vector3(cx, cy, cz), CHUNK_SIZE * 0.85)
+            };
+            scene.add(instMesh);
+            grassChunks.push(instMesh);
+        });
+
+        // ============================================================================
+        // 5. ZELDA: BREATH OF THE WILD STYLISED BUSHES & WILDFLOWERS
+        // ============================================================================
+        const interactiveBushes = [];
+
+        function createBotWBushLeafTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 128;
+            canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+            const leaves = [
+                { x: 64, y: 88, r: 34, c: '#2e6f40' },
+                { x: 42, y: 68, r: 30, c: '#3f8a4f' },
+                { x: 86, y: 68, r: 30, c: '#3f8a4f' },
+                { x: 52, y: 44, r: 28, c: '#5cb25d' },
+                { x: 76, y: 44, r: 28, c: '#5cb25d' },
+                { x: 64, y: 34, r: 24, c: '#80d16a' }
+            ];
+            leaves.forEach(lf => {
+                ctx.fillStyle = lf.c;
+                ctx.beginPath();
+                ctx.arc(lf.x, lf.y, lf.r, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.encoding = THREE.sRGBEncoding;
+            return tex;
+        }
+
+        const bushLeafMat = new THREE.MeshStandardMaterial({
+            map: createBotWBushLeafTexture(),
+            alphaTest: 0.4,
+            side: THREE.DoubleSide,
+            roughness: 0.82
+        });
+        applyStylizedCelShading(bushLeafMat, { rimStrength: 0.25, shadowLift: 0.58 });
+
+        const berryMat = new THREE.MeshStandardMaterial({
+            color: 0xff3b56,
+            emissive: 0x991122,
+            emissiveIntensity: 0.2,
+            roughness: 0.35
+        });
+
+        function createBotWBush(x, z, scale = 1.0, hasBerries = false) {
+            const bushGroup = new THREE.Group();
+            const y = getTerrainHeight(x, z);
+            bushGroup.position.set(x, y, z);
+            bushGroup.scale.set(scale * 1.15, scale, scale * 1.15);
+
+            const cardGeo = new THREE.PlaneGeometry(0.75, 0.75);
+            for (let i = 0; i < 18; i++) {
+                const phi = Math.acos(1 - (i + 0.5) / 18);
+                const theta = i * 2.39996;
+                const r = 0.42 + (i % 3) * 0.08;
+                const card = new THREE.Mesh(cardGeo, bushLeafMat);
+                card.position.set(
+                    Math.sin(phi) * Math.cos(theta) * r,
+                    Math.cos(phi) * r * 0.8 + 0.35,
+                    Math.sin(phi) * Math.sin(theta) * r
+                );
+                card.lookAt(card.position.clone().multiplyScalar(2.0));
+                card.rotation.z += (i % 5) * 0.4;
+                card.castShadow = true;
+                card.receiveShadow = true;
+                bushGroup.add(card);
+            }
+
+            if (hasBerries) {
+                const bGeo = new THREE.SphereGeometry(0.065, 6, 6);
+                for (let b = 0; b < 5; b++) {
+                    const bAng = (b / 5) * Math.PI * 2 + 0.4;
+                    const berry = new THREE.Mesh(bGeo, berryMat);
+                    berry.position.set(Math.cos(bAng) * 0.48, 0.38 + (b % 2) * 0.14, Math.sin(bAng) * 0.48);
+                    bushGroup.add(berry);
+                }
+            }
+
+            bushGroup.userData = {
+                type: 'bush',
+                name: hasBerries ? 'Semak Wildberry BotW' : 'Semak Rimbun Hyrule',
+                baseScale: scale,
+                rustleBoost: 0,
+                isCut: false,
+                boundingSphere: new THREE.Sphere(new THREE.Vector3(x, y + 0.5 * scale, z), 1.2 * scale)
+            };
+            interactiveBushes.push(bushGroup);
+            scene.add(bushGroup);
+            return bushGroup;
+        }
+
+        const bushSpots = [
+            [-5.2, -3.8, 1.05, true], [-7.4, 4.2, 1.15, false], [4.8, -5.6, 0.95, true],
+            [11.5, 2.2, 1.1, false], [-3.4, 7.6, 1.0, true], [7.6, 10.5, 1.2, false],
+            [-9.5, -1.2, 0.9, false], [2.4, 8.8, 1.05, true], [13.2, -2.5, 1.1, true],
+            [-6.2, -8.4, 1.15, false], [9.4, -7.2, 1.0, true], [-11.2, 6.4, 1.1, false]
+        ];
+        bushSpots.forEach(b => createBotWBush(b[0], b[1], b[2], b[3]));
+
+        // ============================================================================
+        // 6A. SOFT BOTW PINE PALETTES, SCULPTED TRUNKS & CRATIAL 3D PINE TREES
+        // ============================================================================
+        const PINE_PALETTES = {
+            emerald: {
+                name: 'BotW Soft Emerald',
+                shadow: '#23533d',
+                base: '#316e4c',
+                mid: '#499260',
+                tip: '#6eb874',
+                highlight: '#9ce08d',
+                burstColor: 0x6eb874
+            },
+            teal: {
+                name: 'BotW Soft Spruce',
+                shadow: '#214e52',
+                base: '#2e696a',
+                mid: '#448c87',
+                tip: '#67b3a6',
+                highlight: '#96decb',
+                burstColor: 0x67b3a6
+            },
+            olive: {
+                name: 'BotW Sunlit Meadow',
+                shadow: '#355834',
+                base: '#4b7642',
+                mid: '#6a9c53',
+                tip: '#92c468',
+                highlight: '#bce38a',
+                burstColor: 0x92c468
+            }
+        };
+
+        function mergeBufferGeometriesSimple(geos) {
+            const merged = new THREE.BufferGeometry();
+            const attrNames = Object.keys(geos[0].attributes);
+
+            attrNames.forEach(name => {
+                const itemSize = geos[0].attributes[name].itemSize;
+                let totalLen = 0;
+                geos.forEach(g => {
+                    if (g.attributes[name]) totalLen += g.attributes[name].array.length;
+                });
+                const combined = new Float32Array(totalLen);
+                let offset = 0;
+                geos.forEach(g => {
+                    const attr = g.attributes[name];
+                    if (attr) {
+                        combined.set(attr.array, offset);
+                        offset += attr.array.length;
+                    }
+                });
+                merged.setAttribute(name, new THREE.BufferAttribute(combined, itemSize));
+            });
+
+            if (geos[0].index) {
+                const indices = [];
+                let vertexOffset = 0;
+                geos.forEach(g => {
+                    const idxArr = g.index.array;
+                    for (let i = 0; i < idxArr.length; i++) {
+                        indices.push(idxArr[i] + vertexOffset);
+                    }
+                    vertexOffset += g.attributes.position.count;
+                });
+                merged.setIndex(indices);
+            }
+            return merged;
+        }
+
+        const trunkMat = new THREE.MeshStandardMaterial({
+            color: 0x6e4730,
+            roughness: 0.88,
+            metalness: 0.0
+        });
+        applyStylizedCelShading(trunkMat, { rimStrength: 0.14, shadowLift: 0.56 });
+
+        const deadWoodMat = new THREE.MeshStandardMaterial({
+            color: 0x7d6552,
+            roughness: 0.92,
+            metalness: 0.0
+        });
+        applyStylizedCelShading(deadWoodMat, { rimStrength: 0.12, shadowLift: 0.54 });
+
+        function createSculptedTrunkMesh(height, bottomRadius, topRadius, curveAmount, material, seed = 0) {
+            const radialSegs = 7;
+            const heightSegs = 10;
+            const geo = new THREE.CylinderGeometry(topRadius, bottomRadius, height, radialSegs, heightSegs);
+            geo.translate(0, height * 0.5, 0);
+
+            const pos = geo.attributes.position;
+            const phase1 = (seed % 6.28);
+            const phase2 = ((seed * 1.7) % 6.28);
+
+            function getSpineAt(normY) {
+                const t = THREE.MathUtils.clamp(normY, 0, 1);
+                const sx = Math.sin(t * Math.PI * 1.15 + phase1) * curveAmount * t;
+                const sz = Math.cos(t * Math.PI * 0.95 + phase2) * (curveAmount * 0.7) * t;
+                return { x: sx, y: t * height, z: sz };
+            }
+
+            for (let i = 0; i < pos.count; i++) {
+                let vx = pos.getX(i);
+                let vy = pos.getY(i);
+                let vz = pos.getZ(i);
+                const normY = THREE.MathUtils.clamp(vy / height, 0, 1);
+
+                // Root buttress flare near base
+                if (normY < 0.18) {
+                    const rootFactor = Math.pow(1.0 - normY / 0.18, 2.0);
+                    const ang = Math.atan2(vz, vx);
+                    const lobe = 1.0 + (0.35 + 0.22 * Math.sin(ang * 4.0 + phase1)) * rootFactor;
+                    vx *= lobe;
+                    vz *= lobe;
+                }
+
+                const spine = getSpineAt(normY);
+                pos.setXYZ(i, vx + spine.x, vy, vz + spine.z);
+            }
+
+            geo.computeVertexNormals();
+            const mesh = new THREE.Mesh(geo, material);
+            mesh.userData.getSpineAt = getSpineAt;
+            return mesh;
+        }
+
+        function addLowerDeadBranchStubs(trunkMesh, height, scale, startNormY, seed) {
+            const geos = [trunkMesh.geometry];
+            const stubCount = 5;
+            for (let i = 0; i < stubCount; i++) {
+                const normY = THREE.MathUtils.lerp(0.14, Math.max(0.20, startNormY - 0.03), i / Math.max(1, stubCount - 1));
+                const spine = trunkMesh.userData.getSpineAt(normY);
+                const stubLen = (0.32 + (i % 3) * 0.12) * scale;
+                const stubGeo = new THREE.CylinderGeometry(0.012 * scale, 0.032 * scale, stubLen, 5);
+                stubGeo.translate(0, stubLen * 0.5, 0);
+                stubGeo.rotateX(1.18 + ((i % 3) - 1) * 0.12);
+                stubGeo.rotateY(i * 2.39996 + seed);
+                stubGeo.translate(spine.x, spine.y, spine.z);
+                geos.push(stubGeo);
+            }
+            trunkMesh.geometry = mergeBufferGeometriesSimple(geos);
+        }
+
+        function createPainterlyPineBoughTexture(palette) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, 512, 512);
+
+            const cx = 256;
+
+            // Helper for soft gouache oval/teardrop needle clusters radiating along the frond spine
+            function drawGouacheCluster(x, y, length, width, angle, colorStart, colorEnd, alpha = 1.0) {
+                ctx.save();
+                ctx.globalAlpha = alpha;
+                ctx.translate(x, y);
+                ctx.rotate(angle);
+
+                const grad = ctx.createLinearGradient(0, 0, 0, -length);
+                grad.addColorStop(0.0, colorStart);
+                grad.addColorStop(1.0, colorEnd);
+                ctx.fillStyle = grad;
+
+                ctx.beginPath();
+                ctx.moveTo(-width * 0.35, 0);
+                ctx.quadraticCurveTo(-width * 0.65, -length * 0.55, 0, -length);
+                ctx.quadraticCurveTo(width * 0.65, -length * 0.55, width * 0.35, 0);
+                ctx.closePath();
+                ctx.fill();
+
+                // Individual serrated pine-needle tufts at cluster tip
+                ctx.fillStyle = colorEnd;
+                for (let n = -1; n <= 1; n++) {
+                    ctx.beginPath();
+                    ctx.moveTo(n * width * 0.18, -length * 0.72);
+                    ctx.lineTo(n * width * 0.34, -length * (1.06 - Math.abs(n) * 0.08));
+                    ctx.lineTo(n * width * 0.04, -length * 0.88);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+
+                ctx.restore();
+            }
+
+            // 1. Deep shadow under-foliage silhouette along the frond from base (y=495) to tip (y=42)
+            const tiers = 16;
+            for (let i = 0; i < tiers; i++) {
+                const t = i / (tiers - 1); // 0 = trunk socket base, 1 = frond tip
+                const y = THREE.MathUtils.lerp(485, 58, t);
+                const profile = Math.sin(Math.pow(t, 0.72) * Math.PI * 0.92) * (1.0 - t * 0.25) + (1.0 - t) * 0.32;
+                const reach = 185 * profile + 26;
+                const clusterW = 46 * (1.0 - t * 0.38);
+
+                // Left & Right shadow base strokes
+                drawGouacheCluster(cx - 6, y, reach, clusterW, -1.08 + t * 0.38, palette.shadow, palette.base, 0.98);
+                drawGouacheCluster(cx + 6, y, reach, clusterW, 1.08 - t * 0.38, palette.shadow, palette.base, 0.98);
+            }
+
+            // 2. Central woody branch stem running up the lower 65% of the bough
+            const stemGrad = ctx.createLinearGradient(cx, 510, cx, 140);
+            stemGrad.addColorStop(0.0, '#5c3a24');
+            stemGrad.addColorStop(0.7, '#6e492e');
+            stemGrad.addColorStop(1.0, palette.base);
+            ctx.fillStyle = stemGrad;
+            ctx.beginPath();
+            ctx.moveTo(cx - 14, 512);
+            ctx.lineTo(cx - 3, 130);
+            ctx.lineTo(cx + 3, 130);
+            ctx.lineTo(cx + 14, 512);
+            ctx.closePath();
+            ctx.fill();
+
+            // 3. Mid-tone layered gouache pine needle ribs (creates the signature ribbed frond pattern)
+            for (let i = 0; i < tiers; i++) {
+                const t = i / (tiers - 1);
+                const y = THREE.MathUtils.lerp(478, 54, t);
+                const profile = Math.sin(Math.pow(t, 0.72) * Math.PI * 0.92) * (1.0 - t * 0.25) + (1.0 - t) * 0.30;
+                const reach = 168 * profile + 22;
+                const clusterW = 40 * (1.0 - t * 0.35);
+
+                drawGouacheCluster(cx - 4, y - 4, reach, clusterW, -0.98 + t * 0.35, palette.base, palette.mid, 0.96);
+                drawGouacheCluster(cx + 4, y - 4, reach, clusterW, 0.98 - t * 0.35, palette.base, palette.mid, 0.96);
+
+                // Secondary inner-angled tufts for lush fullness
+                drawGouacheCluster(cx - 2, y - 10, reach * 0.78, clusterW * 0.85, -0.62 + t * 0.22, palette.mid, palette.tip, 0.92);
+                drawGouacheCluster(cx + 2, y - 10, reach * 0.78, clusterW * 0.85, 0.62 - t * 0.22, palette.mid, palette.tip, 0.92);
+            }
+
+            // 4. Sunlit highlight strokes along the upper ridge & frond tip
+            for (let i = 1; i < tiers; i++) {
+                const t = i / (tiers - 1);
+                const y = THREE.MathUtils.lerp(465, 48, t);
+                const profile = Math.sin(Math.pow(t, 0.75) * Math.PI * 0.92) * (1.0 - t * 0.28) + (1.0 - t) * 0.22;
+                const reach = 115 * profile + 18;
+                const clusterW = 30 * (1.0 - t * 0.32);
+
+                drawGouacheCluster(cx - 2, y - 8, reach, clusterW, -0.48 + t * 0.18, palette.tip, palette.highlight, 0.88);
+                drawGouacheCluster(cx + 2, y - 8, reach, clusterW, 0.48 - t * 0.18, palette.tip, palette.highlight, 0.88);
+            }
+
+            // 5. Crown tip fan at the very front of the bough
+            drawGouacheCluster(cx, 64, 58, 34, 0.0, palette.mid, palette.highlight, 0.96);
+            drawGouacheCluster(cx - 5, 68, 52, 28, -0.35, palette.mid, palette.tip, 0.92);
+            drawGouacheCluster(cx + 5, 68, 52, 28, 0.35, palette.mid, palette.tip, 0.92);
+
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.encoding = THREE.sRGBEncoding;
+            tex.anisotropy = 4;
+            return tex;
+        }
+
+        function injectBranchSocketWindShader(shader) {
+            shader.uniforms.uTime = grassUniforms.uTime;
+            shader.uniforms.uWindSpeed = grassUniforms.uWindSpeed;
+            shader.uniforms.uSunDir = celShaderUniforms.uSunDir;
+            shader.uniforms.uSunColor = celShaderUniforms.uSunColor;
+            shader.uniforms.uShadowTint = celShaderUniforms.uShadowTint;
+            shader.uniforms.uRimTint = celShaderUniforms.uRimTint;
+            shader.uniforms.uCampfirePos = celShaderUniforms.uCampfirePos;
+            shader.uniforms.uCampfireColor = celShaderUniforms.uCampfireColor;
+            shader.uniforms.uCampfireStrength = celShaderUniforms.uCampfireStrength;
+
+            shader.vertexShader = `
+                attribute vec3 aSocketPos;
+                attribute vec2 aBranchInfo;
+                uniform float uTime;
+                uniform float uWindSpeed;
+                varying float vHeightNorm;
+                varying float vTipDist;
+                varying vec3 vPineWorldPos;
+                varying vec3 vPineWorldNormal;
+            ` + shader.vertexShader;
+
+            shader.vertexShader = shader.vertexShader.replace(
+                '#include <begin_vertex>',
+                `
+                #include <begin_vertex>
+                vec3 rel = transformed - aSocketPos;
+                float distSocket = length(rel);
+                float tipMask = smoothstep(0.04, 1.55, distSocket);
+                float bPhase = aBranchInfo.x;
+                float hNorm = aBranchInfo.y;
+
+                // Pure rotation around the trunk socket (aSocketPos) so branches never detach!
+                float wTime = uTime * (1.45 + uWindSpeed * 0.5) + bPhase;
+                float amp = (0.042 + 0.045 * hNorm) * uWindSpeed * tipMask;
+                float rx = sin(wTime) * amp;
+                float rz = cos(wTime * 1.15) * amp * 0.82;
+                float cx = cos(rx), sx = sin(rx);
+                float cz = cos(rz), sz = sin(rz);
+
+                vec3 r1 = vec3(rel.x, rel.y * cx - rel.z * sx, rel.y * sx + rel.z * cx);
+                vec3 r2 = vec3(r1.x * cz - r1.y * sz, r1.x * sz + r1.y * cz, r1.z);
+
+                transformed = aSocketPos + r2;
+                vHeightNorm = hNorm;
+                vTipDist = tipMask;
+                vPineWorldPos = (modelMatrix * vec4(transformed, 1.0)).xyz;
+                // Smooth outward + upward spherical normal for soft painterly bough shading
+                vec3 localOutward = normalize(vec3(rel.x, max(0.55, abs(rel.y) + 0.65), rel.z));
+                vPineWorldNormal = normalize(mat3(modelMatrix) * localOutward);
+                `
+            );
+
+            if (shader.fragmentShader.includes('#include <tonemapping_fragment>')) {
+                shader.fragmentShader = `
+                    uniform vec3 uSunDir;
+                    uniform vec3 uSunColor;
+                    uniform vec3 uShadowTint;
+                    uniform vec3 uRimTint;
+                    uniform vec3 uCampfirePos;
+                    uniform vec3 uCampfireColor;
+                    uniform float uCampfireStrength;
+                    varying float vHeightNorm;
+                    varying float vTipDist;
+                    varying vec3 vPineWorldPos;
+                    varying vec3 vPineWorldNormal;
+                ` + shader.fragmentShader;
+
+                shader.fragmentShader = shader.fragmentShader.replace(
+                    '#include <tonemapping_fragment>',
+                    `
+                    vec3 N = normalize(vPineWorldNormal);
+                    vec3 L = normalize(uSunDir);
+                    vec3 V = normalize(cameraPosition - vPineWorldPos);
+
+                    float halfLambert = dot(N, L) * 0.5 + 0.5;
+                    float crownGrad = mix(0.82, 1.15, smoothstep(0.0, 1.0, vHeightNorm));
+                    float tipAO = mix(0.76, 1.08, vTipDist);
+                    vec3 baseLeaf = diffuseColor.rgb * crownGrad * tipAO;
+
+                    // 3-Tier Cel-Shading (Shadow -> Midtone -> Sunlit Highlight)
+                    float band1 = smoothstep(0.32, 0.44, halfLambert * crownGrad);
+                    float band2 = smoothstep(0.66, 0.78, halfLambert * crownGrad);
+                    float celStep = band1 * 0.62 + band2 * 0.38;
+
+                    vec3 shCol = mix(baseLeaf * uShadowTint * 1.45, baseLeaf * 0.64, 0.52);
+                    vec3 litCol = baseLeaf * mix(vec3(1.0), uSunColor, 0.30) * 1.14;
+                    vec3 celColor = mix(shCol, litCol, celStep);
+
+                    // Backlit Subsurface Scattering & Rim Highlight on needle tips
+                    float sss = pow(clamp(dot(V, -L), 0.0, 1.0), 2.2) * vTipDist;
+                    celColor += baseLeaf * uSunColor * sss * 0.38;
+
+                    float rim = pow(1.0 - max(dot(N, V), 0.0), 2.8) * vTipDist;
+                    celColor += uRimTint * rim * 0.24;
+
+                    float fireDist = length(uCampfirePos - vPineWorldPos);
+                    float fireGlow = (1.0 - smoothstep(2.0, 13.5, fireDist)) * uCampfireStrength;
+                    celColor += baseLeaf * uCampfireColor * fireGlow * 0.55;
+
+                    outgoingLight = celColor;
+                    gl_FragColor = vec4(outgoingLight, diffuseColor.a);
+                    #include <tonemapping_fragment>
+                    `
+                );
+            }
+        }
+
+        const pineMaterials = {};
+        const pineDepthMaterials = {};
+
+        Object.keys(PINE_PALETTES).forEach(key => {
+            const pal = PINE_PALETTES[key];
+            const tex = createPainterlyPineBoughTexture(pal);
+            const mat = new THREE.MeshStandardMaterial({
+                map: tex,
+                alphaTest: 0.36,
+                side: THREE.DoubleSide,
+                roughness: 0.84,
+                metalness: 0.0
+            });
+            mat.onBeforeCompile = injectBranchSocketWindShader;
+            pineMaterials[key] = mat;
+
+            const depthMat = new THREE.MeshDepthMaterial({
+                depthPacking: THREE.RGBADepthPacking,
+                map: tex,
+                alphaTest: 0.38
+            });
+            depthMat.onBeforeCompile = injectBranchSocketWindShader;
+            pineDepthMaterials[key] = depthMat;
+        });
+
+        function createCurvedPineBoughGeometry() {
+            const width = 1.38;
+            const length = 1.78;
+            const mainSheet = new THREE.PlaneGeometry(width, length, 6, 8);
+            // Flip UV.y so bottom of canvas (trunk socket) is at z = 0 and tip is at z = +length
+            const uvAttr = mainSheet.attributes.uv;
+            for (let i = 0; i < uvAttr.count; i++) {
+                uvAttr.setY(i, 1.0 - uvAttr.getY(i));
+            }
+            mainSheet.rotateX(-Math.PI * 0.5);
+            mainSheet.translate(0, 0, length * 0.48);
+
+            const pos = mainSheet.attributes.position;
+            for (let i = 0; i < pos.count; i++) {
+                const vx = pos.getX(i);
+                const vz = pos.getZ(i);
+                const zNorm = THREE.MathUtils.clamp(vz / length, 0.0, 1.0);
+                const xNorm = Math.abs(vx) / (width * 0.5);
+
+                // Tent-like 3D arch across width + graceful natural droop & curled tip along length
+                const crossArch = (1.0 - xNorm * xNorm) * 0.16 * Math.sin(zNorm * Math.PI);
+                const lengthDroop = -Math.pow(zNorm, 1.65) * 0.32 + Math.pow(zNorm, 3.2) * 0.14;
+                pos.setY(i, crossArch + lengthDroop);
+            }
+            mainSheet.computeVertexNormals();
+
+            // Secondary angled upper crest sheet so each bough has lush 3D volume from every viewing angle
+            const crestSheet = mainSheet.clone();
+            crestSheet.scale(0.68, 0.85, 0.88);
+            crestSheet.rotateZ(0.28);
+            crestSheet.translate(0, 0.04, 0.02);
+
+            return mergeBufferGeometriesSimple([mainSheet, crestSheet]);
+        }
+        const BASE_BOUGH_GEO = createCurvedPineBoughGeometry();
+
+        const swayingCanopies = [];
+        const interactiveTrees = [];
+
+        function createStylizedPineTree(x, z, scale = 1.0, variant = 'tall_alpine', colorKey = 'emerald') {
+            const group = new THREE.Group();
+            const y = getTerrainHeight(x, z);
+            group.position.set(x, y, z);
+
+            const seed = Math.abs(Math.sin(x * 19.3 + z * 37.7)) * 100;
+            const castsShadow = Math.hypot(x, z) < 24.0;
+
+            let height = 5.5 * scale;
+            let startNormY = 0.20;
+            let branchCount = 38;
+            let maxSpread = 1.38;
+
+            if (variant === 'broad_woodland') {
+                height = 4.9 * scale;
+                startNormY = 0.18;
+                branchCount = 42;
+                maxSpread = 1.56;
+            } else if (variant === 'high_canopy') {
+                height = 5.9 * scale;
+                startNormY = 0.40;
+                branchCount = 32;
+                maxSpread = 1.34;
+            } else if (variant === 'young_bushy') {
+                height = 4.0 * scale;
+                startNormY = 0.15;
+                branchCount = 34;
+                maxSpread = 1.28;
+            }
+
+            const canopy = new THREE.Group();
+            group.add(canopy);
+
+            const trunk = createSculptedTrunkMesh(height, 0.28 * scale, 0.055 * scale, 0.22 * scale, trunkMat, seed);
+            addLowerDeadBranchStubs(trunk, height, scale, startNormY, seed);
+
+            const trunkAndCollarGeos = [trunk.geometry];
+            const boughGeos = [];
+            const dummy = new THREE.Object3D();
+            const GOLDEN_ANGLE = 2.399963229728653;
+
+            function appendBough(normY, yaw, pitch, roll, bScale, phase) {
+                const spine = trunk.userData.getSpineAt(normY);
+
+                // Wooden branch collar embedded directly into the trunk spine
+                const collarLen = 0.36 * bScale;
+                const collarGeo = new THREE.CylinderGeometry(0.016 * bScale, 0.042 * bScale, collarLen, 4);
+                collarGeo.rotateX(Math.PI * 0.5);
+                collarGeo.translate(0, 0, collarLen * 0.42);
+                dummy.position.set(spine.x, spine.y, spine.z);
+                dummy.rotation.set(pitch, yaw, roll, 'YXZ');
+                dummy.scale.set(1, 1, 1);
+                dummy.updateMatrix();
+                collarGeo.applyMatrix4(dummy.matrix);
+                trunkAndCollarGeos.push(collarGeo);
+
+                // 3D Curved Gouache Pine Bough
+                dummy.scale.set(bScale, bScale, bScale);
+                dummy.updateMatrix();
+                const bGeo = BASE_BOUGH_GEO.clone();
+                bGeo.applyMatrix4(dummy.matrix);
+
+                const vCount = bGeo.attributes.position.count;
+                const socketArr = new Float32Array(vCount * 3);
+                const infoArr = new Float32Array(vCount * 2);
+
+                for (let v = 0; v < vCount; v++) {
+                    socketArr[v * 3] = spine.x;
+                    socketArr[v * 3 + 1] = spine.y;
+                    socketArr[v * 3 + 2] = spine.z;
+                    infoArr[v * 2] = phase;
+                    infoArr[v * 2 + 1] = normY;
+                }
+                bGeo.setAttribute('aSocketPos', new THREE.BufferAttribute(socketArr, 3));
+                bGeo.setAttribute('aBranchInfo', new THREE.BufferAttribute(infoArr, 2));
+                boughGeos.push(bGeo);
+            }
+
+            // 1. Main spiral phyllotaxis pine boughs from bottom to upper crown
+            for (let i = 0; i < branchCount; i++) {
+                const progress = i / (branchCount - 1);
+                const jitterY = (((i * 29 + seed) % 11) - 5) * 0.0035;
+                const normY = THREE.MathUtils.clamp(THREE.MathUtils.lerp(startNormY, 0.95, progress) + jitterY, 0.12, 0.97);
+
+                const yaw = i * GOLDEN_ANGLE + (((i * 17 + seed) % 13) - 6) * 0.07;
+                const coneProfile = Math.pow(1.0 - progress * 0.78, 0.74);
+                const bScale = scale * maxSpread * coneProfile * (0.86 + ((i * 13) % 7) * 0.045);
+                const pitch = THREE.MathUtils.lerp(0.38, -0.22, progress) + (((i * 23) % 7) - 3) * 0.045;
+                const roll = (((i * 31) % 7) - 3) * 0.055;
+                const phase = (seed + i * 0.77) % (Math.PI * 2);
+
+                appendBough(normY, yaw, pitch, roll, bScale, phase);
+            }
+
+            // 2. Top apex crown tuft (5 upward-reaching mini boughs at the tip of the pine tree)
+            const crownCount = 5;
+            for (let c = 0; c < crownCount; c++) {
+                const cNormY = 0.96 + (c / crownCount) * 0.035;
+                const cYaw = c * ((Math.PI * 2) / crownCount) + seed;
+                const cPitch = -0.58 - (c % 2) * 0.16;
+                const cScale = scale * maxSpread * (0.28 - c * 0.025);
+                appendBough(cNormY, cYaw, cPitch, 0.0, cScale, (seed + c * 1.1) % (Math.PI * 2));
+            }
+
+            trunk.geometry = mergeBufferGeometriesSimple(trunkAndCollarGeos);
+            trunk.castShadow = castsShadow;
+            canopy.add(trunk);
+
+            const pal = PINE_PALETTES[colorKey] || PINE_PALETTES.emerald;
+            const mergedFoliage = mergeBufferGeometriesSimple(boughGeos);
+            const foliageMesh = new THREE.Mesh(mergedFoliage, pineMaterials[colorKey] || pineMaterials.emerald);
+            foliageMesh.customDepthMaterial = pineDepthMaterials[colorKey] || pineDepthMaterials.emerald;
+            foliageMesh.castShadow = castsShadow;
+            foliageMesh.receiveShadow = true;
+            canopy.add(foliageMesh);
+
+            const treeData = {
+                type: 'tree',
+                name: pal.name,
+                treeKind: 'pine',
+                canopy: canopy,
+                foliageMesh: foliageMesh,
+                naturalColorKey: colorKey,
+                phase: Math.random() * Math.PI * 2,
+                rustleBoost: 0,
+                leafColor: new THREE.Color(pal.burstColor),
+                boundingSphere: new THREE.Sphere(new THREE.Vector3(x, y + height * 0.55, z), height * 0.75)
+            };
+
+            group.userData = treeData;
+            swayingCanopies.push(treeData);
+            interactiveTrees.push(group);
+            scene.add(group);
+            return group;
+        }
+
+        function createStylizedDeadPine(x, z, scale = 1.0) {
+            const group = new THREE.Group();
+            const y = getTerrainHeight(x, z);
+            group.position.set(x, y, z);
+
+            const height = 4.4 * scale;
+            const canopy = new THREE.Group();
+            group.add(canopy);
+
+            const trunk = createSculptedTrunkMesh(height, 0.25 * scale, 0.05 * scale, 0.32 * scale, deadWoodMat, x * 12 + z);
+            const geos = [trunk.geometry];
+
+            for (let i = 0; i < 9; i++) {
+                const normY = 0.28 + (i / 9) * 0.65;
+                const spine = trunk.userData.getSpineAt(normY);
+                const len = (1.1 - normY * 0.65) * scale;
+                const stub = new THREE.CylinderGeometry(0.015 * scale, 0.045 * scale, len, 5);
+                stub.translate(0, len * 0.5, 0);
+                stub.rotateX(1.1 + (i % 3) * 0.15);
+                stub.rotateY(i * 2.4);
+                stub.translate(spine.x, spine.y, spine.z);
+                geos.push(stub);
+            }
+
+            trunk.geometry = mergeBufferGeometriesSimple(geos);
+            canopy.add(trunk);
+
+            const treeData = {
+                type: 'tree',
+                name: 'Pohon Pinus Kering',
+                treeKind: 'dead',
+                canopy: canopy,
+                foliageMesh: null,
+                phase: Math.random() * Math.PI * 2,
+                rustleBoost: 0,
+                leafColor: new THREE.Color(0x9c7a54),
+                boundingSphere: new THREE.Sphere(new THREE.Vector3(x, y + height * 0.5, z), height * 0.65)
+            };
+            group.userData = treeData;
+            swayingCanopies.push(treeData);
+            interactiveTrees.push(group);
+            scene.add(group);
+            return group;
+        }
+
+        // ============================================================================
+        // 6B. FLUFFY TREE ZELDA STYLE (Sketchfab @boroviack Forest-Pack Scatter + Projected Normals)
+        // ============================================================================
+        function createFluffyZeldaLeafCardTexture(palette) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256;
+            canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, 256, 256);
+
+            // Helper to draw an individual stylized Zelda/Ghibli broad ovate leaf with subtle midrib
+            function drawStylizedBroadLeaf(cx, cy, length, width, angle, colBase, colMid, colTip) {
+                ctx.save();
+                ctx.translate(cx, cy);
+                ctx.rotate(angle);
+
+                const grad = ctx.createLinearGradient(0, 0, 0, -length);
+                grad.addColorStop(0.0, colBase);
+                grad.addColorStop(0.52, colMid);
+                grad.addColorStop(1.0, colTip);
+
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.bezierCurveTo(-width * 0.85, -length * 0.28, -width * 0.95, -length * 0.76, 0, -length);
+                ctx.bezierCurveTo(width * 0.95, -length * 0.76, width * 0.85, -length * 0.28, 0, 0);
+                ctx.closePath();
+                ctx.fill();
+
+                // Soft painterly highlight along one side of the leaf blade
+                ctx.fillStyle = colTip;
+                ctx.globalAlpha = 0.28;
+                ctx.beginPath();
+                ctx.moveTo(0, -length * 0.12);
+                ctx.bezierCurveTo(-width * 0.55, -length * 0.34, -width * 0.58, -length * 0.72, 0, -length * 0.92);
+                ctx.bezierCurveTo(-width * 0.12, -length * 0.65, -width * 0.10, -length * 0.32, 0, -length * 0.12);
+                ctx.fill();
+
+                // Subtle central vein
+                ctx.globalAlpha = 0.22;
+                ctx.strokeStyle = colTip;
+                ctx.lineWidth = 2.2;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(0, -length * 0.10);
+                ctx.lineTo(0, -length * 0.82);
+                ctx.stroke();
+
+                ctx.restore();
+            }
+
+            // Soft inner core fill so overlapping scattered cards never leave harsh holes
+            const coreGrad = ctx.createRadialGradient(128, 148, 12, 128, 148, 76);
+            coreGrad.addColorStop(0.0, palette.base);
+            coreGrad.addColorStop(0.7, palette.shadow);
+            coreGrad.addColorStop(1.0, 'rgba(40, 85, 60, 0.0)');
+            ctx.fillStyle = coreGrad;
+            ctx.beginPath();
+            ctx.arc(128, 148, 76, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Back layer of fanned broad leaves
+            const backLeaves = [
+                { x: 108, y: 196, len: 118, w: 46, ang: -0.72 },
+                { x: 148, y: 196, len: 118, w: 46, ang: 0.72 },
+                { x: 118, y: 204, len: 110, w: 44, ang: -1.18 },
+                { x: 138, y: 204, len: 110, w: 44, ang: 1.18 },
+                { x: 128, y: 188, len: 132, w: 50, ang: 0.0 }
+            ];
+            backLeaves.forEach(l => {
+                drawStylizedBroadLeaf(l.x, l.y, l.len, l.w, l.ang, palette.shadow, palette.base, palette.mid);
+            });
+
+            // Mid & front layer of fluffy overlapping leaf blades (gives crisp leafy silhouette on inspect)
+            const frontLeaves = [
+                { x: 116, y: 184, len: 126, w: 48, ang: -0.42, c1: palette.base, c2: palette.mid, c3: palette.tip },
+                { x: 140, y: 184, len: 126, w: 48, ang: 0.42, c1: palette.base, c2: palette.mid, c3: palette.tip },
+                { x: 102, y: 176, len: 106, w: 42, ang: -0.88, c1: palette.base, c2: palette.mid, c3: palette.tip },
+                { x: 154, y: 176, len: 106, w: 42, ang: 0.88, c1: palette.base, c2: palette.mid, c3: palette.tip },
+                { x: 128, y: 172, len: 134, w: 52, ang: -0.06, c1: palette.mid, c2: palette.tip, c3: palette.highlight },
+                { x: 122, y: 162, len: 105, w: 42, ang: -0.26, c1: palette.mid, c2: palette.tip, c3: palette.highlight },
+                { x: 136, y: 162, len: 105, w: 42, ang: 0.28, c1: palette.mid, c2: palette.tip, c3: palette.highlight }
+            ];
+            frontLeaves.forEach(l => {
+                drawStylizedBroadLeaf(l.x, l.y, l.len, l.w, l.ang, l.c1, l.c2, l.c3);
+            });
+
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.encoding = THREE.sRGBEncoding;
+            tex.anisotropy = 4;
+            return tex;
+        }
+
+        // Dedicated Shader for Fluffy Tree Zelda Style:
+        // Uses Projected Vertex Normals off the Scatter Base Surface (`aProjectedNormal`) + Canopy AO (`aFoliageAO`)
+        function injectFluffyZeldaLeafShader(shader) {
+            shader.uniforms.uTime = grassUniforms.uTime;
+            shader.uniforms.uWindSpeed = grassUniforms.uWindSpeed;
+            shader.uniforms.uSunDir = celShaderUniforms.uSunDir;
+            shader.uniforms.uSunColor = celShaderUniforms.uSunColor;
+            shader.uniforms.uShadowTint = celShaderUniforms.uShadowTint;
+            shader.uniforms.uRimTint = celShaderUniforms.uRimTint;
+            shader.uniforms.uCampfirePos = celShaderUniforms.uCampfirePos;
+            shader.uniforms.uCampfireColor = celShaderUniforms.uCampfireColor;
+            shader.uniforms.uCampfireStrength = celShaderUniforms.uCampfireStrength;
+
+            shader.vertexShader = `
+                attribute vec3 aSocketPos;
+                attribute vec3 aProjectedNormal;
+                attribute vec3 aBranchInfo;
+                uniform float uTime;
+                uniform float uWindSpeed;
+                varying float vFoliageAO;
+                varying float vHeightNorm;
+                varying vec3 vFluffyWorldPos;
+                varying vec3 vProjectedWorldNormal;
+            ` + shader.vertexShader;
+
+            shader.vertexShader = shader.vertexShader.replace(
+                '#include <begin_vertex>',
+                `
+                #include <begin_vertex>
+                vec3 relPos = transformed - aSocketPos;
+                float distFromSocket = length(relPos);
+                float tipFactor = smoothstep(0.05, 1.45, distFromSocket);
+
+                float cardPhase = aBranchInfo.x;
+                float heightNorm = aBranchInfo.y;
+                float foliageAO = aBranchInfo.z;
+
+                // 1. Cohesive branch lobe sway around its wooden branch socket
+                float swayTime = uTime * (1.35 + uWindSpeed * 0.48) + cardPhase * 0.25;
+                float amp = (0.032 + 0.028 * heightNorm) * uWindSpeed * tipFactor;
+                float rx = sin(swayTime) * amp;
+                float rz = cos(swayTime * 1.12 + 0.6) * amp;
+                float cx = cos(rx), sx = sin(rx);
+                float cz = cos(rz), sz = sin(rz);
+
+                vec3 r1 = vec3(relPos.x, relPos.y * cx - relPos.z * sx, relPos.y * sx + relPos.z * cx);
+                vec3 r2 = vec3(r1.x * cz - r1.y * sz, r1.x * sz + r1.y * cz, r1.z);
+
+                // 2. Gentle individual leaf-card flutter along the outer silhouette tips (uv.y)
+                float leafFlutter = sin(uTime * (2.6 + uWindSpeed * 0.85) + cardPhase) * 0.042 * uWindSpeed * uv.y;
+                vec3 flutterOffset = aProjectedNormal * (leafFlutter * 0.45) + vec3(leafFlutter, 0.0, -leafFlutter * 0.7);
+
+                transformed = aSocketPos + r2 + flutterOffset;
+
+                vFoliageAO = foliageAO;
+                vHeightNorm = heightNorm;
+                vFluffyWorldPos = (modelMatrix * vec4(transformed, 1.0)).xyz;
+                // CRITICAL: Use the Projected Vertex Normal from the Scatter Base Lobe Surface!
+                vProjectedWorldNormal = normalize(mat3(modelMatrix) * aProjectedNormal);
+                `
+            );
+
+            if (shader.fragmentShader.includes('#include <tonemapping_fragment>')) {
+                shader.fragmentShader = `
+                    uniform vec3 uSunDir;
+                    uniform vec3 uSunColor;
+                    uniform vec3 uShadowTint;
+                    uniform vec3 uRimTint;
+                    uniform vec3 uCampfirePos;
+                    uniform vec3 uCampfireColor;
+                    uniform float uCampfireStrength;
+                    varying float vFoliageAO;
+                    varying float vHeightNorm;
+                    varying vec3 vFluffyWorldPos;
+                    varying vec3 vProjectedWorldNormal;
+                ` + shader.fragmentShader;
+
+                shader.fragmentShader = shader.fragmentShader.replace(
+                    '#include <tonemapping_fragment>',
+                    `
+                    vec3 N = normalize(vProjectedWorldNormal);
+                    vec3 L = normalize(uSunDir);
+                    vec3 V = normalize(cameraPosition - vFluffyWorldPos);
+
+                    // Smooth spherical Half-Lambert from the projected scatter-surface normal
+                    float halfLambert = dot(N, L) * 0.5 + 0.5;
+                    float shadedVal = halfLambert * mix(0.62, 1.08, vFoliageAO);
+
+                    // Soft Zelda/Ghibli 3-Band Pillowy Gradient
+                    float band1 = smoothstep(0.32, 0.46, shadedVal);
+                    float band2 = smoothstep(0.64, 0.78, shadedVal);
+                    float toonFactor = band1 * 0.56 + band2 * 0.44;
+
+                    float crownLift = mix(0.90, 1.12, smoothstep(0.0, 1.0, vHeightNorm));
+                    vec3 baseLeaf = diffuseColor.rgb * crownLift;
+
+                    vec3 deepCanopyShadow = mix(baseLeaf * uShadowTint * 1.48, baseLeaf * 0.64, 0.52);
+                    vec3 sunlitCanopy = baseLeaf * mix(vec3(1.0), uSunColor, 0.34) * 1.16;
+                    vec3 fluffyColor = mix(deepCanopyShadow, sunlitCanopy, toonFactor);
+
+                    // Subsurface Scattering (Warm translucent glow on backlit leaf puffs)
+                    float sss = pow(clamp(dot(V, -L), 0.0, 1.0), 2.0) * smoothstep(0.35, 0.95, vFoliageAO);
+                    fluffyColor += baseLeaf * uSunColor * sss * 0.42;
+
+                    // Soft top-hemisphere rim highlight
+                    float rim = pow(1.0 - max(dot(N, V), 0.0), 2.6) * smoothstep(0.2, 0.85, N.y * 0.5 + 0.5);
+                    fluffyColor += uRimTint * rim * 0.22;
+
+                    // Blend gently with Three.js cast shadow map
+                    float engineLightRatio = clamp(length(outgoingLight) / max(length(diffuseColor.rgb), 0.001), 0.35, 1.35);
+                    float castShadowMask = smoothstep(0.36, 0.68, engineLightRatio);
+                    outgoingLight = mix(deepCanopyShadow * 0.90, fluffyColor, castShadowMask);
+
+                    // Warm campfire bounce light on lower leaves
+                    float fireDist = length(uCampfirePos - vFluffyWorldPos);
+                    float fireGlow = (1.0 - smoothstep(2.5, 13.5, fireDist)) * uCampfireStrength;
+                    outgoingLight += baseLeaf * uCampfireColor * smoothstep(0.15, 0.65, fireGlow) * 0.52;
+
+                    gl_FragColor = vec4(outgoingLight, diffuseColor.a);
+                    #include <tonemapping_fragment>
+                    `
+                );
+            }
+        }
+
+        const deciduousMaterials = {};
+        const deciduousDepthMaterials = {};
+
+        Object.keys(PINE_PALETTES).forEach(key => {
+            const pal = PINE_PALETTES[key];
+            const tex = createFluffyZeldaLeafCardTexture(pal);
+            const mat = new THREE.MeshStandardMaterial({
+                map: tex,
+                alphaTest: 0.35,
+                side: THREE.DoubleSide,
+                roughness: 0.82,
+                metalness: 0.0
+            });
+            mat.onBeforeCompile = injectFluffyZeldaLeafShader;
+            deciduousMaterials[key] = mat;
+
+            const depthMat = new THREE.MeshDepthMaterial({
+                depthPacking: THREE.RGBADepthPacking,
+                map: tex,
+                alphaTest: 0.38
+            });
+            depthMat.onBeforeCompile = injectFluffyZeldaLeafShader;
+            deciduousDepthMaterials[key] = depthMat;
+        });
+
+        // Pre-built curved leaf-tuft card (2x2 segments with gentle outward cup so cards aren't flat planes)
+        function createCurvedLeafTuftCardGeometry() {
+            const geo = new THREE.PlaneGeometry(1.0, 1.0, 2, 2);
+            // Shift pivot near the bottom stem of the leaf cluster
+            geo.translate(0, 0.36, 0);
+            const pos = geo.attributes.position;
+            for (let i = 0; i < pos.count; i++) {
+                const vx = pos.getX(i);
+                const vy = pos.getY(i);
+                // Subtle spherical cup + outward curve at the leaf tip
+                const radial = vx * vx + (vy - 0.36) * (vy - 0.36);
+                const vz = -radial * 0.22 + Math.pow(Math.max(0, vy), 1.6) * 0.12;
+                pos.setZ(i, vz);
+            }
+            geo.computeVertexNormals();
+            return geo;
+        }
+        const BASE_FLUFFY_LEAF_CARD_GEO = createCurvedLeafTuftCardGeometry();
+
+        function createBotWDeciduousTree(x, z, scale = 1.0, colorKey = 'emerald') {
+            const group = new THREE.Group();
+            const y = getTerrainHeight(x, z);
+            group.position.set(x, y, z);
+
+            const seed = Math.abs(Math.sin(x * 23.4 + z * 51.2)) * 100;
+            const distFromOrigin = Math.hypot(x, z);
+            const castsShadow = distFromOrigin < 24.0;
+
+            const trunkHeight = 3.85 * scale;
+            const canopy = new THREE.Group();
+            group.add(canopy);
+
+            // 1. Sculpted Zelda-style organic trunk with root flare
+            const trunk = createSculptedTrunkMesh(
+                trunkHeight,
+                0.42 * scale,
+                0.17 * scale,
+                0.28 * scale,
+                trunkMat,
+                seed
+            );
+
+            const boughWoodGeos = [trunk.geometry];
+            const scatteredLeafCardGeos = [];
+            const GOLDEN_ANGLE = 2.399963229728653;
+            const treeCrownCenter = new THREE.Vector3(0, trunkHeight * 1.08, 0);
+
+            // Forest-Pack style surface scatterer on an ellipsoidal canopy lobe with Projected Vertex Normals
+            function scatterLeavesOnCanopyLobe(lobeCenter, socketPos, radiusX, radiusY, radiusZ, cardCount, heightNorm, phaseSeed) {
+                const dummy = new THREE.Object3D();
+                const upVec = new THREE.Vector3(0, 1, 0);
+
+                // Inner core crossed cards + Outer shell Forest-Pack scattered cards
+                const totalCards = cardCount + 6;
+                for (let c = 0; c < totalCards; c++) {
+                    const isCore = c < 6;
+                    let dir, shellDist, cardScale;
+
+                    if (isCore) {
+                        // Dense inner core cards so you can never see empty holes through the canopy
+                        const corePhi = Math.acos(1.0 - ((c + 0.5) / 6) * 1.6);
+                        const coreTheta = c * GOLDEN_ANGLE + phaseSeed;
+                        dir = new THREE.Vector3(
+                            Math.sin(corePhi) * Math.cos(coreTheta),
+                            Math.cos(corePhi),
+                            Math.sin(corePhi) * Math.sin(coreTheta)
+                        ).normalize();
+                        shellDist = 0.28;
+                        cardScale = (radiusX + radiusY) * 0.62;
+                    } else {
+                        // Fibonacci sphere distribution across the scatter base surface
+                        const idx = c - 6;
+                        const u = (idx + 0.5) / cardCount;
+                        // Concentrate slightly more on upper & outer hemisphere (y from -0.62 to +1.0)
+                        const cosPhi = 1.0 - u * 1.62;
+                        const sinPhi = Math.sqrt(Math.max(0.0, 1.0 - cosPhi * cosPhi));
+                        const theta = idx * GOLDEN_ANGLE + phaseSeed;
+
+                        dir = new THREE.Vector3(
+                            sinPhi * Math.cos(theta),
+                            cosPhi,
+                            sinPhi * Math.sin(theta)
+                        ).normalize();
+                        shellDist = 0.72 + ((idx * 37) % 11) / 11.0 * 0.26;
+                        cardScale = (radiusX * 0.68) * (0.86 + ((idx * 19) % 7) / 7.0 * 0.34);
+                    }
+
+                    // Position on the ellipsoidal scatter base surface
+                    const px = lobeCenter.x + dir.x * radiusX * shellDist;
+                    const py = lobeCenter.y + dir.y * radiusY * shellDist;
+                    const pz = lobeCenter.z + dir.z * radiusZ * shellDist;
+
+                    // Orient card tangent to the lobe surface + fluff outward so leaf tips burst around the silhouette
+                    dummy.position.set(px, py, pz);
+                    const targetPt = new THREE.Vector3(px + dir.x, py + dir.y * 0.85 + 0.35, pz + dir.z);
+                    dummy.lookAt(targetPt);
+                    // Random spin around surface normal + outward flare tilt
+                    dummy.rotateZ(((c * 53 + phaseSeed) % 100) / 100 * Math.PI * 2);
+                    dummy.rotateX(-0.32 - (isCore ? 0.0 : 0.22));
+                    dummy.scale.set(cardScale, cardScale, cardScale);
+                    dummy.updateMatrix();
+
+                    const cardGeo = BASE_FLUFFY_LEAF_CARD_GEO.clone();
+                    cardGeo.applyMatrix4(dummy.matrix);
+
+                    const posAttr = cardGeo.attributes.position;
+                    const vCount = posAttr.count;
+                    const socketArr = new Float32Array(vCount * 3);
+                    const projNormArr = new Float32Array(vCount * 3);
+                    const infoArr = new Float32Array(vCount * 3);
+                    const cardPhase = (phaseSeed + c * 0.91) % (Math.PI * 2);
+
+                    for (let iv = 0; iv < vCount; iv++) {
+                        const vx = posAttr.getX(iv);
+                        const vy = posAttr.getY(iv);
+                        const vz = posAttr.getZ(iv);
+
+                        // PROJECTED VERTEX NORMAL off the Scatter Base Lobe Surface
+                        // Blended 80% from local lobe ellipsoid normal + 20% from overall tree crown dome normal
+                        const localNx = (vx - lobeCenter.x) / (radiusX * radiusX);
+                        const localNy = (vy - lobeCenter.y) / (radiusY * radiusY);
+                        const localNz = (vz - lobeCenter.z) / (radiusZ * radiusZ);
+                        const localN = new THREE.Vector3(localNx, localNy + 0.15, localNz).normalize();
+
+                        const globalN = new THREE.Vector3(
+                            vx - treeCrownCenter.x,
+                            (vy - treeCrownCenter.y) * 1.15 + 0.35,
+                            vz - treeCrownCenter.z
+                        ).normalize();
+
+                        const projN = localN.lerp(globalN, 0.24).normalize();
+
+                        // Per-vertex Spherical Ambient Occlusion (outer & upper vertices are brightest)
+                        const relY = (vy - lobeCenter.y) / radiusY;
+                        const radialOut = Math.hypot((vx - lobeCenter.x) / radiusX, (vz - lobeCenter.z) / radiusZ);
+                        const ao = isCore
+                            ? 0.48
+                            : THREE.MathUtils.clamp(0.52 + radialOut * 0.34 + relY * 0.24, 0.38, 1.0);
+
+                        socketArr[iv * 3] = socketPos.x;
+                        socketArr[iv * 3 + 1] = socketPos.y;
+                        socketArr[iv * 3 + 2] = socketPos.z;
+
+                        projNormArr[iv * 3] = projN.x;
+                        projNormArr[iv * 3 + 1] = projN.y;
+                        projNormArr[iv * 3 + 2] = projN.z;
+
+                        infoArr[iv * 3] = cardPhase;
+                        infoArr[iv * 3 + 1] = heightNorm;
+                        infoArr[iv * 3 + 2] = ao;
+                    }
+
+                    cardGeo.setAttribute('aSocketPos', new THREE.BufferAttribute(socketArr, 3));
+                    cardGeo.setAttribute('aProjectedNormal', new THREE.BufferAttribute(projNormArr, 3));
+                    cardGeo.setAttribute('aBranchInfo', new THREE.BufferAttribute(infoArr, 3));
+                    // Also override base normal for shadow/depth consistency
+                    cardGeo.setAttribute('normal', new THREE.BufferAttribute(projNormArr, 3));
+                    scatteredLeafCardGeos.push(cardGeo);
+                }
+            }
+
+            // 2. Sculpted spreading wooden boughs + multi-lobed Fluffy Zelda canopy puffs
+            const boughSpecs = [
+                { normY: 0.58, yawOff: 0.0, pitch: 0.78, len: 1.75, rx: 1.38, ry: 1.05, rz: 1.38, cards: 24 },
+                { normY: 0.66, yawOff: 2.15, pitch: 0.72, len: 1.85, rx: 1.48, ry: 1.12, rz: 1.45, cards: 26 },
+                { normY: 0.74, yawOff: 4.25, pitch: 0.68, len: 1.70, rx: 1.42, ry: 1.08, rz: 1.42, cards: 25 },
+                { normY: 0.82, yawOff: 1.08, pitch: 0.58, len: 1.55, rx: 1.35, ry: 1.05, rz: 1.35, cards: 24 },
+                { normY: 0.88, yawOff: 3.35, pitch: 0.52, len: 1.45, rx: 1.32, ry: 1.02, rz: 1.32, cards: 22 }
+            ];
+
+            boughSpecs.forEach((spec, idx) => {
+                const spine = trunk.userData.getSpineAt(spec.normY);
+                const yaw = spec.yawOff + (seed % 6.28);
+                const branchLen = spec.len * scale;
+
+                const dirX = Math.sin(spec.pitch) * Math.sin(yaw);
+                const dirY = Math.cos(spec.pitch);
+                const dirZ = Math.sin(spec.pitch) * Math.cos(yaw);
+
+                // Tapered main branch + secondary elbow twig
+                const bGeo = new THREE.CylinderGeometry(0.055 * scale, 0.145 * scale, branchLen, 6);
+                bGeo.translate(0, branchLen * 0.5, 0);
+                bGeo.rotateX(spec.pitch);
+                bGeo.rotateY(yaw);
+                bGeo.translate(spine.x, spine.y, spine.z);
+                boughWoodGeos.push(bGeo);
+
+                const socketPos = new THREE.Vector3(spine.x, spine.y, spine.z);
+                const tipCenter = new THREE.Vector3(
+                    spine.x + dirX * branchLen,
+                    spine.y + dirY * branchLen + 0.24 * scale,
+                    spine.z + dirZ * branchLen
+                );
+
+                // Main fluffy lobe at the end of this bough
+                scatterLeavesOnCanopyLobe(
+                    tipCenter,
+                    socketPos,
+                    spec.rx * scale,
+                    spec.ry * scale,
+                    spec.rz * scale,
+                    spec.cards,
+                    spec.normY,
+                    seed + idx * 3.1
+                );
+
+                // Secondary sub-puff on alternating branches for rich asymmetrical Zelda silhouette
+                if (idx % 2 === 0) {
+                    const subYaw = yaw + 0.55;
+                    const subCenter = new THREE.Vector3(
+                        tipCenter.x + Math.sin(subYaw) * 0.68 * scale,
+                        tipCenter.y - 0.22 * scale,
+                        tipCenter.z + Math.cos(subYaw) * 0.68 * scale
+                    );
+                    scatterLeavesOnCanopyLobe(
+                        subCenter,
+                        socketPos,
+                        0.96 * scale,
+                        0.78 * scale,
+                        0.96 * scale,
+                        14,
+                        spec.normY * 0.92,
+                        seed + idx * 5.7
+                    );
+                }
+            });
+
+            // 3. Lush Upper Crown Dome Lobe (Anchors the top of the Fluffy Zelda Tree silhouette)
+            const topSpine = trunk.userData.getSpineAt(0.98);
+            const topSocket = new THREE.Vector3(topSpine.x, topSpine.y, topSpine.z);
+            const crownCenter = new THREE.Vector3(
+                topSpine.x,
+                topSpine.y + 1.05 * scale,
+                topSpine.z
+            );
+            scatterLeavesOnCanopyLobe(
+                crownCenter,
+                topSocket,
+                1.72 * scale,
+                1.32 * scale,
+                1.72 * scale,
+                32,
+                0.98,
+                seed + 17.3
+            );
+
+            trunk.geometry = mergeBufferGeometriesSimple(boughWoodGeos);
+            trunk.castShadow = castsShadow;
+            canopy.add(trunk);
+
+            const pal = PINE_PALETTES[colorKey] || PINE_PALETTES.emerald;
+            const foliageMat = deciduousMaterials[colorKey] || deciduousMaterials.emerald;
+            const foliageDepthMat = deciduousDepthMaterials[colorKey] || deciduousDepthMaterials.emerald;
+
+            const mergedCloudGeo = mergeBufferGeometriesSimple(scatteredLeafCardGeos);
+            const foliageMesh = new THREE.Mesh(mergedCloudGeo, foliageMat);
+            foliageMesh.customDepthMaterial = foliageDepthMat;
+            foliageMesh.castShadow = castsShadow;
+            foliageMesh.receiveShadow = true;
+            canopy.add(foliageMesh);
+
+            const treeData = {
+                type: 'tree',
+                name: `Fluffy Tree Zelda Style (${pal.name})`,
+                treeKind: 'deciduous',
+                canopy: canopy,
+                foliageMesh: foliageMesh,
+                naturalColorKey: colorKey,
+                phase: Math.random() * Math.PI * 2,
+                rustleBoost: 0,
+                leafColor: new THREE.Color(pal.burstColor),
+                boundingSphere: new THREE.Sphere(
+                    new THREE.Vector3(x, y + trunkHeight * 0.95, z),
+                    trunkHeight * 1.15
+                )
+            };
+
+            group.userData = treeData;
+            swayingCanopies.push(treeData);
+            interactiveTrees.push(group);
+            scene.add(group);
+            return group;
+        }
+
+        const treePlacements = [
+            { x: -8.5, z: -6.5, s: 1.15, variant: 'deciduous', color: 'olive' },
+            { x: -11.0, z: 2.5, s: 1.25, variant: 'tall_alpine', color: 'emerald' },
+            { x: -6.8, z: 9.2, s: 1.08, variant: 'deciduous', color: 'emerald' },
+            { x: 5.5, z: -9.5, s: 1.20, variant: 'broad_woodland', color: 'emerald' },
+            { x: 12.2, z: -4.2, s: 1.25, variant: 'deciduous', color: 'teal' },
+            { x: 14.0, z: 5.5, s: 1.10, variant: 'high_canopy', color: 'teal' },
+            { x: 8.2, z: 13.0, s: 1.15, variant: 'tall_alpine', color: 'emerald' },
+            { x: -2.0, z: -11.8, s: 1.28, variant: 'deciduous', color: 'olive' },
+            { x: -12.6, z: -3.2, s: 0.95, variant: 'young_bushy', color: 'emerald' },
+            { x: 11.4, z: 10.6, s: 1.05, variant: 'deciduous', color: 'olive' },
+            { x: -13.8, z: 7.4, s: 1.05, variant: 'dead_pine' },
+            { x: 15.2, z: -0.8, s: 1.12, variant: 'dead_pine' }
+        ];
+
+        treePlacements.forEach(t => {
+            if (t.variant === 'dead_pine') {
+                createStylizedDeadPine(t.x, t.z, t.s);
+            } else if (t.variant === 'deciduous') {
+                createBotWDeciduousTree(t.x, t.z, t.s, t.color);
+            } else {
+                createStylizedPineTree(t.x, t.z, t.s, t.variant, t.color);
+            }
+        });
+
+        const variantCycle = ['tall_alpine', 'deciduous', 'broad_woodland', 'deciduous', 'high_canopy', 'young_bushy'];
+        const colorCycle = ['emerald', 'teal', 'olive', 'emerald'];
+
+        for (let i = 0; i < 58; i++) {
+            const angle = (i / 58) * Math.PI * 2 + (Math.random() - 0.5) * 0.12;
+            const radius = 15.5 + Math.random() * 25;
+            const x = Math.cos(angle) * radius;
+            const z = Math.sin(angle) * radius;
+
+            if (Math.abs(x) < 4.5 && z > 12 && z < 26) continue;
+
+            const scale = 0.88 + Math.random() * 0.72;
+            if (i === 19 || i === 43) {
+                createStylizedDeadPine(x, z, scale * 1.05);
+            } else {
+                const v = variantCycle[i % variantCycle.length];
+                const c = colorCycle[(i + Math.floor(i / 3)) % colorCycle.length];
+                if (v === 'deciduous') {
+                    createBotWDeciduousTree(x, z, scale, c);
+                } else {
+                    createStylizedPineTree(x, z, scale, v, c);
+                }
+            }
+        }
+
+        // ============================================================================
+        // 7. COZY CAMPFIRE, TENT LOGS & STYLIZED POND
+        // ============================================================================
+        const campfireGroup = new THREE.Group();
+        const cfY = getTerrainHeight(0, 0);
+        campfireGroup.position.set(0, cfY, 0);
+        campfireGroup.userData = { type: 'campfire', flareBoost: 0 };
+        scene.add(campfireGroup);
+
+        const stoneRingMat = new THREE.MeshStandardMaterial({ color: 0x7f8c8d, roughness: 0.88 });
+        applyStylizedCelShading(stoneRingMat);
+        for (let i = 0; i < 10; i++) {
+            const ang = (i / 10) * Math.PI * 2;
+            const stone = new THREE.Mesh(new THREE.DodecahedronGeometry(0.22 + (i % 2) * 0.05, 0), stoneRingMat);
+            stone.position.set(Math.cos(ang) * 0.78, 0.1, Math.sin(ang) * 0.78);
+            stone.scale.set(1.2, 0.75, 1.0);
+            stone.rotation.y = ang;
+            campfireGroup.add(stone);
+        }
+
+        const fireLogMat = new THREE.MeshStandardMaterial({
+            color: 0x6b3e26,
+            emissive: 0xff5400,
+            emissiveIntensity: 0.35,
+            roughness: 0.85
+        });
+        for (let i = 0; i < 4; i++) {
+            const log = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 1.15, 6), fireLogMat);
+            const ang = (i / 4) * Math.PI + 0.3;
+            log.position.set(Math.cos(ang) * 0.12, 0.18, Math.sin(ang) * 0.12);
+            log.rotation.z = Math.PI * 0.38;
+            log.rotation.y = ang;
+            campfireGroup.add(log);
+        }
+
+        // Seat logs near campfire
+        const seatLogGeo = new THREE.CylinderGeometry(0.24, 0.26, 1.9, 8);
+        seatLogGeo.rotateZ(Math.PI * 0.5);
+        const seat1 = new THREE.Mesh(seatLogGeo, trunkMat);
+        seat1.position.set(-2.2, getTerrainHeight(-2.2, 1.2) + 0.2, 1.2);
+        seat1.rotation.y = 0.55;
+        seat1.castShadow = true;
+        scene.add(seat1);
+
+        const flames = [];
+        const flameColors = [0xff5400, 0xff9e00, 0xffea00];
+        for (let i = 0; i < 6; i++) {
+            const fMat = new THREE.MeshBasicMaterial({
+                color: flameColors[i % flameColors.length],
+                transparent: true,
+                opacity: 0.88
+            });
+            const fMesh = new THREE.Mesh(new THREE.OctahedronGeometry(0.26 - i * 0.02, 0), fMat);
+            const ang = (i / 6) * Math.PI * 2;
+            fMesh.userData = {
+                baseX: Math.cos(ang) * 0.14,
+                baseZ: Math.sin(ang) * 0.14,
+                speed: 1.4 + (i % 3) * 0.45,
+                offset: i * 0.37
+            };
+            campfireGroup.add(fMesh);
+            flames.push(fMesh);
+        }
+
+        // PointLight WITHOUT shadow map (avoids 6x cubemap shadow pass on Mali-G57!)
+        const campfireLight = new THREE.PointLight(0xff8c2b, 2.5, 15, 1.6);
+        campfireLight.position.set(0, 0.85, 0);
+        campfireLight.castShadow = false;
+        campfireGroup.add(campfireLight);
+        let isCampfireLit = true;
+
+        // ============================================================================
+        // 7B. ZELDA: BREATH OF THE WILD REALISTIC-STYLIZED WATER & AQUATIC ECOSYSTEM
+        // ============================================================================
+        const POND_WATER_Y = -0.30;
+
+        // Pre-baked Tileable Voronoi Caustics + Wave Normal + Foam Texture (Fast on Mobile GPU)
+        function createBotWWaterDataTexture() {
+            const size = 256;
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            const imgData = ctx.createImageData(size, size);
+            const data = imgData.data;
+
+            // 18 deterministic feature points for seamless tileable Voronoi caustics
+            const pts = [];
+            for (let i = 0; i < 18; i++) {
+                pts.push({
+                    x: ((i * 73 + 19) % 100) / 100,
+                    y: ((i * 41 + 53) % 100) / 100
+                });
+            }
+
+            for (let py = 0; py < size; py++) {
+                for (let px = 0; px < size; px++) {
+                    const u = px / size;
+                    const v = py / size;
+
+                    let d1 = 99.0;
+                    let d2 = 99.0;
+                    for (let i = 0; i < pts.length; i++) {
+                        let dx = Math.abs(u - pts[i].x);
+                        let dy = Math.abs(v - pts[i].y);
+                        if (dx > 0.5) dx = 1.0 - dx;
+                        if (dy > 0.5) dy = 1.0 - dy;
+                        const d = Math.hypot(dx, dy);
+                        if (d < d1) {
+                            d2 = d1;
+                            d1 = d;
+                        } else if (d < d2) {
+                            d2 = d;
+                        }
+                    }
+
+                    // Crisp BotW cellular ridge caustics based on Voronoi edge distance (d2 - d1)
+                    const edgeDist = d2 - d1;
+                    const caustic = Math.pow(Math.max(0.0, 1.0 - edgeDist * 6.2), 2.4);
+
+                    // Smooth multi-frequency wave normal derivatives (encoded in R & G)
+                    const tau = Math.PI * 2.0;
+                    const nx = (
+                        Math.cos(u * tau * 2.0 + v * tau) * 0.45 +
+                        Math.sin(u * tau * 4.0 - v * tau * 2.0) * 0.30 +
+                        Math.cos((u + v) * tau * 6.0) * 0.25
+                    );
+                    const ny = (
+                        Math.sin(v * tau * 2.0 - u * tau) * 0.45 +
+                        Math.cos(v * tau * 4.0 + u * tau * 3.0) * 0.30 +
+                        Math.sin((v - u) * tau * 6.0) * 0.25
+                    );
+
+                    // Cellular organic foam mask in Alpha
+                    const foamNoise = Math.min(1.0, Math.max(0.0, (1.0 - d1 * 3.4) * 0.75 + caustic * 0.35));
+
+                    const idx = (py * size + px) * 4;
+                    data[idx] = Math.floor((nx * 0.5 + 0.5) * 255);     // R: Wave Normal X
+                    data[idx + 1] = Math.floor((ny * 0.5 + 0.5) * 255); // G: Wave Normal Z
+                    data[idx + 2] = Math.floor(caustic * 255);          // B: Voronoi Caustics
+                    data[idx + 3] = Math.floor(foamNoise * 255);        // A: Cellular Foam Mask
+                }
+            }
+
+            ctx.putImageData(imgData, 0, 0);
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.wrapS = THREE.RepeatWrapping;
+            tex.wrapT = THREE.RepeatWrapping;
+            return tex;
+        }
+
+        // Partially submerged rocks inside the pond (generate foam rings around them!)
+        const pondObstacles = [
+            { x: 6.8, z: 5.1, r: 0.62, h: 0.42 },
+            { x: 9.7, z: 7.4, r: 0.52, h: 0.36 },
+            { x: 7.4, z: 8.1, r: 0.40, h: 0.28 }
+        ];
+
+        const pondGroup = new THREE.Group();
+        scene.add(pondGroup);
+
+        const wetRockMat = new THREE.MeshStandardMaterial({
+            color: 0x56666b,
+            roughness: 0.42,
+            metalness: 0.08
+        });
+        applyStylizedCelShading(wetRockMat, { rimStrength: 0.32, shadowLift: 0.50 });
+
+        pondObstacles.forEach((ob, idx) => {
+            const rMesh = new THREE.Mesh(new THREE.DodecahedronGeometry(ob.r, 1), wetRockMat);
+            rMesh.position.set(ob.x, POND_WATER_Y - 0.08, ob.z);
+            rMesh.scale.set(1.25, ob.h / ob.r, 1.1);
+            rMesh.rotation.set(idx * 0.7, idx * 1.3, 0.2);
+            rMesh.castShadow = true;
+            rMesh.receiveShadow = true;
+            pondGroup.add(rMesh);
+        });
+
+        // Colorful Underwater Pebbles (Visible through BotW crystal-clear shallow water)
+        const pebbleColors = [0x6c8a82, 0x8fa89b, 0x52736b, 0xb59e7a];
+        const pebbleGeo = new THREE.DodecahedronGeometry(0.16, 0);
+        for (let i = 0; i < 26; i++) {
+            const ang = (i / 26) * Math.PI * 2 + (i % 3) * 0.4;
+            const rad = 1.2 + (i % 5) * 0.72;
+            const px = POND_CENTER.x + Math.cos(ang) * rad;
+            const pz = POND_CENTER.z + Math.sin(ang) * rad;
+            const py = getTerrainHeight(px, pz);
+            if (py < POND_WATER_Y - 0.06) {
+                const pMat = new THREE.MeshBasicMaterial({ color: pebbleColors[i % pebbleColors.length] });
+                const pebble = new THREE.Mesh(pebbleGeo, pMat);
+                const s = 0.65 + (i % 4) * 0.35;
+                pebble.position.set(px, py + 0.03, pz);
+                pebble.scale.set(s * 1.3, s * 0.45, s);
+                pebble.rotation.y = ang;
+                pondGroup.add(pebble);
+            }
+        }
+
+        // Bobbing BotW Lily Pads & Blooming Lotus Flowers
+        const lilyPads = [];
+        const lilyMat = new THREE.MeshStandardMaterial({ color: 0x4ea865, roughness: 0.65, side: THREE.DoubleSide });
+        applyStylizedCelShading(lilyMat, { rimStrength: 0.20, shadowLift: 0.58 });
+        const lotusPetalMat = new THREE.MeshStandardMaterial({
+            color: 0xffb3c6,
+            emissive: 0xff758f,
+            emissiveIntensity: 0.18,
+            roughness: 0.45
+        });
+
+        const lilySpots = [
+            { x: 9.2, z: 5.2, r: 0.36, flower: true },
+            { x: 8.6, z: 4.7, r: 0.26, flower: false },
+            { x: 6.4, z: 6.6, r: 0.34, flower: true },
+            { x: 6.9, z: 7.1, r: 0.24, flower: false },
+            { x: 8.8, z: 8.1, r: 0.32, flower: true }
+        ];
+        lilySpots.forEach((lp, i) => {
+            const lpGroup = new THREE.Group();
+            lpGroup.position.set(lp.x, POND_WATER_Y + 0.018, lp.z);
+
+            // Notched Lily Pad Disc
+            const padGeo = new THREE.CircleGeometry(lp.r, 14, 0.18, Math.PI * 2 - 0.36);
+            padGeo.rotateX(-Math.PI / 2);
+            const padMesh = new THREE.Mesh(padGeo, lilyMat);
+            padMesh.rotation.y = i * 1.4;
+            lpGroup.add(padMesh);
+
+            if (lp.flower) {
+                for (let p = 0; p < 6; p++) {
+                    const pAng = (p / 6) * Math.PI * 2;
+                    const petal = new THREE.Mesh(new THREE.ConeGeometry(0.055, 0.16, 5), lotusPetalMat);
+                    petal.position.set(Math.cos(pAng) * 0.06, 0.05, Math.sin(pAng) * 0.06);
+                    petal.rotation.z = -Math.cos(pAng) * 0.55;
+                    petal.rotation.x = Math.sin(pAng) * 0.55;
+                    lpGroup.add(petal);
+                }
+            }
+
+            lpGroup.userData = { baseX: lp.x, baseZ: lp.z, phase: i * 1.6 };
+            lilyPads.push(lpGroup);
+            pondGroup.add(lpGroup);
+        });
+
+        // Pondside Cattails / Reeds (Ilalang Air)
+        const reedStemMat = new THREE.MeshStandardMaterial({ color: 0x5c9e57, roughness: 0.8 });
+        const reedHeadMat = new THREE.MeshStandardMaterial({ color: 0x5e3a24, roughness: 0.9 });
+        const reedClusters = [
+            { x: 12.4, z: 4.8 }, { x: 12.1, z: 5.5 }, { x: 4.5, z: 8.2 },
+            { x: 5.1, z: 8.9 }, { x: 10.6, z: 9.8 }, { x: 5.2, z: 3.4 }
+        ];
+        reedClusters.forEach((rc, idx) => {
+            const rGroup = new THREE.Group();
+            const ry = getTerrainHeight(rc.x, rc.z);
+            rGroup.position.set(rc.x, ry, rc.z);
+            for (let j = 0; j < 4; j++) {
+                const h = 0.85 + (j % 3) * 0.22;
+                const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.028, h, 5), reedStemMat);
+                const ox = (j - 1.5) * 0.12;
+                const oz = ((j * 7) % 3 - 1) * 0.12;
+                stem.position.set(ox, h * 0.5, oz);
+                stem.rotation.z = (j - 1.5) * 0.08;
+                rGroup.add(stem);
+                if (j % 2 === 0) {
+                    const head = new THREE.Mesh(new THREE.CylinderGeometry(0.038, 0.038, 0.22, 6), reedHeadMat);
+                    head.position.set(ox - Math.sin(stem.rotation.z) * h * 0.38, h * 0.82, oz);
+                    head.rotation.z = stem.rotation.z;
+                    rGroup.add(head);
+                }
+            }
+            pondGroup.add(rGroup);
+        });
+
+        // BotW Hearty Bass / Koi Fish Swimming Beneath the Water Surface
+        const pondFishList = [];
+        const fishBodyGeo = new THREE.ConeGeometry(0.075, 0.34, 6);
+        fishBodyGeo.rotateX(Math.PI * 0.5);
+        const fishTailGeo = new THREE.ConeGeometry(0.065, 0.14, 3);
+        fishTailGeo.rotateX(-Math.PI * 0.5);
+        fishTailGeo.translate(0, 0, -0.20);
+
+        const fishColors = [0xff7b39, 0xffbe0b, 0xf75c03];
+        for (let f = 0; f < 3; f++) {
+            const fGroup = new THREE.Group();
+            const fMat = new THREE.MeshBasicMaterial({ color: fishColors[f % fishColors.length] });
+            const body = new THREE.Mesh(fishBodyGeo, fMat);
+            const tail = new THREE.Mesh(fishTailGeo, fMat);
+            fGroup.add(body);
+            fGroup.add(tail);
+            fGroup.userData = {
+                tailMesh: tail,
+                swimRadius: 1.35 + f * 0.65,
+                swimSpeed: 0.52 - f * 0.08,
+                phase: f * 2.1,
+                depthY: POND_WATER_Y - 0.32 - f * 0.12
+            };
+            pondFishList.push(fGroup);
+            pondGroup.add(fGroup);
+        }
+
+        // Subdivided Pond Water Surface Geometry with Precomputed Exact Depth & Obstacle Foam Attributes
+        const pondWaterGeo = new THREE.PlaneGeometry(POND_CENTER.radius * 2.25, POND_CENTER.radius * 2.25, 48, 48);
+        pondWaterGeo.rotateX(-Math.PI / 2);
+        pondWaterGeo.translate(POND_CENTER.x, POND_WATER_Y, POND_CENTER.z);
+
+        const pwPos = pondWaterGeo.attributes.position;
+        const bedDepthArr = new Float32Array(pwPos.count);
+        const obstacleFoamArr = new Float32Array(pwPos.count);
+
+        for (let i = 0; i < pwPos.count; i++) {
+            const wx = pwPos.getX(i);
+            const wz = pwPos.getZ(i);
+            const terrainY = getTerrainHeight(wx, wz);
+            const depth = POND_WATER_Y - terrainY;
+            bedDepthArr[i] = depth;
+
+            // Compute proximity to partially submerged rocks & lily pads for BotW ring foam
+            let minObsDist = 99.0;
+            for (let j = 0; j < pondObstacles.length; j++) {
+                const ob = pondObstacles[j];
+                const d = Math.hypot(wx - ob.x, wz - ob.z) - ob.r * 0.92;
+                if (d < minObsDist) minObsDist = d;
+            }
+            obstacleFoamArr[i] = Math.max(0.0, minObsDist);
+        }
+        pondWaterGeo.setAttribute('aBedDepth', new THREE.BufferAttribute(bedDepthArr, 1));
+        pondWaterGeo.setAttribute('aObstacleDist', new THREE.BufferAttribute(obstacleFoamArr, 1));
+
+        const pondUniforms = {
+            uTime: celShaderUniforms.uTime,
+            uWindSpeed: grassUniforms.uWindSpeed,
+            uWaterDataTex: { value: createBotWWaterDataTexture() },
+            uSunDir: celShaderUniforms.uSunDir,
+            uSunColor: celShaderUniforms.uSunColor,
+            uSkyTop: { value: activeAtmosphere.bgTop },
+            uSkyBottom: { value: activeAtmosphere.bgBottom },
+            uCampfirePos: celShaderUniforms.uCampfirePos,
+            uCampfireColor: celShaderUniforms.uCampfireColor,
+            uCampfireStrength: celShaderUniforms.uCampfireStrength,
+            uRippleOrigin: { value: new THREE.Vector3(POND_CENTER.x, POND_WATER_Y, POND_CENTER.z) },
+            uRippleTime: { value: -99.0 }
+        };
+
+        const pondMat = new THREE.ShaderMaterial({
+            transparent: true,
+            depthWrite: false,
+            uniforms: pondUniforms,
+            vertexShader: `
+                precision highp float;
+                attribute float aBedDepth;
+                attribute float aObstacleDist;
+                uniform float uTime;
+                uniform float uWindSpeed;
+                uniform vec3 uRippleOrigin;
+                uniform float uRippleTime;
+
+                varying vec3 vWorldPos;
+                varying float vDepth;
+                varying float vObstacleDist;
+                varying float vRippleWave;
+
+                void main() {
+                    vDepth = aBedDepth;
+                    vObstacleDist = aObstacleDist;
+
+                    vec3 pos = position;
+                    float deepMask = smoothstep(0.02, 0.35, aBedDepth);
+
+                    // Gentle 3D surface wave displacement
+                    float wave1 = sin(pos.x * 1.8 + uTime * 1.9 * uWindSpeed) * cos(pos.z * 1.6 + uTime * 1.5) * 0.028;
+                    float wave2 = sin((pos.x - pos.z) * 2.9 - uTime * 2.4) * 0.014;
+
+                    // Interactive click/slash expanding 3D ripple wave
+                    float rAge = uTime - uRippleTime;
+                    float ripple = 0.0;
+                    if (rAge >= 0.0 && rAge < 3.5) {
+                        float dRipple = length(pos.xz - uRippleOrigin.xz);
+                        float ringRadius = rAge * 2.6;
+                        float band = 1.0 - smoothstep(0.0, 0.85, abs(dRipple - ringRadius));
+                        float fade = 1.0 - smoothstep(0.0, 3.5, rAge);
+                        ripple = sin((dRipple - ringRadius) * 14.0) * band * fade;
+                    }
+                    vRippleWave = ripple;
+
+                    pos.y += (wave1 + wave2 + ripple * 0.055) * deepMask;
+                    vWorldPos = (modelMatrix * vec4(pos, 1.0)).xyz;
+                    gl_Position = projectionMatrix * viewMatrix * vec4(vWorldPos, 1.0);
+                }
+            `,
+            fragmentShader: `
+                precision highp float;
+                uniform float uTime;
+                uniform float uWindSpeed;
+                uniform sampler2D uWaterDataTex;
+                uniform vec3 uSunDir;
+                uniform vec3 uSunColor;
+                uniform vec3 uSkyTop;
+                uniform vec3 uSkyBottom;
+                uniform vec3 uCampfirePos;
+                uniform vec3 uCampfireColor;
+                uniform float uCampfireStrength;
+                uniform vec3 uRippleOrigin;
+                uniform float uRippleTime;
+
+                varying vec3 vWorldPos;
+                varying float vDepth;
+                varying float vObstacleDist;
+                varying float vRippleWave;
+
+                void main() {
+                    // Clip pixels outside the water shoreline
+                    if (vDepth <= 0.002) discard;
+
+                    vec3 V = normalize(cameraPosition - vWorldPos);
+                    vec3 L = normalize(uSunDir);
+
+                    // Dual-scrolling Voronoi + Wave Normal lookups (BotW dual-wave interference)
+                    vec2 uv1 = vWorldPos.xz * 0.24 + vec2(uTime * 0.038 * uWindSpeed, uTime * 0.026 * uWindSpeed);
+                    vec2 uv2 = vWorldPos.xz * 0.31 - vec2(uTime * 0.029 * uWindSpeed, -uTime * 0.034 * uWindSpeed);
+
+                    vec4 sample1 = texture2D(uWaterDataTex, uv1);
+                    vec4 sample2 = texture2D(uWaterDataTex, uv2);
+
+                    // Perturbed 3D Water Surface Normal
+                    vec2 nXY = ((sample1.rg * 2.0 - 1.0) + (sample2.rg * 2.0 - 1.0)) * 0.16;
+                    nXY += (vWorldPos.xz - uRippleOrigin.xz) * vRippleWave * 0.18;
+                    vec3 N = normalize(vec3(nXY.x, 1.0, nXY.y));
+
+                    // 1. Depth-based Beer-Lambert Absorption & BotW Emerald-Turquoise Gradient
+                    float depthNorm = clamp(vDepth / 1.35, 0.0, 1.0);
+                    vec3 shallowCol = vec3(0.32, 0.88, 0.80); // Crystal turquoise shallows
+                    vec3 midWaterCol = vec3(0.11, 0.62, 0.72); // Hyrule emerald-cyan
+                    vec3 deepWaterCol = vec3(0.06, 0.28, 0.44); // Deep indigo-teal basin
+
+                    vec3 waterBodyCol = mix(shallowCol, midWaterCol, smoothstep(0.04, 0.48, depthNorm));
+                    waterBodyCol = mix(waterBodyCol, deepWaterCol, smoothstep(0.45, 0.98, depthNorm));
+
+                    // 2. Parallax Underwater Voronoi Caustics projected onto the Pond Bed
+                    vec2 parallaxOffset = V.xz / max(V.y, 0.25) * (vDepth * 0.28);
+                    vec2 cUv1 = (vWorldPos.xz - parallaxOffset) * 0.28 + vec2(uTime * 0.042, -uTime * 0.031);
+                    vec2 cUv2 = (vWorldPos.xz - parallaxOffset) * 0.34 + vec2(-uTime * 0.035, uTime * 0.045);
+                    float caust1 = texture2D(uWaterDataTex, cUv1).b;
+                    float caust2 = texture2D(uWaterDataTex, cUv2).b;
+                    float combinedCaustics = smoothstep(0.28, 0.68, (caust1 + caust2) * 0.62 + sample1.b * 0.25);
+
+                    // Caustics are strongest in shallow-to-mid water and fade in the deepest center
+                    float causticVisibility = smoothstep(0.04, 0.22, depthNorm) * (1.0 - smoothstep(0.65, 0.98, depthNorm));
+                    vec3 causticLight = mix(vec3(0.65, 0.98, 0.92), uSunColor * 1.15, 0.55);
+                    waterBodyCol += causticLight * combinedCaustics * causticVisibility * 0.48;
+
+                    // 3. Schlick Fresnel Sky & Horizon Reflection
+                    float NoV = max(dot(N, V), 0.0);
+                    float fresnel = clamp(0.06 + 0.88 * pow(1.0 - NoV, 3.4), 0.0, 1.0);
+                    vec3 reflDir = reflect(-V, N);
+                    vec3 skyRefl = mix(uSkyBottom, uSkyTop, clamp(reflDir.y * 0.75 + 0.25, 0.0, 1.0));
+                    vec3 surfaceCol = mix(waterBodyCol, skyRefl * 1.05, fresnel * 0.72);
+
+                    // 4. BotW Stepped Cel-Shaded Sun Specular Glints & Shimmering Path
+                    vec3 H = normalize(L + V);
+                    float NoH = max(dot(N, H), 0.0);
+                    float softPath = pow(NoH, 28.0) * 0.38;
+                    float celSparkle = smoothstep(0.62, 0.68, pow(NoH, 95.0) + combinedCaustics * 0.16);
+                    surfaceCol += uSunColor * (softPath + celSparkle * 0.95);
+
+                    // Warm Campfire Reflection on the Pond Surface
+                    float fireDist = length(uCampfirePos - vWorldPos);
+                    float fireGlow = (1.0 - smoothstep(3.0, 14.5, fireDist)) * uCampfireStrength;
+                    surfaceCol += uCampfireColor * fireGlow * (0.25 + combinedCaustics * 0.35);
+
+                    // 5. BotW Dual-Ring Animated Shoreline & Submerged Rock Foam
+                    float cellularNoise = (sample1.a + sample2.a) * 0.5;
+                    float edgeProximity = min(vDepth, vObstacleDist * 0.65);
+
+                    float shoreZone = 1.0 - smoothstep(0.02, 0.34, edgeProximity);
+                    float wavePhase = sin(edgeProximity * 28.0 - uTime * 3.2 + cellularNoise * 3.5) * 0.5 + 0.5;
+                    float innerFoamRing = smoothstep(0.56, 0.66, wavePhase * shoreZone + cellularNoise * 0.28 * shoreZone);
+                    float outerShoreLip = 1.0 - smoothstep(0.005, 0.075, edgeProximity);
+                    float rippleFoam = smoothstep(0.35, 0.55, abs(vRippleWave)) * 0.85;
+
+                    float totalFoam = clamp(max(max(innerFoamRing, outerShoreLip), rippleFoam), 0.0, 1.0);
+                    vec3 foamCol = mix(vec3(0.88, 0.98, 1.0), uSunColor, 0.24);
+                    surfaceCol = mix(surfaceCol, foamCol, totalFoam * 0.92);
+
+                    // 6. Crystal-Clear Shore Feathering & Depth Opacity
+                    float baseAlpha = smoothstep(0.005, 0.075, vDepth) * mix(0.68, 0.94, smoothstep(0.08, 0.72, depthNorm));
+                    float finalAlpha = clamp(max(baseAlpha, totalFoam * 0.92), 0.0, 0.96);
+
+                    gl_FragColor = vec4(surfaceCol, finalAlpha);
+                }
+            `
+        });
+
+        const pondMesh = new THREE.Mesh(pondWaterGeo, pondMat);
+        pondMesh.userData = { type: 'pond' };
+        pondGroup.add(pondMesh);
+
+        // ============================================================================
+        // 8. STYLIZED ROCKS, GLOWING MUSHROOMS & FIREFLIES
+        // ============================================================================
+        const rockMat = new THREE.MeshStandardMaterial({ color: 0x7a8288, roughness: 0.88 });
+        applyStylizedCelShading(rockMat, { rimStrength: 0.18, shadowLift: 0.52 });
+
+        const rockSpots = [
+            [-4.2, -5.8, 0.85], [6.2, 2.8, 1.1], [10.8, 7.6, 0.95],
+            [5.8, 8.2, 0.75], [-8.8, 1.5, 1.25], [3.2, -6.5, 0.7]
+        ];
+        rockSpots.forEach(r => {
+            const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(r[2], 0), rockMat);
+            rock.position.set(r[0], getTerrainHeight(r[0], r[1]) + r[2] * 0.35, r[1]);
+            rock.scale.set(1.25, 0.78, 1.1);
+            rock.rotation.set(r[0], r[1], 0.3);
+            rock.receiveShadow = true;
+            scene.add(rock);
+        });
+
+        const interactiveMushrooms = [];
+        const mushroomCapMaterials = [];
+        const stemMat = new THREE.MeshStandardMaterial({ color: 0xf4ebd9, roughness: 0.7 });
+
+        const mushroomSpots = [
+            [-3.2, -2.5], [-3.6, -2.1], [3.8, -3.2], [4.2, 5.4],
+            [-5.8, 3.4], [10.4, 4.2], [-2.2, 5.8], [6.5, -4.8]
+        ];
+        mushroomSpots.forEach((m, idx) => {
+            const mGroup = new THREE.Group();
+            const my = getTerrainHeight(m[0], m[1]);
+            mGroup.position.set(m[0], my, m[1]);
+
+            const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.08, 0.32, 6), stemMat);
+            stem.position.y = 0.16;
+            mGroup.add(stem);
+
+            const capMat = new THREE.MeshStandardMaterial({
+                color: idx % 2 === 0 ? 0x4cc9f0 : 0xff758f,
+                emissive: idx % 2 === 0 ? 0x48cae4 : 0xff4d6d,
+                emissiveIntensity: activeAtmosphere.mushroomGlow,
+                roughness: 0.45
+            });
+            mushroomCapMaterials.push(capMat);
+
+            const cap = new THREE.Mesh(new THREE.ConeGeometry(0.24, 0.22, 8), capMat);
+            cap.position.y = 0.34;
+            mGroup.add(cap);
+
+            mGroup.userData = { type: 'mushroom', pulse: 0 };
+            interactiveMushrooms.push(mGroup);
+            scene.add(mGroup);
+        });
+
+        // Floating Fireflies / Pollen Particles
+        const PARTICLE_COUNT = 85;
+        const particleGeo = new THREE.BufferGeometry();
+        const pPositions = new Float32Array(PARTICLE_COUNT * 3);
+        const pPhases = new Float32Array(PARTICLE_COUNT);
+
+        for (let i = 0; i < PARTICLE_COUNT; i++) {
+            const px = (Math.random() - 0.5) * 44;
+            const pz = (Math.random() - 0.5) * 44;
+            const py = getTerrainHeight(px, pz) + 0.5 + Math.random() * 4.5;
+            pPositions[i * 3] = px;
+            pPositions[i * 3 + 1] = py;
+            pPositions[i * 3 + 2] = pz;
+            pPhases[i] = Math.random() * Math.PI * 2;
+        }
+        particleGeo.setAttribute('position', new THREE.BufferAttribute(pPositions, 3));
+
+        const particleMat = new THREE.PointsMaterial({
+            color: activeAtmosphere.particleColor,
+            size: 0.26,
+            transparent: true,
+            opacity: 0.88,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false
+        });
+        const particleSystem = new THREE.Points(particleGeo, particleMat);
+        scene.add(particleSystem);
+
+        // ============================================================================
+        // 12. INTERACTIVE RAYCASTER, BOTW GRASS CUTTING & BURST EFFECTS
+        // ============================================================================
+        const raycaster = new THREE.Raycaster();
+        const pointer = new THREE.Vector2();
+        const pointerDownPos = { x: 0, y: 0 };
+        let isCutGrassMode = false;
+        let isPointerDraggingCut = false;
+        let lastCutTime = 0;
+        let cameraTransition = null;
+
+        const burstParticles = [];
+        const slashRings = [];
+        const sharedLeafBurstGeo = new THREE.PlaneGeometry(0.16, 0.08);
+        const sharedSparkBurstGeo = new THREE.OctahedronGeometry(0.07, 0);
+        const slashRingGeo = new THREE.RingGeometry(0.35, 1.85, 20);
+        slashRingGeo.rotateX(-Math.PI / 2);
+
+        function spawnBurst(origin, colorHex, count = 10, isUpward = false, isGrassBlade = false) {
+            for (let i = 0; i < count; i++) {
+                const mat = new THREE.MeshBasicMaterial({
+                    color: colorHex,
+                    side: THREE.DoubleSide,
+                    transparent: true,
+                    opacity: 1.0
+                });
+                const mesh = new THREE.Mesh(isUpward && !isGrassBlade ? sharedSparkBurstGeo : sharedLeafBurstGeo, mat);
+                mesh.position.copy(origin);
+                scene.add(mesh);
+
+                const angle = Math.random() * Math.PI * 2;
+                const speed = 1.2 + Math.random() * 2.5;
+                burstParticles.push({
+                    mesh,
+                    vel: new THREE.Vector3(
+                        Math.cos(angle) * speed,
+                        isUpward ? (1.8 + Math.random() * 2.4) : (0.6 + Math.random() * 1.4),
+                        Math.sin(angle) * speed
+                    ),
+                    gravity: isUpward && !isGrassBlade ? -0.4 : 4.2,
+                    life: 1.0
+                });
+            }
+        }
+
+        function spawnSlashRing(origin) {
+            const mat = new THREE.MeshBasicMaterial({
+                color: 0xd9f99d,
+                side: THREE.DoubleSide,
+                transparent: true,
+                opacity: 0.85
+            });
+            const mesh = new THREE.Mesh(slashRingGeo, mat);
+            mesh.position.set(origin.x, origin.y + 0.25, origin.z);
+            scene.add(mesh);
+            slashRings.push({ mesh, life: 1.0 });
+        }
+
+        let toastTimeout = null;
+        function showToast(emoji, text) {
+            const toast = document.getElementById('interaction-toast');
+            document.getElementById('toast-emoji').textContent = emoji;
+            document.getElementById('toast-text').textContent = text;
+            toast.classList.remove('hidden', 'toast-anim');
+            void toast.offsetWidth;
+            toast.classList.add('toast-anim');
+            if (toastTimeout) clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => toast.classList.add('hidden'), 2600);
+        }
+
+        function performBotWGrassCut(clientX, clientY, isDrag = false) {
+            const now = performance.now();
+            if (isDrag && now - lastCutTime < 55) return;
+            lastCutTime = now;
+
+            pointer.x = (clientX / window.innerWidth) * 2 - 1;
+            pointer.y = -(clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(pointer, camera);
+
+            // Check if slashing over the BotW Pond first!
+            const pondHits = raycaster.intersectObject(pondMesh, false);
+            if (pondHits.length > 0) {
+                const pt = pondHits[0].point;
+                triggerBotWWaterSplash(pt);
+                return;
+            }
+
+            const hits = raycaster.intersectObjects(terrainChunks, false);
+            if (hits.length > 0) {
+                const pt = hits[0].point;
+                paintGrassVisibilityCircle(pt.x, pt.z, 2.35, 0.0);
+                grassMapTexture.needsUpdate = true;
+
+                spawnSlashRing(pt);
+                spawnBurst(new THREE.Vector3(pt.x, pt.y + 0.35, pt.z), 0x9fd86b, 10, true, true);
+
+                interactiveBushes.forEach(bush => {
+                    if (!bush.userData.isCut && bush.position.distanceTo(pt) < 2.5) {
+                        bush.userData.isCut = true;
+                        bush.visible = false;
+                        spawnBurst(bush.position.clone().add(new THREE.Vector3(0, 0.5, 0)), 0x74bd76, 14, true, true);
+                    }
+                });
+            }
+        }
+
+        function triggerBotWWaterSplash(pt) {
+            pondUniforms.uRippleOrigin.value.copy(pt);
+            pondUniforms.uRippleTime.value = clock.getElapsedTime();
+            spawnBurst(new THREE.Vector3(pt.x, POND_WATER_Y + 0.12, pt.z), 0xa5f3fc, 14, true, false);
+            spawnBurst(new THREE.Vector3(pt.x, POND_WATER_Y + 0.18, pt.z), 0xffffff, 8, true, false);
+        }
+
+        window.addEventListener('pointerdown', (e) => {
+            if (e.target.closest('aside') || e.target.closest('button')) return;
+            pointerDownPos.x = e.clientX;
+            pointerDownPos.y = e.clientY;
+
+            if (isCutGrassMode && e.button === 0) {
+                isPointerDraggingCut = true;
+                performBotWGrassCut(e.clientX, e.clientY, false);
+            }
+        });
+
+        window.addEventListener('pointermove', (e) => {
+            if (isCutGrassMode && isPointerDraggingCut) {
+                performBotWGrassCut(e.clientX, e.clientY, true);
+            }
+        });
+
+        window.addEventListener('pointerup', (e) => {
+            isPointerDraggingCut = false;
+            if (e.target.closest('aside') || e.target.closest('button')) return;
+            const moveDist = Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y);
+            if (moveDist > 6) return;
+
+            if (isCutGrassMode) return;
+
+            pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
+            pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(pointer, camera);
+
+            const targets = [pondMesh, campfireGroup, ...interactiveMushrooms, ...interactiveBushes, ...interactiveTrees];
+            const intersects = raycaster.intersectObjects(targets, true);
+
+            if (intersects.length > 0) {
+                const hitPoint = intersects[0].point;
+                let obj = intersects[0].object;
+                while (obj.parent && !obj.userData.type) {
+                    obj = obj.parent;
+                }
+
+                if (obj.userData.type === 'pond') {
+                    triggerBotWWaterSplash(hitPoint);
+                    showToast('💧', 'Cipratan air jernih & gelombang riak kolam BotW!');
+                } else if (obj.userData.type === 'campfire') {
+                    if (!isCampfireLit) {
+                        toggleCampfireState(true);
+                        showToast('🔥', 'Api unggun dinyalakan kembali!');
+                    } else {
+                        obj.userData.flareBoost = 1.6;
+                        spawnBurst(new THREE.Vector3(0, cfY + 0.8, 0), 0xffbe0b, 14, true);
+                        showToast('🔥', 'Percikan api hangat membubung ke langit!');
+                    }
+                } else if (obj.userData.type === 'mushroom') {
+                    obj.userData.pulse = 1.5;
+                    const worldPos = new THREE.Vector3();
+                    obj.getWorldPosition(worldPos);
+                    worldPos.y += 0.35;
+                    spawnBurst(worldPos, 0x72efdd, 12, true);
+                    showToast('🍄', 'Spora ajaib jamur hutan berpendar!');
+                } else if (obj.userData.type === 'bush') {
+                    obj.userData.rustleBoost = 1.6;
+                    const worldPos = new THREE.Vector3();
+                    obj.getWorldPosition(worldPos);
+                    worldPos.y += 0.6;
+                    spawnBurst(worldPos, 0x82d672, 12, true, true);
+                    showToast('🌿', `${obj.userData.name} bergoyang rimbun!`);
+                } else if (obj.userData.type === 'tree') {
+                    obj.userData.rustleBoost = 1.5;
+                    const worldPos = new THREE.Vector3();
+                    obj.getWorldPosition(worldPos);
+                    worldPos.y += 3.2;
+                    spawnBurst(worldPos, obj.userData.leafColor || 0xf9c74f, 12, false);
+                    showToast('🍃', `${obj.userData.name} berdesir menjatuhkan dedaunan!`);
+                }
+            }
+        });
+
+        // ============================================================================
+        // 13. PROCEDURAL COZY WEB AUDIO SYNTH (Wind & Campfire Crackle)
+        // ============================================================================
+        let audioCtx = null;
+        let isAudioPlaying = false;
+        let windGainNode = null;
+        let crackleInterval = null;
+
+        function toggleProceduralAudio() {
+            const btn = document.getElementById('audio-toggle');
+
+            if (!isAudioPlaying) {
+                if (!audioCtx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    audioCtx = new AudioContext();
+
+                    const bufferSize = 2 * audioCtx.sampleRate;
+                    const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                    const output = noiseBuffer.getChannelData(0);
+                    let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+                    for (let i = 0; i < bufferSize; i++) {
+                        const white = Math.random() * 2 - 1;
+                        b0 = 0.99886 * b0 + white * 0.0555179;
+                        b1 = 0.99332 * b1 + white * 0.0750759;
+                        b2 = 0.96900 * b2 + white * 0.1538520;
+                        b3 = 0.86650 * b3 + white * 0.3104856;
+                        b4 = 0.55000 * b4 + white * 0.5329522;
+                        b5 = -0.7616 * b5 - white * 0.0168980;
+                        output[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362) * 0.025;
+                        b6 = white * 0.115926;
+                    }
+
+                    const whiteNoise = audioCtx.createBufferSource();
+                    whiteNoise.buffer = noiseBuffer;
+                    whiteNoise.loop = true;
+
+                    const filter = audioCtx.createBiquadFilter();
+                    filter.type = 'lowpass';
+                    filter.frequency.value = 340;
+
+                    windGainNode = audioCtx.createGain();
+                    windGainNode.gain.value = 0.22;
+
+                    whiteNoise.connect(filter);
+                    filter.connect(windGainNode);
+                    windGainNode.connect(audioCtx.destination);
+                    whiteNoise.start(0);
+                }
+
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                if (windGainNode) windGainNode.gain.setTargetAtTime(0.22, audioCtx.currentTime, 0.3);
+
+                crackleInterval = setInterval(() => {
+                    if (!isAudioPlaying || !isCampfireLit || !audioCtx) return;
+                    if (Math.random() < 0.55) {
+                        const osc = audioCtx.createOscillator();
+                        const g = audioCtx.createGain();
+                        osc.type = 'triangle';
+                        osc.frequency.setValueAtTime(120 + Math.random() * 380, audioCtx.currentTime);
+                        g.gain.setValueAtTime(0.03, audioCtx.currentTime);
+                        g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.045);
+                        osc.connect(g);
+                        g.connect(audioCtx.destination);
+                        osc.start();
+                        osc.stop(audioCtx.currentTime + 0.05);
+                    }
+                }, 180);
+
+                isAudioPlaying = true;
+                btn.classList.remove('bg-white/20', 'justify-start');
+                btn.classList.add('bg-orange-500', 'justify-end');
+                showToast('🎶', 'Suara alam & gemeretak api unggun aktif');
+            } else {
+                if (windGainNode && audioCtx) {
+                    windGainNode.gain.setTargetAtTime(0.0001, audioCtx.currentTime, 0.2);
+                }
+                if (crackleInterval) clearInterval(crackleInterval);
+                isAudioPlaying = false;
+                btn.classList.add('bg-white/20', 'justify-start');
+                btn.classList.remove('bg-orange-500', 'justify-end');
+                showToast('🔇', 'Suara alam dinonaktifkan');
+            }
+        }
+
+        // ============================================================================
+        // 14. UI EVENT LISTENERS
+        // ============================================================================
+        const moodButtons = document.querySelectorAll('.mood-btn');
+        moodButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                moodButtons.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                const moodKey = btn.dataset.mood;
+                currentMoodKey = moodKey;
+                targetMood = MOODS[moodKey];
+                document.getElementById('subtitle-mood').textContent = targetMood.name;
+            });
+        });
+
+        const windSlider = document.getElementById('wind-slider');
+        const windValLabel = document.getElementById('wind-val');
+        windSlider.addEventListener('input', (e) => {
+            const val = parseFloat(e.target.value);
+            grassUniforms.uWindSpeed.value = val;
+            if (val < 0.7) windValLabel.textContent = 'Sepoi-sepoi';
+            else if (val < 1.7) windValLabel.textContent = 'Sedang';
+            else windValLabel.textContent = 'Kencang';
+        });
+
+        const grassSlider = document.getElementById('grass-slider');
+        const grassValLabel = document.getElementById('grass-val');
+        grassSlider.addEventListener('input', (e) => {
+            const val = parseFloat(e.target.value);
+            grassUniforms.uSwayScale.value = val;
+            grassValLabel.textContent = Math.round(val * 100) + '%';
+        });
+
+        const bendSlider = document.getElementById('bend-slider');
+        const bendValLabel = document.getElementById('bend-val');
+        bendSlider.addEventListener('input', (e) => {
+            const val = parseFloat(e.target.value);
+            grassUniforms.uBladeBendDistance.value = val;
+            if (val < 0.3) bendValLabel.textContent = 'Tegak';
+            else if (val < 0.65) bendValLabel.textContent = 'Natural';
+            else bendValLabel.textContent = 'Melengkung';
+        });
+
+        // Interactive BotW Grass Cutting Toggle & Regrow Button
+        const cutGrassToggleBtn = document.getElementById('cut-grass-toggle');
+        cutGrassToggleBtn.addEventListener('click', () => {
+            isCutGrassMode = !isCutGrassMode;
+            controls.enableRotate = !isCutGrassMode;
+            if (isCutGrassMode) {
+                cutGrassToggleBtn.classList.remove('bg-white/20', 'justify-start');
+                cutGrassToggleBtn.classList.add('bg-emerald-500', 'justify-end');
+                renderer.domElement.style.cursor = 'crosshair';
+                showToast('⚔️', 'Mode Tebas Rumput Aktif! Klik/geser pada rumput untuk memotong');
+            } else {
+                cutGrassToggleBtn.classList.add('bg-white/20', 'justify-start');
+                cutGrassToggleBtn.classList.remove('bg-emerald-500', 'justify-end');
+                renderer.domElement.style.cursor = 'default';
+                showToast('🎥', 'Mode Kamera Normal Aktif');
+            }
+        });
+
+        document.getElementById('regrow-grass-btn').addEventListener('click', () => {
+            resetBotWGrassMap();
+            interactiveBushes.forEach(bush => {
+                bush.userData.isCut = false;
+                bush.visible = true;
+                bush.userData.rustleBoost = 1.2;
+            });
+            showToast('🌱', 'Seluruh rumput & semak BotW telah tumbuh kembali!');
+        });
+
+        // Performance Mode Switcher (Helio G99 / Balanced / Ultra PC)
+        const perfButtons = document.querySelectorAll('.perf-btn');
+        function applyPerformanceProfile(modeKey, showNotification = true) {
+            const prof = PERF_PROFILES[modeKey] || PERF_PROFILES.mobile;
+            currentPerfMode = modeKey;
+
+            renderer.setPixelRatio(prof.pixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+
+            document.getElementById('perf-status').textContent = prof.label;
+            perfButtons.forEach(b => {
+                if (b.dataset.perf === modeKey) {
+                    b.classList.remove('bg-white/5', 'border-white/10', 'text-amber-100', 'font-medium');
+                    b.classList.add('active', 'bg-orange-500/80', 'border-amber-300/50', 'text-white', 'font-semibold');
+                } else {
+                    b.classList.remove('active', 'bg-orange-500/80', 'border-amber-300/50', 'text-white', 'font-semibold');
+                    b.classList.add('bg-white/5', 'border-white/10', 'text-amber-100', 'font-medium');
+                }
+            });
+
+            if (showNotification) {
+                showToast('⚡', `Mode Performa: ${prof.label} diaktifkan!`);
+            }
+        }
+
+        perfButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                applyPerformanceProfile(btn.dataset.perf, true);
+            });
+        });
+        applyPerformanceProfile(currentPerfMode, false);
+
+        const paletteButtons = document.querySelectorAll('.palette-btn');
+        paletteButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                paletteButtons.forEach(b => {
+                    b.classList.remove('active', 'bg-orange-500/80', 'border-amber-300/50', 'text-white', 'font-semibold');
+                    b.classList.add('bg-white/5', 'border-white/10');
+                });
+                btn.classList.remove('bg-white/5', 'border-white/10');
+                btn.classList.add('active', 'bg-orange-500/80', 'border-amber-300/50', 'text-white', 'font-semibold');
+
+                const selectedKey = btn.dataset.palette;
+                swayingCanopies.forEach(treeData => {
+                    if (!treeData.foliageMesh) return;
+                    const targetKey = selectedKey === 'mixed' ? treeData.naturalColorKey : selectedKey;
+                    const pal = PINE_PALETTES[targetKey] || PINE_PALETTES.emerald;
+                    if (treeData.treeKind === 'deciduous') {
+                        treeData.foliageMesh.material = deciduousMaterials[targetKey];
+                        treeData.foliageMesh.customDepthMaterial = deciduousDepthMaterials[targetKey];
+                        treeData.name = `Pohon Rindang BotW (${pal.name})`;
+                    } else {
+                        treeData.foliageMesh.material = pineMaterials[targetKey];
+                        treeData.foliageMesh.customDepthMaterial = pineDepthMaterials[targetKey];
+                        treeData.name = pal.name;
+                    }
+                    treeData.leafColor.setHex(pal.burstColor);
+                });
+            });
+        });
+
+        function toggleCampfireState(forceState) {
+            isCampfireLit = typeof forceState === 'boolean' ? forceState : !isCampfireLit;
+            const btn = document.getElementById('campfire-toggle');
+            if (isCampfireLit) {
+                btn.classList.remove('bg-white/20', 'justify-start');
+                btn.classList.add('bg-orange-500', 'justify-end');
+                fireLogMat.emissiveIntensity = 0.35;
+            } else {
+                btn.classList.add('bg-white/20', 'justify-start');
+                btn.classList.remove('bg-orange-500', 'justify-end');
+                fireLogMat.emissiveIntensity = 0.02;
+            }
+        }
+        document.getElementById('campfire-toggle').addEventListener('click', () => toggleCampfireState());
+
+        document.getElementById('autorotate-toggle').addEventListener('click', (e) => {
+            controls.autoRotate = !controls.autoRotate;
+            const btn = e.currentTarget;
+            if (controls.autoRotate) {
+                btn.classList.remove('bg-white/20', 'justify-start');
+                btn.classList.add('bg-orange-500', 'justify-end');
+            } else {
+                btn.classList.add('bg-white/20', 'justify-start');
+                btn.classList.remove('bg-orange-500', 'justify-end');
+            }
+        });
+
+        document.getElementById('audio-toggle').addEventListener('click', toggleProceduralAudio);
+
+        const controlPanel = document.getElementById('control-panel');
+        let panelOpen = true;
+        document.getElementById('toggle-panel-btn').addEventListener('click', () => {
+            panelOpen = !panelOpen;
+            if (panelOpen) {
+                controlPanel.classList.remove('scale-0', 'opacity-0', 'pointer-events-none');
+            } else {
+                controlPanel.classList.add('scale-0', 'opacity-0', 'pointer-events-none');
+            }
+        });
+
+        document.getElementById('cam-overview').addEventListener('click', () => {
+            cameraTransition = {
+                pos: new THREE.Vector3(0, 9.5, 23),
+                target: new THREE.Vector3(0, 1.8, 0)
+            };
+        });
+        document.getElementById('cam-campfire').addEventListener('click', () => {
+            cameraTransition = {
+                pos: new THREE.Vector3(1.8, 2.8, 6.8),
+                target: new THREE.Vector3(-0.4, 1.1, -0.5)
+            };
+        });
+        document.getElementById('cam-pond').addEventListener('click', () => {
+            cameraTransition = {
+                pos: new THREE.Vector3(13.5, 3.2, 12.2),
+                target: new THREE.Vector3(8.2, 0.2, 6.2)
+            };
+        });
+
+        renderer.domElement.addEventListener('pointerdown', () => {
+            cameraTransition = null;
+        });
+
+        // ============================================================================
+        // 15. CAMERA FRUSTUM CULLING, DISTANCE LOD & RENDER LOOP
+        // ============================================================================
+        const clock = new THREE.Clock();
+        const fpsBadge = document.getElementById('fps-badge');
+        const cullBadge = document.getElementById('cull-badge');
+        let frameCounter = 0;
+        let fpsAccumTime = 0;
+
+        // Reusable Frustum & Projection-View Matrix for Game-Engine Camera Culling
+        const cameraFrustum = new THREE.Frustum();
+        const projScreenMatrix = new THREE.Matrix4();
+
+        function updateCameraFrustumCulling() {
+            camera.updateMatrixWorld();
+            projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+            cameraFrustum.setFromProjectionMatrix(projScreenMatrix);
+
+            const prof = PERF_PROFILES[currentPerfMode] || PERF_PROFILES.mobile;
+            const camPos = camera.position;
+            let activeTerrainCount = 0;
+
+            // 1. Cull Terrain Chunks outside the camera's Frustum
+            for (let i = 0; i < terrainChunks.length; i++) {
+                const chunk = terrainChunks[i];
+                const sphere = chunk.userData.boundingSphere;
+                const inFrustum = cameraFrustum.intersectsSphere(sphere);
+                chunk.visible = inFrustum;
+                if (inFrustum) activeTerrainCount++;
+            }
+
+            // 2. Cull Grass Chunks outside the camera's Frustum + Apply Distance LOD (Level of Detail)
+            for (let i = 0; i < grassChunks.length; i++) {
+                const gChunk = grassChunks[i];
+                const sphere = gChunk.userData.boundingSphere;
+                const dist = camPos.distanceTo(sphere.center);
+
+                if (dist - sphere.radius > prof.cullDistance || !cameraFrustum.intersectsSphere(sphere)) {
+                    gChunk.visible = false;
+                } else {
+                    gChunk.visible = true;
+                    // Keep 100% lush BotW density for all foreground/midground chunks; only gently thin far horizon chunks
+                    let lodFactor = 1.0;
+                    if (dist > 38.0) {
+                        lodFactor = THREE.MathUtils.clamp(1.0 - (dist - 38.0) / (prof.cullDistance - 24.0), 0.55, 1.0);
+                    }
+                    gChunk.count = Math.max(1, Math.floor(gChunk.userData.maxCount * prof.grassRatio * lodFactor));
+                }
+            }
+
+            // 3. Cull Trees & BotW Bushes outside the camera's Frustum (Keep shadow casters near center)
+            for (let i = 0; i < interactiveTrees.length; i++) {
+                const tree = interactiveTrees[i];
+                const sphere = tree.userData.boundingSphere;
+                if (sphere) {
+                    const dist = camPos.distanceTo(sphere.center);
+                    tree.visible = (dist < 18.0) || cameraFrustum.intersectsSphere(sphere);
+                }
+            }
+
+            for (let i = 0; i < interactiveBushes.length; i++) {
+                const bush = interactiveBushes[i];
+                if (bush.userData.isCut) {
+                    bush.visible = false;
+                    continue;
+                }
+                const sphere = bush.userData.boundingSphere;
+                const dist = camPos.distanceTo(sphere.center);
+                bush.visible = (dist <= prof.cullDistance + 8.0) && cameraFrustum.intersectsSphere(sphere);
+            }
+
+            return activeTerrainCount;
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const rawDelta = clock.getDelta();
+            const delta = Math.min(rawDelta, 0.1);
+            const elapsed = clock.getElapsedTime();
+
+            grassUniforms.uTime.value = elapsed;
+            celShaderUniforms.uTime.value = elapsed;
+
+            // Smoothly Interpolate Atmosphere, Mood & BotW Grass Base/Tip Colors
+            const lerpSpeed = delta * 2.2;
+            activeAtmosphere.bgTop.lerp(targetMood.bgTop, lerpSpeed);
+            activeAtmosphere.bgBottom.lerp(targetMood.bgBottom, lerpSpeed);
+            activeAtmosphere.fogColor.lerp(targetMood.fogColor, lerpSpeed);
+            activeAtmosphere.fogDensity = THREE.MathUtils.lerp(activeAtmosphere.fogDensity, targetMood.fogDensity, lerpSpeed);
+            activeAtmosphere.sunColor.lerp(targetMood.sunColor, lerpSpeed);
+            activeAtmosphere.sunIntensity = THREE.MathUtils.lerp(activeAtmosphere.sunIntensity, targetMood.sunIntensity, lerpSpeed);
+            activeAtmosphere.sunPos.lerp(targetMood.sunPos, lerpSpeed);
+            activeAtmosphere.hemiSky.lerp(targetMood.hemiSky, lerpSpeed);
+            activeAtmosphere.hemiGround.lerp(targetMood.hemiGround, lerpSpeed);
+            activeAtmosphere.hemiIntensity = THREE.MathUtils.lerp(activeAtmosphere.hemiIntensity, targetMood.hemiIntensity, lerpSpeed);
+            activeAtmosphere.mushroomGlow = THREE.MathUtils.lerp(activeAtmosphere.mushroomGlow, targetMood.mushroomGlow, lerpSpeed);
+            activeAtmosphere.particleColor.lerp(targetMood.particleColor, lerpSpeed);
+            activeAtmosphere.shadowTint.lerp(targetMood.shadowTint, lerpSpeed);
+            activeAtmosphere.rimTint.lerp(targetMood.rimTint, lerpSpeed);
+            activeAtmosphere.cloudColor.lerp(targetMood.cloudColor, lerpSpeed);
+            activeAtmosphere.cloudShadow.lerp(targetMood.cloudShadow, lerpSpeed);
+            activeAtmosphere.grassBaseColor.lerp(targetMood.grassBaseColor, lerpSpeed);
+            activeAtmosphere.grassTipColor.lerp(targetMood.grassTipColor, lerpSpeed);
+
+            celShaderUniforms.uSunDir.value.copy(activeAtmosphere.sunPos).normalize();
+            celShaderUniforms.uCampfireStrength.value = THREE.MathUtils.lerp(
+                celShaderUniforms.uCampfireStrength.value,
+                isCampfireLit ? (1.0 + Math.sin(elapsed * 12) * 0.12) : 0.0,
+                0.15
+            );
+
+            scene.background.copy(activeAtmosphere.bgBottom);
+            scene.fog.color.copy(activeAtmosphere.fogColor);
+            scene.fog.density = activeAtmosphere.fogDensity;
+
+            dirLight.color.copy(activeAtmosphere.sunColor);
+            dirLight.intensity = activeAtmosphere.sunIntensity;
+            dirLight.position.copy(activeAtmosphere.sunPos);
+
+            hemiLight.color.copy(activeAtmosphere.hemiSky);
+            hemiLight.groundColor.copy(activeAtmosphere.hemiGround);
+            hemiLight.intensity = activeAtmosphere.hemiIntensity;
+
+            particleMat.color.copy(activeAtmosphere.particleColor);
+
+            mushroomCapMaterials.forEach(mat => {
+                mat.emissiveIntensity = activeAtmosphere.mushroomGlow;
+            });
+            interactiveMushrooms.forEach(m => {
+                if (m.userData.pulse > 0) {
+                    m.userData.pulse = Math.max(0, m.userData.pulse - delta * 2.5);
+                    const s = 1 + Math.sin(m.userData.pulse * Math.PI * 2) * 0.16;
+                    m.scale.set(s, s, s);
+                }
+            });
+
+            // Tree Canopy Wind Sway (Only update visible trees!)
+            const windFactor = grassUniforms.uWindSpeed.value;
+            for (let i = 0; i < interactiveTrees.length; i++) {
+                const treeGroup = interactiveTrees[i];
+                if (!treeGroup.visible) continue;
+                const treeData = treeGroup.userData;
+                if (treeData.rustleBoost > 0) {
+                    treeData.rustleBoost = Math.max(0, treeData.rustleBoost - delta * 2.2);
+                }
+                const totalAmp = 0.028 * windFactor + treeData.rustleBoost * 0.06;
+                const freq = elapsed * (1.2 + windFactor * 0.4) + treeData.phase;
+                treeData.canopy.rotation.z = Math.sin(freq) * totalAmp;
+                treeData.canopy.rotation.x = Math.cos(freq * 0.8) * totalAmp * 0.7;
+            }
+
+            // BotW Bush Interactive Rustle Bounce
+            interactiveBushes.forEach(bush => {
+                if (bush.userData.rustleBoost > 0) {
+                    bush.userData.rustleBoost = Math.max(0, bush.userData.rustleBoost - delta * 3.2);
+                    const bScale = bush.userData.baseScale;
+                    const wobble = Math.sin(bush.userData.rustleBoost * Math.PI * 3.5) * 0.14 * bush.userData.rustleBoost;
+                    bush.scale.set(bScale * (1.15 + wobble), bScale * (1.0 - wobble * 0.6), bScale * (1.15 + wobble));
+                }
+            });
+
+            // Campfire Flames & Flickering Light
+            if (campfireGroup.userData.flareBoost > 0) {
+                campfireGroup.userData.flareBoost = Math.max(0, campfireGroup.userData.flareBoost - delta * 1.8);
+            }
+            const boost = campfireGroup.userData.flareBoost;
+
+            if (isCampfireLit) {
+                const flicker = Math.sin(elapsed * 14) * 0.22 + Math.cos(elapsed * 23) * 0.15;
+                campfireLight.intensity = THREE.MathUtils.lerp(campfireLight.intensity, 2.5 + flicker + boost * 1.8, 0.2);
+
+                flames.forEach((f, idx) => {
+                    f.visible = true;
+                    const t = (elapsed * f.userData.speed + f.userData.offset) % 1.0;
+                    f.position.y = 0.25 + t * (1.15 + boost * 0.65);
+                    f.position.x = f.userData.baseX * (1 - t * 0.5) + Math.sin(elapsed * 8 + idx) * 0.06;
+                    f.position.z = f.userData.baseZ * (1 - t * 0.5) + Math.cos(elapsed * 7 + idx) * 0.06;
+                    const scale = (1.0 - t * 0.75) * (1 + boost * 0.35);
+                    f.scale.set(scale, scale * 1.4, scale);
+                    f.rotation.y += delta * 3;
+                });
+            } else {
+                campfireLight.intensity = THREE.MathUtils.lerp(campfireLight.intensity, 0, 0.15);
+                flames.forEach(f => { f.visible = false; });
+            }
+
+            // Floating Fireflies / Golden Pollen (Throttled to every 2nd frame on mobile to save CPU->GPU bandwidth)
+            if (frameCounter % 2 === 0) {
+                const pArr = particleGeo.attributes.position.array;
+                for (let i = 0; i < PARTICLE_COUNT; i++) {
+                    const i3 = i * 3;
+                    const phase = pPhases[i];
+                    pArr[i3] += Math.sin(elapsed * 0.6 + phase) * 0.014 * windFactor;
+                    pArr[i3 + 1] += Math.cos(elapsed * 0.9 + phase) * 0.009;
+                    pArr[i3 + 2] += Math.cos(elapsed * 0.5 + phase) * 0.014 * windFactor;
+                }
+                particleGeo.attributes.position.needsUpdate = true;
+            }
+
+            // Update Interactive Burst Particles & Cut Grass Clippings
+            for (let i = burstParticles.length - 1; i >= 0; i--) {
+                const bp = burstParticles[i];
+                bp.life -= delta * 1.1;
+                if (bp.life <= 0) {
+                    scene.remove(bp.mesh);
+                    bp.mesh.material.dispose();
+                    burstParticles.splice(i, 1);
+                } else {
+                    if (bp.gravity) bp.vel.y -= bp.gravity * delta;
+                    bp.mesh.position.addScaledVector(bp.vel, delta);
+                    bp.mesh.rotation.x += delta * 5;
+                    bp.mesh.rotation.y += delta * 5;
+                    bp.mesh.material.opacity = bp.life;
+                }
+            }
+
+            // Animate BotW Pond Lily Pads (Bobbing on Waves) & Swimming Fish
+            const rAge = elapsed - pondUniforms.uRippleTime.value;
+            lilyPads.forEach(lp => {
+                const dR = Math.hypot(lp.userData.baseX - pondUniforms.uRippleOrigin.value.x, lp.userData.baseZ - pondUniforms.uRippleOrigin.value.z);
+                const rSplash = (rAge >= 0 && rAge < 3.0) ? Math.sin((dR - rAge * 2.6) * 10.0) * Math.max(0, 1.0 - rAge / 3.0) * 0.04 : 0;
+                lp.position.y = POND_WATER_Y + 0.018 + Math.sin(elapsed * 2.1 + lp.userData.phase) * 0.016 + rSplash;
+                lp.rotation.z = Math.sin(elapsed * 1.7 + lp.userData.phase) * 0.05;
+                lp.rotation.x = Math.cos(elapsed * 1.5 + lp.userData.phase) * 0.05;
+            });
+
+            pondFishList.forEach(fish => {
+                const fd = fish.userData;
+                const ang = elapsed * fd.swimSpeed + fd.phase;
+                const fx = POND_CENTER.x + Math.cos(ang) * fd.swimRadius;
+                const fz = POND_CENTER.z + Math.sin(ang) * fd.swimRadius * 0.85;
+                const nextAng = ang + 0.05;
+                const nfx = POND_CENTER.x + Math.cos(nextAng) * fd.swimRadius;
+                const nfz = POND_CENTER.z + Math.sin(nextAng) * fd.swimRadius * 0.85;
+                fish.position.set(fx, fd.depthY + Math.sin(elapsed * 2.5 + fd.phase) * 0.03, fz);
+                fish.lookAt(nfx, fish.position.y, nfz);
+                fd.tailMesh.rotation.y = Math.sin(elapsed * 11.0 + fd.phase) * 0.35;
+            });
+
+            // Update BotW Spin-Slash Rings
+            for (let i = slashRings.length - 1; i >= 0; i--) {
+                const sr = slashRings[i];
+                sr.life -= delta * 3.2;
+                if (sr.life <= 0) {
+                    scene.remove(sr.mesh);
+                    sr.mesh.material.dispose();
+                    slashRings.splice(i, 1);
+                } else {
+                    const s = 1.0 + (1.0 - sr.life) * 0.35;
+                    sr.mesh.scale.set(s, 1, s);
+                    sr.mesh.material.opacity = sr.life * 0.75;
+                }
+            }
+
+            // Camera Preset Smooth Transition
+            if (cameraTransition) {
+                camera.position.lerp(cameraTransition.pos, delta * 3.2);
+                controls.target.lerp(cameraTransition.target, delta * 3.2);
+                if (camera.position.distanceTo(cameraTransition.pos) < 0.15) {
+                    cameraTransition = null;
+                }
+            }
+
+            controls.update();
+
+            // Lock SkyDome & Celestial Orb relative to camera position so they never clip the Far Plane!
+            skyDome.position.copy(camera.position);
+            celestialOrb.position.copy(camera.position).addScaledVector(activeAtmosphere.sunPos, 2.1);
+            celestialMat.color.copy(activeAtmosphere.sunColor);
+
+            // Execute Game-Engine Camera Frustum Culling & Distance LOD
+            const activeChunks = updateCameraFrustumCulling();
+
+            // Real-time FPS & Culling Status Badge
+            frameCounter++;
+            fpsAccumTime += rawDelta;
+            if (fpsAccumTime >= 0.45) {
+                const currentFps = Math.min(60, Math.round(frameCounter / fpsAccumTime));
+                fpsBadge.textContent = `${currentFps} FPS`;
+                cullBadge.textContent = `Chunk: ${activeChunks}/${terrainChunks.length}`;
+                frameCounter = 0;
+                fpsAccumTime = 0;
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        window.onload = function () {
+            animate();
+        };
+    </script>
+</body>
+</html>

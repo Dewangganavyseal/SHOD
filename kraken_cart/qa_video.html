@@ -1,0 +1,45 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>KRAKEN CART — QA FISIKA KARGO</title>
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#111}
+  iframe{border:0;width:100vw;height:100vh;display:block}
+  #hud{position:fixed;left:50%;transform:translateX(-50%);top:14px;text-align:center;
+       font:700 28px/1.25 system-ui,sans-serif;
+       color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.85);pointer-events:none;
+       background:rgba(12,14,16,.55);padding:12px 20px;border-radius:12px}
+  #hud small{display:block;font:600 17px/1.4 system-ui,sans-serif;color:#ffd24a;letter-spacing:.4px}
+</style>
+</head>
+<body>
+<iframe id="f" src="index.html?v=vid3"></iframe>
+<div id="hud"><small>KRAKEN CART — FIX FISIKA KARGO</small><span id="phase">boot…</span></div>
+<script>
+/* Pembungkus buat rekam bukti QA. Skenarionya diulang terus (jalan -> gas ->
+   rem mendadak -> diam -> jalan lagi) supaya ffmpeg bisa mulai kapan aja. */
+const f = document.getElementById('f');
+const phaseEl = document.getElementById('phase');
+let R = null, A = null;
+const say = (t) => { phaseEl.textContent = t; };
+const iv = setInterval(() => {
+  try { const W = f.contentWindow; R = W && W.RIG; } catch (e) { return; }
+  if (!R) return;
+  clearInterval(iv);
+  A = R.animator;
+  document.title = 'KRAKEN CART — QA FISIKA KARGO';
+  const seq = () => {
+    const t0 = performance.now();
+    const at = (ms, fn) => setTimeout(fn, Math.max(0, ms - (performance.now() - t0)));
+    at(500,   () => { A.setState('run');   A.speed = 3.2; say('JALAN — 3,2 m/s'); });
+    at(4000,  () => { A.speed = 4.6; say('GAS — 4,6 m/s'); });
+    at(9000,  () => { A.setState('graze'); A.speed = 0; say('REM MENDADAK → 0'); });
+    at(13000, () => { say('DIAM — kargo berhenti, nggak muter'); });
+    at(17000, () => { A.setState('run');   A.speed = 3.6; say('JALAN LAGI — 3,6 m/s'); });
+    at(20000, () => { A.speed = 5.0; say('GAS — 5,0 m/s'); });
+    at(24000, () => { A.setState('graze'); A.speed = 0; say('REM LAGI → 0'); });
+    at(28000, () => { say('DIAM — bak utuh: 8/8 barang'); });
+    at(31000, () => { seq(); });
+  };
+  seq();
+}, 250);
+</script>
+</body></html>

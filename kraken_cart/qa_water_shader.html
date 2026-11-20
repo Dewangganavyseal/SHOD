@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="utf-8"><title>QA shader air hutan</title>
+<style>body{margin:0;background:#111;color:#0f0;font:13px monospace}#log{padding:8px;white-space:pre-wrap}canvas{display:block}</style>
+</head><body>
+<div id="log">init…</div>
+<canvas id="c" width="240" height="140"></canvas>
+<script type="importmap">
+{"imports":{"three":"./vendor/three.module.min.js","three/addons/controls/OrbitControls.js":"./vendor/OrbitControls.js"}}
+</script>
+<script type="module">
+const log = (m) => { const el = document.getElementById('log'); el.textContent += '\n' + m; };
+const fails = [];
+const oe = console.error, ow = console.warn;
+console.error = (...a) => { fails.push('ERROR ' + a.map(String).join(' ').slice(0, 800)); oe.apply(console, a); };
+console.warn = (...a) => { fails.push('WARN ' + a.map(String).join(' ').slice(0, 400)); ow.apply(console, a); };
+
+try {
+  const THREE = await import('three');
+  const FA = await import('./js/forest_assets.js');
+  const { ForestDecor } = await import('./js/forest_decor.js');
+
+  const canvas = document.getElementById('c');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
+  renderer.setSize(240, 140, false);
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(50, 240 / 140, 0.1, 100);
+  camera.position.set(0, 3, 6); camera.lookAt(0, 0, 0);
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x445566, 1.2));
+
+  // Material air dibangun lewat prototipe asli, world palsu secukupnya.
+  const fake = { waterDataTex: FA.createBotWWaterDataTexture() };
+  const timeU = { value: 0.0 };
+  const mat = ForestDecor.prototype.makeWaterMaterial.call(fake, timeU);
+
+  // Geometri seperti sungai SHOD: punya aFlowUv & aDepth.
+  const g = new THREE.PlaneGeometry(6, 4, 12, 8).rotateX(-Math.PI / 2);
+  const n = g.attributes.position.count;
+  const flow = new Float32Array(n * 2), depth = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const x = g.attributes.position.getX(i);
+    const lat = (x / 3) * 0.5 + 0.5;
+    flow[i * 2] = lat; flow[i * 2 + 1] = g.attributes.position.getZ(i) / 2;
+    depth[i] = 1 - Math.abs(lat * 2 - 1);
+  }
+  g.setAttribute('aFlowUv', new THREE.BufferAttribute(flow, 2));
+  g.setAttribute('aDepth', new THREE.BufferAttribute(depth, 1));
+  scene.add(new THREE.Mesh(g, mat));
+
+  renderer.render(scene, camera);
+  timeU.value = 1.0;
+  renderer.render(scene, camera);   // frame kedua: pastikan uniform waktu jalan
+
+  const gl = renderer.getContext();
+  const err = gl.getError();
+  const pix = new Uint8Array(4);
+  gl.readPixels(120, 70, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pix);
+
+  const bad = fails.filter((f) => /Shader|GLSL|program|compile|link/i.test(f));
+  window.__qaWater = {
+    ok: err === 0 && bad.length === 0,
+    glError: err,
+    shaderProblems: bad,
+    allMessages: fails.slice(0, 4),
+    centerPixel: [pix[0], pix[1], pix[2], pix[3]],
+    programs: renderer.info.programs.length,
+  };
+  log('GL error: ' + err + '  shader problems: ' + bad.length + '  pixel: ' + Array.from(pix).join(','));
+} catch (e) {
+  window.__qaWater = { ok: false, exception: String(e), stack: (e.stack || '').split('\n').slice(0, 5) };
+  log('EXCEPTION ' + e);
+}
+</script>
+</body></html>

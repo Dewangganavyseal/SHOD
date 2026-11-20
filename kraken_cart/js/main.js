@@ -1,0 +1,662 @@
+import { HC } from './hc.js';
+import './voxel.js';
+import './horse.js';
+import './cart.js';
+import './world.js';
+import './physics.js';
+import './animator.js';
+import './npc.js';
+import './sylvan/models.js';
+import { UpgradeStore } from './upgrades.js';
+import { initUpgradeUI } from './ui.js';
+import { Survival } from './survival.js';
+import { initTouchControls } from './touch_controls.js';
+
+const THREE = HC.THREE, S = HC.vs;
+
+const container = document.getElementById('app');
+const scene = new THREE.Scene();
+/* Model Sylvan (Royalguard cloth, efek Lich) memasang mesh tambahan lewat
+   `Game.scene`. Shim hanya menyediakan Group gantung; tanpa baris ini 12 panel
+   jubah di-simulate tiap frame tapi tidak pernah masuk render graph. */
+if (window.Game) Game.scene = scene;
+scene.background = new THREE.Color(0x6bb0e6);
+
+const initW = Math.max(1, window.innerWidth);
+const initH = Math.max(1, window.innerHeight);
+const camera = new THREE.PerspectiveCamera(46, initW / initH, 0.2, 180);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.setSize(initW, initH);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.92;
+container.appendChild(renderer.domElement);
+
+// ---------------- upgrade store & rig ----------------
+const store = new UpgradeStore();
+const world = new HC.World(scene);
+const startPose = world.initialHorsePose ? world.initialHorsePose() : { x: 0, z: 0, yaw: 0 };
+const startY = world.terrainHeightAt ? world.terrainHeightAt(startPose.x, startPose.z) : 0;
+
+const horse = HC.buildHorse();
+horse.root.position.set(startPose.x, startY, startPose.z);
+horse.root.rotation.y = startPose.yaw;
+scene.add(horse.root);
+
+const PIVOT_Y = 0.58;
+let cart = HC.buildCart(PIVOT_Y, store.cartConfig());
+scene.add(cart.root);
+cart.root.position.set(
+  startPose.x - Math.cos(startPose.yaw) * HC.hitchDist,
+  startY + PIVOT_Y,
+  startPose.z + Math.sin(startPose.yaw) * HC.hitchDist
+);
+
+const animator = new HC.HorseAnimator(horse, world);
+animator.x = startPose.x;
+animator.z = startPose.z;
+animator.yaw = startPose.yaw;
+animator.forwardX = Math.cos(startPose.yaw);
+animator.forwardZ = -Math.sin(startPose.yaw);
+
+const physics = new HC.CartPhysics(cart, world, PIVOT_Y);
+physics.joltScale = store.joltScale();
+physics.reset(startPose.x, startPose.z, startPose.yaw);
+
+// ---------------- NPC squad (roster Sylvan Dominion) ----------------
+const party = new HC.NPCParty(scene);
+party.world = world;   // NPC liar berdiri di permukaan terrain
+if (world.placeNPCsInWorld) {
+  world.placeNPCsInWorld(party);
+} else {
+  for (const w of party.wild) if (w.root) w.root.position.y = world.terrainHeightAt(w.x, w.z);
+  for (const w of party.wild) {
+    if (!party.avoidSiteProps) break;
+    party.avoidSiteProps(world, w);
+  }
+}
+
+// ---------------- soft contact shadows ----------------
+function blobTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const ctx = c.getContext('2d');
+  const g = ctx.createRadialGradient(64, 64, 4, 64, 64, 62);
+  g.addColorStop(0, 'rgba(90,85,78,0.42)');
+  g.addColorStop(0.55, 'rgba(90,85,78,0.18)');
+  g.addColorStop(1, 'rgba(90,85,78,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 128, 128);
+  return new THREE.CanvasTexture(c);
+}
+const blobTex = blobTexture();
+const blobMat = new THREE.MeshBasicMaterial({ map: blobTex, transparent: true, depthWrite: false });
+const horseBlob = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), blobMat);
+horseBlob.rotation.x = -Math.PI / 2;
+horseBlob.scale.set(1.5, 2.5, 1);
+horseBlob.position.y = 0.006;
+scene.add(horseBlob);
+const cartBlob = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), blobMat);
+cartBlob.rotation.x = -Math.PI / 2;
+cartBlob.scale.set(2.2 * HC.cartScale, 2.0 * HC.cartScale, 1);
+cartBlob.position.y = 0.006;
+scene.add(cartBlob);
+
+// ---------------- ropes (dynamic, Verlet) ----------------
+const towL = new HC.Rope(scene, { segments: 14, thickness: 0.030, color: 0xbf9a5f });
+const towR = new HC.Rope(scene, { segments: 14, thickness: 0.030, color: 0xbf9a5f });
+const traceL = new HC.Rope(scene, { segments: 16, thickness: 0.026, color: 0x9c7a44 });
+const traceR = new HC.Rope(scene, { segments: 16, thickness: 0.026, color: 0x9c7a44 });
+const reinL = new HC.Rope(scene, { segments: 20, thickness: 0.020, color: 0x4a2c18 });
+const reinR = new HC.Rope(scene, { segments: 20, thickness: 0.020, color: 0x4a2c18 });
+
+const anchors = {
+  a: new THREE.Vector3(), b: new THREE.Vector3(),
+  c: new THREE.Vector3(), d: new THREE.Vector3(),
+  gL: new THREE.Vector3(), gR: new THREE.Vector3(),
+  stL: new THREE.Vector3(), stR: new THREE.Vector3(),
+  bitL: new THREE.Vector3(), bitR: new THREE.Vector3(),
+  seat: new THREE.Vector3()
+};
+
+function readAnchors() {
+  horse.collarLeft.getWorldPosition(anchors.a);
+  cart.shaftTipLeft.getWorldPosition(anchors.b);
+  horse.collarRight.getWorldPosition(anchors.c);
+  cart.shaftTipRight.getWorldPosition(anchors.d);
+  horse.girthLeft.getWorldPosition(anchors.gL);
+  horse.girthRight.getWorldPosition(anchors.gR);
+  cart.singletreeLeft.getWorldPosition(anchors.stL);
+  cart.singletreeRight.getWorldPosition(anchors.stR);
+  horse.bitLeft.getWorldPosition(anchors.bitL);
+  horse.bitRight.getWorldPosition(anchors.bitR);
+  cart.seatAnchor.getWorldPosition(anchors.seat);
+}
+
+function resetRopes() {
+  scene.updateMatrixWorld(true);
+  readAnchors();
+  towL.reset(anchors.a, anchors.b, 0.04);
+  towR.reset(anchors.c, anchors.d, 0.04);
+  traceL.reset(anchors.gL, anchors.stL, 0.08);
+  traceR.reset(anchors.gR, anchors.stR, 0.08);
+  reinL.reset(anchors.bitL, anchors.seat, 0.22);
+  reinR.reset(anchors.bitR, anchors.seat, 0.22);
+}
+
+function reanchorRopes() {
+  scene.updateMatrixWorld(true);
+  readAnchors();
+  towL.reanchor(anchors.a, anchors.b);
+  towR.reanchor(anchors.c, anchors.d);
+  traceL.reanchor(anchors.gL, anchors.stL);
+  traceR.reanchor(anchors.gR, anchors.stR);
+  reinL.reanchor(anchors.bitL, anchors.seat);
+  reinR.reanchor(anchors.bitR, anchors.seat);
+}
+
+// ---------------- batang penarik (thills) nyata: putar di pangkal, ujung ke kalung ----------------
+const _shaftPivotW = new THREE.Vector3();
+const _shaftDirW = new THREE.Vector3();
+const _shaftCollarMid = new THREE.Vector3();
+const _shaftQ = new THREE.Quaternion();
+const SHAFT_BASE_PITCH = Math.atan2(HC.shaftTipY - HC.shaftHingeY, HC.shaftTipVox - 24.0);  // kemiringan batang model
+const SHAFT_LEN = (HC.shaftTipVox - 24.0) * HC.cartVS;
+
+function updateShafts(dt) {
+  const sg = cart.shaftGroup;
+  if (!sg) return;
+  sg.getWorldPosition(_shaftPivotW);
+  _shaftCollarMid.copy(anchors.a).add(anchors.c).multiplyScalar(0.5);
+  _shaftDirW.copy(_shaftCollarMid).sub(_shaftPivotW);
+
+  // ubah ke kerangka bak (bak = chassis, rotasinya ikut roll/pitch/yaw gerobak)
+  cart.body.getWorldQuaternion(_shaftQ);
+  _shaftQ.invert();
+  _shaftDirW.applyQuaternion(_shaftQ);
+
+  const horiz = Math.hypot(_shaftDirW.x, _shaftDirW.z);
+  if (horiz > 0.25) {
+    const yawWant = Math.atan2(-_shaftDirW.z, _shaftDirW.x);
+    const pitchWant = Math.atan2(_shaftDirW.y, horiz) - SHAFT_BASE_PITCH;
+    // dilancarkan dikit biar nggak geter, tapi tetap ikut kuda (bukan animasi lepas)
+    sg.rotation.order = 'YXZ';
+    sg.rotation.y = HC.damp(sg.rotation.y, HC.clamp(yawWant, -1.15, 1.15), 26, dt);
+    sg.rotation.z = HC.damp(sg.rotation.z, HC.clamp(pitchWant, -0.5, 0.5), 26, dt);
+    // panjang batang sedikit nyesuai jarak kalung (toleransi kecil, biar ujungnya nempel)
+    const want = Math.max(0.88, Math.min(1.12, horiz / SHAFT_LEN));
+    sg.scale.x = HC.damp(sg.scale.x, want, 18, dt);
+  }
+}
+
+function rebuildCartFromStore() {
+  const newCart = HC.buildCart(PIVOT_Y, store.cartConfig());
+  physics.swapCart(newCart, animator.x, animator.z, animator.yaw);
+  physics.joltScale = store.joltScale();
+  cart = newCart;
+  window.RIG.cart = newCart;
+  if (party.squad.length) party.mount(cart);   // penumpang NPC ikut pindah ke bak baru
+  reanchorRopes();
+}
+
+const ui = initUpgradeUI({
+  store,
+  onSelect(key, idx) {
+    if (store.setLevel(key, idx)) {
+      rebuildCartFromStore();
+      ui.refresh();
+    }
+  },
+  onPreset(kind) {
+    if (kind === 'max') store.maxAll();
+    else if (kind === 'min') store.minAll();
+    else store.reset();
+    rebuildCartFromStore();
+    ui.refresh();
+  }
+});
+
+// ---------------- camera / controls ----------------
+const controls = new HC.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.minDistance = 2.2;
+controls.maxDistance = 42;
+controls.maxPolarAngle = Math.PI * 0.485;
+function isPortraitMobile() {
+  return window.innerWidth <= 768 && window.innerHeight > window.innerWidth;
+}
+controls.target.set(startPose.x + 0.8, startY + 1.2, startPose.z + 2.5);
+if (isPortraitMobile()) {
+  camera.position.set(startPose.x + 7.2, startY + 5.8, startPose.z - 10.5);
+} else {
+  camera.position.set(startPose.x + 5.8, startY + 5.0, startPose.z - 8.2);
+}
+controls.update();
+if (world.syncCamera) world.syncCamera(camera);
+
+const panelEl = document.getElementById('upgrade-panel');
+const followTarget = new THREE.Vector3();
+
+// ---------------- UI ----------------
+const hudState = document.getElementById('hud-state');
+const hudSpeed = document.getElementById('hud-speed');
+const hudHead = document.getElementById('hud-head');
+const hudRoll = document.getElementById('hud-roll');
+const hudCargo = document.getElementById('hud-cargo');
+const hudWheel = document.getElementById('hud-wheel');
+const hudNpc = document.getElementById('hud-npc');
+const hudNpcMsg = document.getElementById('hud-npc-msg');
+
+// Bar HP / stamina / lapar / haus + pesan kontekstual.
+const VITAL_ROWS = [['hp', 'v-hp'], ['stamina', 'v-sta'], ['hunger', 'v-food'], ['thirst', 'v-water']];
+function syncVitals() {
+  for (const [key, id] of VITAL_ROWS) {
+    const val = Math.round(survival[key]);
+    const el = document.getElementById(id);
+    if (el) el.style.width = val + '%';
+    const txt = document.getElementById(id + '-t');
+    if (txt) txt.textContent = String(val);
+    if (el && el.parentElement && el.parentElement.parentElement) {
+      el.parentElement.parentElement.classList.toggle('low', val < 25);
+    }
+  }
+  const msg = document.getElementById('v-msg');
+  if (msg && msg.textContent !== survival.msg) msg.textContent = survival.msg;
+}
+
+const stateLabel = { walk: 'JALAN', run: 'LARI', jump: 'LOMPAT', graze: 'MAKAN RUMPUT' };
+
+function bindBtn(id, fn) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const handler = (e) => { e.preventDefault(); fn(); };
+  el.addEventListener('click', handler);
+  el.addEventListener('touchstart', handler, { passive: false });
+}
+
+bindBtn('btn-walk', () => animator.setState('walk'));
+bindBtn('btn-run', () => toggleRun());
+bindBtn('btn-jump', () => animator.setState('jump'));
+bindBtn('btn-graze', () => animator.setState('graze'));
+
+// ---- kondisi kuda: stamina / HP / lapar / haus ----
+const survival = new Survival({ map: HC.MAP, world });
+let runLatched = false;
+function toggleRun() {
+  runLatched = !runLatched;
+  animator.setState(runLatched ? 'run' : 'walk');
+  if (touchUI && touchUI.setRunLatched) touchUI.setRunLatched(runLatched);
+}
+const survCtx = () => ({
+  x: animator.x, z: animator.z, speed: animator.speed,
+  moving: animator.throttle > 0.06,
+  running: animator.state === 'run' && animator.throttle > 0.06,
+  flipped: !!physics.flipped,
+});
+function doEat() {
+  const ctx = survCtx();
+  ctx.speed = Math.abs(animator.speed);
+  const ok = survival.tryEat(ctx);
+  if (ok) { animator.setThrottle(0); animator.setState('graze'); }
+}
+function doDrink() {
+  const ctx = survCtx();
+  const ok = survival.tryDrink(ctx);
+  if (ok) {
+    animator.setThrottle(0);
+    if (world.triggerPondRipple) world.triggerPondRipple(animator.x, animator.z);
+  }
+}
+function doJump() {
+  if (survival.stamina < 12) { survival.msg = 'Stamina kurang buat lompat.'; return; }
+  survival.stamina = Math.max(0, survival.stamina - 12);
+  animator.setState('jump');
+}
+
+const touchUI = initTouchControls({
+  animator, survival,
+  onJump: doJump, onEat: doEat, onDrink: doDrink, onRunToggle: toggleRun,
+  isTouchDevice: matchMedia('(pointer: coarse)').matches,
+});
+// Kuda jangan langsung lari sendiri sebelum analog disentuh.
+if (touchUI.active) animator.setThrottle(0);
+function rampPeakForCart() {
+  // Tinggi "sayap miring" di satu sisi roda. Suspensi makin kaku (Lv2/Lv3),
+  // makin tinggi batu yang dibutuhin buat bikin bodi miring lewat 75°.
+  // Tetap fisika: gaya yang bikin miring datang dari roda naik tanjakan.
+  const sus = (cart.specs && cart.specs.susSpec) || {};
+  const t = sus.tier || 0;
+  // gerobak 1.5x: tanjakan ikut diskalakan biar sudut miring per meter sama
+  return (1.90 + t * 0.40) * HC.cartScale;
+}
+// tanjakan miring ditaruh di jalur RODA KANAN gerobak (bukan di depan kuda),
+// supaya berapa pun sudut beloknya, roda kanan tetap naik ke punggung tanjakan
+function spawnTipRamp() {
+  const ph = physics;
+  const fx = Math.cos(ph.yaw), fz = -Math.sin(ph.yaw);
+  let rw = null;
+  for (const w of ph.wheels) if (w.ref.front && w.wa.z < 0) rw = w;
+  if (!rw) rw = ph.wheels[0];
+  // hitung posisi roda dari state fisika terkini (jangan pakai w.world yang bisa basi
+  // tepat setelah gerobak di-rebuild oleh tombol upgrade)
+  const rv = new THREE.Vector3(rw.wa.x, rw.wa.y, rw.wa.z).applyQuaternion(ph.q || new THREE.Quaternion());
+  const wx = ph.pos.x + rv.x, wz = ph.pos.z + rv.z;
+  // PENTING: pangkal tanjakan ditaruh SEDIKIT DI DEPAN roda (bukan 1 m di belakangnya).
+  // Kalau roda udah nyemplung di tengah tanjakan pas tombol dipencet, pegas roda langsung
+  // njeblos -> gerobak kelacak ke udara. Dengan u~0 di pangkal, roda naik mulus dari nol.
+  const ox = wx + fx * 0.20 * HC.cartScale;
+  const oz = wz + fz * 0.20 * HC.cartScale;
+  world.spawnRampAt(ox, oz, ph.yaw, rampPeakForCart(),
+    2.2 * HC.cartScale, 1.35 * HC.cartScale, 0.92 * HC.cartScale);
+  animator.setState('run');
+}
+bindBtn('btn-ramp', spawnTipRamp);
+bindBtn('btn-pebble', () => {
+  world.spawnPebbleClusterAhead(animator.x, animator.z, animator.yaw);
+  animator.setState('run');
+});
+function recruitNearbyNPC() {
+  const role = party.recruit(animator.x, animator.z);
+  if (role) party.mount(cart);
+  physics.damageScale = party.defenseScale();
+  if (hudNpcMsg) hudNpcMsg.textContent = party.lastMessage;
+  if (hudNpc) hudNpc.textContent = `${party.squad.length}/${HC.NPC_TEAM_MAX}` + (party.squad.length ? ` — ${party.squad.map((r) => r.name).join(', ')}` : '');
+}
+function releaseLastNPC() {
+  const role = party.squad.pop();
+  if (role) party.lastMessage = `${role.name} dilepas dari regu.`;
+  else party.lastMessage = 'Regu kosong.';
+  party.mount(cart);
+  physics.damageScale = party.defenseScale();
+  if (hudNpcMsg) hudNpcMsg.textContent = party.lastMessage;
+  if (hudNpc) hudNpc.textContent = `${party.squad.length}/${HC.NPC_TEAM_MAX}` + (party.squad.length ? ` — ${party.squad.map((r) => r.name).join(', ')}` : '');
+}
+bindBtn('btn-recruit', recruitNearbyNPC);
+bindBtn('btn-release', releaseLastNPC);
+window.recruitNearbyNPC = recruitNearbyNPC;
+window.releaseLastNPC = releaseLastNPC;
+function clearRamps() {
+  if (!world || !world.ramps) return;
+  for (let i = 0; i < world.ramps.length; i++) {
+    const rp = world.ramps[i];
+    if (rp && rp.mesh) scene.remove(rp.mesh);
+  }
+  world.ramps.length = 0;
+}
+function resetRig() {
+  clearRamps();
+  const pose = (world.initialHorsePose && (physics.flipped || Math.hypot(animator.x, animator.z) > 28))
+    ? world.initialHorsePose()
+    : { x: animator.x, z: animator.z, yaw: animator.yaw };
+  animator.x = pose.x;
+  animator.z = pose.z;
+  animator.yaw = pose.yaw;
+  animator.forwardX = Math.cos(pose.yaw);
+  animator.forwardZ = -Math.sin(pose.yaw);
+  physics.reset(animator.x, animator.z, animator.yaw);
+  resetRopes();
+  animator.setState('walk');
+}
+bindBtn('btn-reset', resetRig);
+
+// ---- Suasana & Lingkungan Hutan Cozy (Pagi / Sore / Malam + Api / Lampu / Sinar / Suara) ----
+const vignetteEl = document.getElementById('cozy-vignette');
+document.querySelectorAll('#hud [data-mood]').forEach((btn) => {
+  btn.addEventListener('click', (e) => {
+    e.preventDefault();
+    const m = btn.dataset.mood;
+    if (world.setMood) world.setMood(m);
+    document.querySelectorAll('#hud [data-mood]').forEach((b) => b.classList.toggle('active', b === btn));
+    if (vignetteEl) vignetteEl.classList.toggle('night-mist', m === 'night');
+  });
+});
+
+function bindEnvToggle(id, fn) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener('click', (e) => {
+    e.preventDefault();
+    const on = fn();
+    el.classList.toggle('active', !!on);
+  });
+}
+bindEnvToggle('env-fire', () => world.toggleCampfire && world.toggleCampfire());
+bindEnvToggle('env-lamp', () => world.toggleHeadlights && world.toggleHeadlights());
+bindEnvToggle('env-rays', () => world.toggleSunbeams && world.toggleSunbeams());
+bindEnvToggle('env-audio', () => world.toggleAudio && world.toggleAudio());
+
+// ---- Interaksi klik langsung pada pohon, semak, kolam, api unggun, jamur, & truk ----
+let _downPos = { x: 0, y: 0 };
+renderer.domElement.addEventListener('pointerdown', (e) => {
+  _downPos.x = e.clientX;
+  _downPos.y = e.clientY;
+});
+renderer.domElement.addEventListener('pointerup', (e) => {
+  if (Math.hypot(e.clientX - _downPos.x, e.clientY - _downPos.y) > 6) return;
+  if (!world.interactAt) return;
+  const note = world.interactAt(e.clientX, e.clientY, camera);
+  if (note) {
+    survival.msg = note;
+    const fireBtn = document.getElementById('env-fire');
+    if (fireBtn) fireBtn.classList.toggle('active', !!world.isCampfireLit);
+  }
+});
+
+// ---- kemudi kuda: tekan & tahan (kiri/kanan) ----
+function bindSteer(id, dir) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const start = (e) => { e.preventDefault(); animator.setSteer(dir); el.classList.add('held'); };
+  const stop = (e) => { if (e) e.preventDefault(); animator.setSteer(0); el.classList.remove('held'); };
+  el.addEventListener('pointerdown', start);
+  el.addEventListener('pointerup', stop);
+  el.addEventListener('pointerleave', stop);
+  el.addEventListener('pointercancel', stop);
+  el.addEventListener('touchstart', start, { passive: false });
+  el.addEventListener('touchend', stop, { passive: false });
+  el.addEventListener('touchcancel', stop, { passive: false });
+}
+bindSteer('btn-left', 1);
+bindSteer('btn-right', -1);
+
+window.addEventListener('keydown', (e) => {
+  const k = e.key.toLowerCase();
+  if (k === 'arrowleft' || k === 'a') { animator.setSteer(1); e.preventDefault(); }
+  else if (k === 'arrowright' || k === 'd') { animator.setSteer(-1); e.preventDefault(); }
+  else if (k === '1' || k === 'w') animator.setState('walk');
+  else if (k === '2' || k === 'r') animator.setState('run');
+  else if (k === ' ' || k === 'j') { e.preventDefault(); animator.setState('jump'); }
+  else if (k === '3' || k === 'e') animator.setState('graze');
+  else if (k === 't') spawnTipRamp();
+  else if (k === 'b') world.spawnPebbleClusterAhead(animator.x, animator.z, animator.yaw);
+  else if (k === 'g') recruitNearbyNPC();
+  else if (k === 'h') releaseLastNPC();
+  else if (k === 'x') resetRig();
+  else if (k === 'u') {
+    const p = document.getElementById('upgrade-panel');
+    if (p) p.classList.toggle('collapsed');
+  }
+});
+window.addEventListener('keyup', (e) => {
+  const k = e.key.toLowerCase();
+  if (k === 'arrowleft' || k === 'a' || k === 'arrowright' || k === 'd') animator.setSteer(0);
+});
+window.addEventListener('blur', () => animator.setSteer(0));
+
+// ---------------- loop ----------------
+resetRopes();
+scene.updateMatrixWorld(true);
+
+let last = performance.now();
+let camPrevYaw = animator.yaw;
+window.__manualSim = false;
+
+function stepSim(dt) {
+  // --- kondisi kuda dihitung sebelum gerak biar limiter berlaku di frame sama ---
+  const wasEating = survival.eating;
+  const acting = survival.eating || survival.drinking;
+  // Desktop (tanpa analog): gas penuh otomatis, perilaku lama tetap. Perangkat
+  // sentuh / mode analog: gas 100% dari joystick, jadi lepas analog = berhenti.
+  const analog = !!(touchUI.active || window.__analogMode);
+  if (!analog) animator.setThrottle(acting ? 0 : 1);
+  else if (acting) animator.setThrottle(0);
+  if (!survival.canRun() && animator.state === 'run') {
+    runLatched = false;
+    animator.setState('walk');
+    if (touchUI.setRunLatched) touchUI.setRunLatched(false);
+  }
+  animator.speedScale = survival.speedScale();
+  survival.update(dt, survCtx());
+  if (wasEating && !survival.eating) animator.setState(runLatched ? 'run' : 'walk');
+
+  // Gerobak udah rebah (lewat batas 75°): kuda TERPAKU TOTAL — posisi, langkah,
+  // kepala, semuanya beku. Gak ada input yang bisa ngusik dia sampai Reset.
+  if (!physics.flipped) {
+    animator.update(dt);
+    if (world.keepHorseInValley) world.keepHorseInValley(animator, dt);
+  }
+  else { animator.speed = 0; animator.targetSpeed = 0; animator.yawRate = 0; animator.steer = 0; }
+  world.setCartPose(physics.pos.x, physics.pos.z);
+  world.update(animator.x, dt, animator.z, animator.yaw);
+  party.update(animator.x, animator.z, animator.yaw, dt);
+  party.applyEffects(dt, physics, world);
+  for (const p of cart.npcPassengers || []) HC.animateNPC(p, dt);
+  physics.damageScale = party.defenseScale();
+  if (hudNpc) {
+    const names = party.squad.map((r) => `${r.e || ''}${r.name}`).join(', ');
+    hudNpc.textContent = `${party.squad.length}/${HC.NPC_TEAM_MAX}` + (names ? ` — ${names}` : '');
+  }
+  if (hudNpcMsg && party.lastMessage && hudNpcMsg.textContent !== party.lastMessage) {
+    hudNpcMsg.textContent = party.lastMessage;
+  }
+
+  // anchor sabuk perut & kalung kuda harus segar sebelum physics:
+  // gerobak ditarik lewat tali (traces) + dibimbing batang (thills)
+  scene.updateMatrixWorld(true);
+  readAnchors();
+  physics.update(dt, animator.x, animator.speed, animator.z, animator.yaw, {
+    collarL: anchors.a, collarR: anchors.c,
+    girthL: anchors.gL, girthR: anchors.gR
+  });
+
+  updateShafts(dt);
+
+  scene.updateMatrixWorld(true);
+  readAnchors();
+  towL.update(dt, anchors.a, anchors.b);
+  towR.update(dt, anchors.c, anchors.d);
+  traceL.update(dt, anchors.gL, anchors.stL);
+  traceR.update(dt, anchors.gR, anchors.stR);
+  reinL.update(dt, anchors.bitL, anchors.seat);
+  reinR.update(dt, anchors.bitR, anchors.seat);
+
+  const gyHorse = world.terrainHeightAt ? world.terrainHeightAt(animator.x, animator.z) : 0;
+  horseBlob.position.set(animator.x - Math.cos(animator.yaw) * 0.15, gyHorse + 0.02, animator.z + Math.sin(animator.yaw) * 0.15);
+  cartBlob.position.set(cart.root.position.x, (world.terrainHeightAt ? world.terrainHeightAt(cart.root.position.x, cart.root.position.z) : 0) + 0.02, cart.root.position.z);
+
+  const panelOpenMobile = isPortraitMobile() && panelEl && !panelEl.classList.contains('collapsed');
+  // fokus di dekat kuda (bukan tengah rig) supaya kepala kuda tidak terpotong panel kanan
+  const focusX = animator.x - animator.forwardX * 1.2;
+  const focusZ = animator.z - animator.forwardZ * 1.2;
+  const gyFocus = world.terrainHeightAt ? world.terrainHeightAt(focusX, focusZ) : 0;
+  followTarget.set(focusX, gyFocus + (panelOpenMobile ? 0.35 : 1.3), focusZ);
+
+  // chase-cam: kamera ikut berputar mengikuti heading kuda, jadi rig selalu ke-frame saat belok
+  const dYawCam = animator.yaw - camPrevYaw;
+  camPrevYaw = animator.yaw;
+  if (Math.abs(dYawCam) > 1e-5) {
+    const ox = camera.position.x - controls.target.x;
+    const oz = camera.position.z - controls.target.z;
+    const cc = Math.cos(dYawCam), ss = Math.sin(dYawCam);
+    camera.position.x = controls.target.x + ox * cc + oz * ss;
+    camera.position.z = controls.target.z - ox * ss + oz * cc;
+  }
+
+  const k = 1 - Math.exp(-4.5 * dt);
+  const dx = (followTarget.x - controls.target.x) * k;
+  const dy = (followTarget.y - controls.target.y) * k;
+  const dz = (followTarget.z - controls.target.z) * k;
+  controls.target.x += dx; controls.target.y += dy; controls.target.z += dz;
+  camera.position.x += dx; camera.position.y += dy; camera.position.z += dz;
+  controls.update();
+  if (world.syncCamera) world.syncCamera(camera);
+
+  const st = animator.jumpActive ? 'jump' : animator.state;
+  if (hudState) hudState.textContent = stateLabel[st] || st.toUpperCase();
+  for (const [m, id] of [['walk','btn-walk'],['run','btn-run'],['jump','btn-jump'],['graze','btn-graze']]) {
+    const b = document.getElementById(id);
+    if (b) b.classList.toggle('primary', st === m);
+  }
+  if (hudSpeed) hudSpeed.textContent = (animator.speed * 3.6).toFixed(1) + ' km/j';
+  syncVitals();
+  if (hudHead) {
+    const st2 = animator.steer;
+    hudHead.textContent = st2 > 0.12 ? 'BELOK KIRI' : st2 < -0.12 ? 'BELOK KANAN' : 'LURUS';
+  }
+  if (hudRoll) {
+    const deg = (physics.roll * 180 / Math.PI).toFixed(0);
+    hudRoll.textContent = deg + '°' + (physics.flipped ? ' — TERBALIK' : '');
+    hudRoll.style.color = physics.flipped ? '#c0392b' : '';
+  }
+  if (hudCargo) {
+    const total = cart.cargoItems.length;
+    const spilled = physics.spilled.length;
+    const inBed = total - spilled;
+    const pCount = (cart.passengers && cart.passengers.length) || 4;
+    let maxDy = 0;
+    for (const it of cart.cargoItems) {
+      if (!it.spilled) maxDy = Math.max(maxDy, it.localPos.y - it.floorY);
+    }
+    hudCargo.textContent = spilled > 0
+      ? pCount + ' org • ' + inBed + '/' + total + ' brg (' + spilled + ' jatuh)'
+      : pCount + ' org • ' + inBed + '/' + total + ' brg • goyang ' + (maxDy * 100).toFixed(0) + 'cm';
+    hudCargo.style.color = spilled > 0 ? '#c0392b' : '';
+  }
+  if (hudWheel) {
+    const rep = physics.wheelReport ? physics.wheelReport() : [];
+    let worst = 100, lost = 0;
+    const parts = rep.map((r) => {
+      worst = Math.min(worst, r.hp);
+      if (r.detached) lost++;
+      return r.hp;
+    });
+    hudWheel.textContent = lost > 0
+      ? parts.join(' · ') + '  (' + lost + ' roda lepas)'
+      : parts.join(' · ');
+    hudWheel.style.color = lost > 0 ? '#8e44ad' : worst <= 0 ? '#c0392b' : worst < 45 ? '#d35400' : '';
+  }
+
+  renderer.render(scene, camera);
+}
+
+function frame(now) {
+  const rawDt = (now - last) / 1000;
+  last = now;
+  if (!window.__manualSim) {
+    if (window.__freeze) {
+      renderer.render(scene, camera);          // bekukan fisika, tapi compositor tetap dapat frame
+    } else {
+      const dt = Math.min(0.033, Math.max(0.001, rawDt));
+      stepSim(dt);
+    }
+  }
+  requestAnimationFrame(frame);
+}
+
+window.RIG = { scene, camera, renderer, controls, animator, physics, world, cart, horse, store, ui, party, rebuildCartFromStore, stepSim, ropes: { towL, towR, traceL, traceR, reinL, reinR } };
+window.SURVIVAL = survival;
+window.TOUCH_UI = touchUI;
+requestAnimationFrame(frame);
+
+window.addEventListener('resize', () => {
+  const w = Math.max(1, window.innerWidth);
+  const h = Math.max(1, window.innerHeight);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  renderer.setSize(w, h);
+});

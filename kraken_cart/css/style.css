@@ -1,0 +1,454 @@
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body {
+  margin: 0; padding: 0; overflow: hidden;
+  width: 100%; height: 100%; min-height: 100vh;
+  background: #f5f5f6;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color: #1f2226;
+  user-select: none;
+  touch-action: none;
+}
+#app { position: fixed; inset: 0; width: 100vw; height: 100vh; }
+#cozy-vignette {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  background: radial-gradient(circle at 50% 48%, rgba(0, 0, 0, 0.0) 62%, rgba(12, 16, 24, 0.24) 100%);
+  transition: background 0.8s ease;
+}
+#cozy-vignette.night-mist {
+  background: radial-gradient(circle at 50% 50%, rgba(0, 0, 0, 0.0) 54%, rgba(5, 12, 22, 0.44) 100%);
+}
+
+#hud {
+  position: fixed; top: 14px; left: 14px;
+  background: rgba(255,255,255,0.80);
+  backdrop-filter: blur(6px);
+  border: 1px solid #d9dce1;
+  border-radius: 10px;
+  padding: 8px 11px;
+  font-size: 12px;
+  line-height: 1.4;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+  pointer-events: none;
+  z-index: 10;
+}
+#hud .brand {
+  font-size: 10px; font-weight: 800; letter-spacing: 0.08em;
+  color: #7c5c2b; text-transform: uppercase;
+}
+#hud .hud-top {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; margin-bottom: 3px;
+}
+#hud .title {
+  font-weight: 700; font-size: 14px; margin-bottom: 4px; color: #111;
+}
+#hud .hud-top .title { margin-bottom: 0; }
+#btn-hud-toggle {
+  pointer-events: auto;
+  padding: 2px 7px;
+  font-size: 10px;
+  border-radius: 6px;
+  background: rgba(31,36,44,0.08);
+  border: 1px solid rgba(31,36,44,0.18);
+  color: #1f242c;
+}
+#hud.compact .opt,
+#hud.compact #hud-npc-msg { display: none; }
+#hud .mood-bar {
+  pointer-events: auto;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  margin: 4px 0 5px;
+}
+#hud .mood-chip {
+  padding: 3px 5px;
+  font-size: 10.5px;
+  font-weight: 600;
+  border-radius: 6px;
+  background: rgba(31,36,44,0.07);
+  border: 1px solid rgba(31,36,44,0.16);
+  color: #1f242c;
+}
+#hud .mood-chip.active {
+  background: #1f242c;
+  color: #fff;
+  border-color: #1f242c;
+}
+#hud .env-bar {
+  pointer-events: auto;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 3px;
+  margin: 0 0 5px;
+}
+#hud .env-chip {
+  padding: 2px 4px;
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 5px;
+  background: rgba(31,36,44,0.06);
+  border: 1px solid rgba(31,36,44,0.14);
+  color: #374151;
+}
+#hud .env-chip.active {
+  background: #b45309;
+  color: #fff;
+  border-color: #92400e;
+}
+#hud .sub { font-size: 11px; color: #6b7280; margin-top: 2px; max-width: 260px; }
+
+#controls {
+  position: fixed; bottom: 16px; left: 14px;
+  max-width: calc(100vw - 336px);
+  display: flex; gap: 7px; flex-wrap: wrap; justify-content: flex-start;
+  background: rgba(255,255,255,0.92);
+  border: 1px solid #d8dbe0;
+  border-radius: 12px;
+  padding: 8px 10px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.07);
+  z-index: 10;
+}
+button {
+  appearance: none;
+  border: 1px solid #cfd3d9;
+  background: #fff;
+  color: #1d2024;
+  font-weight: 600;
+  font-size: 13px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform 0.06s ease, background 0.12s ease, border-color 0.12s ease;
+}
+button:hover:not(:disabled) { background: #f0f2f5; border-color: #adb3bc; }
+button:active:not(:disabled) { transform: translateY(1px); }
+button.primary { background: #1f242c; color: #fff; border-color: #1f242c; }
+button.warn { border-color: #e0b4b4; color: #9c2b2b; }
+button.steer { background: #edf5ff; border-color: #6b9fd6; color: #164678; }
+button.steer.held, button.steer:active { background: #1e5aa8; border-color: #164678; color: #fff; }
+
+/* ---------------- Upgrade Workshop Panel ---------------- */
+#upgrade-panel {
+  position: fixed; top: 14px; right: 14px;
+  width: 286px;
+  height: calc(100vh - 108px);
+  max-height: calc(100vh - 108px);
+  display: flex; flex-direction: column;
+  background: rgba(255,255,255,0.95);
+  border: 1px solid #d8dbe0;
+  border-radius: 12px;
+  box-shadow: 0 4px 18px rgba(0,0,0,0.08);
+  z-index: 12;
+  overflow: hidden;
+  transition: height 0.18s ease, max-height 0.18s ease;
+}
+#upgrade-panel.collapsed {
+  height: auto !important;
+  max-height: none !important;
+}
+#upgrade-body { display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; }
+#upgrade-panel.collapsed #upgrade-body { display: none; }
+#upgrade-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 12px;
+  background: #1f242c; color: #fff;
+  flex-shrink: 0;
+}
+#upgrade-header .ug-title { font-weight: 700; font-size: 13px; letter-spacing: 0.02em; }
+#upgrade-header .ug-sub { font-size: 11px; color: #cbd2dc; }
+#btn-ug-toggle {
+  padding: 4px 10px; font-size: 11px; background: rgba(255,255,255,0.16);
+  color: #fff; border-color: rgba(255,255,255,0.28);
+}
+#upgrade-presets {
+  display: grid; grid-template-columns: 1fr 1fr 1.3fr; gap: 6px;
+  padding: 7px 10px; background: #f8f9fb; border-bottom: 1px solid #e5e7eb;
+  flex-shrink: 0;
+}
+#upgrade-presets button {
+  padding: 5px 7px; font-size: 11px; border-radius: 6px;
+}
+#btn-ug-max {
+  background: #1f242c; color: #fff; border-color: #1f242c;
+}
+#upgrade-list {
+  padding: 8px 10px; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  display: flex; flex-direction: column; gap: 6px;
+  min-height: 0; flex: 1 1 auto;
+}
+.up-card {
+  border: 1px solid #e1e4e8; border-radius: 8px; padding: 6px 8px; background: #fff;
+  flex-shrink: 0;
+}
+.up-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  gap: 6px; margin-bottom: 5px;
+}
+.up-name { font-weight: 700; font-size: 12px; color: #16191d; }
+.up-detail { font-size: 10.5px; color: #5b616a; text-align: right; }
+.up-seg {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px;
+}
+.seg-btn {
+  padding: 5px 4px; font-size: 10.5px; font-weight: 600; line-height: 1.2;
+  border-radius: 6px; background: #f4f6f8; border: 1px solid #d7dce3;
+  color: #2c313a; white-space: normal; word-break: break-word; text-align: center;
+  min-height: 32px; display: flex; align-items: center; justify-content: center;
+}
+.seg-btn.active {
+  background: #1f242c; color: #fff; border-color: #1f242c;
+}
+#upgrade-footer {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 7px 10px; border-top: 1px solid #e5e7eb; background: #f9fafb;
+  font-size: 11px; color: #5f656e; flex-shrink: 0;
+}
+
+/* ---------------- Mobile & Small Screen Responsive ---------------- */
+@media (max-width: 768px) {
+  #hud {
+    top: 8px; left: 8px; right: auto;
+    max-width: min(230px, 56vw);
+    padding: 6px 8px;
+    border-radius: 9px;
+    font-size: 10.5px;
+    line-height: 1.3;
+    display: block;
+  }
+  #hud .brand { display: none; }
+  #hud .title {
+    font-size: 11px;
+  }
+  #hud #vitals {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 8px;
+    row-gap: 2px;
+    margin-top: 4px;
+    padding-top: 4px;
+  }
+  #hud #vitals .vital { margin: 0; gap: 4px; }
+  #hud #vitals .v-label { width: 28px; font-size: 9px; }
+  #hud #vitals .vital b { width: 20px; font-size: 9.5px; }
+  #hud #v-msg { grid-column: 1 / -1; min-height: 0; }
+  #hud #v-msg:empty { display: none; }
+
+  #controls {
+    left: 8px; right: 8px; bottom: 8px;
+    max-width: none;
+    padding: 5px;
+    gap: 4px;
+    border-radius: 10px;
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+  }
+  #controls button {
+    padding: 5px 3px;
+    font-size: 10.5px;
+    border-radius: 7px;
+    white-space: nowrap;
+  }
+  #controls button .k { display: none; }
+
+  #upgrade-panel {
+    top: 8px;
+    right: 8px;
+    left: 8px;
+    bottom: auto;
+    width: auto;
+    height: auto;
+    max-height: calc(100vh - 96px);
+    border-radius: 11px;
+    z-index: 20;
+  }
+  #upgrade-panel.collapsed {
+    left: auto;
+    right: 8px;
+    top: 8px;
+    bottom: auto;
+    width: auto;
+    min-width: 0;
+  }
+  #upgrade-panel.collapsed .ug-sub { display: none; }
+  #upgrade-header {
+    padding: 5px 8px;
+    gap: 8px;
+  }
+  #upgrade-header .ug-title { font-size: 11px; }
+  #upgrade-header .ug-sub { font-size: 10px; }
+  #upgrade-footer { display: none; }
+}
+
+@media (max-height: 500px) and (orientation: landscape) {
+  #hud {
+    top: 6px; left: 6px; right: auto;
+    padding: 5px 8px; font-size: 11px;
+    display: block;
+  }
+  #hud .title { font-size: 11.5px; }
+  #controls {
+    left: 6px; bottom: 6px; right: auto;
+    max-width: calc(100vw - 250px);
+    display: flex;
+  }
+  #upgrade-panel {
+    top: 6px; right: 6px; bottom: 6px; left: auto;
+    width: 236px;
+    height: auto;
+    max-height: calc(100vh - 12px);
+  }
+}
+
+/* ====================== BAR KONDISI (HP / stamina / lapar / haus) ============ */
+#vitals { margin-top: 7px; padding-top: 6px; border-top: 1px solid #e5e7eb; }
+#vitals .vital { display: flex; align-items: center; gap: 6px; margin: 3px 0; }
+#vitals .v-label { width: 34px; font-size: 10px; letter-spacing: 0.4px; color: #4b5563; }
+#vitals .bar { flex: 1; height: 7px; background: #e8ecf1; border-radius: 5px; overflow: hidden; }
+#vitals .bar i { display: block; height: 100%; width: 100%; border-radius: 5px; transition: width 0.12s linear; }
+#vitals .hp .bar i { background: #e2574c; }
+#vitals .sta .bar i { background: #3aa76d; }
+#vitals .food .bar i { background: #e0a23c; }
+#vitals .water .bar i { background: #38a3d0; }
+#vitals .vital b { width: 26px; font-size: 10px; text-align: right; color: #374151; }
+#vitals .vital.low .bar { box-shadow: 0 0 0 1px #d64545; }
+#vitals .vital.low .bar i { animation: vitalPulse 0.9s ease-in-out infinite; }
+@keyframes vitalPulse { 50% { opacity: 0.35; } }
+#v-msg { color: #b45309; min-height: 12px; }
+body.is-touch #vitals .bar { height: 9px; }
+
+/* ====================== KONTROLER MOBILE ==================================== */
+/* Di perangkat sentuh, baris tombol desktop tidak dipakai; gantinya analog +
+   4 tombol aksi. Desktop tetap seperti semula. */
+#stick, #action-pad, #rotate-hint { display: none; }
+
+body.is-touch #controls { display: none; }
+body.is-touch #upgrade-panel.collapsed { top: 8px; right: 8px; bottom: auto; }
+
+body.is-touch #stick {
+  display: block;
+  position: fixed;
+  left: max(18px, env(safe-area-inset-left));
+  bottom: max(22px, env(safe-area-inset-bottom));
+  width: 148px; height: 148px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 45%, rgba(255,255,255,0.30), rgba(20,28,40,0.36));
+  border: 2px solid rgba(255,255,255,0.55);
+  box-shadow: 0 6px 22px rgba(0,0,0,0.25), inset 0 0 24px rgba(255,255,255,0.12);
+  touch-action: none;
+  z-index: 40;
+}
+body.is-touch #stick.held { background: radial-gradient(circle at 50% 45%, rgba(255,255,255,0.40), rgba(20,28,40,0.42)); }
+#stick-knob {
+  position: absolute; left: 50%; top: 50%;
+  width: 62px; height: 62px; margin-left: -31px; margin-top: -31px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ffffff, #c9d3e0 65%, #8fa2b8);
+  border: 1px solid rgba(255,255,255,0.9);
+  box-shadow: 0 3px 10px rgba(0,0,0,0.32);
+  pointer-events: none;
+}
+
+body.is-touch #action-pad {
+  display: grid;
+  grid-template-columns: repeat(2, 88px);
+  grid-auto-rows: 62px;
+  gap: 10px;
+  position: fixed;
+  right: max(16px, env(safe-area-inset-right));
+  bottom: max(22px, env(safe-area-inset-bottom));
+  z-index: 40;
+}
+#action-pad .act {
+  appearance: none;
+  border: 2px solid rgba(255,255,255,0.55);
+  border-radius: 16px;
+  color: #fff; font-weight: 900; font-size: 13px;
+  letter-spacing: 0.6px;
+  background: rgba(22,30,42,0.52);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.35);
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+#action-pad .act .sub { display: block; font-size: 8.5px; opacity: 0.75; font-weight: 700; }
+#action-pad .act.run { background: rgba(196,86,44,0.60); }
+#action-pad .act.run.on { background: #e07a3a; border-color: #fff; box-shadow: 0 0 14px rgba(255,166,66,0.75); }
+#action-pad .act.jump { background: rgba(58,96,168,0.58); }
+#action-pad .act.eat { background: rgba(70,140,62,0.60); }
+#action-pad .act.drink { background: rgba(43,132,178,0.60); }
+#action-pad .act.tap { transform: scale(0.94); filter: brightness(1.25); }
+
+/* Portrait di perangkat sentuh: paksa landscape lewat overlay. */
+body.is-touch #rotate-hint.show {
+  display: flex;
+  position: fixed; inset: 0; z-index: 999;
+  background: rgba(9,14,22,0.93);
+  align-items: center; justify-content: center;
+  text-align: center; padding: 24px;
+}
+#rotate-hint .rh-card { color: #fff; font-family: inherit; }
+#rotate-hint .rh-icon { font-size: 56px; margin-bottom: 12px; }
+#rotate-hint .rh-title { font-size: 19px; font-weight: 900; letter-spacing: 1px; }
+#rotate-hint .rh-sub { font-size: 12.5px; opacity: 0.78; margin: 10px 0 18px; max-width: 320px; }
+#rotate-hint button {
+  padding: 12px 18px; font-size: 14px; font-weight: 800;
+  border: 1px solid rgba(255,255,255,0.6); border-radius: 12px;
+  background: #e07a3a; color: #fff;
+}
+
+/* Layar pendek (landscape HP): HUD diperkecil supaya tidak menutupi kuda. */
+body.is-touch #hud {
+  max-width: 230px; padding: 7px 9px; font-size: 11px;
+}
+body.is-touch #vitals { margin-top: 4px; padding-top: 4px; }
+body.is-touch #vitals .vital { margin: 2px 0; gap: 5px; }
+
+/* Di HP pesan kontekstual ("kuda haus", "ke pinggir dulu") pindah ke atas
+   tombol biar tidak menumpuk analog/tombol. */
+body.is-touch #v-msg {
+  position: fixed;
+  left: 50%; transform: translateX(-50%);
+  bottom: max(180px, calc(env(safe-area-inset-bottom) + 180px));
+  max-width: 74vw;
+  padding: 6px 12px;
+  background: rgba(15,20,28,0.78);
+  color: #fff; font-size: 12px; text-align: center;
+  border-radius: 12px;
+  min-height: 0; z-index: 45;
+  pointer-events: none;
+}
+body.is-touch #v-msg:empty { display: none; }
+body.is-touch.portrait #v-msg { bottom: 40vh; }
+
+/* Di layar sangat pendek (<=460px) HUD cuma panel ringkas: mode/kecepatan/arah
+   + bar kondisi. Blok roda/pasokan/NPC disembunyikan biar tidak nabrak analog
+   yang sekarang di kiri bawah. */
+@media (max-height: 460px) {
+  body.is-touch #hud .opt { display: none; }
+  body.is-touch #hud { max-width: 206px; }
+}
+body.is-touch #hud .brand { display: none; }
+body.is-touch #hud .title { font-size: 11px; }
+
+#boot-error:not([hidden]) {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: min(560px, 92vw);
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgba(153, 27, 27, 0.94);
+  border: 1px solid rgba(254, 202, 202, 0.6);
+  color: #fff;
+  font-size: 12px;
+  line-height: 1.4;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+  z-index: 1000;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
