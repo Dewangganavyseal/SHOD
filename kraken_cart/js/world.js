@@ -4506,14 +4506,11 @@ class World {
   }
 
   isOnRoad(x, z) {
-    return this._getRoadDistance(x, z) < 2.15;
+    return false;
   }
 
   riverDistX(x, z) {
-    const d = Math.hypot(x - this.POND_CENTER.x, z - this.POND_CENTER.z);
-    if (d < this.POND_CENTER.radius - 0.35) return 4.0;   // di dalam air kolam
-    if (d <= this.POND_CENTER.radius + 4.8) return 7.0;   // di tepi kolam -> bisa minum!
-    return 25.0;                                          // jauh dari kolam
+    return 9.0;
   }
 
   triggerPondRipple(x, z) {

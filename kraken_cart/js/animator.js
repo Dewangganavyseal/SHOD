@@ -67,9 +67,9 @@ const THREE = HC.THREE, S = HC.vs;
       this.bodyLag = 0;
       this.forwardX = 1;
       this.forwardZ = 0;
-      this.speed = 1.8;
-      this.targetSpeed = 1.85;
-      this.throttle = 1;        // gas 0..1 dari analog (default penuh/desktop)
+      this.speed = 0;
+      this.targetSpeed = 0;
+      this.throttle = 0;        // gas 0..1 dari input (diam sampai ditekan maju)
       this.speedScale = 1;      // limiter kondisi badan (survival)
       this.phase = 0;
       this.time = 0;
@@ -144,6 +144,7 @@ const THREE = HC.THREE, S = HC.vs;
         if (this.jumpActive) this.targetSpeed = Math.max(this.targetSpeed, 3.2 * this.speedScale);
       }
       this.speed = HC.damp(this.speed, this.targetSpeed, 6.5, dt);
+      if (!moving && this.speed < 0.04) this.speed = 0;
 
       // ---- Steering: kepala menoleh dulu, badan menyusul, kaki mengikuti jalur ----
       this.steer = HC.damp(this.steer, this.steerInput, 6.5, dt);
@@ -164,7 +165,9 @@ const THREE = HC.THREE, S = HC.vs;
       // Advance gait cycle phase proportional to distance travelled
       const freq = HC.lerp(1.22, 2.38, this.runBlend);
       const speedRatio = HC.clamp(this.speed / HC.lerp(1.95, 5.25, this.runBlend), 0, 1.35);
-      this.phase = (this.phase + dt * freq * Math.max(0.15, speedRatio) * (1 - this.grazeBlend * 0.92)) % 1;
+      if (this.speed > 0.02) {
+        this.phase = (this.phase + dt * freq * speedRatio * (1 - this.grazeBlend * 0.92)) % 1;
+      }
 
       // ---- Jump arc & body pitch ----
       let jumpHeave = 0;
@@ -318,6 +321,12 @@ const THREE = HC.THREE, S = HC.vs;
           else strideX = 0.04;
           liftY = leg.id === 'FR' ? Math.max(0, Math.sin(this.time * 1.6)) * 0.045 : 0;
           stance = liftY > 0.01 ? 0.3 : 1.0;
+        } else if (!moving && this.speed < 0.05 && !this.jumpActive) {
+          // Diam di tempat: keempat kaki menapak rata di tanah.
+          strideX = 0;
+          liftY = 0;
+          stance = 1.0;
+          fetlockFlex = 0;
         } else if (u < duty) {
           // Stance phase: foot sweeps from +stride/2 to -stride/2 on the ground
           const t = u / duty;

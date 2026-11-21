@@ -46,7 +46,6 @@ export class Survival {
     if (Math.abs(ctx.speed) > 1.0) return this._deny('Berhenti dulu buat makan.');
     if (this.onRoad(ctx.x, ctx.z)) return this._deny('Di jalan gak ada rumput. Ke pinggir dulu.');
     if (this.riverDistance(ctx.x, ctx.z) < 8.5) return this._deny('Di air kuda gak makan rumput.');
-    if (this.hunger >= SURV_CAP - 1) return this._deny('Perut masih kenyang.');
     this.eatT = 2.6;
     this.drinkT = 0;
     this.msg = 'Kuda makan rumput...';
@@ -57,10 +56,9 @@ export class Survival {
   tryDrink(ctx) {
     if (Math.abs(ctx.speed) > 1.0) return this._deny('Berhenti dulu buat minum.');
     if (this.riverDistance(ctx.x, ctx.z) > 9.5) return this._deny('Terlalu jauh dari sungai.');
-    if (this.thirst >= SURV_CAP - 1) return this._deny('Kuda belum haus.');
     this.drinkT = 2.2;
     this.eatT = 0;
-    this.msg = 'Kuda minum di sungai...';
+    this.msg = 'Kuda minum air...';
     return true;
   }
 
@@ -86,8 +84,8 @@ export class Survival {
 
     if (this.eatT > 0) {
       this.eatT = Math.max(0, this.eatT - dt);
-      this.hunger = Math.min(SURV_CAP, this.hunger + 19.0 * dt);
-      this.stamina = Math.min(SURV_CAP, this.stamina + 8.0 * dt);
+      this.hunger = Math.min(SURV_CAP, this.hunger + 38.5 * dt);
+      this.stamina = Math.min(SURV_CAP, this.stamina + 14.0 * dt);
       if (this.eatT === 0) this.msg = 'Kenyang. Gas lagi.';
     } else {
       this.hunger = Math.max(0, this.hunger - dt * (0.45 + (running ? 0.30 : moving ? 0.10 : 0)));
@@ -95,7 +93,8 @@ export class Survival {
 
     if (this.drinkT > 0) {
       this.drinkT = Math.max(0, this.drinkT - dt);
-      this.thirst = Math.min(SURV_CAP, this.thirst + 32.0 * dt);
+      this.thirst = Math.min(SURV_CAP, this.thirst + 46.0 * dt);
+      this.stamina = Math.min(SURV_CAP, this.stamina + 12.0 * dt);
       if (this.drinkT === 0) this.msg = 'Udah minum.';
     } else {
       this.thirst = Math.max(0, this.thirst - dt * (0.32 + (running ? 0.38 : moving ? 0.10 : 0)));

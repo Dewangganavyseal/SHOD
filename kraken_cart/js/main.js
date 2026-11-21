@@ -371,14 +371,16 @@ function bindBtn(id, fn) {
   el.addEventListener('touchstart', handler, { passive: false });
 }
 
-bindBtn('btn-walk', () => animator.setState('walk'));
-bindBtn('btn-run', () => toggleRun());
-bindBtn('btn-jump', () => animator.setState('jump'));
-bindBtn('btn-graze', () => animator.setState('graze'));
-
 // ---- kondisi kuda: stamina / HP / lapar / haus ----
 const survival = new Survival({ map: HC.MAP, world });
 let runLatched = false;
+const keysHeld = { forward: false, left: false, right: false };
+let btnForwardHeld = false;
+
+function syncSteerInput() {
+  animator.setSteer(keysHeld.left ? 1 : keysHeld.right ? -1 : 0);
+}
+
 function toggleRun() {
   runLatched = !runLatched;
   animator.setState(runLatched ? 'run' : 'walk');
@@ -390,33 +392,73 @@ const survCtx = () => ({
   running: animator.state === 'run' && animator.throttle > 0.06,
   flipped: !!physics.flipped,
 });
+function stopForSurvivalAction() {
+  keysHeld.forward = false;
+  btnForwardHeld = false;
+  animator.setThrottle(0);
+  animator.speed = 0;
+  animator.targetSpeed = 0;
+}
 function doEat() {
+  stopForSurvivalAction();
   const ctx = survCtx();
-  ctx.speed = Math.abs(animator.speed);
+  ctx.speed = 0;
   const ok = survival.tryEat(ctx);
-  if (ok) { animator.setThrottle(0); animator.setState('graze'); }
+  if (ok) animator.setState('graze');
+  syncVitals();
 }
 function doDrink() {
+  stopForSurvivalAction();
   const ctx = survCtx();
+  ctx.speed = 0;
   const ok = survival.tryDrink(ctx);
   if (ok) {
-    animator.setThrottle(0);
+    animator.setState('graze');
     if (world.triggerPondRipple) world.triggerPondRipple(animator.x, animator.z);
   }
+  syncVitals();
 }
 function doJump() {
-  if (survival.stamina < 12) { survival.msg = 'Stamina kurang buat lompat.'; return; }
+  if (survival.stamina < 12) { survival.msg = 'Stamina kurang buat lompat.'; syncVitals(); return; }
   survival.stamina = Math.max(0, survival.stamina - 12);
   animator.setState('jump');
 }
+
+const btnWalkEl = document.getElementById('btn-walk');
+if (btnWalkEl) {
+  const startWalk = (e) => {
+    e.preventDefault();
+    btnForwardHeld = true;
+    btnWalkEl.classList.add('held');
+    if (!survival.eating && !survival.drinking && animator.state === 'graze') {
+      animator.setState(runLatched ? 'run' : 'walk');
+    }
+  };
+  const stopWalk = (e) => {
+    if (e) e.preventDefault();
+    btnForwardHeld = false;
+    btnWalkEl.classList.remove('held');
+  };
+  btnWalkEl.addEventListener('pointerdown', startWalk);
+  btnWalkEl.addEventListener('pointerup', stopWalk);
+  btnWalkEl.addEventListener('pointerleave', stopWalk);
+  btnWalkEl.addEventListener('pointercancel', stopWalk);
+  btnWalkEl.addEventListener('touchstart', startWalk, { passive: false });
+  btnWalkEl.addEventListener('touchend', stopWalk, { passive: false });
+  btnWalkEl.addEventListener('touchcancel', stopWalk, { passive: false });
+}
+bindBtn('btn-run', () => toggleRun());
+bindBtn('btn-jump', () => doJump());
+bindBtn('btn-graze', () => doEat());
+bindBtn('btn-drink', () => doDrink());
 
 const touchUI = initTouchControls({
   animator, survival,
   onJump: doJump, onEat: doEat, onDrink: doDrink, onRunToggle: toggleRun,
   isTouchDevice: matchMedia('(pointer: coarse)').matches,
 });
-// Kuda jangan langsung lari sendiri sebelum analog disentuh.
-if (touchUI.active) animator.setThrottle(0);
+// Kuda mulai diam sampai input maju (W/↑ atau analog) ditekan.
+animator.setThrottle(0);
 function rampPeakForCart() {
   // Tinggi "sayap miring" di satu sisi roda. Suspensi makin kaku (Lv2/Lv3),
   // makin tinggi batu yang dibutuhin buat bikin bodi miring lewat 75°.
@@ -558,12 +600,24 @@ bindSteer('btn-right', -1);
 
 window.addEventListener('keydown', (e) => {
   const k = e.key.toLowerCase();
-  if (k === 'arrowleft' || k === 'a') { animator.setSteer(1); e.preventDefault(); }
-  else if (k === 'arrowright' || k === 'd') { animator.setSteer(-1); e.preventDefault(); }
-  else if (k === '1' || k === 'w') animator.setState('walk');
-  else if (k === '2' || k === 'r') animator.setState('run');
-  else if (k === ' ' || k === 'j') { e.preventDefault(); animator.setState('jump'); }
-  else if (k === '3' || k === 'e') animator.setState('graze');
+  if (k === 'w' || k === 'arrowup') {
+    keysHeld.forward = true;
+    if (!survival.eating && !survival.drinking && animator.state === 'graze') {
+      animator.setState(runLatched ? 'run' : 'walk');
+    }
+    e.preventDefault();
+  }
+  else if (k === 'arrowleft' || k === 'a') { keysHeld.left = true; syncSteerInput(); e.preventDefault(); }
+  else if (k === 'arrowright' || k === 'd') { keysHeld.right = true; syncSteerInput(); e.preventDefault(); }
+  else if (k === '1') {
+    runLatched = false;
+    animator.setState('walk');
+    if (touchUI && touchUI.setRunLatched) touchUI.setRunLatched(false);
+  }
+  else if (k === '2' || k === 'r' || k === 'shift') { if (!e.repeat) toggleRun(); }
+  else if (k === ' ' || k === 'j') { e.preventDefault(); doJump(); }
+  else if (k === '3' || k === 'e') doEat();
+  else if (k === '4' || k === 'f' || k === 'm') doDrink();
   else if (k === 't') spawnTipRamp();
   else if (k === 'b') world.spawnPebbleClusterAhead(animator.x, animator.z, animator.yaw);
   else if (k === 'g') recruitNearbyNPC();
@@ -576,9 +630,18 @@ window.addEventListener('keydown', (e) => {
 });
 window.addEventListener('keyup', (e) => {
   const k = e.key.toLowerCase();
-  if (k === 'arrowleft' || k === 'a' || k === 'arrowright' || k === 'd') animator.setSteer(0);
+  if (k === 'w' || k === 'arrowup') keysHeld.forward = false;
+  else if (k === 'arrowleft' || k === 'a') { keysHeld.left = false; syncSteerInput(); }
+  else if (k === 'arrowright' || k === 'd') { keysHeld.right = false; syncSteerInput(); }
 });
-window.addEventListener('blur', () => animator.setSteer(0));
+window.addEventListener('blur', () => {
+  keysHeld.forward = false;
+  keysHeld.left = false;
+  keysHeld.right = false;
+  btnForwardHeld = false;
+  animator.setSteer(0);
+  animator.setThrottle(0);
+});
 
 // ---------------- loop ----------------
 resetRopes();
@@ -590,13 +653,19 @@ window.__manualSim = false;
 
 function stepSim(dt) {
   // --- kondisi kuda dihitung sebelum gerak biar limiter berlaku di frame sama ---
-  const wasEating = survival.eating;
-  const acting = survival.eating || survival.drinking;
-  // Desktop (tanpa analog): gas penuh otomatis, perilaku lama tetap. Perangkat
-  // sentuh / mode analog: gas 100% dari joystick, jadi lepas analog = berhenti.
-  const analog = !!(touchUI.active || window.__analogMode);
-  if (!analog) animator.setThrottle(acting ? 0 : 1);
-  else if (acting) animator.setThrottle(0);
+  const wasActing = survival.eating || survival.drinking;
+  const acting = wasActing;
+  // Baik PC maupun mobile: kuda DIAM jika tombol maju / analog tidak ditekan.
+  const pcForward = !!(keysHeld.forward || btnForwardHeld || window.__forceForward);
+  const stickActive = !!(touchUI.active && touchUI.joystick && touchUI.joystick.pad && touchUI.joystick.pad.active);
+  if (acting) {
+    animator.setThrottle(0);
+  } else if (pcForward) {
+    if (animator.state === 'graze') animator.setState(runLatched ? 'run' : 'walk');
+    animator.setThrottle(1);
+  } else if (!stickActive) {
+    animator.setThrottle(0);
+  }
   if (!survival.canRun() && animator.state === 'run') {
     runLatched = false;
     animator.setState('walk');
@@ -604,7 +673,8 @@ function stepSim(dt) {
   }
   animator.speedScale = survival.speedScale();
   survival.update(dt, survCtx());
-  if (wasEating && !survival.eating) animator.setState(runLatched ? 'run' : 'walk');
+  const stillActing = survival.eating || survival.drinking;
+  if (wasActing && !stillActing) animator.setState(runLatched ? 'run' : 'walk');
 
   // Gerobak udah rebah (lewat batas 75°): kuda TERPAKU TOTAL — posisi, langkah,
   // kepala, semuanya beku. Gak ada input yang bisa ngusik dia sampai Reset.
