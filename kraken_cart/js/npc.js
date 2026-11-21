@@ -398,7 +398,7 @@ HC.updateWildNPC = function (item, dt, horse, world) {
     }
   }
 
-  const gy = (world && world.terrainHeightAt) ? world.terrainHeightAt(item.x, item.z) : 0;
+  const gy = (world && world.heightAt) ? world.heightAt(item.x, item.z) : (world && world.terrainHeightAt) ? world.terrainHeightAt(item.x, item.z) : 0;
   root.position.set(item.x, gy, item.z);
   // model Sylvan menghadap +Z lokal -> rotasi root = sudut arah
   let faceYaw = b.dir;
@@ -473,9 +473,10 @@ HC.NPCParty = class {
       try { this.onChange(); } catch (e) { /* no-op */ }
     }
   }
-  // NPC liar berdiri di atas terrain, bukan di y=0 (medan sekarang berbukit).
+  // NPC liar & regu berdiri di atas permukaan terrain/batu, bukan di y=0 (medan sekarang berbukit).
   _groundY(x, z) {
-    return (this.world && this.world.terrainHeightAt) ? this.world.terrainHeightAt(x, z) : 0;
+    return (this.world && this.world.heightAt) ? this.world.heightAt(x, z)
+      : (this.world && this.world.terrainHeightAt) ? this.world.terrainHeightAt(x, z) : 0;
   }
   _spawnSettlements() {
     const spawns = (HC.MAP && HC.MAP.allNPCSpawns) ? HC.MAP.allNPCSpawns() : [];

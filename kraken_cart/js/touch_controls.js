@@ -9,9 +9,15 @@
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
-export function initTouchControls({ animator, survival, onJump, onEat, onDrink, onRunToggle, isTouchDevice }) {
+export function initTouchControls({ animator, survival, onJump, onEat, onDrink, onRunToggle, onHitch, isTouchDevice }) {
   const touch = isTouchDevice || matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
   document.body.classList.toggle('is-touch', !!touch);
+  if (touch) {
+    const hudEl = document.getElementById('hud');
+    const tog = document.getElementById('btn-hud-toggle');
+    if (hudEl) hudEl.classList.add('compact');
+    if (tog) tog.textContent = 'Detail';
+  }
 
   // ---------- overlay portrait / layar penuh ----------
   const rotate = document.createElement('div');
@@ -49,10 +55,15 @@ export function initTouchControls({ animator, survival, onJump, onEat, onDrink, 
 
   if (!touch) return { active: false, joystick: null };
 
-  // ---------- joystick analog (kanan) ----------
+  // ---------- joystick analog (kiri bawah, floating glass dengan panah arah) ----------
   const stick = document.createElement('div');
   stick.id = 'stick';
-  stick.innerHTML = '<div id="stick-knob"></div>';
+  stick.innerHTML =
+    '<span class="st-dir n" aria-hidden="true">▲</span>' +
+    '<span class="st-dir s" aria-hidden="true">▼</span>' +
+    '<span class="st-dir w" aria-hidden="true">◀</span>' +
+    '<span class="st-dir e" aria-hidden="true">▶</span>' +
+    '<div id="stick-knob"></div>';
   document.body.appendChild(stick);
   const knob = stick.querySelector('#stick-knob');
 
@@ -111,6 +122,10 @@ export function initTouchControls({ animator, survival, onJump, onEat, onDrink, 
     }
     animator.setThrottle(thr);
     animator.setSteer(m < 0.12 ? 0 : clamp(-vec.x * 1.35, -1, 1));
+    stick.classList.toggle('moving-fwd', thr > 0.08);
+    stick.classList.toggle('moving-rev', thr < -0.08);
+    stick.classList.toggle('moving-left', m >= 0.12 && vec.x < -0.25);
+    stick.classList.toggle('moving-right', m >= 0.12 && vec.x > 0.25);
   }
 
   stick.addEventListener('touchstart', (e) => { e.preventDefault(); stickStart(e); }, { passive: false });
@@ -122,31 +137,37 @@ export function initTouchControls({ animator, survival, onJump, onEat, onDrink, 
   window.addEventListener('mousemove', (e) => { if (pad.active) { e.preventDefault(); stickMove(e); } });
   window.addEventListener('mouseup', () => stickEnd());
 
-  // ---------- tombol aksi (kiri) ----------
+  // ---------- tombol aksi ergonomis (kanan bawah, lengkung jempol bulat) ----------
   const padBtns = document.createElement('div');
   padBtns.id = 'action-pad';
   const defs = [
-    { id: 'act-run', label: 'LARI', sub: 'toggle', cls: 'run' },
-    { id: 'act-jump', label: 'LOMPAT', cls: 'jump' },
-    { id: 'act-eat', label: 'MAKAN', cls: 'eat' },
-    { id: 'act-drink', label: 'MINUM', cls: 'drink' },
+    { id: 'act-jump', icon: '⤴', label: 'LOMPAT', cls: 'jump hero' },
+    { id: 'act-run', icon: '⚡', label: 'LARI', sub: 'toggle', cls: 'run' },
+    { id: 'act-hitch', icon: '🔗', label: 'TALI', sub: 'lepas', cls: 'hitch' },
+    { id: 'act-eat', icon: '🌿', label: 'MAKAN', cls: 'eat' },
+    { id: 'act-drink', icon: '💧', label: 'MINUM', cls: 'drink' },
   ];
   for (const d of defs) {
     const b = document.createElement('button');
     b.id = d.id; b.type = 'button';
     b.className = 'act ' + d.cls;
-    b.innerHTML = `<span class="lbl">${d.label}</span>` + (d.sub ? `<span class="sub">${d.sub}</span>` : '');
+    b.innerHTML =
+      `<span class="ic" aria-hidden="true">${d.icon}</span>` +
+      `<span class="lbl">${d.label}</span>` +
+      (d.sub ? `<span class="sub">${d.sub}</span>` : '');
     padBtns.appendChild(b);
   }
   document.body.appendChild(padBtns);
 
   const runBtn = padBtns.querySelector('#act-run');
+  const hitchBtn = padBtns.querySelector('#act-hitch');
   const press = (el, fn) => {
     // HP asli mengirim touchstart LALU click -> tanpa penjaga ini aksi jalan 2x
     // (toggle lari jadi nyala-mati seketika). Catat waktu sentuh terakhir.
     let lastTouch = 0;
     el.addEventListener('touchstart', (e) => {
       e.preventDefault();
+      if (el.disabled) return;
       lastTouch = performance.now();
       el.classList.add('tap');
       setTimeout(() => el.classList.remove('tap'), 120);
@@ -154,6 +175,7 @@ export function initTouchControls({ animator, survival, onJump, onEat, onDrink, 
     }, { passive: false });
     el.addEventListener('click', (e) => {
       e.preventDefault();
+      if (el.disabled) return;
       if (performance.now() - lastTouch < 600) return;
       el.classList.add('tap');
       setTimeout(() => el.classList.remove('tap'), 120);
@@ -164,10 +186,20 @@ export function initTouchControls({ animator, survival, onJump, onEat, onDrink, 
   press(padBtns.querySelector('#act-jump'), () => onJump && onJump());
   press(padBtns.querySelector('#act-eat'), () => onEat && onEat());
   press(padBtns.querySelector('#act-drink'), () => onDrink && onDrink());
+  press(hitchBtn, () => onHitch && onHitch());
 
   return {
     active: true,
     joystick: { vec, pad, applyStick },
     setRunLatched(on) { runBtn.classList.toggle('on', !!on); },
+    setHitchState({ free = false, disabled = false, sub = '' } = {}) {
+      if (!hitchBtn) return;
+      hitchBtn.classList.toggle('free', !!free);
+      hitchBtn.disabled = !!disabled;
+      const ic = hitchBtn.querySelector('.ic');
+      const s = hitchBtn.querySelector('.sub');
+      if (ic) ic.textContent = free ? '🔗' : '🔓';
+      if (s && sub) s.textContent = sub;
+    },
   };
 }

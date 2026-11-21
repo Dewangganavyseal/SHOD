@@ -507,7 +507,7 @@ bindBtn('btn-drink', () => doDrink());
 
 const touchUI = initTouchControls({
   animator, survival,
-  onJump: doJump, onEat: doEat, onDrink: doDrink, onRunToggle: toggleRun,
+  onJump: doJump, onEat: doEat, onDrink: doDrink, onRunToggle: toggleRun, onHitch: toggleHitch,
   isTouchDevice: matchMedia('(pointer: coarse)').matches,
 });
 // Kuda mulai diam sampai input maju (W/↑ atau analog) ditekan.
@@ -796,6 +796,14 @@ function syncHitchUi() {
       : !al.alignedLat ? '🔗 Tengahkan Posisi'
       : al.longErr > 1.25 ? '🔗 Mundur ke Batang'
       : '🔗 Mundur Pas Batang';
+  }
+  if (touchUI && touchUI.setHitchState) {
+    const sub = physics.flipped ? 'terbalik'
+      : hitchAnim.active ? 'ngepasin'
+      : physics.hitched ? (movingFast ? 'berhenti' : 'lepas')
+      : al.ready ? 'pasang!'
+      : 'dekatkan';
+    touchUI.setHitchState({ free, disabled: !!btnHitchEl.disabled, sub });
   }
 }
 

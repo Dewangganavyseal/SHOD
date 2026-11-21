@@ -251,38 +251,43 @@ const THREE = HC.THREE, S = HC.vs;
         this.phase = (this.phase + dt * 1.15 * HC.clamp(Math.abs(this.yawRate), 0.25, 1.4)) % 1;
       }
 
-      // ---- Jump arc & body pitch ----
+      // ---- Jump arc & smooth equestrian pitch bascule ----
       let jumpHeave = 0;
       let jumpPitch = 0;
       let jumpTuckFront = 0;
       let jumpTuckRear = 0;
+      let jumpAir = 0;
 
       if (this.jumpActive) {
         this.jumpT += dt / this.jumpDur;
         const u = this.jumpT;
-        if (u < 0.18) {
-          // 1) Crouch / gather on hind legs
-          const k = HC.smooth(u / 0.18);
-          jumpHeave = -0.11 * k;
-          jumpPitch = 0.18 * k;
-        } else if (u < 0.82) {
-          // 2) Airborne parabola
-          const a = (u - 0.18) / 0.64;
-          const arc = 4 * a * (1 - a);
-          jumpHeave = (this.unhitched ? 0.80 : 0.68) * arc;
-          jumpPitch = HC.lerp(0.32, -0.28, a);
-          jumpTuckFront = Math.sin(Math.PI * HC.clamp((a - 0.02) / 0.72, 0, 1));
-          jumpTuckRear = Math.sin(Math.PI * HC.clamp((a - 0.18) / 0.75, 0, 1));
+        if (u < 0.16) {
+          // 1) Gather & rock weight onto hind quarters (nose gently lifts)
+          const k = HC.smooth(u / 0.16);
+          jumpHeave = -0.10 * k;
+          jumpPitch = 0.24 * k;
+          jumpTuckFront = 0.22 * k;
+        } else if (u < 0.84) {
+          // 2) Smooth parabolic bascule arc (C0 continuous pitch + heave)
+          const a = (u - 0.16) / 0.68;
+          const maxH = this.unhitched ? 0.84 : 0.72;
+          jumpHeave = Math.sin(Math.PI * a) * maxH - (1 - a) * (1 - a) * 0.10;
+          jumpPitch = 0.24 * Math.cos(Math.PI * a);
+          jumpAir = Math.sin(Math.PI * a);
+          jumpTuckFront = Math.sin(Math.PI * HC.clamp(a / 0.82, 0, 1));
+          jumpTuckRear = Math.sin(Math.PI * HC.clamp((a - 0.12) / 0.86, 0, 1));
         } else if (u < 1.0) {
-          // 3) Landing compression & recovery
-          const l = (u - 0.82) / 0.18;
-          jumpHeave = -0.10 * Math.sin(Math.PI * l);
-          jumpPitch = -0.12 * Math.sin(Math.PI * l);
+          // 3) Cushioned front-then-hind landing absorb
+          const l = (u - 0.84) / 0.16;
+          jumpHeave = -0.11 * Math.sin(Math.PI * l);
+          jumpPitch = -0.24 * Math.pow(1 - l, 1.5);
         } else {
           this.jumpActive = false;
           this.jumpT = 0;
         }
       }
+      this.jumpY = Math.max(0, jumpHeave);
+      this.jumpPitch = jumpPitch;
 
       // ---- Ground height under horse front & rear to tilt body along terrain (mengikuti arah hadap) ----
       const ghFront = this.world.heightAt(this.x + this.forwardX * 0.55, this.z + this.forwardZ * 0.55);
@@ -310,7 +315,7 @@ const THREE = HC.THREE, S = HC.vs;
 
       // ---- Neck, Head, Jaw & Ears (Walk / Run / Jump / Graze) ----
       const neckRhythm = Math.sin(p2 * (this.runBlend > 0.5 ? 1 : 2) - 0.7) * HC.lerp(0.06, 0.16, this.runBlend) * moveAmt;
-      const jumpNeck = this.jumpActive ? -jumpPitch * 0.55 : 0;
+      const jumpNeck = this.jumpActive ? (jumpAir * -0.26 - jumpPitch * 0.35) : 0;
 
       // Grazing procedural motion: reach down to ground y=0, nibble & tug sideways
       const grazeTug = Math.sin(this.time * 7.2) * 0.055 + Math.sin(this.time * 2.3) * 0.04;
@@ -432,13 +437,21 @@ const THREE = HC.THREE, S = HC.vs;
           fetlockFlex = -bell * 0.58; // hoof curls back while airborne
         }
 
-        // Jump leg tuck override
-        if (this.jumpActive && this.jumpT > 0.16 && this.jumpT < 0.86) {
-          const tuck = leg.front ? jumpTuckFront : jumpTuckRear;
-          liftY = Math.max(liftY, tuck * 0.36);
-          strideX = HC.lerp(strideX, leg.front ? 0.22 * tuck : -0.26 * tuck, tuck);
-          fetlockFlex = -tuck * 0.75;
-          stance = 0;
+        // Jump leg tuck override: kaki ikut naik bersama badan di udara & ditekuk rapi di bawah perut
+        let airTuck = 0;
+        if (this.jumpActive && this.jumpT < 0.86) {
+          const isLeft = (leg.id === 'FL' || leg.id === 'HL');
+          const stagger = isLeft ? 0.06 : -0.04;
+          const tuckRaw = leg.front ? jumpTuckFront : jumpTuckRear;
+          airTuck = HC.clamp(tuckRaw + stagger * jumpAir, 0, 1);
+          const airProg = HC.clamp((this.jumpT - 0.16) / 0.68, 0, 1);
+          const frontReach = airProg > 0.70 ? ((airProg - 0.70) / 0.30) * 0.30 : 0;
+          const rearPush = airProg < 0.25 ? -(1 - airProg / 0.25) * 0.24 : 0;
+          strideX = leg.front
+            ? HC.lerp(strideX, 0.34 * airTuck + frontReach, Math.max(jumpAir, airTuck))
+            : HC.lerp(strideX, -0.22 * airTuck + rearPush, Math.max(jumpAir, airTuck));
+          fetlockFlex = -0.68 * airTuck;
+          stance = this.jumpT < 0.16 && !leg.front ? 1.0 : 0;
         }
 
         // Get hip world position
@@ -450,12 +463,17 @@ const THREE = HC.THREE, S = HC.vs;
         const footX = this.x + hx * cy + hz * sy + (strideX + stanceShift) * cy;
         const footZ = this.z - hx * sy + hz * cy - (strideX + stanceShift) * sy;
 
-        // Detect exact ground + pebble height & surface normal at foot (footX, footZ)
+        // Detect exact ground + pebble + rock mesh height & surface normal at foot (footX, footZ)
         const groundY = this.world.heightAt(footX, footZ);
         this.world.normalAt(footX, footZ, this._normW);
 
-        // Ankle target is hoofHWorld above the ground contact + swing lift
-        const ankleY = groundY + hoofHWorld + liftY;
+        // Ankle target follows airborne torso + folds knees cleanly toward belly
+        const baseAnkleY = groundY + hoofHWorld + liftY;
+        const desiredDrop = HC.lerp(1.28, 0.72, airTuck);
+        const airAnkleY = this._hipW.y - desiredDrop;
+        const ankleY = airTuck > 0.02
+          ? Math.max(baseAnkleY, HC.lerp(baseAnkleY, airAnkleY, HC.clamp(Math.max(airTuck * 1.15, jumpAir), 0, 1)))
+          : baseAnkleY;
         this._ankleW.set(footX, ankleY, footZ);
         leg.footWorld.set(footX, groundY, footZ);
         leg.stanceBlend = HC.damp(leg.stanceBlend, stance, 18, dt);

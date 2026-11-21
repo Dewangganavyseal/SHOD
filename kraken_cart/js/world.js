@@ -42,8 +42,11 @@ class World {
 
     // ---- Environment Mesh Collider Registry + 2D Spatial Hash Grid ----
     const colliders = [];
+    const rockMeshes = [];
     const colliderGrid = new Map();
     const GRID_CELL = 6.0;
+    const _triA = new THREE.Vector3(), _triB = new THREE.Vector3(), _triC = new THREE.Vector3();
+    const _triE1 = new THREE.Vector3(), _triE2 = new THREE.Vector3(), _triN = new THREE.Vector3();
     function indexCollider(col) {
       const gx0 = Math.floor(col.minX / GRID_CELL), gx1 = Math.floor(col.maxX / GRID_CELL);
       const gz0 = Math.floor(col.minZ / GRID_CELL), gz1 = Math.floor(col.maxZ / GRID_CELL);
@@ -79,6 +82,59 @@ class World {
         mesh,
       };
       if (mesh && mesh.userData) mesh.userData.collider = col;
+      return indexCollider(col);
+    }
+    function addRockMeshCollider(type, mesh) {
+      if (!mesh || !mesh.geometry) return null;
+      mesh.updateMatrixWorld(true);
+      const posAttr = mesh.geometry.attributes.position;
+      const idxAttr = mesh.geometry.index;
+      const count = idxAttr ? idxAttr.count : posAttr.count;
+      const m4 = mesh.matrixWorld;
+      const topTris = [];
+      const sideTris = [];
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity, minZ = Infinity, maxZ = -Infinity;
+
+      for (let i = 0; i + 2 < count; i += 3) {
+        const ia = idxAttr ? idxAttr.getX(i) : i;
+        const ib = idxAttr ? idxAttr.getX(i + 1) : i + 1;
+        const ic = idxAttr ? idxAttr.getX(i + 2) : i + 2;
+        _triA.fromBufferAttribute(posAttr, ia).applyMatrix4(m4);
+        _triB.fromBufferAttribute(posAttr, ib).applyMatrix4(m4);
+        _triC.fromBufferAttribute(posAttr, ic).applyMatrix4(m4);
+        _triE1.subVectors(_triB, _triA);
+        _triE2.subVectors(_triC, _triA);
+        _triN.crossVectors(_triE1, _triE2);
+        const area = _triN.length();
+        if (area < 1e-6) continue;
+        _triN.divideScalar(area);
+
+        const tMinX = Math.min(_triA.x, _triB.x, _triC.x), tMaxX = Math.max(_triA.x, _triB.x, _triC.x);
+        const tMinY = Math.min(_triA.y, _triB.y, _triC.y), tMaxY = Math.max(_triA.y, _triB.y, _triC.y);
+        const tMinZ = Math.min(_triA.z, _triB.z, _triC.z), tMaxZ = Math.max(_triA.z, _triB.z, _triC.z);
+        if (tMinX < minX) minX = tMinX; if (tMaxX > maxX) maxX = tMaxX;
+        if (tMinY < minY) minY = tMinY; if (tMaxY > maxY) maxY = tMaxY;
+        if (tMinZ < minZ) minZ = tMinZ; if (tMaxZ > maxZ) maxZ = tMaxZ;
+
+        const tri = {
+          ax: _triA.x, ay: _triA.y, az: _triA.z,
+          bx: _triB.x, by: _triB.y, bz: _triB.z,
+          cx: _triC.x, cy: _triC.y, cz: _triC.z,
+          nx: _triN.x, ny: _triN.y, nz: _triN.z,
+          minX: tMinX, maxX: tMaxX, minZ: tMinZ, maxZ: tMaxZ, maxY: tMaxY,
+        };
+        if (tri.ny > 0.12) topTris.push(tri);
+        if (tri.ny <= 0.45) sideTris.push(tri);
+      }
+      const col = {
+        id: colliders.length, kind: 'mesh_rock', type,
+        x: (minX + maxX) * 0.5, z: (minZ + maxZ) * 0.5,
+        r: Math.hypot(maxX - minX, maxZ - minZ) * 0.38,
+        yMax: maxY, minX, maxX, minY, maxY, minZ, maxZ,
+        topTris, sideTris, mesh,
+      };
+      if (mesh.userData) mesh.userData.collider = col;
+      rockMeshes.push(col);
       return indexCollider(col);
     }
 
@@ -3411,7 +3467,7 @@ class World {
             rMesh.castShadow = true;
             rMesh.receiveShadow = true;
             pondGroup.add(rMesh);
-            addCircleCollider('pond_rock', ob.x, ob.z, ob.r * 1.12, POND_WATER_Y + ob.h, rMesh);
+            addRockMeshCollider('pond_rock', rMesh);
         });
 
         // Colorful Underwater Pebbles (Visible through BotW crystal-clear shallow water)
@@ -4009,11 +4065,7 @@ class World {
             rock.rotation.set(r[0], r[1], 0.3);
             rock.receiveShadow = true;
             scene.add(rock);
-            rock.updateMatrixWorld(true);
-            const rBox = new THREE.Box3().setFromObject(rock);
-            const rSize = rBox.getSize(new THREE.Vector3());
-            const rTight = Math.min(r[2] * 1.12, Math.max(rSize.x, rSize.z) * 0.40);
-            addCircleCollider('rock', r[0], r[1], rTight, rBox.max.y, rock);
+            addRockMeshCollider('rock', rock);
         });
 
         const interactiveMushrooms = [];
@@ -4153,6 +4205,7 @@ class World {
     this._paintGrassVisibilityCircle = paintGrassVisibilityCircle;
     this._grassMapTexture = grassMapTexture;
     this.colliders = colliders;
+    this.rockMeshes = rockMeshes;
     this._colliderGrid = colliderGrid;
     this._gridCell = GRID_CELL;
     this._colSeen = new Set();
@@ -4332,6 +4385,7 @@ class World {
       let pushedPass = false;
       for (let i = 0; i < nearby.length; i++) {
         const col = nearby[i];
+        if (col.kind === 'mesh_rock') continue;
         if (footY > col.yMax + 0.12) continue;
         if (px + radius < col.minX || px - radius > col.maxX || pz + radius < col.minZ || pz - radius > col.maxZ) continue;
 
@@ -4390,7 +4444,7 @@ class World {
   resolveHorseCollision(animator) {
     if (!animator) return { hit: false, nx: 0, nz: 0, pen: 0, hitType: null };
     const fx = Math.cos(animator.yaw), fz = -Math.sin(animator.yaw);
-    const footY = this._getTerrainHeight(animator.x, animator.z) + (animator.jumpActive ? Math.max(0, animator.jumpY || 0) : 0);
+    const footY = this.heightAt(animator.x, animator.z) + (animator.jumpActive ? Math.max(0, animator.jumpY || 0) : 0);
     const spheres = [
       { off: 0.46, r: 0.42 },
       { off: -0.44, r: 0.42 },
@@ -4416,6 +4470,23 @@ class World {
         }
       }
       if (!moved) break;
+    }
+    // Cek dinding batu yang terlalu curam (>0.78 m lebih tinggi dari pijakan saat ini) agar meluncur ikut bidang batu,
+    // sementara permukaan batu landai bisa dinaiki/dilewati secara alami via heightAt/wheelHeightAt.
+    if (this.rockMeshes && this.rockMeshes.length) {
+      const cx = animator.x + fx * 0.46, cz = animator.z + fz * 0.46;
+      const rk = this.sampleRockSurface(cx, cz);
+      if (rk.hit && (rk.y - footY) > 0.78 && rk.ny < 0.55) {
+        const hl = Math.hypot(rk.nx, rk.nz);
+        if (hl > 1e-4) {
+          const nx = rk.nx / hl, nz = rk.nz / hl;
+          const push = Math.min(0.18, (rk.y - footY - 0.78) * 0.65);
+          animator.x += nx * push;
+          animator.z += nz * push;
+          hit = true;
+          if (push > maxPen) { maxPen = push; bestNx = nx; bestNz = nz; hitType = rk.rock.type; }
+        }
+      }
     }
     if (hit) {
       const vDotN = animator.speed * (fx * bestNx + fz * bestNz);
@@ -4771,16 +4842,66 @@ class World {
     return add;
   }
 
+  sampleRockSurface(x, z) {
+    const rm = this.rockMeshes;
+    if (!rm || !rm.length) return { hit: false, y: -Infinity, nx: 0, ny: 1, nz: 0, rock: null };
+    let bestY = -Infinity, bestNx = 0, bestNy = 1, bestNz = 0, bestRock = null;
+    for (let i = 0; i < rm.length; i++) {
+      const rk = rm[i];
+      if (x < rk.minX || x > rk.maxX || z < rk.minZ || z > rk.maxZ) continue;
+      const tris = rk.topTris;
+      for (let j = 0; j < tris.length; j++) {
+        const t = tris[j];
+        if (x < t.minX || x > t.maxX || z < t.minZ || z > t.maxZ) continue;
+        const v0x = t.bx - t.ax, v0z = t.bz - t.az;
+        const v1x = t.cx - t.ax, v1z = t.cz - t.az;
+        const det = v0x * v1z - v0z * v1x;
+        if (Math.abs(det) < 1e-7) continue;
+        const qx = x - t.ax, qz = z - t.az;
+        const u = (qx * v1z - qz * v1x) / det;
+        const v = (v0x * qz - v0z * qx) / det;
+        if (u >= -1e-4 && v >= -1e-4 && (u + v) <= 1 + 1e-4) {
+          const w = 1 - u - v;
+          const y = w * t.ay + u * t.by + v * t.cy;
+          if (y > bestY) {
+            bestY = y;
+            bestNx = t.nx; bestNy = t.ny; bestNz = t.nz;
+            bestRock = rk;
+          }
+        }
+      }
+    }
+    return bestRock ? { hit: true, y: bestY, nx: bestNx, ny: bestNy, nz: bestNz, rock: bestRock } : { hit: false, y: -Infinity, nx: 0, ny: 1, nz: 0, rock: null };
+  }
+
   heightAt(x, z) {
-    return this._getTerrainHeight(x, z) + this._rampHeight(x, z);
+    const base = this._getTerrainHeight(x, z) + this._rampHeight(x, z);
+    const rk = this.sampleRockSurface(x, z);
+    return rk.hit ? Math.max(base, rk.y) : base;
   }
 
   wheelHeightAt(x, z, wheelRadius = 0.55) {
-    return this._getTerrainHeight(x, z) + this._rampHeight(x, z) + this._pebbleHeight(x, z, wheelRadius);
+    let h = this._getTerrainHeight(x, z) + this._rampHeight(x, z) + this._pebbleHeight(x, z, wheelRadius);
+    const rkC = this.sampleRockSurface(x, z);
+    if (rkC.hit && rkC.y > h) h = rkC.y;
+    const off = wheelRadius * 0.22;
+    if (this.rockMeshes && this.rockMeshes.length) {
+      for (let i = 0; i < 4; i++) {
+        const sx = i === 0 ? x + off : i === 1 ? x - off : x;
+        const sz = i === 2 ? z + off : i === 3 ? z - off : z;
+        const rks = this.sampleRockSurface(sx, sz);
+        if (rks.hit && rks.y - 0.02 > h) h = rks.y - 0.02;
+      }
+    }
+    return h;
   }
 
   normalAt(x, z, outVec) {
-    const n = this._getTerrainNormal(x, z);
+    const base = this._getTerrainHeight(x, z) + this._rampHeight(x, z);
+    const rk = this.sampleRockSurface(x, z);
+    const n = (rk.hit && rk.y > base + 0.01)
+      ? (this._tmpRockN || (this._tmpRockN = new THREE.Vector3())).set(rk.nx, rk.ny, rk.nz)
+      : this._getTerrainNormal(x, z);
     if (outVec) return outVec.copy(n);
     return n;
   }

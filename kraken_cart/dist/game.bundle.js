@@ -2879,8 +2879,11 @@ class World {
 
     // ---- Environment Mesh Collider Registry + 2D Spatial Hash Grid ----
     const colliders = [];
+    const rockMeshes = [];
     const colliderGrid = new Map();
     const GRID_CELL = 6.0;
+    const _triA = new THREE.Vector3(), _triB = new THREE.Vector3(), _triC = new THREE.Vector3();
+    const _triE1 = new THREE.Vector3(), _triE2 = new THREE.Vector3(), _triN = new THREE.Vector3();
     function indexCollider(col) {
       const gx0 = Math.floor(col.minX / GRID_CELL), gx1 = Math.floor(col.maxX / GRID_CELL);
       const gz0 = Math.floor(col.minZ / GRID_CELL), gz1 = Math.floor(col.maxZ / GRID_CELL);
@@ -2916,6 +2919,59 @@ class World {
         mesh,
       };
       if (mesh && mesh.userData) mesh.userData.collider = col;
+      return indexCollider(col);
+    }
+    function addRockMeshCollider(type, mesh) {
+      if (!mesh || !mesh.geometry) return null;
+      mesh.updateMatrixWorld(true);
+      const posAttr = mesh.geometry.attributes.position;
+      const idxAttr = mesh.geometry.index;
+      const count = idxAttr ? idxAttr.count : posAttr.count;
+      const m4 = mesh.matrixWorld;
+      const topTris = [];
+      const sideTris = [];
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity, minZ = Infinity, maxZ = -Infinity;
+
+      for (let i = 0; i + 2 < count; i += 3) {
+        const ia = idxAttr ? idxAttr.getX(i) : i;
+        const ib = idxAttr ? idxAttr.getX(i + 1) : i + 1;
+        const ic = idxAttr ? idxAttr.getX(i + 2) : i + 2;
+        _triA.fromBufferAttribute(posAttr, ia).applyMatrix4(m4);
+        _triB.fromBufferAttribute(posAttr, ib).applyMatrix4(m4);
+        _triC.fromBufferAttribute(posAttr, ic).applyMatrix4(m4);
+        _triE1.subVectors(_triB, _triA);
+        _triE2.subVectors(_triC, _triA);
+        _triN.crossVectors(_triE1, _triE2);
+        const area = _triN.length();
+        if (area < 1e-6) continue;
+        _triN.divideScalar(area);
+
+        const tMinX = Math.min(_triA.x, _triB.x, _triC.x), tMaxX = Math.max(_triA.x, _triB.x, _triC.x);
+        const tMinY = Math.min(_triA.y, _triB.y, _triC.y), tMaxY = Math.max(_triA.y, _triB.y, _triC.y);
+        const tMinZ = Math.min(_triA.z, _triB.z, _triC.z), tMaxZ = Math.max(_triA.z, _triB.z, _triC.z);
+        if (tMinX < minX) minX = tMinX; if (tMaxX > maxX) maxX = tMaxX;
+        if (tMinY < minY) minY = tMinY; if (tMaxY > maxY) maxY = tMaxY;
+        if (tMinZ < minZ) minZ = tMinZ; if (tMaxZ > maxZ) maxZ = tMaxZ;
+
+        const tri = {
+          ax: _triA.x, ay: _triA.y, az: _triA.z,
+          bx: _triB.x, by: _triB.y, bz: _triB.z,
+          cx: _triC.x, cy: _triC.y, cz: _triC.z,
+          nx: _triN.x, ny: _triN.y, nz: _triN.z,
+          minX: tMinX, maxX: tMaxX, minZ: tMinZ, maxZ: tMaxZ, maxY: tMaxY,
+        };
+        if (tri.ny > 0.12) topTris.push(tri);
+        if (tri.ny <= 0.45) sideTris.push(tri);
+      }
+      const col = {
+        id: colliders.length, kind: 'mesh_rock', type,
+        x: (minX + maxX) * 0.5, z: (minZ + maxZ) * 0.5,
+        r: Math.hypot(maxX - minX, maxZ - minZ) * 0.38,
+        yMax: maxY, minX, maxX, minY, maxY, minZ, maxZ,
+        topTris, sideTris, mesh,
+      };
+      if (mesh.userData) mesh.userData.collider = col;
+      rockMeshes.push(col);
       return indexCollider(col);
     }
 
@@ -6248,7 +6304,7 @@ class World {
             rMesh.castShadow = true;
             rMesh.receiveShadow = true;
             pondGroup.add(rMesh);
-            addCircleCollider('pond_rock', ob.x, ob.z, ob.r * 1.12, POND_WATER_Y + ob.h, rMesh);
+            addRockMeshCollider('pond_rock', rMesh);
         });
 
         // Colorful Underwater Pebbles (Visible through BotW crystal-clear shallow water)
@@ -6846,11 +6902,7 @@ class World {
             rock.rotation.set(r[0], r[1], 0.3);
             rock.receiveShadow = true;
             scene.add(rock);
-            rock.updateMatrixWorld(true);
-            const rBox = new THREE.Box3().setFromObject(rock);
-            const rSize = rBox.getSize(new THREE.Vector3());
-            const rTight = Math.min(r[2] * 1.12, Math.max(rSize.x, rSize.z) * 0.40);
-            addCircleCollider('rock', r[0], r[1], rTight, rBox.max.y, rock);
+            addRockMeshCollider('rock', rock);
         });
 
         const interactiveMushrooms = [];
@@ -6990,6 +7042,7 @@ class World {
     this._paintGrassVisibilityCircle = paintGrassVisibilityCircle;
     this._grassMapTexture = grassMapTexture;
     this.colliders = colliders;
+    this.rockMeshes = rockMeshes;
     this._colliderGrid = colliderGrid;
     this._gridCell = GRID_CELL;
     this._colSeen = new Set();
@@ -7169,6 +7222,7 @@ class World {
       let pushedPass = false;
       for (let i = 0; i < nearby.length; i++) {
         const col = nearby[i];
+        if (col.kind === 'mesh_rock') continue;
         if (footY > col.yMax + 0.12) continue;
         if (px + radius < col.minX || px - radius > col.maxX || pz + radius < col.minZ || pz - radius > col.maxZ) continue;
 
@@ -7227,7 +7281,7 @@ class World {
   resolveHorseCollision(animator) {
     if (!animator) return { hit: false, nx: 0, nz: 0, pen: 0, hitType: null };
     const fx = Math.cos(animator.yaw), fz = -Math.sin(animator.yaw);
-    const footY = this._getTerrainHeight(animator.x, animator.z) + (animator.jumpActive ? Math.max(0, animator.jumpY || 0) : 0);
+    const footY = this.heightAt(animator.x, animator.z) + (animator.jumpActive ? Math.max(0, animator.jumpY || 0) : 0);
     const spheres = [
       { off: 0.46, r: 0.42 },
       { off: -0.44, r: 0.42 },
@@ -7253,6 +7307,23 @@ class World {
         }
       }
       if (!moved) break;
+    }
+    // Cek dinding batu yang terlalu curam (>0.78 m lebih tinggi dari pijakan saat ini) agar meluncur ikut bidang batu,
+    // sementara permukaan batu landai bisa dinaiki/dilewati secara alami via heightAt/wheelHeightAt.
+    if (this.rockMeshes && this.rockMeshes.length) {
+      const cx = animator.x + fx * 0.46, cz = animator.z + fz * 0.46;
+      const rk = this.sampleRockSurface(cx, cz);
+      if (rk.hit && (rk.y - footY) > 0.78 && rk.ny < 0.55) {
+        const hl = Math.hypot(rk.nx, rk.nz);
+        if (hl > 1e-4) {
+          const nx = rk.nx / hl, nz = rk.nz / hl;
+          const push = Math.min(0.18, (rk.y - footY - 0.78) * 0.65);
+          animator.x += nx * push;
+          animator.z += nz * push;
+          hit = true;
+          if (push > maxPen) { maxPen = push; bestNx = nx; bestNz = nz; hitType = rk.rock.type; }
+        }
+      }
     }
     if (hit) {
       const vDotN = animator.speed * (fx * bestNx + fz * bestNz);
@@ -7608,16 +7679,66 @@ class World {
     return add;
   }
 
+  sampleRockSurface(x, z) {
+    const rm = this.rockMeshes;
+    if (!rm || !rm.length) return { hit: false, y: -Infinity, nx: 0, ny: 1, nz: 0, rock: null };
+    let bestY = -Infinity, bestNx = 0, bestNy = 1, bestNz = 0, bestRock = null;
+    for (let i = 0; i < rm.length; i++) {
+      const rk = rm[i];
+      if (x < rk.minX || x > rk.maxX || z < rk.minZ || z > rk.maxZ) continue;
+      const tris = rk.topTris;
+      for (let j = 0; j < tris.length; j++) {
+        const t = tris[j];
+        if (x < t.minX || x > t.maxX || z < t.minZ || z > t.maxZ) continue;
+        const v0x = t.bx - t.ax, v0z = t.bz - t.az;
+        const v1x = t.cx - t.ax, v1z = t.cz - t.az;
+        const det = v0x * v1z - v0z * v1x;
+        if (Math.abs(det) < 1e-7) continue;
+        const qx = x - t.ax, qz = z - t.az;
+        const u = (qx * v1z - qz * v1x) / det;
+        const v = (v0x * qz - v0z * qx) / det;
+        if (u >= -1e-4 && v >= -1e-4 && (u + v) <= 1 + 1e-4) {
+          const w = 1 - u - v;
+          const y = w * t.ay + u * t.by + v * t.cy;
+          if (y > bestY) {
+            bestY = y;
+            bestNx = t.nx; bestNy = t.ny; bestNz = t.nz;
+            bestRock = rk;
+          }
+        }
+      }
+    }
+    return bestRock ? { hit: true, y: bestY, nx: bestNx, ny: bestNy, nz: bestNz, rock: bestRock } : { hit: false, y: -Infinity, nx: 0, ny: 1, nz: 0, rock: null };
+  }
+
   heightAt(x, z) {
-    return this._getTerrainHeight(x, z) + this._rampHeight(x, z);
+    const base = this._getTerrainHeight(x, z) + this._rampHeight(x, z);
+    const rk = this.sampleRockSurface(x, z);
+    return rk.hit ? Math.max(base, rk.y) : base;
   }
 
   wheelHeightAt(x, z, wheelRadius = 0.55) {
-    return this._getTerrainHeight(x, z) + this._rampHeight(x, z) + this._pebbleHeight(x, z, wheelRadius);
+    let h = this._getTerrainHeight(x, z) + this._rampHeight(x, z) + this._pebbleHeight(x, z, wheelRadius);
+    const rkC = this.sampleRockSurface(x, z);
+    if (rkC.hit && rkC.y > h) h = rkC.y;
+    const off = wheelRadius * 0.22;
+    if (this.rockMeshes && this.rockMeshes.length) {
+      for (let i = 0; i < 4; i++) {
+        const sx = i === 0 ? x + off : i === 1 ? x - off : x;
+        const sz = i === 2 ? z + off : i === 3 ? z - off : z;
+        const rks = this.sampleRockSurface(sx, sz);
+        if (rks.hit && rks.y - 0.02 > h) h = rks.y - 0.02;
+      }
+    }
+    return h;
   }
 
   normalAt(x, z, outVec) {
-    const n = this._getTerrainNormal(x, z);
+    const base = this._getTerrainHeight(x, z) + this._rampHeight(x, z);
+    const rk = this.sampleRockSurface(x, z);
+    const n = (rk.hit && rk.y > base + 0.01)
+      ? (this._tmpRockN || (this._tmpRockN = new THREE.Vector3())).set(rk.nx, rk.ny, rk.nz)
+      : this._getTerrainNormal(x, z);
     if (outVec) return outVec.copy(n);
     return n;
   }
@@ -10675,38 +10796,43 @@ const THREE = HC.THREE, S = HC.vs;
         this.phase = (this.phase + dt * 1.15 * HC.clamp(Math.abs(this.yawRate), 0.25, 1.4)) % 1;
       }
 
-      // ---- Jump arc & body pitch ----
+      // ---- Jump arc & smooth equestrian pitch bascule ----
       let jumpHeave = 0;
       let jumpPitch = 0;
       let jumpTuckFront = 0;
       let jumpTuckRear = 0;
+      let jumpAir = 0;
 
       if (this.jumpActive) {
         this.jumpT += dt / this.jumpDur;
         const u = this.jumpT;
-        if (u < 0.18) {
-          // 1) Crouch / gather on hind legs
-          const k = HC.smooth(u / 0.18);
-          jumpHeave = -0.11 * k;
-          jumpPitch = 0.18 * k;
-        } else if (u < 0.82) {
-          // 2) Airborne parabola
-          const a = (u - 0.18) / 0.64;
-          const arc = 4 * a * (1 - a);
-          jumpHeave = (this.unhitched ? 0.80 : 0.68) * arc;
-          jumpPitch = HC.lerp(0.32, -0.28, a);
-          jumpTuckFront = Math.sin(Math.PI * HC.clamp((a - 0.02) / 0.72, 0, 1));
-          jumpTuckRear = Math.sin(Math.PI * HC.clamp((a - 0.18) / 0.75, 0, 1));
+        if (u < 0.16) {
+          // 1) Gather & rock weight onto hind quarters (nose gently lifts)
+          const k = HC.smooth(u / 0.16);
+          jumpHeave = -0.10 * k;
+          jumpPitch = 0.24 * k;
+          jumpTuckFront = 0.22 * k;
+        } else if (u < 0.84) {
+          // 2) Smooth parabolic bascule arc (C0 continuous pitch + heave)
+          const a = (u - 0.16) / 0.68;
+          const maxH = this.unhitched ? 0.84 : 0.72;
+          jumpHeave = Math.sin(Math.PI * a) * maxH - (1 - a) * (1 - a) * 0.10;
+          jumpPitch = 0.24 * Math.cos(Math.PI * a);
+          jumpAir = Math.sin(Math.PI * a);
+          jumpTuckFront = Math.sin(Math.PI * HC.clamp(a / 0.82, 0, 1));
+          jumpTuckRear = Math.sin(Math.PI * HC.clamp((a - 0.12) / 0.86, 0, 1));
         } else if (u < 1.0) {
-          // 3) Landing compression & recovery
-          const l = (u - 0.82) / 0.18;
-          jumpHeave = -0.10 * Math.sin(Math.PI * l);
-          jumpPitch = -0.12 * Math.sin(Math.PI * l);
+          // 3) Cushioned front-then-hind landing absorb
+          const l = (u - 0.84) / 0.16;
+          jumpHeave = -0.11 * Math.sin(Math.PI * l);
+          jumpPitch = -0.24 * Math.pow(1 - l, 1.5);
         } else {
           this.jumpActive = false;
           this.jumpT = 0;
         }
       }
+      this.jumpY = Math.max(0, jumpHeave);
+      this.jumpPitch = jumpPitch;
 
       // ---- Ground height under horse front & rear to tilt body along terrain (mengikuti arah hadap) ----
       const ghFront = this.world.heightAt(this.x + this.forwardX * 0.55, this.z + this.forwardZ * 0.55);
@@ -10734,7 +10860,7 @@ const THREE = HC.THREE, S = HC.vs;
 
       // ---- Neck, Head, Jaw & Ears (Walk / Run / Jump / Graze) ----
       const neckRhythm = Math.sin(p2 * (this.runBlend > 0.5 ? 1 : 2) - 0.7) * HC.lerp(0.06, 0.16, this.runBlend) * moveAmt;
-      const jumpNeck = this.jumpActive ? -jumpPitch * 0.55 : 0;
+      const jumpNeck = this.jumpActive ? (jumpAir * -0.26 - jumpPitch * 0.35) : 0;
 
       // Grazing procedural motion: reach down to ground y=0, nibble & tug sideways
       const grazeTug = Math.sin(this.time * 7.2) * 0.055 + Math.sin(this.time * 2.3) * 0.04;
@@ -10856,13 +10982,21 @@ const THREE = HC.THREE, S = HC.vs;
           fetlockFlex = -bell * 0.58; // hoof curls back while airborne
         }
 
-        // Jump leg tuck override
-        if (this.jumpActive && this.jumpT > 0.16 && this.jumpT < 0.86) {
-          const tuck = leg.front ? jumpTuckFront : jumpTuckRear;
-          liftY = Math.max(liftY, tuck * 0.36);
-          strideX = HC.lerp(strideX, leg.front ? 0.22 * tuck : -0.26 * tuck, tuck);
-          fetlockFlex = -tuck * 0.75;
-          stance = 0;
+        // Jump leg tuck override: kaki ikut naik bersama badan di udara & ditekuk rapi di bawah perut
+        let airTuck = 0;
+        if (this.jumpActive && this.jumpT < 0.86) {
+          const isLeft = (leg.id === 'FL' || leg.id === 'HL');
+          const stagger = isLeft ? 0.06 : -0.04;
+          const tuckRaw = leg.front ? jumpTuckFront : jumpTuckRear;
+          airTuck = HC.clamp(tuckRaw + stagger * jumpAir, 0, 1);
+          const airProg = HC.clamp((this.jumpT - 0.16) / 0.68, 0, 1);
+          const frontReach = airProg > 0.70 ? ((airProg - 0.70) / 0.30) * 0.30 : 0;
+          const rearPush = airProg < 0.25 ? -(1 - airProg / 0.25) * 0.24 : 0;
+          strideX = leg.front
+            ? HC.lerp(strideX, 0.34 * airTuck + frontReach, Math.max(jumpAir, airTuck))
+            : HC.lerp(strideX, -0.22 * airTuck + rearPush, Math.max(jumpAir, airTuck));
+          fetlockFlex = -0.68 * airTuck;
+          stance = this.jumpT < 0.16 && !leg.front ? 1.0 : 0;
         }
 
         // Get hip world position
@@ -10874,12 +11008,17 @@ const THREE = HC.THREE, S = HC.vs;
         const footX = this.x + hx * cy + hz * sy + (strideX + stanceShift) * cy;
         const footZ = this.z - hx * sy + hz * cy - (strideX + stanceShift) * sy;
 
-        // Detect exact ground + pebble height & surface normal at foot (footX, footZ)
+        // Detect exact ground + pebble + rock mesh height & surface normal at foot (footX, footZ)
         const groundY = this.world.heightAt(footX, footZ);
         this.world.normalAt(footX, footZ, this._normW);
 
-        // Ankle target is hoofHWorld above the ground contact + swing lift
-        const ankleY = groundY + hoofHWorld + liftY;
+        // Ankle target follows airborne torso + folds knees cleanly toward belly
+        const baseAnkleY = groundY + hoofHWorld + liftY;
+        const desiredDrop = HC.lerp(1.28, 0.72, airTuck);
+        const airAnkleY = this._hipW.y - desiredDrop;
+        const ankleY = airTuck > 0.02
+          ? Math.max(baseAnkleY, HC.lerp(baseAnkleY, airAnkleY, HC.clamp(Math.max(airTuck * 1.15, jumpAir), 0, 1)))
+          : baseAnkleY;
         this._ankleW.set(footX, ankleY, footZ);
         leg.footWorld.set(footX, groundY, footZ);
         leg.stanceBlend = HC.damp(leg.stanceBlend, stance, 18, dt);
@@ -22815,7 +22954,7 @@ HC.updateWildNPC = function (item, dt, horse, world) {
     }
   }
 
-  const gy = (world && world.terrainHeightAt) ? world.terrainHeightAt(item.x, item.z) : 0;
+  const gy = (world && world.heightAt) ? world.heightAt(item.x, item.z) : (world && world.terrainHeightAt) ? world.terrainHeightAt(item.x, item.z) : 0;
   root.position.set(item.x, gy, item.z);
   // model Sylvan menghadap +Z lokal -> rotasi root = sudut arah
   let faceYaw = b.dir;
@@ -22890,9 +23029,10 @@ HC.NPCParty = class {
       try { this.onChange(); } catch (e) { /* no-op */ }
     }
   }
-  // NPC liar berdiri di atas terrain, bukan di y=0 (medan sekarang berbukit).
+  // NPC liar & regu berdiri di atas permukaan terrain/batu, bukan di y=0 (medan sekarang berbukit).
   _groundY(x, z) {
-    return (this.world && this.world.terrainHeightAt) ? this.world.terrainHeightAt(x, z) : 0;
+    return (this.world && this.world.heightAt) ? this.world.heightAt(x, z)
+      : (this.world && this.world.terrainHeightAt) ? this.world.terrainHeightAt(x, z) : 0;
   }
   _spawnSettlements() {
     const spawns = (HC.MAP && HC.MAP.allNPCSpawns) ? HC.MAP.allNPCSpawns() : [];
@@ -24062,9 +24202,15 @@ const __MOD_TOUCH = (() => {
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
-function initTouchControls({ animator, survival, onJump, onEat, onDrink, onRunToggle, isTouchDevice }) {
+function initTouchControls({ animator, survival, onJump, onEat, onDrink, onRunToggle, onHitch, isTouchDevice }) {
   const touch = isTouchDevice || matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
   document.body.classList.toggle('is-touch', !!touch);
+  if (touch) {
+    const hudEl = document.getElementById('hud');
+    const tog = document.getElementById('btn-hud-toggle');
+    if (hudEl) hudEl.classList.add('compact');
+    if (tog) tog.textContent = 'Detail';
+  }
 
   // ---------- overlay portrait / layar penuh ----------
   const rotate = document.createElement('div');
@@ -24102,10 +24248,15 @@ function initTouchControls({ animator, survival, onJump, onEat, onDrink, onRunTo
 
   if (!touch) return { active: false, joystick: null };
 
-  // ---------- joystick analog (kanan) ----------
+  // ---------- joystick analog (kiri bawah, floating glass dengan panah arah) ----------
   const stick = document.createElement('div');
   stick.id = 'stick';
-  stick.innerHTML = '<div id="stick-knob"></div>';
+  stick.innerHTML =
+    '<span class="st-dir n" aria-hidden="true">▲</span>' +
+    '<span class="st-dir s" aria-hidden="true">▼</span>' +
+    '<span class="st-dir w" aria-hidden="true">◀</span>' +
+    '<span class="st-dir e" aria-hidden="true">▶</span>' +
+    '<div id="stick-knob"></div>';
   document.body.appendChild(stick);
   const knob = stick.querySelector('#stick-knob');
 
@@ -24164,6 +24315,10 @@ function initTouchControls({ animator, survival, onJump, onEat, onDrink, onRunTo
     }
     animator.setThrottle(thr);
     animator.setSteer(m < 0.12 ? 0 : clamp(-vec.x * 1.35, -1, 1));
+    stick.classList.toggle('moving-fwd', thr > 0.08);
+    stick.classList.toggle('moving-rev', thr < -0.08);
+    stick.classList.toggle('moving-left', m >= 0.12 && vec.x < -0.25);
+    stick.classList.toggle('moving-right', m >= 0.12 && vec.x > 0.25);
   }
 
   stick.addEventListener('touchstart', (e) => { e.preventDefault(); stickStart(e); }, { passive: false });
@@ -24175,31 +24330,37 @@ function initTouchControls({ animator, survival, onJump, onEat, onDrink, onRunTo
   window.addEventListener('mousemove', (e) => { if (pad.active) { e.preventDefault(); stickMove(e); } });
   window.addEventListener('mouseup', () => stickEnd());
 
-  // ---------- tombol aksi (kiri) ----------
+  // ---------- tombol aksi ergonomis (kanan bawah, lengkung jempol bulat) ----------
   const padBtns = document.createElement('div');
   padBtns.id = 'action-pad';
   const defs = [
-    { id: 'act-run', label: 'LARI', sub: 'toggle', cls: 'run' },
-    { id: 'act-jump', label: 'LOMPAT', cls: 'jump' },
-    { id: 'act-eat', label: 'MAKAN', cls: 'eat' },
-    { id: 'act-drink', label: 'MINUM', cls: 'drink' },
+    { id: 'act-jump', icon: '⤴', label: 'LOMPAT', cls: 'jump hero' },
+    { id: 'act-run', icon: '⚡', label: 'LARI', sub: 'toggle', cls: 'run' },
+    { id: 'act-hitch', icon: '🔗', label: 'TALI', sub: 'lepas', cls: 'hitch' },
+    { id: 'act-eat', icon: '🌿', label: 'MAKAN', cls: 'eat' },
+    { id: 'act-drink', icon: '💧', label: 'MINUM', cls: 'drink' },
   ];
   for (const d of defs) {
     const b = document.createElement('button');
     b.id = d.id; b.type = 'button';
     b.className = 'act ' + d.cls;
-    b.innerHTML = `<span class="lbl">${d.label}</span>` + (d.sub ? `<span class="sub">${d.sub}</span>` : '');
+    b.innerHTML =
+      `<span class="ic" aria-hidden="true">${d.icon}</span>` +
+      `<span class="lbl">${d.label}</span>` +
+      (d.sub ? `<span class="sub">${d.sub}</span>` : '');
     padBtns.appendChild(b);
   }
   document.body.appendChild(padBtns);
 
   const runBtn = padBtns.querySelector('#act-run');
+  const hitchBtn = padBtns.querySelector('#act-hitch');
   const press = (el, fn) => {
     // HP asli mengirim touchstart LALU click -> tanpa penjaga ini aksi jalan 2x
     // (toggle lari jadi nyala-mati seketika). Catat waktu sentuh terakhir.
     let lastTouch = 0;
     el.addEventListener('touchstart', (e) => {
       e.preventDefault();
+      if (el.disabled) return;
       lastTouch = performance.now();
       el.classList.add('tap');
       setTimeout(() => el.classList.remove('tap'), 120);
@@ -24207,6 +24368,7 @@ function initTouchControls({ animator, survival, onJump, onEat, onDrink, onRunTo
     }, { passive: false });
     el.addEventListener('click', (e) => {
       e.preventDefault();
+      if (el.disabled) return;
       if (performance.now() - lastTouch < 600) return;
       el.classList.add('tap');
       setTimeout(() => el.classList.remove('tap'), 120);
@@ -24217,11 +24379,21 @@ function initTouchControls({ animator, survival, onJump, onEat, onDrink, onRunTo
   press(padBtns.querySelector('#act-jump'), () => onJump && onJump());
   press(padBtns.querySelector('#act-eat'), () => onEat && onEat());
   press(padBtns.querySelector('#act-drink'), () => onDrink && onDrink());
+  press(hitchBtn, () => onHitch && onHitch());
 
   return {
     active: true,
     joystick: { vec, pad, applyStick },
     setRunLatched(on) { runBtn.classList.toggle('on', !!on); },
+    setHitchState({ free = false, disabled = false, sub = '' } = {}) {
+      if (!hitchBtn) return;
+      hitchBtn.classList.toggle('free', !!free);
+      hitchBtn.disabled = !!disabled;
+      const ic = hitchBtn.querySelector('.ic');
+      const s = hitchBtn.querySelector('.sub');
+      if (ic) ic.textContent = free ? '🔗' : '🔓';
+      if (s && sub) s.textContent = sub;
+    },
   };
 }
 
@@ -25218,7 +25390,7 @@ bindBtn('btn-drink', () => doDrink());
 
 const touchUI = initTouchControls({
   animator, survival,
-  onJump: doJump, onEat: doEat, onDrink: doDrink, onRunToggle: toggleRun,
+  onJump: doJump, onEat: doEat, onDrink: doDrink, onRunToggle: toggleRun, onHitch: toggleHitch,
   isTouchDevice: matchMedia('(pointer: coarse)').matches,
 });
 // Kuda mulai diam sampai input maju (W/↑ atau analog) ditekan.
@@ -25507,6 +25679,14 @@ function syncHitchUi() {
       : !al.alignedLat ? '🔗 Tengahkan Posisi'
       : al.longErr > 1.25 ? '🔗 Mundur ke Batang'
       : '🔗 Mundur Pas Batang';
+  }
+  if (touchUI && touchUI.setHitchState) {
+    const sub = physics.flipped ? 'terbalik'
+      : hitchAnim.active ? 'ngepasin'
+      : physics.hitched ? (movingFast ? 'berhenti' : 'lepas')
+      : al.ready ? 'pasang!'
+      : 'dekatkan';
+    touchUI.setHitchState({ free, disabled: !!btnHitchEl.disabled, sub });
   }
 }
 

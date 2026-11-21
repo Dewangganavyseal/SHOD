@@ -402,70 +402,244 @@ button.steer.held, button.steer:active { background: #1e5aa8; border-color: #164
 #v-msg { color: #b45309; min-height: 12px; }
 body.is-touch #vitals .bar { height: 9px; }
 
-/* ====================== KONTROLER MOBILE ==================================== */
-/* Di perangkat sentuh, baris tombol desktop tidak dipakai; gantinya analog +
-   4 tombol aksi. Desktop tetap seperti semula. */
+/* ====================== KONTROLER & UI MOBILE (FLUID FROSTED GLASS) =========== */
 #stick, #action-pad, #rotate-hint { display: none; }
 
 body.is-touch #controls { display: none; }
-body.is-touch #upgrade-panel.collapsed { top: 8px; right: 8px; bottom: auto; }
-body.is-touch #npc-dock,
-body.is-touch #upgrade-panel.collapsed ~ #npc-dock {
-  right: 8px; top: 50px; width: 156px; z-index: 35;
+
+body.is-touch #hud {
+  top: max(10px, env(safe-area-inset-top));
+  left: max(12px, env(safe-area-inset-left));
+  max-width: 218px;
+  max-height: calc(100vh - 182px);
+  overflow-y: auto;
+  padding: 8px 11px;
+  border-radius: 16px;
+  background: rgba(14, 20, 32, 0.56);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #f1f5f9;
+  font-size: 11px;
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.24);
+  pointer-events: auto;
+}
+body.is-touch #hud .brand { display: none; }
+body.is-touch #hud .title { font-size: 11.5px; color: #ffffff; letter-spacing: 0.02em; }
+body.is-touch #hud b { color: #fde68a; }
+body.is-touch #btn-hud-toggle {
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 9.5px;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  color: #f8fafc;
+}
+body.is-touch #hud.compact .mood-bar,
+body.is-touch #hud.compact .quality-bar { display: none; }
+body.is-touch #hud .mood-chip {
+  background: rgba(255, 255, 255, 0.10);
+  border-color: rgba(255, 255, 255, 0.16);
+  color: #e2e8f0;
+  border-radius: 8px;
+}
+body.is-touch #hud .mood-chip.active {
+  background: #f59e0b; border-color: #fbbf24; color: #111827;
+}
+body.is-touch #hud .env-chip {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.14);
+  color: #e2e8f0;
+}
+body.is-touch #hud .sub { color: #cbd5e1; }
+body.is-touch #vitals {
+  display: grid; grid-template-columns: 1fr 1fr;
+  column-gap: 9px; row-gap: 4px;
+  margin-top: 6px; padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+body.is-touch #vitals .vital { margin: 0; gap: 5px; }
+body.is-touch #vitals .v-label { width: 28px; font-size: 9px; font-weight: 700; color: #cbd5e1; }
+body.is-touch #vitals .vital b { width: 20px; font-size: 9.5px; color: #f8fafc; }
+body.is-touch #vitals .bar {
+  height: 7px; border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+}
+body.is-touch #vitals .bar i { border-radius: 999px; }
+
+body.is-touch #upgrade-panel.collapsed {
+  top: max(10px, env(safe-area-inset-top));
+  right: max(12px, env(safe-area-inset-right));
+  left: auto;
+  bottom: auto;
+  width: auto;
+  height: auto;
+  border-radius: 999px;
+  background: rgba(14, 20, 32, 0.58);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.24);
+}
+body.is-touch #upgrade-panel.collapsed .ug-sub { display: none; }
+body.is-touch #upgrade-panel.collapsed .ug-title { font-size: 11px; white-space: nowrap; }
+body.is-touch #upgrade-panel.collapsed #upgrade-header {
+  background: transparent;
+  padding: 5px 11px;
+  gap: 8px;
+}
+body.is-touch #upgrade-panel.collapsed #btn-ug-toggle {
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
 }
 
+body.is-touch #npc-dock,
+body.is-touch #upgrade-panel.collapsed ~ #npc-dock {
+  right: max(12px, env(safe-area-inset-right));
+  top: calc(max(10px, env(safe-area-inset-top)) + 42px);
+  width: 162px;
+  max-height: calc(100vh - 256px);
+  overflow-y: auto;
+  z-index: 35;
+}
+body.is-touch .npc-card {
+  background: rgba(14, 20, 32, 0.62);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #f8fafc;
+  border-radius: 13px;
+  backdrop-filter: blur(10px);
+}
+body.is-touch .npc-name { color: #ffffff; }
+body.is-touch .npc-state { color: #cbd5e1; }
+body.is-touch .npc-nearby-card,
+body.is-touch .npc-hitch-card {
+  border-radius: 999px;
+  backdrop-filter: blur(10px);
+}
+
+/* Analog Kiri (Floating Frosted Stick + Panah Arah + Spring Return) */
 body.is-touch #stick {
   display: block;
   position: fixed;
   left: max(18px, env(safe-area-inset-left));
-  bottom: max(22px, env(safe-area-inset-bottom));
-  width: 148px; height: 148px;
+  bottom: max(16px, env(safe-area-inset-bottom));
+  width: 138px; height: 138px;
   border-radius: 50%;
-  background: radial-gradient(circle at 50% 45%, rgba(255,255,255,0.30), rgba(20,28,40,0.36));
-  border: 2px solid rgba(255,255,255,0.55);
-  box-shadow: 0 6px 22px rgba(0,0,0,0.25), inset 0 0 24px rgba(255,255,255,0.12);
+  background: radial-gradient(circle at 50% 45%, rgba(255,255,255,0.12) 0%, rgba(14,20,32,0.46) 72%, rgba(14,20,32,0.62) 100%);
+  border: 1.5px solid rgba(255,255,255,0.28);
+  box-shadow: 0 10px 28px rgba(0,0,0,0.32), inset 0 1px 14px rgba(255,255,255,0.12);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   touch-action: none;
   z-index: 40;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
-body.is-touch #stick.held { background: radial-gradient(circle at 50% 45%, rgba(255,255,255,0.40), rgba(20,28,40,0.42)); }
+body.is-touch #stick.held {
+  border-color: rgba(255,255,255,0.52);
+  box-shadow: 0 12px 32px rgba(0,0,0,0.38), inset 0 0 22px rgba(255,255,255,0.18);
+}
+#stick .st-dir {
+  position: absolute; font-size: 10px; line-height: 1;
+  color: rgba(255,255,255,0.42); pointer-events: none;
+  transition: color 0.12s ease, transform 0.12s ease;
+}
+#stick .st-dir.n { top: 8px; left: 50%; transform: translateX(-50%); }
+#stick .st-dir.s { bottom: 8px; left: 50%; transform: translateX(-50%); }
+#stick .st-dir.w { left: 9px; top: 50%; transform: translateY(-50%); }
+#stick .st-dir.e { right: 9px; top: 50%; transform: translateY(-50%); }
+#stick.moving-fwd .st-dir.n { color: #86efac; transform: translateX(-50%) scale(1.2); }
+#stick.moving-rev .st-dir.s { color: #fde68a; transform: translateX(-50%) scale(1.2); }
+#stick.moving-left .st-dir.w { color: #93c5fd; transform: translateY(-50%) scale(1.2); }
+#stick.moving-right .st-dir.e { color: #93c5fd; transform: translateY(-50%) scale(1.2); }
+
 #stick-knob {
   position: absolute; left: 50%; top: 50%;
-  width: 62px; height: 62px; margin-left: -31px; margin-top: -31px;
+  width: 56px; height: 56px; margin-left: -28px; margin-top: -28px;
   border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #ffffff, #c9d3e0 65%, #8fa2b8);
-  border: 1px solid rgba(255,255,255,0.9);
-  box-shadow: 0 3px 10px rgba(0,0,0,0.32);
+  background: radial-gradient(circle at 32% 28%, rgba(255,255,255,0.96), rgba(210,224,240,0.82) 65%, rgba(142,165,192,0.85));
+  border: 1.5px solid rgba(255,255,255,0.9);
+  box-shadow: 0 5px 16px rgba(0,0,0,0.34), inset 0 2px 4px rgba(255,255,255,0.8);
+  pointer-events: none;
+  transition: transform 0.16s cubic-bezier(0.22, 1.25, 0.36, 1);
+}
+#stick.held #stick-knob { transition: none; }
+
+/* Ergonomic Curved Circular Action Cluster (Kanan Bawah) */
+body.is-touch #action-pad {
+  display: block;
+  position: fixed;
+  width: 214px; height: 190px;
+  right: max(14px, env(safe-area-inset-right));
+  bottom: max(14px, env(safe-area-inset-bottom));
+  z-index: 40;
   pointer-events: none;
 }
-
-body.is-touch #action-pad {
-  display: grid;
-  grid-template-columns: repeat(2, 88px);
-  grid-auto-rows: 62px;
-  gap: 10px;
-  position: fixed;
-  right: max(16px, env(safe-area-inset-right));
-  bottom: max(22px, env(safe-area-inset-bottom));
-  z-index: 40;
-}
 #action-pad .act {
+  position: absolute;
+  pointer-events: auto;
   appearance: none;
-  border: 2px solid rgba(255,255,255,0.55);
-  border-radius: 16px;
-  color: #fff; font-weight: 900; font-size: 13px;
-  letter-spacing: 0.6px;
-  background: rgba(22,30,42,0.52);
-  text-shadow: 0 1px 2px rgba(0,0,0,0.35);
+  border-radius: 50%;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+  padding: 0;
+  color: #ffffff;
+  border: 1.5px solid rgba(255,255,255,0.34);
+  background: radial-gradient(circle at 30% 25%, rgba(255,255,255,0.22), rgba(18,26,40,0.62) 72%);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.30), inset 0 1px 2px rgba(255,255,255,0.35);
+  text-shadow: 0 1px 3px rgba(0,0,0,0.45);
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
+  transition: transform 0.12s cubic-bezier(0.22, 1.25, 0.36, 1), filter 0.12s ease, box-shadow 0.15s ease;
 }
-#action-pad .act .sub { display: block; font-size: 8.5px; opacity: 0.75; font-weight: 700; }
-#action-pad .act.run { background: rgba(196,86,44,0.60); }
-#action-pad .act.run.on { background: #e07a3a; border-color: #fff; box-shadow: 0 0 14px rgba(255,166,66,0.75); }
-#action-pad .act.jump { background: rgba(58,96,168,0.58); }
-#action-pad .act.eat { background: rgba(70,140,62,0.60); }
-#action-pad .act.drink { background: rgba(43,132,178,0.60); }
-#action-pad .act.tap { transform: scale(0.94); filter: brightness(1.25); }
+#action-pad .act .ic { font-size: 16px; line-height: 1; }
+#action-pad .act .lbl { font-size: 9px; font-weight: 800; letter-spacing: 0.45px; line-height: 1.05; }
+#action-pad .act .sub { font-size: 7.5px; opacity: 0.82; font-weight: 700; line-height: 1; }
+
+#action-pad .act.hero {
+  right: 6px; bottom: 4px; width: 78px; height: 78px;
+  background: radial-gradient(circle at 30% 25%, rgba(96,165,250,0.78), rgba(29,78,216,0.78) 76%);
+  border-color: rgba(191,219,254,0.72);
+  box-shadow: 0 10px 26px rgba(29,78,216,0.42), inset 0 1px 3px rgba(255,255,255,0.5);
+}
+#action-pad .act.hero .ic { font-size: 22px; }
+#action-pad .act.hero .lbl { font-size: 10px; }
+
+#action-pad .act.run {
+  right: 94px; bottom: 8px; width: 60px; height: 60px;
+  background: radial-gradient(circle at 30% 25%, rgba(251,146,60,0.52), rgba(154,52,18,0.68) 76%);
+  border-color: rgba(253,186,116,0.50);
+}
+#action-pad .act.run.on {
+  background: radial-gradient(circle at 30% 25%, #fb923c, #ea580c 78%);
+  border-color: #fff;
+  box-shadow: 0 0 18px rgba(251,146,60,0.78), inset 0 1px 3px rgba(255,255,255,0.65);
+}
+
+#action-pad .act.hitch {
+  right: 88px; bottom: 78px; width: 58px; height: 58px;
+  background: radial-gradient(circle at 30% 25%, rgba(56,189,248,0.42), rgba(15,23,42,0.68) 76%);
+  border-color: rgba(186,230,253,0.45);
+}
+#action-pad .act.hitch.free {
+  background: radial-gradient(circle at 30% 25%, rgba(45,212,191,0.75), rgba(15,118,110,0.80) 76%);
+  border-color: rgba(153,246,228,0.82);
+  box-shadow: 0 0 14px rgba(20,184,166,0.45);
+}
+#action-pad .act.hitch:disabled { opacity: 0.42; filter: grayscale(0.5); }
+
+#action-pad .act.eat {
+  right: 16px; bottom: 92px; width: 54px; height: 54px;
+  background: radial-gradient(circle at 30% 25%, rgba(74,222,128,0.52), rgba(22,101,52,0.72) 76%);
+  border-color: rgba(134,239,172,0.52);
+}
+#action-pad .act.drink {
+  right: 152px; bottom: 52px; width: 54px; height: 54px;
+  background: radial-gradient(circle at 30% 25%, rgba(56,189,248,0.52), rgba(7,89,133,0.72) 76%);
+  border-color: rgba(125,211,252,0.52);
+}
+#action-pad .act.tap { transform: scale(0.88); filter: brightness(1.22); }
 
 /* Portrait di perangkat sentuh: paksa landscape lewat overlay. */
 body.is-touch #rotate-hint.show {
@@ -481,43 +655,29 @@ body.is-touch #rotate-hint.show {
 #rotate-hint .rh-sub { font-size: 12.5px; opacity: 0.78; margin: 10px 0 18px; max-width: 320px; }
 #rotate-hint button {
   padding: 12px 18px; font-size: 14px; font-weight: 800;
-  border: 1px solid rgba(255,255,255,0.6); border-radius: 12px;
-  background: #e07a3a; color: #fff;
+  border: 1px solid rgba(255,255,255,0.6); border-radius: 999px;
+  background: linear-gradient(135deg, #f59e0b, #ea580c); color: #fff;
 }
 
-/* Layar pendek (landscape HP): HUD diperkecil supaya tidak menutupi kuda. */
-body.is-touch #hud {
-  max-width: 230px; padding: 7px 9px; font-size: 11px;
-}
-body.is-touch #vitals { margin-top: 4px; padding-top: 4px; }
-body.is-touch #vitals .vital { margin: 2px 0; gap: 5px; }
-
-/* Di HP pesan kontekstual ("kuda haus", "ke pinggir dulu") pindah ke atas
-   tombol biar tidak menumpuk analog/tombol. */
+/* Toast pesan di tengah-atas supaya tidak bertumpuk analog/tombol/minigame */
 body.is-touch #v-msg {
   position: fixed;
+  top: max(10px, env(safe-area-inset-top));
   left: 50%; transform: translateX(-50%);
-  bottom: max(180px, calc(env(safe-area-inset-bottom) + 180px));
-  max-width: 74vw;
-  padding: 6px 12px;
-  background: rgba(15,20,28,0.78);
-  color: #fff; font-size: 12px; text-align: center;
-  border-radius: 12px;
+  max-width: min(300px, 52vw);
+  padding: 6px 14px;
+  background: rgba(14, 20, 32, 0.74);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #fde68a; font-size: 11px; font-weight: 600; text-align: center;
+  border-radius: 999px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.24);
   min-height: 0; z-index: 45;
   pointer-events: none;
 }
 body.is-touch #v-msg:empty { display: none; }
-body.is-touch.portrait #v-msg { bottom: 40vh; }
-
-/* Di layar sangat pendek (<=460px) HUD cuma panel ringkas: mode/kecepatan/arah
-   + bar kondisi. Blok roda/pasokan/NPC disembunyikan biar tidak nabrak analog
-   yang sekarang di kiri bawah. */
-@media (max-height: 460px) {
-  body.is-touch #hud .opt { display: none; }
-  body.is-touch #hud { max-width: 206px; }
-}
-body.is-touch #hud .brand { display: none; }
-body.is-touch #hud .title { font-size: 11px; }
+body.is-touch.portrait #v-msg { top: auto; bottom: 40vh; }
 
 .npc-hitch-card {
   display: flex; align-items: center; justify-content: center; gap: 6px;
