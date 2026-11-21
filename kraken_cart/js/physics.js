@@ -293,12 +293,13 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
         new THREE.Vector3(35.0 * S, 12.2 * S, -9.2 * S)
       ];
       this.traceRest = [null, null];
-      // Ujung batang penarik (thills) di kalung kuda -> cuma link lateral
+      // Ujung batang penarik (thills) tepat di kalung kuda (mengacu HC.shaftTipVox)
       this.tipLocal = [
-        new THREE.Vector3(75.5 * S, 23.0 * S, 5.0 * S),
-        new THREE.Vector3(75.5 * S, 23.0 * S, -5.0 * S)
+        new THREE.Vector3(HC.shaftTipVox * S, HC.shaftTipY * S, 5.0 * S),
+        new THREE.Vector3(HC.shaftTipVox * S, HC.shaftTipY * S, -5.0 * S)
       ];
-      this.tipRestLat = [null, null];
+      this.tipMidLocal = new THREE.Vector3(HC.shaftTipVox * S, HC.shaftTipY * S, 0);
+      this.tipRestLat = [0, 0];
 
       // sifat bahan sambungan (bisa di-upgrade nanti)
       this.kTrace = 62000;    // N/m — tali kulit + sabuk perut
@@ -469,8 +470,8 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
         const vLatExtra = w.ref.front ? (-this.axleYawV * this.axleTrail) : 0;
         const vLat = (vAt.x * wl.x + vAt.y * wl.y + vAt.z * wl.z) + vLatExtra;
         const capF = this.tireMu * N;
-        // ban depan di bolster sedikit lebih mudah berputar masuk belokan dibanding ban belakang
-        const latScale = w.ref.front ? 0.65 : 1.15;
+        // ban depan di bolster lebih mudah mengikuti belokan dan melurus di belakang kuda
+        const latScale = w.ref.front ? 0.35 : 1.05;
         let fLat = -vLat * (this.tireLatK * latScale);
         fLat = Math.max(-capF, Math.min(capF, fLat));
         let fLong = -Math.sign(vLong) * Math.min(Math.abs(vLong) * 420, 0.055 * N);
@@ -494,12 +495,26 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
       }
 
       // ---------- (1a) TALI TARIK (traces): sabuk perut kuda -> singletree gerobak ----------
-      // Ini yang menarik gerobak. Pegas-damper aksial: boleh melar, boleh mengendur,
-      // jadi gerobak bisa nyusul/menyusut secara dinamis.
+      // Ini yang menarik gerobak. Pegas-damper aksial simetris kiri-kanan supaya tidak narik miring.
       this._src = 'trace';
       if (lying) { this.vel.x *= 0.995; this.vel.z *= 0.995; }   // kuda gak bisa nggeret gerobak rebah
       if (!this.traceRest) this.traceRest = [null, null];
       const girths = [hitchGirthL, hitchGirthR];
+      if (!lying && (this.traceRest[0] == null || !isFinite(this.traceRest[0])) && girths[0] && girths[1]) {
+        // Panjang istirahat kiri & kanan HARUS identik agar tidak pernah mengunci tarikan miring
+        let sumL = 0;
+        for (let i = 0; i < 2; i++) {
+          const rl0 = this._w3.copy(this.traceLocal[i]).applyQuaternion(q);
+          sumL += Math.hypot(
+            (this.pos.x + rl0.x) - girths[i].x,
+            (rootY + rl0.y) - girths[i].y,
+            (this.pos.z + rl0.z) - girths[i].z
+          );
+        }
+        const symRest = Math.max(1.2, Math.min(3.2, sumL * 0.5));
+        this.traceRest[0] = symRest;
+        this.traceRest[1] = symRest;
+      }
       for (let i = 0; i < 2; i++) {
         const A = girths[i];
         if (!A || lying) continue;
@@ -519,10 +534,6 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
 
         // damping: laju regangan = (vB - vA)·n  ->  -cTrace*relN
         let F = this.kTrace * (L - this.traceRest[i]) - this.cTrace * relN;
-        // Trace itu SABUK: cuma bisa menarik, TIDAK bisa mendorong.
-        // Dulu F boleh negatif sampai -4000 N; saat gerobak nyusul kuda di turunan
-        // lalu kuda ngerem mendadak, dorongan itulah yang bikin bodi nongak ke atas
-        // dan naik ke punggung kuda. Sekarang tarikan negatif = tali kendor = nol.
         F = Math.max(0, Math.min(22000, F));
         if (F > 0) addForce(-nx * F, -ny * F, -nz * F, bx, by, bz);
       }
@@ -533,38 +544,70 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
       this._hSpeed = Math.hypot(hvx, hvz);
       this._aLatDemand = this._hSpeed * hYawRate;   // m/s² (positif = belok kiri)
 
-      // ---------- (1b) BATANG PENARIK (thills): apitan samping kalung kuda -> gerobak ----------
-      // Diukur tegak lurus GEROBAK (leftA), jadi walaupun kuda udah belok jauh,
-      // gaya samping dari kalung kuda tetap punya lengan torsi penuh ke bak (nggak hilang karena cos).
-      // Gaya bekerja setinggi POROS RODA (rootY) -> memutar yaw gerobak tanpa bikin roll palsu.
+      // ---------- (1b) BATANG PENARIK (thills) + BREECHING (rem mundur) + SELF-ALIGN ----------
+      // Menggunakan titik tengah kalung & ujung batang agar simetris (tidak pernah kunci miring).
       this._src = 'thill';
       const latX = leftA.x, latZ = leftA.z;
-      if (!this.tipRestLat) this.tipRestLat = [null, null];
-      const collars = [hitchColL, hitchColR];
-      for (let i = 0; i < 2; i++) {
-        const A = collars[i];
-        if (!A || lying) continue;
-        // titik ujung batang seandainya bodi masih lurus (sebagai acuan pegas tekuk kayu)
-        const rl = this._w5.copy(this.tipLocal[i]).applyQuaternion(q);
-        const bx = this.pos.x + rl.x, by = rootY + rl.y, bz = this.pos.z + rl.z;
-        const pLat = (bx - A.x) * latX + (bz - A.z) * latZ;
-        if (this.tipRestLat[i] == null || !isFinite(this.tipRestLat[i])) this.tipRestLat[i] = pLat;
-        const dLat = pLat - this.tipRestLat[i];
+      const hfx = Math.cos(horseYaw), hfz = -Math.sin(horseYaw);
+      const axleY = rootY + (this.wheels[0] ? this.wheels[0].wa.y : 0.28);
+      if (!lying && hitchColL && hitchColR) {
+        const colMidX = (hitchColL.x + hitchColR.x) * 0.5;
+        const colMidZ = (hitchColL.z + hitchColR.z) * 0.5;
+        const rlMid = this._w5.copy(this.tipMidLocal).applyQuaternion(q);
+        const bx = this.pos.x + rlMid.x, by = rootY + rlMid.y, bz = this.pos.z + rlMid.z;
 
-        const rAx = A.x - horsePos.x, rAz = A.z - horsePos.z;
-        const vAx = hvx + hYawRate * rAz;
-        const vAz = hvz - hYawRate * rAx;
+        const rCx = colMidX - horsePos.x, rCz = colMidZ - horsePos.z;
+        const vCx = hvx + hYawRate * rCz;
+        const vCz = hvz - hYawRate * rCx;
         const vB = velAt(bx, by, bz, this._w6);
-        const relLat = (vAx - vB.x) * latX + (vAz - vB.z) * latZ;
 
-        // damping lateral: -c*(vB - vA)·lat = +cThill*relLat
-        let F = -this.kThill * dLat + this.cThill * relLat;
-        F = Math.max(-18000, Math.min(18000, F));
-        // Titik kerja gaya batang = ENGSEl di bolster depan (setinggi poros roda), bukan setinggi
-        // titik berat. Gaya sentripetal yang masuk lewat poros rendah punya lengan momen besar
-        // thd titik berat -> bodi beneran nge-roll keluar tikungan (dan bisa guling kalau kencang).
-        const axleY = rootY + (this.wheels[0] ? this.wheels[0].wa.y : 0.28);
-        addForce(latX * F, 0, latZ * F, bx, axleY, bz);
+        // 1) Gaya pemusat lateral batang ke kalung (rest = 0 murni, simetris)
+        const dLat = (bx - colMidX) * latX + (bz - colMidZ) * latZ;
+        const relLat = (vCx - vB.x) * latX + (vCz - vB.z) * latZ;
+        let fLatThill = -this.kThill * 1.45 * dLat + this.cThill * 1.45 * relLat;
+        fLatThill = Math.max(-26000, Math.min(26000, fLatThill));
+        addForce(latX * fLatThill, 0, latZ * fLatThill, bx, axleY, bz);
+
+        // 2) Breeching (rem belakang batang tarik) saat gerobak menyusul kuda yang ngerem.
+        // Diterapkan horizontal tepat di tinggi COM agar tidak bikin bak nongak/terbang!
+        const overRun = (bx - colMidX) * hfx + (bz - colMidZ) * hfz;
+        const relFwd = (vB.x - vCx) * hfx + (vB.z - vCz) * hfz;
+        if (overRun > 0.03 || (this._hSpeed < 0.35 && relFwd > 0.04)) {
+          const comp = Math.max(0, overRun - 0.03);
+          let fBrake = comp * 44000 + Math.max(0, relFwd) * 9500;
+          if (this._hSpeed < 0.25 && relFwd > 0) fBrake += relFwd * 3200;
+          fBrake = Math.min(30000, fBrake);
+          if (fBrake > 0) addForce(-hfx * fBrake, 0, -hfz * fBrake, com.x, com.y, com.z);
+        }
+
+        // 3) Torsi penyearah alami (self-aligning trail): hidung gerobak selalu
+        // meluruskan diri ke arah kalung kuda supaya tidak pernah macet melenceng.
+        const toColX = colMidX - this.pos.x;
+        const toColZ = colMidZ - this.pos.z;
+        const toColDist = Math.hypot(toColX, toColZ);
+        if (toColDist > 1.2) {
+          const wantYaw = Math.atan2(-toColZ, toColX);
+          const yawErr = this._wrapAngle(wantYaw - this.yaw);
+          const tAlign = Math.max(-14000, Math.min(14000, 11000 * yawErr - 2600 * this.yawV));
+          Ty += tAlign;
+        }
+
+        // 4) Tarikan pemusat lembut di jalur lurus supaya gerobak cepat kembali di belakang kuda
+        if (this._hSpeed > 0.35 && Math.abs(hYawRate) < 0.15) {
+          const hLx = -hfz, hLz = hfx;
+          const latOff = (this.pos.x - horsePos.x) * hLx + (this.pos.z - horsePos.z) * hLz;
+          const fCenter = Math.max(-4500, Math.min(4500, -latOff * 2200));
+          addForce(hLx * fCenter, 0, hLz * fCenter, this.pos.x, axleY, this.pos.z);
+        }
+
+        // 5) Redaman parkir halus saat kuda benar-benar berhenti agar gerobak cepat tenang
+        if (this._hSpeed < 0.08) {
+          const vCartMag = Math.hypot(this.vel.x, this.vel.z);
+          if (vCartMag > 0.01) {
+            const parkDamp = Math.min(12000, vCartMag * 3600);
+            addForce(-(this.vel.x / vCartMag) * parkDamp, 0, -(this.vel.z / vCartMag) * parkDamp, com.x, com.y, com.z);
+          }
+        }
       }
 
       // ---------- (2b) GEROBAK vs KUDANYA SENDIRI ----------
@@ -847,58 +890,121 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
 
     }
 
-    /* Kuda = collider KERAS (kotak badan kuda di frame kuda), bukan pegas.
-       Kenapa kotak, bukan silinder: kuda itu ~2.1 m panjang x ~0.9 m lebar.
-       Silinder radius 0.74 bikin batang penarik (z +/-0.69) ikut nabrak buritan,
-       padahal batang itu memang mengapit badan kuda. Kotak halfL 1.02 x halfW 0.44
-       bikin cuma ujung bak yang mentok, batang tetap bebas di samping.
-       Penetrasi dibetulkan POSISIONAL (bukan gaya), jadi nggak bisa ditembus. */
+    /* Kuda = collider KERAS 3 lapis (pembatas longitudinal buritan + kotak badan
+       kuda + pembatas amplop hitch), dipanggil di setiap substep supaya gerobak
+       tidak pernah tembus ke kuda saat kuda mengerem mendadak di kecepatan tinggi. */
     _resolveHorseContact(horseX, horseZ, horseYaw, hvx, hvz) {
       if (this.flipped || this._lying) { this._horsePen = 0; return; }
+      this.euler.set(this.roll, this.yaw, this.pitch, 'YZX');
+      this.q.setFromEuler(this.euler);
       const q = this.q, Sv = HC.cartVS;
       const capH = (this.cart.specs && this.cart.specs.capSpec) || {};
-      const frontX = ((capH.bedFrontX ?? 24) - 2.0) * Sv;
-      const halfWz = Math.max(3, (capH.bedHalfW ?? 15) - 4) * Sv;
+      const frontX = (capH.bedFrontX ?? 24) * Sv;
+      const halfWz = (capH.bedHalfW ?? 15) * Sv;
       const fX = Math.cos(horseYaw), fZ = -Math.sin(horseYaw);   // maju kuda
       const lX = -fZ, lZ = fX;                                    // kiri kuda
-      const HL = 1.02, HW = 0.44;                                 // separuh panjang/lebar badan
-      const pts = [
+
+      // Pass 1: Jarak aman longitudinal di belakang buritan kuda (tanpa batas 0.30 m)
+      const HORSE_REAR = 1.12;
+      const edgeZ = [-halfWz, -halfWz * 0.5, 0, halfWz * 0.5, halfWz];
+      let maxOver = 0;
+      for (const pz of edgeZ) {
+        const rl = this._w7.set(frontX, 0, pz).applyQuaternion(q);
+        const dx = (this.pos.x + rl.x) - horseX;
+        const dz = (this.pos.z + rl.z) - horseZ;
+        const lf = dx * fX + dz * fZ;
+        const over = lf + HORSE_REAR;
+        if (over > maxOver) maxOver = over;
+      }
+      if (maxOver > 0) {
+        this.pos.x -= fX * maxOver;
+        this.pos.z -= fZ * maxOver;
+        const relF = (this.vel.x - hvx) * fX + (this.vel.z - hvz) * fZ;
+        if (relF > 0) {
+          this.vel.x -= fX * relF;
+          this.vel.z -= fZ * relF;
+        }
+        this.yawV *= 0.6;
+        this.pitchV = Math.min(this.pitchV, 0.5);
+      }
+
+      // Pass 2: Penjaga kotak badan kuda penuh (front + mid-front; jangan dorong maju ke depan kuda)
+      const HL = 1.08, HW = 0.52;
+      const boxPts = [
         [frontX, 0], [frontX, halfWz], [frontX, -halfWz],
+        [frontX, halfWz * 0.5], [frontX, -halfWz * 0.5],
         [frontX * 0.55, halfWz * 1.05], [frontX * 0.55, -halfWz * 1.05]
       ];
-      let pen = 0, nX = 0, nZ = 0;
-      for (const p of pts) {
+      let boxPen = 0, nX = 0, nZ = 0;
+      for (const p of boxPts) {
         const rl = this._w7.set(p[0], 0, p[1]).applyQuaternion(q);
-        const px = this.pos.x + rl.x, pz = this.pos.z + rl.z;
-        const dx = px - horseX, dz = pz - horseZ;
-        const lf = dx * fX + dz * fZ;       // jarak ke depan (+ = di depan kuda)
-        const ll = dx * lX + dz * lZ;       // jarak ke kiri
+        const dx = (this.pos.x + rl.x) - horseX;
+        const dz = (this.pos.z + rl.z) - horseZ;
+        const lf = dx * fX + dz * fZ;
+        const ll = dx * lX + dz * lZ;
         const of = HL - Math.abs(lf);
         const ol = HW - Math.abs(ll);
         if (of <= 0 || ol <= 0) continue;
         let pn, nf = 0, nl = 0;
-        if (of <= ol) { pn = of; nf = lf >= 0 ? 1 : -1; }
-        else { pn = ol; nl = ll >= 0 ? 1 : -1; }
-        if (pn > pen) { pen = pn; nX = fX * nf + lX * nl; nZ = fZ * nf + lZ * nl; }
+        if (of <= ol && lf < 0.25) {
+          // Tolak ke belakang kuda (-fX, -fZ), jangan pernah melempar bak ke depan (+fX)
+          pn = lf + HL;
+          nf = -1;
+        } else if (ol < of) {
+          pn = ol;
+          nl = ll >= 0 ? 1 : -1;
+        } else {
+          pn = lf + HL;
+          nf = -1;
+        }
+        if (pn > boxPen) { boxPen = pn; nX = fX * nf + lX * nl; nZ = fZ * nf + lZ * nl; }
       }
-      this._horsePen = Math.max(0, pen);
-      if (pen <= 0.005) return;
-      const corr = Math.min(pen, 0.30);
-      this.pos.x += nX * corr;
-      this.pos.z += nZ * corr;
-      const vn = this.vel.x * nX + this.vel.z * nZ;
-      const hv = hvx * nX + hvz * nZ;
-      if (vn < hv) {
-        this.vel.x += nX * (hv - vn);
-        this.vel.z += nZ * (hv - vn);
+      if (boxPen > 0.002) {
+        this.pos.x += nX * boxPen;
+        this.pos.z += nZ * boxPen;
+        const vn = this.vel.x * nX + this.vel.z * nZ;
+        const hv = hvx * nX + hvz * nZ;
+        if (vn < hv) {
+          this.vel.x += nX * (hv - vn);
+          this.vel.z += nZ * (hv - vn);
+        }
+        const relF = (this.vel.x - hvx) * fX + (this.vel.z - hvz) * fZ;
+        if (relF > 0) {
+          this.vel.x -= fX * relF;
+          this.vel.z -= fZ * relF;
+        }
       }
-      // sisa laju MAJU relatif ke kuda juga dibuang, kalau nggak gerobak
-      // kesimpen "pegas" kecepatan dan meloncat begitu kudanya jalan lagi
-      const relF = (this.vel.x - hvx) * fX + (this.vel.z - hvz) * fZ;
-      if (relF > 0) {
-        this.vel.x -= fX * relF;
-        this.vel.z -= fZ * relF;
+
+      // Pass 3: Pembatas amplop hitch supaya gerobak tidak melenceng ekstrem atau putus terlalu jauh
+      const dxC = this.pos.x - horseX, dzC = this.pos.z - horseZ;
+      const latC = dxC * lX + dzC * lZ;
+      if (Math.abs(latC) > 2.2) {
+        const sgL = Math.sign(latC);
+        const overL = Math.abs(latC) - 2.2;
+        this.pos.x -= lX * sgL * overL;
+        this.pos.z -= lZ * sgL * overL;
+        const vLat = (this.vel.x - hvx) * lX + (this.vel.z - hvz) * lZ;
+        if (vLat * sgL > 0) {
+          this.vel.x -= lX * vLat;
+          this.vel.z -= lZ * vLat;
+        }
       }
+      const dxR = this.pos.x - horseX, dzR = this.pos.z - horseZ;
+      const distC = Math.hypot(dxR, dzR);
+      const maxDist = (this.hitchDist || HC.hitchDist) + 1.3;
+      if (distC > maxDist && distC > 1e-4) {
+        const rx = dxR / distC, rz = dzR / distC;
+        const overR = distC - maxDist;
+        this.pos.x -= rx * overR;
+        this.pos.z -= rz * overR;
+        const vRad = (this.vel.x - hvx) * rx + (this.vel.z - hvz) * rz;
+        if (vRad > 0) {
+          this.vel.x -= rx * vRad;
+          this.vel.z -= rz * vRad;
+        }
+      }
+
+      this._horsePen = Math.max(0, maxOver, boxPen);
     }
 
     update(dt, horseX, horseSpeed, horseZ = 0, horseYaw = 0, collarWorld = null) {
@@ -953,14 +1059,14 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
           w._bumpX = newX; w._bumpZ = newZ;
         }
       }
+      let peakHorsePen = 0;
       for (let i = 0; i < SUB; i++) {
         this._substep(h, horseYaw, hvx, hvz, hYawRate, colL, colR, girL, girR, horsePos);
+        // Selesaikan kontak keras tiap substep supaya bak tidak pernah menembus buritan kuda
+        this._resolveHorseContact(horseX, horseZ, horseYaw, hvx, hvz);
+        if (this._horsePen > peakHorsePen) peakHorsePen = this._horsePen;
       }
-      // Kuda itu kinematic (posisinya dari animator), jadi pegas saja nggak cukup:
-      // di turunan, satu frame aja bisa bikin bak masuk 0.5 m ke buritan kuda.
-      // Di sini penetrasinya DIBERESIN POSISIONAL + kecepatan tutupnya dinolkan,
-      // jadi kuda bener-bener jadi dinding yang nggak bisa ditembus.
-      this._resolveHorseContact(horseX, horseZ, horseYaw, hvx, hvz);
+      this._horsePen = peakHorsePen;
       if (this.susRigid && rigidBump.length) {
         /* Poros kaku = tinggi rangka MENGIKUTI roda, tidak ada langkah pegas.
            Jadi undakan di bawah roda langsung jadi displacement bodi (bukan

@@ -100,10 +100,10 @@ export class Survival {
       this.thirst = Math.max(0, this.thirst - dt * (0.32 + (running ? 0.38 : moving ? 0.10 : 0)));
     }
 
-    // Stamina: lari ngos-ngosan, jalan santai, diam/eat minum pulih.
-    if (running) this.stamina = Math.max(0, this.stamina - 11.0 * dt);
-    else if (moving) this.stamina = Math.max(0, this.stamina - 1.3 * dt);
-    else if (!grazing && !this.drinking) this.stamina = Math.min(SURV_CAP, this.stamina + 9.5 * dt);
+    // Stamina: lari lebih irit, jalan santai hampir tidak menguras, diam/makan/minum cepat pulih.
+    if (running) this.stamina = Math.max(0, this.stamina - 3.2 * dt);
+    else if (moving) this.stamina = Math.max(0, this.stamina - 0.25 * dt);
+    else if (!grazing && !this.drinking) this.stamina = Math.min(SURV_CAP, this.stamina + 12.0 * dt);
 
     // HP: lapar/haus akut dan gerobak rebah menggerus; istirahat kenyang pelan pulih.
     let dmg = 0;

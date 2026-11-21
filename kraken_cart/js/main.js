@@ -419,8 +419,8 @@ function doDrink() {
   syncVitals();
 }
 function doJump() {
-  if (survival.stamina < 12) { survival.msg = 'Stamina kurang buat lompat.'; syncVitals(); return; }
-  survival.stamina = Math.max(0, survival.stamina - 12);
+  if (survival.stamina < 6) { survival.msg = 'Stamina kurang buat lompat.'; syncVitals(); return; }
+  survival.stamina = Math.max(0, survival.stamina - 6);
   animator.setState('jump');
 }
 
@@ -532,6 +532,9 @@ function resetRig() {
   animator.yaw = pose.yaw;
   animator.forwardX = Math.cos(pose.yaw);
   animator.forwardZ = -Math.sin(pose.yaw);
+  animator.speed = 0;
+  animator.targetSpeed = 0;
+  animator.setThrottle(0);
   physics.reset(animator.x, animator.z, animator.yaw);
   resetRopes();
   animator.setState('walk');
