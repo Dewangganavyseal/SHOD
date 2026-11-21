@@ -229,6 +229,7 @@ const chunks = [
   ...SYLVAN_NPCS.map((id) => wrapIIFE(`js/sylvan/npc_${id}.js`, read(`js/sylvan/npc_${id}.js`))),
   buildSylvanModels(),
   buildSideEffectModule('js/npc.js'),
+  buildSideEffectModule('js/mobs.js'),
   buildUpgrades(),
   buildUI(),
   buildSurvival(),

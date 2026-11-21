@@ -6,6 +6,7 @@ import './world.js';
 import './physics.js';
 import './animator.js';
 import './npc.js';
+import './mobs.js';
 import './sylvan/models.js';
 import { UpgradeStore } from './upgrades.js';
 import { initUpgradeUI } from './ui.js';
@@ -96,6 +97,11 @@ if (world.placeNPCsInWorld) {
     party.avoidSiteProps(world, w);
   }
 }
+
+// ---------------- Hutan Mobs (Kelinci Voxel & Babi Hutan + Tactical Combat AI) ----------------
+const mobs = new HC.ForestMobs(scene, world);
+HC.mobs = mobs;
+window.MOBS = mobs;
 
 // ---------------- kualitas grafis + optimasi mesh NPC ----------------
 /* LOD NPC: model Sylvan penuh dekat, model statis hasil bake jauh. */
@@ -585,7 +591,7 @@ function renderNpcDock() {
     : !al.alignedLat ? 'lat'
     : al.longErr > 1.25 ? 'rev'
     : 'pos';
-  const sig = party.members.map((m) => `${m.uid}:${m.role.id}:${m.state}`).join('|') +
+  const sig = party.members.map((m) => `${m.uid}:${m.role.id}:${m.state}:${m.inCombat ? 'C' : ''}:${Math.round(m.hp ?? m.maxHp ?? 100)}`).join('|') +
     '#' + (near ? near.npc.role.id : '') +
     '@' + hitchMode + (physics.flipped ? ':F' : '');
   if (sig === _lastDockSig) return;
@@ -607,24 +613,32 @@ function renderNpcDock() {
   for (const m of party.members) {
     const r = m.role;
     const card = document.createElement('div');
-    card.className = 'npc-card';
+    card.className = 'npc-card' + (m.inCombat ? ' fighting' : '');
     card.dataset.uid = String(m.uid);
     card.dataset.state = m.state;
 
     const rarityCls = r.mythic ? 'mythic' : r.legendary ? 'legendary' : r.rare ? 'rare' : '';
     const robe = hexCss(r.robe, 0x4f6b34);
     const hood = hexCss(r.hood, 0x3c4a68);
+    const curHp = Math.max(0, Math.round(m.hp ?? r.hp ?? 100));
+    const maxHp = Math.max(1, Math.round(m.maxHp ?? r.hp ?? 100));
+    const hpPct = Math.round((curHp / maxHp) * 100);
+    const dotCls = m.inCombat ? 'fighting' : m.state;
+    const statusLabel = m.inCombat ? '⚔ Bertarung' : (stateText[m.state] || m.state);
 
     const top = document.createElement('div');
     top.className = 'npc-card-top';
     top.innerHTML =
       `<div class="npc-thumb ${rarityCls}" style="--robe:${robe};--hood:${hood}">` +
         `<span>${r.e || '👤'}</span>` +
-        `<i class="npc-dot ${m.state}"></i>` +
+        `<i class="npc-dot ${dotCls}"></i>` +
       `</div>` +
       `<div class="npc-meta">` +
         `<div class="npc-name">${r.name}</div>` +
-        `<div class="npc-state">${stateText[m.state] || m.state}</div>` +
+        `<div class="npc-state">${statusLabel}</div>` +
+        (m.inCombat || curHp < maxHp
+          ? `<div class="npc-hp-mini"><i style="width:${hpPct}%"></i></div>`
+          : '') +
       `</div>`;
     card.appendChild(top);
 
@@ -1380,6 +1394,7 @@ function stepSim(dt) {
   world.setCartPose(physics.pos.x, physics.pos.z);
   world.update(animator.x, dt, animator.z, animator.yaw);
   party.update(animator.x, animator.z, animator.yaw, dt, cart, physics);
+  mobs.update(dt, { animator, physics, party, camera, world });
   cullDistantNpcs(party.wild, animator.x, animator.z, quality.npcCull);
   // LOD dievaluasi tiap 12 frame saja: hasil tetap sama di mata, biaya CPU
   // turun (jarak warga jarang berubah signifikan dalam 0.2 s).
@@ -1542,7 +1557,7 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 
-window.RIG = { scene, camera, renderer, controls, animator, physics, world, cart, horse, store, ui, party, rebuildCartFromStore, stepSim, ropes: { towL, towR, traceL, traceR, reinL, reinR } };
+window.RIG = { scene, camera, renderer, controls, animator, physics, world, cart, horse, store, ui, party, mobs, rebuildCartFromStore, stepSim, ropes: { towL, towR, traceL, traceR, reinL, reinR } };
 window.SURVIVAL = survival;
 window.TOUCH_UI = touchUI;
 requestAnimationFrame(frame);

@@ -326,6 +326,7 @@ const _rnd = (a, b) => a + Math.random() * (b - a);
 HC.updateWildNPC = function (item, dt, horse, world) {
   const root = item.root, st = root && root.userData && root.userData.npc;
   if (!st) return;
+  if (HC.combatAI && HC.mobs && HC.combatAI.stepWild(item, dt || 1 / 60, horse, world)) return;
   const prof = HC.NPC_BEHAVIOR[st.role.id] || { mode: 'post', radius: 2.5, walk: 0.5, pause: [3, 6], work: null, act: 6, face: 7 };
   const b = item.brain || (item.brain = { phase: 'idle', t: _rnd(0.5, 2.0), dir: root.rotation.y, actT: _rnd(2, prof.act || 8), swingT: -1, healT: -1, harvest: true });
 
@@ -486,6 +487,7 @@ HC.NPCParty = class {
   _spawnFromAnchor(slot, anchor) {
     const role = HC.NPC_ROLES.find((r) => r.id === anchor.role) || this.roles[this.nextRole++ % this.roles.length];
     const old = this.wild[slot];
+    if (old && old._hpBar) { old._hpBar.dispose(); old._hpBar = null; }
     if (old && old.root) this.scene.remove(old.root);
     const root = HC.buildNPC(role, 'stand');
     root.userData.npcRoleId = role.id;
@@ -615,6 +617,9 @@ HC.NPCParty = class {
       member.seatRoot = seatRoot;
     }
     member.state = 'seated';
+    member.inCombat = false;
+    if (member._hpBar) member._hpBar.hideNow();
+    if (member.cBrain) member.cBrain.targetBoar = null;
     member.boardT = 0;
     member.hopFrom = null;
     this._syncDefaultPassengers(c);
@@ -823,7 +828,12 @@ HC.NPCParty = class {
       return;
     }
 
-    // ---- state === 'following': turun, jalan-jalan di sekitar gerobak saat diam, ikut gerak saat jalan ----
+    // ---- state === 'following': bertarung taktis jika ada babi hutan, atau ikuti/keliling gerobak ----
+    if (HC.combatAI && HC.mobs && HC.combatAI.stepPartyMember(m, dt, hx, hz, hyaw, c, physics, this)) {
+      m.inCombat = true;
+      return;
+    }
+    m.inCombat = false;
     const horseMovedSpd = this._horseMoveSpd || 0;
     const unhitchedFar = physics && !physics.hitched && Math.hypot(hx - cc.x, hz - cc.z) > 9.0;
     const anchorX = unhitchedFar ? hx : (hx + cc.x) * 0.5;
@@ -1078,6 +1088,7 @@ HC.NPCParty = class {
     const startX = w.x, startZ = w.z;
     const startDir = (w.root && w.root.rotation && w.root.rotation.y) || 0;
     this.squad.push(role);
+    if (w._hpBar) { w._hpBar.dispose(); w._hpBar = null; }
     this.scene.remove(w.root);
     // Warga pergi ikut regu; slot di kamp diisi lagi nanti (30 s) DI SITUS YANG
     // SAMA, bukan muncul mendadak di depan kuda.
@@ -1096,6 +1107,9 @@ HC.NPCParty = class {
       x: startX,
       z: startZ,
       dir: startDir,
+      hp: role.hp || 100,
+      maxHp: role.hp || 100,
+      inCombat: false,
       root: null,
       seatRoot: null,
       boardT: 0,
@@ -1124,6 +1138,9 @@ HC.NPCParty = class {
     const m = this.members.find((it) => it.uid === uid);
     if (!m || m.state === 'seated' || m.state === 'boarding' || m.state === 'hopping_in') return false;
     m.state = 'boarding';
+    m.inCombat = false;
+    if (m._hpBar) m._hpBar.hideNow();
+    if (m.cBrain) m.cBrain.targetBoar = null;
     m.boardT = 0;
     m.hopFrom = null;
     this.lastMessage = `${m.role.e} ${m.role.name} menuju belakang gerobak untuk naik.`;
@@ -1140,6 +1157,9 @@ HC.NPCParty = class {
     const side = (physics && physics.flipDir) ? Math.sign(physics.flipDir) : 1;
     for (const m of this.members) {
       m._wantHelpAfterFall = false;
+      m.inCombat = false;
+      if (m._hpBar) m._hpBar.hideNow();
+      if (m.cBrain) m.cBrain.targetBoar = null;
       if (m.state === 'seated' || m.state === 'hopping_in') {
         if (m.seatRoot) this._detachSeated(m, c);
         const lat = side * (1.85 + m.seatIndex * 0.55);
@@ -1209,6 +1229,7 @@ HC.NPCParty = class {
     const sIdx = this.squad.indexOf(m.role);
     if (sIdx >= 0) this.squad.splice(sIdx, 1);
     else this.squad.splice(idx, 1);
+    if (m._hpBar) { m._hpBar.dispose(); m._hpBar = null; }
     if (m.root) { this.scene.remove(m.root); m.root = null; }
     this._detachSeated(m, this.cart);
     this._syncDefaultPassengers(this.cart);

@@ -67,8 +67,14 @@ if (!window.World) window.World = { groundAt: () => 0 };
 if (!window.PI) window.PI = Math.PI;
 /* Easing kurva yang dipakai NPC Goblin (PE.out / PE.bell). */
 if (!window.PE) window.PE = {
+  in(t) { const u = Math.max(0, Math.min(1, t)); return u * u; },
   out(t) { const u = Math.max(0, Math.min(1, t)); return 1 - (1 - u) * (1 - u); },
+  inOut(t) { const u = Math.max(0, Math.min(1, t)); return u * u * (3 - 2 * u); },
   bell(t) { const u = Math.max(0, Math.min(1, t)); return Math.sin(u * Math.PI); },
+  seg(t, a, b) {
+    if (b <= a) return t >= a ? 1 : 0;
+    return Math.max(0, Math.min(1, (t - a) / (b - a)));
+  },
 };
 
 if (!window.Monsters) {
