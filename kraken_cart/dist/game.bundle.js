@@ -2867,13 +2867,13 @@ class World {
     const PERF_PROFILES = {
       // treeLod  = jarak mulai pakai geometri pohon gabungan (low-detail, 1 draw call per jenis)
       // treeFar  = jarak maksimum pohon low-detail masih digambar (siluet cakrawala)
-      potato:   { label: 'Kentang',  pixelRatio: 1.0,  cullDistance: 30.0, grassRatio: 0.30, treeLod: 45.0, treeFar: 95.0 },
-      medium:   { label: 'Menengah', pixelRatio: 1.25, cullDistance: 52.0, grassRatio: 0.62, treeLod: 60.0, treeFar: 115.0 },
-      high:     { label: 'Ultra PC', pixelRatio: 2.0,  cullDistance: 84.0, grassRatio: 1.0,  treeLod: 80.0, treeFar: 135.0 },
+      potato:   { label: 'Kentang',  pixelRatio: 1.0,  cullDistance: 30.0, grassRatio: 0.30, treeLod: 55.0, treeFar: 120.0 },
+      medium:   { label: 'Menengah', pixelRatio: 1.25, cullDistance: 52.0, grassRatio: 0.62, treeLod: 70.0, treeFar: 140.0 },
+      high:     { label: 'Ultra PC', pixelRatio: 2.0,  cullDistance: 84.0, grassRatio: 1.0,  treeLod: 90.0, treeFar: 160.0 },
       // alias lama supaya kode/probe yang masih menyebut nama ini tetap jalan
-      mobile:   { label: 'Kentang',  pixelRatio: 1.0,  cullDistance: 30.0, grassRatio: 0.30, treeLod: 45.0, treeFar: 95.0 },
-      balanced: { label: 'Menengah', pixelRatio: 1.25, cullDistance: 52.0, grassRatio: 0.62, treeLod: 60.0, treeFar: 115.0 },
-      ultra:    { label: 'Ultra PC', pixelRatio: 2.0,  cullDistance: 84.0, grassRatio: 1.0,  treeLod: 80.0, treeFar: 135.0 }
+      mobile:   { label: 'Kentang',  pixelRatio: 1.0,  cullDistance: 30.0, grassRatio: 0.30, treeLod: 55.0, treeFar: 120.0 },
+      balanced: { label: 'Menengah', pixelRatio: 1.25, cullDistance: 52.0, grassRatio: 0.62, treeLod: 70.0, treeFar: 140.0 },
+      ultra:    { label: 'Ultra PC', pixelRatio: 2.0,  cullDistance: 84.0, grassRatio: 1.0,  treeLod: 90.0, treeFar: 160.0 }
     };
     let currentPerfMode = QUALITY ? QUALITY.key : (isMobileDevice ? 'medium' : 'high');
     this._quality = QUALITY;
@@ -7500,11 +7500,13 @@ class World {
     const THREE = HC.THREE;
     tree.updateMatrixWorld(true);
     const rootInv = new THREE.Matrix4().copy(tree.matrixWorld).invert();
-    const positions = [], normals = [], colors = [];
-    const c = new THREE.Color();
     const m4 = new THREE.Matrix4();
+    const c = new THREE.Color();
     const treeScale = tree.scale.x || 1;
-    const templateScale = 1 / treeScale;
+    const ts = 1 / treeScale;
+    const wood = { pos: [], nrm: [], col: [] };
+    const leaf = { pos: [], nrm: [], col: [], uv: [] };
+    let leafMap = null;
 
     tree.traverse((o) => {
       if (!o.isMesh || !o.geometry) return;
@@ -7512,43 +7514,52 @@ class World {
       if (g.index) g = g.toNonIndexed();
       m4.multiplyMatrices(rootInv, o.matrixWorld);
       g.applyMatrix4(m4);
-      // Buat geometri template tetap pada skala 1; variasi ukuran tiap pohon
-      // akan dibawa oleh matrix instance, bukan terkunci pada pohon pertama.
-      g.scale(templateScale, templateScale, templateScale);
+      // Geometri template dibakukan ke skala 1; skala tiap pohon dibawa matrix instance.
+      g.scale(ts, ts, ts);
 
       const mat = Array.isArray(o.material) ? o.material[0] : o.material;
       const isFoliage = !!(tree.userData && tree.userData.foliageMesh === o);
-      // Foliage pakai tekstur/shader, jadi material.color-nya putih: pakai warna
-      // palet daun milik pohon ini, jangan putih.
-      let hex = isFoliage ? leafHex : 0x4f7b3a;
-      if (mat) {
-        if (mat.color && mat.color.isColor && !isFoliage) hex = mat.color.getHex();
-        else if (mat.uniforms) {
-          const u = mat.uniforms.uColor || mat.uniforms.color || mat.uniforms.uLeafColor;
-          if (u && u.value && u.value.getHex) hex = u.value.getHex();
-        }
-      }
-      c.setHex(hex === undefined || hex === null ? 0x4f7b3a : hex);
+      let hex = 0x4f7b3a;
+      if (!isFoliage && mat && mat.color && mat.color.isColor) hex = mat.color.getHex();
+      else if (isFoliage) hex = leafHex;
+      c.setHex(hex);
 
-      const attr = g.attributes.position;
-      const norm = g.attributes.normal;
-      const srcColor = g.attributes.color;
-      for (let i = 0; i < attr.count; i++) {
-        positions.push(attr.getX(i), attr.getY(i), attr.getZ(i));
-        if (norm) normals.push(norm.getX(i), norm.getY(i), norm.getZ(i));
-        else normals.push(0, 1, 0);
-        if (srcColor) colors.push(srcColor.getX(i), srcColor.getY(i), srcColor.getZ(i));
-        else colors.push(c.r, c.g, c.b);
+      const pos = g.attributes.position;
+      const nrm = g.attributes.normal;
+      const uv = g.attributes.uv;
+      if (isFoliage && mat && mat.map) leafMap = leafMap || mat.map;
+      const bucket = isFoliage ? leaf : wood;
+
+      for (let i = 0; i < pos.count; i++) {
+        bucket.pos.push(pos.getX(i), pos.getY(i), pos.getZ(i));
+        if (nrm) bucket.nrm.push(nrm.getX(i), nrm.getY(i), nrm.getZ(i));
+        else bucket.nrm.push(0, 1, 0);
+        if (isFoliage) {
+          if (uv) bucket.uv.push(uv.getX(i), uv.getY(i));
+          else bucket.uv.push(0.5, 0.5);
+        }
+        if (!isFoliage || !leafMap) bucket.col.push(c.r, c.g, c.b);
+        else bucket.col.push(1, 1, 1);
       }
       g.dispose();
     });
 
-    const out = new THREE.BufferGeometry();
-    out.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-    out.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
-    out.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-    out.computeBoundingSphere();
-    return out;
+    const buildGeo = (b, withUv) => {
+      if (!b.pos.length) return null;
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(b.pos, 3));
+      geo.setAttribute('normal', new THREE.Float32BufferAttribute(b.nrm, 3));
+      geo.setAttribute('color', new THREE.Float32BufferAttribute(b.col, 3));
+      if (withUv) geo.setAttribute('uv', new THREE.Float32BufferAttribute(b.uv, 2));
+      geo.computeBoundingSphere();
+      return geo;
+    };
+
+    return {
+      wood: buildGeo(wood, false),
+      leaf: buildGeo(leaf, true),
+      leafMap
+    };
   }
 
   _buildTreeLod() {
@@ -7563,7 +7574,6 @@ class World {
       const tree = trees[i];
       const ud = tree.userData || {};
       if (ud.type !== 'tree' || !ud.boundingSphere) continue;
-      const leaf = ud.leafColor || new THREE.Color(0x3f7d3a);
       const kind = ud.treeKind || 'pine';
       const paletteKey = ud.naturalColorKey || 'green';
       const key = kind + '|' + paletteKey;
@@ -7574,27 +7584,12 @@ class World {
     }
 
     for (const bucket of buckets.values()) {
-      const leafHex = (bucket.trees[0].userData.leafColor || new THREE.Color(0x4f7b3a)).getHex();
-      // Bark mesh berbagi geometry baking dengan foliage; gunakan warna daun
-      // hanya pada canopy dan warna cokelat pada seluruh bagian kayu.
-      const geo = this._bakeTreeForLod(bucket.trees[0], leafHex);
-      const mat = new THREE.MeshLambertMaterial({
-        vertexColors: true,
-        side: THREE.DoubleSide
-      });
-      const mesh = new THREE.InstancedMesh(geo, mat, bucket.trees.length);
-      mesh.count = 0;
-      mesh.frustumCulled = false;
-      mesh.castShadow = false;
-      mesh.receiveShadow = false;
-      mesh.userData.isFarTreeLod = true;
-      if (mesh.instanceMatrix && mesh.instanceMatrix.setUsage) {
-        mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-      }
-      this.scene.add(mesh);
+      const tpl = bucket.trees[0];
+      const leafHex = (tpl.userData.leafColor || new THREE.Color(0x4f7b3a)).getHex();
+      const baked = this._bakeTreeForLod(tpl, leafHex);
+      const count = bucket.trees.length;
+
       const entries = bucket.trees.map((tree) => {
-        // Rotasi Y acak per pohon: geometri template sama, tapi tidak terlihat
-        // seperti satu model yang dicopy (siluet cakrawala jadi bervariasi).
         const s = tree.scale.x || 1;
         const entry = {
           tree,
@@ -7606,7 +7601,47 @@ class World {
         this._treeLodEntries.push(entry);
         return entry;
       });
-      this._impGroups.push({ mesh, entries });
+
+      let woodMesh = null;
+      if (baked.wood) {
+        woodMesh = new THREE.InstancedMesh(
+          baked.wood,
+          new THREE.MeshLambertMaterial({ vertexColors: true }),
+          count
+        );
+        woodMesh.count = 0;
+        woodMesh.frustumCulled = false;
+        woodMesh.castShadow = false;
+        woodMesh.receiveShadow = false;
+        woodMesh.userData.isFarTreeLod = true;
+        woodMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        this.scene.add(woodMesh);
+      }
+
+      let leafMesh = null;
+      if (baked.leaf) {
+        // Tekstur daun tetap dipakai: pad pohon berupa quad alpha-cutout, tanpa
+        // map bentuknya jadi kotak hijau. alphaTest sama dengan model asli.
+        leafMesh = new THREE.InstancedMesh(
+          baked.leaf,
+          new THREE.MeshLambertMaterial({
+            map: baked.leafMap || null,
+            vertexColors: true,
+            alphaTest: baked.leafMap ? 0.44 : 0.0,
+            side: THREE.DoubleSide
+          }),
+          count
+        );
+        leafMesh.count = 0;
+        leafMesh.frustumCulled = false;
+        leafMesh.castShadow = false;
+        leafMesh.receiveShadow = false;
+        leafMesh.userData.isFarTreeLod = true;
+        leafMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        this.scene.add(leafMesh);
+      }
+
+      this._impGroups.push({ woodMesh, leafMesh, entries });
     }
   }
 
@@ -7627,7 +7662,6 @@ class World {
         const e = entries[i];
         const ud = e.tree.userData;
         const dist = ud._camDist || 0;
-        // histeresis: begitu jauh, baru kembali ke model asli saat lebih dekat
         if (e.far) { if (dist < lodDist * 0.82) e.far = false; }
         else if (dist > lodDist) e.far = true;
 
@@ -7637,20 +7671,19 @@ class World {
         if (e.far) {
           e.tree.visible = false;
           if (inFrustum && dist <= farDist) {
-            // geometri template sudah di skala 1 -> matrix cukup posisi + yaw + skala
             e.m4.compose(e.tree.position, e.quat, e.scaleVec);
-            group.mesh.setMatrixAt(n, e.m4);
+            if (group.woodMesh) group.woodMesh.setMatrixAt(n, e.m4);
+            if (group.leafMesh) group.leafMesh.setMatrixAt(n, e.m4);
             n++;
           }
         } else {
           e.tree.visible = (dist < 18.0) || (inFrustum && dist <= lodDist);
         }
       }
-      group.mesh.count = n;
-      if (n > 0) group.mesh.instanceMatrix.needsUpdate = true;
+      if (group.woodMesh) { group.woodMesh.count = n; if (n > 0) group.woodMesh.instanceMatrix.needsUpdate = true; }
+      if (group.leafMesh) { group.leafMesh.count = n; if (n > 0) group.leafMesh.instanceMatrix.needsUpdate = true; }
     }
   }
-
 
   updateCameraFrustumCulling(camera) {
     if (!camera) return;
@@ -23014,8 +23047,8 @@ const QUALITY_PRESETS = {
     npcLod: true,
     npcLodNear: 7,
     npcCull: 34,
-    treeLod: 45,
-    treeFar: 95,
+    treeLod: 55,
+    treeFar: 120,
     hint: 'HP kelas bawah: bayangan mati, resolusi tetap 100%, rumput 30%, pohon >45 m jadi versi low-detail (bukan billboard)'
   },
   medium: {
@@ -23034,8 +23067,8 @@ const QUALITY_PRESETS = {
     npcLod: true,
     npcLodNear: 13,
     npcCull: 48,
-    treeLod: 60,
-    treeFar: 115,
+    treeLod: 70,
+    treeFar: 140,
     hint: 'HP menengah: bayangan diperbarui berkala, rumput 62%, pohon >60 m versi low-detail'
   },
   high: {
@@ -23053,8 +23086,8 @@ const QUALITY_PRESETS = {
     npcLod: false,
     npcLodNear: 0,
     npcCull: 0,
-    treeLod: 80,
-    treeFar: 135,
+    treeLod: 90,
+    treeFar: 160,
     hint: 'PC/HP kencang: semua detail dekat, pohon >80 m versi low-detail, NPC utuh, bayangan penuh'
   }
 };
