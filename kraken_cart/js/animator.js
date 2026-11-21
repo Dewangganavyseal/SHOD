@@ -69,9 +69,10 @@ const THREE = HC.THREE, S = HC.vs;
       this.forwardZ = 0;
       this.speed = 0;
       this.targetSpeed = 0;
-      this.throttle = 0;        // gas 0..1 dari input (diam sampai ditekan maju)
+      this.throttle = 0;        // gas -1..1 dari input (diam sampai ditekan maju/mundur)
       this.speedScale = 1;      // limiter kondisi badan (survival)
       this.unhitched = false;   // tanpa gerobak: kuda jauh lebih lincah & cepat
+      this.docking = null;      // animasi ngepasin posisi kuda ke pangkal batang gerobak
       this.phase = 0;
       this.time = 0;
 
@@ -103,9 +104,11 @@ const THREE = HC.THREE, S = HC.vs;
       this.steerInput = Math.max(-1, Math.min(1, v || 0));
     }
 
-    // GAS dari analog (0..1). Desktop tidak punya analog? main menyetel throttle
-    // ke 1 supaya perilaku keyboard lama tetap jalan.
-    setThrottle(v) { this.throttle = Math.max(0, Math.min(1, v || 0)); }
+    // GAS dari analog (-1..1). Desktop tidak punya analog? main menyetel throttle
+    // ke 1 / -1 supaya perilaku keyboard maju & mundur tetap jalan.
+    setThrottle(v) { this.throttle = Math.max(-1, Math.min(1, v || 0)); }
+
+    cancelDocking() { this.docking = null; }
 
     setState(mode) {
       if (mode === 'jump') {
@@ -124,54 +127,128 @@ const THREE = HC.THREE, S = HC.vs;
       dt = Math.min(dt, 0.033);
       this.time += dt;
 
-      // Gas dari analog: throttle 0 = kuda berhenti walau toggle LARI nyala.
-      const thr = this.throttle;
-      const moving = thr > 0.06;
-      const wantRun = this.state === 'run' && moving;
-
-      const isGraze = this.state === 'graze' && !this.jumpActive;
-      const isRun = wantRun || (this.jumpActive && this.prevMoveState === 'run' && moving);
-
-      this.grazeBlend = HC.damp(this.grazeBlend, isGraze ? 1 : 0, 5.5, dt);
-      this.runBlend = HC.damp(this.runBlend, isRun ? 1 : 0, 6.0, dt);
-
-      // Desired forward speed. Kecepatan puncak ditentukan toggle LARI, tapi
-      // besar gas tetap dari analog; kondisi badan (survival) menskalakan semua.
       const walkMax = this.unhitched ? 2.30 : 1.95;
       const runMax = this.unhitched ? 6.15 : 5.25;
-      if (isGraze || !moving) {
-        this.targetSpeed = 0;
+      const revMax = this.unhitched ? 1.55 : 1.05;
+      let moving = false;
+      let pivoting = false;
+
+      if (this.docking) {
+        const d = this.docking;
+        const dx = d.x - this.x;
+        const dz = d.z - this.z;
+        const dist = Math.hypot(dx, dz);
+        let dyaw = d.yaw - this.yaw;
+        while (dyaw > Math.PI) dyaw -= Math.PI * 2;
+        while (dyaw < -Math.PI) dyaw += Math.PI * 2;
+
+        const maxYawStep = 1.5 * dt;
+        const yawStep = HC.clamp(dyaw, -maxYawStep, maxYawStep);
+        this.yaw += yawStep;
+        this.yawRate = yawStep / Math.max(dt, 1e-4);
+        this.steer = HC.clamp(dyaw * 1.4, -1, 1);
+
+        this.forwardX = Math.cos(this.yaw);
+        this.forwardZ = -Math.sin(this.yaw);
+
+        const maxSpd = Math.min(1.15, dist * 3.8);
+        let vx = 0, vz = 0;
+        if (dist > 1e-4) {
+          vx = (dx / dist) * maxSpd;
+          vz = (dz / dist) * maxSpd;
+          const step = Math.min(dist, maxSpd * dt);
+          this.x += (dx / dist) * step;
+          this.z += (dz / dist) * step;
+        }
+        const signedSpd = vx * this.forwardX + vz * this.forwardZ;
+        this.speed = HC.damp(this.speed, signedSpd, 12.0, dt);
+        this.targetSpeed = signedSpd;
+        this.throttle = Math.abs(signedSpd) > 0.05 ? Math.sign(signedSpd) * 0.45 : 0;
+        this.runBlend = HC.damp(this.runBlend, 0, 8.0, dt);
+        this.grazeBlend = HC.damp(this.grazeBlend, 0, 8.0, dt);
+        this.headLead = HC.damp(this.headLead, HC.clamp(this.steer * 0.45, -0.5, 0.5), 10.0, dt);
+        this.bodyLag = HC.damp(this.bodyLag, HC.clamp(-this.yawRate * 0.16, -0.18, 0.18), 6.0, dt);
+        moving = Math.abs(this.speed) > 0.04;
+        pivoting = !d.arrived && (Math.abs(this.yawRate) > 0.12 || dist > 0.04);
+
+        if (dist < 0.03 && Math.abs(dyaw) < 0.025) {
+          this.x = d.x;
+          this.z = d.z;
+          this.yaw = d.yaw;
+          this.forwardX = Math.cos(this.yaw);
+          this.forwardZ = -Math.sin(this.yaw);
+          this.speed = 0;
+          this.targetSpeed = 0;
+          this.yawRate = 0;
+          this.steer = 0;
+          this.throttle = 0;
+          d.arrived = true;
+          moving = false;
+          pivoting = false;
+        }
       } else {
-        const span = HC.lerp(walkMax, runMax, this.runBlend);
-        this.targetSpeed = span * Math.min(1, thr) * this.speedScale;
-        if (this.jumpActive) this.targetSpeed = Math.max(this.targetSpeed, (this.unhitched ? 3.8 : 3.2) * this.speedScale);
+        // Gas dari analog (-1..1): throttle 0 = kuda berhenti walau toggle LARI nyala.
+        const thr = this.throttle;
+        const movingFwd = thr > 0.06;
+        const movingRev = thr < -0.06;
+        moving = movingFwd || movingRev;
+        const wantRun = this.state === 'run' && movingFwd;
+
+        const isGraze = this.state === 'graze' && !this.jumpActive;
+        const isRun = wantRun || (this.jumpActive && this.prevMoveState === 'run' && movingFwd);
+
+        this.grazeBlend = HC.damp(this.grazeBlend, isGraze ? 1 : 0, 5.5, dt);
+        this.runBlend = HC.damp(this.runBlend, isRun ? 1 : 0, 6.0, dt);
+
+        // Desired speed (+ maju, - mundur); kondisi badan (survival) menskalakan semua.
+        if (isGraze || !moving) {
+          this.targetSpeed = 0;
+        } else if (movingRev) {
+          this.targetSpeed = -revMax * Math.min(1, Math.abs(thr)) * this.speedScale;
+        } else {
+          const span = HC.lerp(walkMax, runMax, this.runBlend);
+          this.targetSpeed = span * Math.min(1, thr) * this.speedScale;
+          if (this.jumpActive) this.targetSpeed = Math.max(this.targetSpeed, (this.unhitched ? 3.8 : 3.2) * this.speedScale);
+        }
+        this.speed = HC.damp(this.speed, this.targetSpeed, this.unhitched ? 10.5 : 6.5, dt);
+        if (!moving && Math.abs(this.speed) < 0.04) this.speed = 0;
+
+        // ---- Steering: kepala menoleh dulu, badan menyusul; radius belok jauh lebih lincah ----
+        this.steer = HC.damp(this.steer, this.steerInput, this.unhitched ? 10.5 : 8.0, dt);
+        const turnCap = this.unhitched ? 1.65 : 1.15;
+        const turnMul = this.unhitched ? 0.85 : 0.62;
+        const absSpd = Math.abs(this.speed);
+        let rawTurn = Math.min(turnCap, absSpd * turnMul);
+        if (this.unhitched && Math.abs(this.steer) > 0.04) {
+          rawTurn = Math.max(rawTurn, 0.92);
+        }
+        const turnRate = this.steer * rawTurn * (1 - this.grazeBlend * 0.9) * (this.jumpActive ? 0.55 : 1);
+        this.yawRate = HC.damp(this.yawRate, turnRate, this.unhitched ? 11.5 : 9.5, dt);
+        this.yaw += this.yawRate * dt;
+
+        // kepala + leher mendahului putaran badan (anticipation), badan menyusul dengan lag
+        const headWant = HC.clamp(this.steer * 0.62 + this.yawRate * 0.24, -0.85, 0.85);
+        this.headLead = HC.damp(this.headLead, headWant, 10.0, dt);
+        this.bodyLag = HC.damp(this.bodyLag, HC.clamp(-this.yawRate * 0.18, -0.26, 0.26), 5.0, dt);
+
+        this.forwardX = Math.cos(this.yaw);
+        this.forwardZ = -Math.sin(this.yaw);
+        this.x += this.forwardX * this.speed * dt;
+        this.z += this.forwardZ * this.speed * dt;
+
+        pivoting = this.unhitched && Math.abs(this.yawRate) > 0.12 && absSpd < 0.15 && !isGraze && !this.jumpActive;
       }
-      this.speed = HC.damp(this.speed, this.targetSpeed, this.unhitched ? 10.5 : 6.5, dt);
-      if (!moving && this.speed < 0.04) this.speed = 0;
 
-      // ---- Steering: kepala menoleh dulu, badan menyusul, kaki mengikuti jalur ----
-      this.steer = HC.damp(this.steer, this.steerInput, this.unhitched ? 9.5 : 6.5, dt);
-      const turnCap = this.unhitched ? 0.78 : 0.55;
-      const turnMul = this.unhitched ? 0.42 : 0.30;
-      const turnRate = this.steer * Math.min(turnCap, this.speed * turnMul) * (1 - this.grazeBlend * 0.9) * (this.jumpActive ? 0.55 : 1);
-      this.yawRate = HC.damp(this.yawRate, turnRate, this.unhitched ? 10.5 : 8.0, dt);
-      this.yaw += this.yawRate * dt;
-
-      // kepala + leher mendahului putaran badan (anticipation), badan menyusul dengan lag
-      const headWant = HC.clamp(this.steer * 0.62 + this.yawRate * 0.30, -0.85, 0.85);
-      this.headLead = HC.damp(this.headLead, headWant, 10.0, dt);
-      this.bodyLag = HC.damp(this.bodyLag, HC.clamp(-this.yawRate * 0.22, -0.26, 0.26), 4.5, dt);
-
-      this.forwardX = Math.cos(this.yaw);
-      this.forwardZ = -Math.sin(this.yaw);
-      this.x += this.forwardX * this.speed * dt;
-      this.z += this.forwardZ * this.speed * dt;
-
-      // Advance gait cycle phase proportional to distance travelled
+      // Advance gait cycle phase proportional to signed distance travelled (or gentle shuffle saat putar di tempat)
+      const absSpeed = Math.abs(this.speed);
       const freq = HC.lerp(1.22, 2.38, this.runBlend);
-      const speedRatio = HC.clamp(this.speed / HC.lerp(walkMax, runMax, this.runBlend), 0, 1.35);
-      if (this.speed > 0.02) {
-        this.phase = (this.phase + dt * freq * speedRatio * (1 - this.grazeBlend * 0.92)) % 1;
+      const denom = this.speed < -0.02 ? revMax : HC.lerp(walkMax, runMax, this.runBlend);
+      const speedRatio = HC.clamp(absSpeed / denom, 0, 1.35);
+      if (absSpeed > 0.02) {
+        const dirSign = this.speed >= 0 ? 1 : -1;
+        this.phase = ((this.phase + dirSign * dt * freq * speedRatio * (1 - this.grazeBlend * 0.92)) % 1 + 1) % 1;
+      } else if (pivoting) {
+        this.phase = (this.phase + dt * 1.15 * HC.clamp(Math.abs(this.yawRate), 0.25, 1.4)) % 1;
       }
 
       // ---- Jump arc & body pitch ----
@@ -215,7 +292,7 @@ const THREE = HC.THREE, S = HC.vs;
 
       // ---- Torso bobbing & rocking ----
       const p2 = this.phase * Math.PI * 2;
-      const moveAmt = HC.clamp(this.speed / 2.2, 0, 1.5) * (1 - this.grazeBlend);
+      const moveAmt = HC.clamp(absSpeed / 2.2 + (pivoting ? 0.16 : 0), 0, 1.5) * (1 - this.grazeBlend);
       const walkBob = Math.sin(p2 * 2) * 0.028 * (1 - this.runBlend);
       const runBob = Math.sin(p2) * 0.075 * this.runBlend;
       const runPitch = Math.cos(p2) * 0.085 * this.runBlend;
@@ -226,7 +303,7 @@ const THREE = HC.THREE, S = HC.vs;
       this.horse.root.rotation.y = this.yaw;
       this.horse.torso.position.set(0, torsoY, 0);
 
-      const bankRoll = -this.yawRate * this.speed * 0.055; // miring ke dalam tikungan
+      const bankRoll = -this.yawRate * Math.max(0, this.speed) * 0.055; // miring ke dalam tikungan maju
       const totalPitch = terrainPitch * 0.65 + runPitch * moveAmt + jumpPitch - this.grazeBlend * 0.11;
       const totalRoll = walkRoll * moveAmt + bankRoll;
       this.horse.torso.rotation.set(totalRoll, this.bodyLag, totalPitch);
@@ -298,8 +375,13 @@ const THREE = HC.THREE, S = HC.vs;
       const walkOffsets = { HL: 0.00, FL: 0.25, HR: 0.50, FR: 0.75 };
       const runOffsets  = { HR: 0.00, HL: 0.15, FR: 0.52, FL: 0.67 };
 
-      const strideLen = HC.lerp(0.46, 0.92, this.runBlend) * HC.clamp(this.speed / 1.9, 0, 1.4) * (1 - this.grazeBlend);
-      const stepHeight = HC.lerp(0.16, 0.31, this.runBlend) * HC.clamp(this.speed / 1.6, 0, 1.3) * (1 - this.grazeBlend);
+      const strideScale = this.speed < -0.02 ? 0.72 : 1.0;
+      const strideLen = pivoting
+        ? 0.14
+        : HC.lerp(0.46, 0.92, this.runBlend) * HC.clamp(absSpeed / 1.9, 0, 1.4) * strideScale * (1 - this.grazeBlend);
+      const stepHeight = pivoting
+        ? 0.09
+        : HC.lerp(0.16, 0.31, this.runBlend) * HC.clamp(absSpeed / 1.6, 0, 1.3) * strideScale * (1 - this.grazeBlend);
       const duty = HC.lerp(0.62, 0.42, this.runBlend); // fraction of cycle foot is planted on ground
 
       const l1World = L1 * S;
@@ -326,7 +408,7 @@ const THREE = HC.THREE, S = HC.vs;
           else strideX = 0.04;
           liftY = leg.id === 'FR' ? Math.max(0, Math.sin(this.time * 1.6)) * 0.045 : 0;
           stance = liftY > 0.01 ? 0.3 : 1.0;
-        } else if (!moving && this.speed < 0.05 && !this.jumpActive) {
+        } else if (!moving && absSpeed < 0.05 && !pivoting && !this.jumpActive) {
           // Diam di tempat: keempat kaki menapak rata di tanah.
           strideX = 0;
           liftY = 0;

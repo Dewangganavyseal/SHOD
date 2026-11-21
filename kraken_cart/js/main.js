@@ -260,6 +260,8 @@ const _shaftCollarMid = new THREE.Vector3();
 const _shaftQ = new THREE.Quaternion();
 const SHAFT_BASE_PITCH = Math.atan2(HC.shaftTipY - HC.shaftHingeY, HC.shaftTipVox - 24.0);  // kemiringan batang model
 const SHAFT_LEN = (HC.shaftTipVox - 24.0) * HC.cartVS;
+const hitchAnim = { active: false, elapsed: 0, targetX: 0, targetZ: 0, targetYaw: 0 };
+window.HITCH_ANIM = hitchAnim;
 
 function updateShafts(dt) {
   const sg = cart.shaftGroup;
@@ -273,7 +275,7 @@ function updateShafts(dt) {
     return;
   }
 
-  if (!physics.hitched) {
+  if (!physics.hitched && !hitchAnim.active) {
     sg.rotation.order = 'YXZ';
     sg.rotation.y = HC.damp(sg.rotation.y, 0, 12, dt);
     sg.rotation.z = HC.damp(sg.rotation.z, -SHAFT_BASE_PITCH - 0.05, 12, dt);
@@ -294,13 +296,14 @@ function updateShafts(dt) {
   if (horiz > 0.25) {
     const yawWant = Math.atan2(-_shaftDirW.z, _shaftDirW.x);
     const pitchWant = Math.atan2(_shaftDirW.y, horiz) - SHAFT_BASE_PITCH;
+    const rate = hitchAnim.active ? 9 : 26;
     // dilancarkan dikit biar nggak geter, tapi tetap ikut kuda (bukan animasi lepas)
     sg.rotation.order = 'YXZ';
-    sg.rotation.y = HC.damp(sg.rotation.y, HC.clamp(yawWant, -1.15, 1.15), 26, dt);
-    sg.rotation.z = HC.damp(sg.rotation.z, HC.clamp(pitchWant, -0.5, 0.5), 26, dt);
+    sg.rotation.y = HC.damp(sg.rotation.y, HC.clamp(yawWant, -1.15, 1.15), rate, dt);
+    sg.rotation.z = HC.damp(sg.rotation.z, HC.clamp(pitchWant, -0.5, 0.5), rate, dt);
     // panjang batang sedikit nyesuai jarak kalung (toleransi kecil, biar ujungnya nempel)
     const want = Math.max(0.88, Math.min(1.12, horiz / SHAFT_LEN));
-    sg.scale.x = HC.damp(sg.scale.x, want, 18, dt);
+    sg.scale.x = HC.damp(sg.scale.x, want, hitchAnim.active ? 9 : 18, dt);
   }
 }
 
@@ -394,8 +397,9 @@ function bindBtn(id, fn) {
 // ---- kondisi kuda: stamina / HP / lapar / haus ----
 const survival = new Survival({ map: HC.MAP, world });
 let runLatched = false;
-const keysHeld = { forward: false, left: false, right: false };
+const keysHeld = { forward: false, backward: false, left: false, right: false };
 let btnForwardHeld = false;
+let btnBackwardHeld = false;
 
 function syncSteerInput() {
   animator.setSteer(keysHeld.left ? 1 : keysHeld.right ? -1 : 0);
@@ -408,14 +412,18 @@ function toggleRun() {
 }
 const survCtx = () => ({
   x: animator.x, z: animator.z, speed: animator.speed,
-  moving: animator.throttle > 0.06,
+  moving: Math.abs(animator.throttle) > 0.06,
   running: animator.state === 'run' && animator.throttle > 0.06,
   flipped: !!physics.flipped,
   unhitched: !physics.hitched,
 });
 function stopForSurvivalAction() {
   keysHeld.forward = false;
+  keysHeld.backward = false;
   btnForwardHeld = false;
+  btnBackwardHeld = false;
+  hitchAnim.active = false;
+  animator.cancelDocking();
   animator.setThrottle(0);
   animator.speed = 0;
   animator.targetSpeed = 0;
@@ -468,6 +476,29 @@ if (btnWalkEl) {
   btnWalkEl.addEventListener('touchstart', startWalk, { passive: false });
   btnWalkEl.addEventListener('touchend', stopWalk, { passive: false });
   btnWalkEl.addEventListener('touchcancel', stopWalk, { passive: false });
+}
+const btnRevEl = document.getElementById('btn-rev');
+if (btnRevEl) {
+  const startRev = (e) => {
+    e.preventDefault();
+    btnBackwardHeld = true;
+    btnRevEl.classList.add('held');
+    if (!survival.eating && !survival.drinking && animator.state === 'graze') {
+      animator.setState('walk');
+    }
+  };
+  const stopRev = (e) => {
+    if (e) e.preventDefault();
+    btnBackwardHeld = false;
+    btnRevEl.classList.remove('held');
+  };
+  btnRevEl.addEventListener('pointerdown', startRev);
+  btnRevEl.addEventListener('pointerup', stopRev);
+  btnRevEl.addEventListener('pointerleave', stopRev);
+  btnRevEl.addEventListener('pointercancel', stopRev);
+  btnRevEl.addEventListener('touchstart', startRev, { passive: false });
+  btnRevEl.addEventListener('touchend', stopRev, { passive: false });
+  btnRevEl.addEventListener('touchcancel', stopRev, { passive: false });
 }
 bindBtn('btn-run', () => toggleRun());
 bindBtn('btn-jump', () => doJump());
@@ -544,9 +575,16 @@ function renderNpcDock() {
   if (!npcDockEl) return;
   const near = party.members.length < HC.NPC_TEAM_MAX ? party.nearby(animator.x, animator.z) : null;
   const isStationary = Math.abs(animator.speed) < 0.85 && Math.hypot(physics.vel.x, physics.vel.z) < 0.85;
-  const canHitchAction = !physics.flipped && (!physics.hitched || isStationary);
-  const nearFront = Math.hypot(animator.x - physics.pos.x, animator.z - physics.pos.z) <= 6.5;
-  const hitchMode = !canHitchAction ? 'none' : physics.hitched ? 'detach' : nearFront ? 'attach' : 'far';
+  const canHitchAction = !physics.flipped && (!physics.hitched || isStationary || hitchAnim.active);
+  const al = (!physics.hitched && !physics.flipped) ? getHitchAlignment() : null;
+  const hitchMode = !canHitchAction ? 'none'
+    : hitchAnim.active ? 'docking'
+    : physics.hitched ? 'detach'
+    : al.ready ? 'attach'
+    : !al.alignedYaw ? 'yaw'
+    : !al.alignedLat ? 'lat'
+    : al.longErr > 1.25 ? 'rev'
+    : 'pos';
   const sig = party.members.map((m) => `${m.uid}:${m.role.id}:${m.state}`).join('|') +
     '#' + (near ? near.npc.role.id : '') +
     '@' + hitchMode + (physics.flipped ? ':F' : '');
@@ -654,11 +692,19 @@ function renderNpcDock() {
     const hBtn = document.createElement('button');
     hBtn.type = 'button';
     hBtn.className = 'npc-hitch-card' + (!physics.hitched ? ' free' : '');
-    if (physics.hitched) {
+    if (hitchAnim.active) {
+      hBtn.textContent = '⏳ Ngepasin Posisi...';
+      hBtn.disabled = true;
+    } else if (physics.hitched) {
       hBtn.textContent = '🔓 Lepas Tali Gerobak';
+    } else if (al && al.ready) {
+      hBtn.textContent = '🔗 Pasang Tali Gerobak';
     } else {
-      hBtn.textContent = nearFront ? '🔗 Pasang Tali Gerobak' : '🔗 Pasang Tali (Dekati Gerobak)';
-      hBtn.disabled = !nearFront;
+      hBtn.textContent = !al.alignedYaw ? '🔗 Luruskan Arah Kuda'
+        : !al.alignedLat ? '🔗 Tengahkan di Batang'
+        : al.longErr > 1.25 ? '🔗 Mundur ke Batang Depan'
+        : '🔗 Posisikan di Batang Depan';
+      hBtn.disabled = true;
     }
     bindTapSafe(hBtn, toggleHitch);
     npcDockEl.appendChild(hBtn);
@@ -685,26 +731,71 @@ function setRopesVisible(v) {
   for (const r of ALL_ROPES) if (r && r.setVisible) r.setVisible(v);
 }
 
+function _wrapAng(a) {
+  let d = a;
+  while (d > Math.PI) d -= Math.PI * 2;
+  while (d < -Math.PI) d += Math.PI * 2;
+  return d;
+}
+
+function getHitchAlignment() {
+  const cfx = Math.cos(physics.yaw), cfz = -Math.sin(physics.yaw);
+  const clx = -cfz, clz = cfx;
+  const targetX = physics.pos.x + cfx * HITCH_DIST;
+  const targetZ = physics.pos.z + cfz * HITCH_DIST;
+  const dx = animator.x - targetX;
+  const dz = animator.z - targetZ;
+  const longErr = dx * cfx + dz * cfz;
+  const latErr = dx * clx + dz * clz;
+  const yawErr = _wrapAng(animator.yaw - physics.yaw);
+  const alignedYaw = Math.abs(yawErr) <= 0.52;
+  const alignedLat = Math.abs(latErr) <= 0.68;
+  const alignedLong = longErr >= -0.58 && longErr <= 1.25;
+  const ready = !physics.flipped && !physics.hitched && alignedYaw && alignedLat && alignedLong;
+  return {
+    ready,
+    alignedYaw, alignedLat, alignedLong,
+    longErr, latErr, yawErr,
+    targetX, targetZ, targetYaw: physics.yaw,
+  };
+}
+window.getHitchAlignment = getHitchAlignment;
+
 const btnHitchEl = document.getElementById('btn-hitch');
 let _lastHitchSig = '';
 function syncHitchUi() {
   if (!btnHitchEl) return;
   const free = !physics.hitched;
   const movingFast = Math.abs(animator.speed) >= 0.85 || Math.hypot(physics.vel.x, physics.vel.z) >= 0.85;
-  const nearFront = Math.hypot(animator.x - physics.pos.x, animator.z - physics.pos.z) <= 6.5;
-  const sig = `${physics.flipped ? 'F' : ''}|${free ? 'U' : 'H'}|${movingFast ? 'M' : 'S'}|${nearFront ? 'N' : 'D'}`;
-  if (sig === _lastHitchSig) return;
-  _lastHitchSig = sig;
+  const al = (free && !physics.flipped) ? getHitchAlignment() : null;
+  const hint = physics.flipped ? 'F'
+    : hitchAnim.active ? 'A'
+    : !free ? (movingFast ? 'M' : 'H')
+    : al.ready ? 'R'
+    : !al.alignedYaw ? 'Y'
+    : !al.alignedLat ? 'L'
+    : al.longErr > 1.25 ? 'B' : 'P';
+  if (hint === _lastHitchSig) return;
+  _lastHitchSig = hint;
   btnHitchEl.classList.toggle('active-free', free);
   if (physics.flipped) {
     btnHitchEl.disabled = true;
     btnHitchEl.textContent = '⚠ Terbalik';
+  } else if (hitchAnim.active) {
+    btnHitchEl.disabled = true;
+    btnHitchEl.textContent = '⏳ Ngepasin...';
   } else if (physics.hitched) {
     btnHitchEl.disabled = movingFast;
     btnHitchEl.textContent = movingFast ? '🔗 Berhenti Dulu' : '🔓 Lepas Tali [V]';
+  } else if (al.ready) {
+    btnHitchEl.disabled = false;
+    btnHitchEl.textContent = '🔗 Pasang Tali [V]';
   } else {
-    btnHitchEl.disabled = !nearFront;
-    btnHitchEl.textContent = nearFront ? '🔗 Pasang Tali [V]' : '🔗 Dekati Gerobak';
+    btnHitchEl.disabled = true;
+    btnHitchEl.textContent = !al.alignedYaw ? '🔗 Luruskan Arah'
+      : !al.alignedLat ? '🔗 Tengahkan Posisi'
+      : al.longErr > 1.25 ? '🔗 Mundur ke Batang'
+      : '🔗 Mundur Pas Batang';
   }
 }
 
@@ -722,11 +813,14 @@ function unhitchCart(fromFlip = false) {
       return false;
     }
   }
+  hitchAnim.active = false;
+  hitchAnim.elapsed = 0;
+  animator.cancelDocking();
   physics.hitched = false;
   animator.unhitched = true;
   setRopesVisible(false);
   if (!fromFlip) {
-    survival.msg = 'Tali dilepas — kuda bebas bergerak & lebih hemat energi.';
+    survival.msg = 'Tali dilepas — kuda bebas bergerak & bisa mundur/putar bebas.';
     syncVitals();
   }
   _lastDockSig = '';
@@ -736,19 +830,10 @@ function unhitchCart(fromFlip = false) {
   return true;
 }
 
-function reHitchCart() {
-  if (physics.flipped) {
-    survival.msg = 'Balikkan gerobak terlebih dahulu.';
-    syncVitals();
-    return false;
-  }
-  if (physics.hitched) return true;
-  const dist = Math.hypot(animator.x - physics.pos.x, animator.z - physics.pos.z);
-  if (dist > 6.5) {
-    survival.msg = 'Dekatkan kuda ke depan gerobak untuk memasang tali.';
-    syncVitals();
-    return false;
-  }
+function finalizeReHitch() {
+  hitchAnim.active = false;
+  hitchAnim.elapsed = 0;
+  animator.cancelDocking();
   animator.speed = 0;
   animator.targetSpeed = 0;
   animator.yawRate = 0;
@@ -764,15 +849,45 @@ function reHitchCart() {
   physics.angVel = 0;
   physics.hitched = true;
   physics.unhitchedDroop = 0;
-  if (cart.shaftGroup) {
-    cart.shaftGroup.rotation.set(0, 0, 0);
-    cart.shaftGroup.scale.set(1, 1, 1);
-  }
   animator.update(0.001);
   if (physics.syncVisual) physics.syncVisual();
   setRopesVisible(true);
   resetRopes();
-  survival.msg = 'Tali dipasang — gerobak siap ditarik kembali.';
+  survival.msg = 'Tali terpasang — gerobak siap ditarik kembali.';
+  syncVitals();
+  _lastDockSig = '';
+  _lastHitchSig = '';
+  renderNpcDock();
+  syncHitchUi();
+}
+
+function reHitchCart() {
+  if (physics.flipped) {
+    survival.msg = 'Balikkan gerobak terlebih dahulu.';
+    syncVitals();
+    return false;
+  }
+  if (physics.hitched || hitchAnim.active) return true;
+  const al = getHitchAlignment();
+  if (!al.ready) {
+    if (!al.alignedYaw) survival.msg = 'Luruskan arah hadap kuda searah gerobak dulu.';
+    else if (!al.alignedLat) survival.msg = 'Tengahkan posisi kuda di antara kedua batang depan.';
+    else if (al.longErr > 1.25) survival.msg = 'Mundurkan kuda perlahan hingga masuk di antara dua batang depan.';
+    else survival.msg = 'Posisikan kuda tepat di antara kedua pegangan gerobak depan.';
+    syncVitals();
+    return false;
+  }
+  keysHeld.forward = false;
+  keysHeld.backward = false;
+  btnForwardHeld = false;
+  btnBackwardHeld = false;
+  hitchAnim.active = true;
+  hitchAnim.elapsed = 0;
+  hitchAnim.targetX = al.targetX;
+  hitchAnim.targetZ = al.targetZ;
+  hitchAnim.targetYaw = al.targetYaw;
+  animator.docking = { x: al.targetX, z: al.targetZ, yaw: al.targetYaw, arrived: false };
+  survival.msg = 'Kuda mengepasin posisi perlahan ke batang gerobak...';
   syncVitals();
   _lastDockSig = '';
   _lastHitchSig = '';
@@ -1000,6 +1115,9 @@ function clearRamps() {
 function resetRig() {
   clearRamps();
   flipGame.stop(false);
+  hitchAnim.active = false;
+  hitchAnim.elapsed = 0;
+  animator.cancelDocking();
   const pose = (world.initialHorsePose && (physics.flipped || !physics.hitched || Math.hypot(animator.x, animator.z) > 28))
     ? world.initialHorsePose()
     : { x: animator.x, z: animator.z, yaw: animator.yaw };
@@ -1098,6 +1216,13 @@ window.addEventListener('keydown', (e) => {
     }
     e.preventDefault();
   }
+  else if (k === 's' || k === 'arrowdown') {
+    keysHeld.backward = true;
+    if (!survival.eating && !survival.drinking && animator.state === 'graze') {
+      animator.setState('walk');
+    }
+    e.preventDefault();
+  }
   else if (k === 'arrowleft' || k === 'a') { keysHeld.left = true; syncSteerInput(); e.preventDefault(); }
   else if (k === 'arrowright' || k === 'd') { keysHeld.right = true; syncSteerInput(); e.preventDefault(); }
   else if (k === '1') {
@@ -1117,6 +1242,16 @@ window.addEventListener('keydown', (e) => {
   }
   else if (k === 'escape') {
     if (flipGame.active) { e.preventDefault(); flipGame.stop(false); }
+    else if (hitchAnim.active) {
+      e.preventDefault();
+      hitchAnim.active = false;
+      hitchAnim.elapsed = 0;
+      animator.cancelDocking();
+      _lastDockSig = '';
+      _lastHitchSig = '';
+      renderNpcDock();
+      syncHitchUi();
+    }
   }
   else if (k === '3' || k === 'e') doEat();
   else if (k === '4' || k === 'f' || k === 'm') doDrink();
@@ -1134,14 +1269,17 @@ window.addEventListener('keydown', (e) => {
 window.addEventListener('keyup', (e) => {
   const k = e.key.toLowerCase();
   if (k === 'w' || k === 'arrowup') keysHeld.forward = false;
+  else if (k === 's' || k === 'arrowdown') keysHeld.backward = false;
   else if (k === 'arrowleft' || k === 'a') { keysHeld.left = false; syncSteerInput(); }
   else if (k === 'arrowright' || k === 'd') { keysHeld.right = false; syncSteerInput(); }
 });
 window.addEventListener('blur', () => {
   keysHeld.forward = false;
+  keysHeld.backward = false;
   keysHeld.left = false;
   keysHeld.right = false;
   btnForwardHeld = false;
+  btnBackwardHeld = false;
   animator.setSteer(0);
   animator.setThrottle(0);
 });
@@ -1160,21 +1298,31 @@ function stepSim(dt) {
   // --- kondisi kuda dihitung sebelum gerak biar limiter berlaku di frame sama ---
   const wasActing = survival.eating || survival.drinking;
   const acting = wasActing;
-  // Baik PC maupun mobile: kuda DIAM jika tombol maju / analog tidak ditekan.
+  // Baik PC maupun mobile: kuda DIAM jika tombol maju/mundur atau analog tidak ditekan.
   const pcForward = !!(keysHeld.forward || btnForwardHeld || window.__forceForward);
+  const pcBackward = !!(keysHeld.backward || btnBackwardHeld || window.__forceBackward);
   const stickActive = !!(touchUI.active && touchUI.joystick && touchUI.joystick.pad && touchUI.joystick.pad.active);
-  if (acting) {
+  if (hitchAnim.active) {
+    // Sedang ngepasin perlahan ke pangkal batang gerobak
+  } else if (acting) {
     animator.setThrottle(0);
-  } else if (pcForward) {
+  } else if (pcForward && !pcBackward) {
     if (animator.state === 'graze') animator.setState(runLatched ? 'run' : 'walk');
     animator.setThrottle(1);
+  } else if (pcBackward && !pcForward) {
+    if (animator.state === 'graze' || animator.state === 'run') {
+      runLatched = false;
+      animator.setState('walk');
+      if (touchUI && touchUI.setRunLatched) touchUI.setRunLatched(false);
+    }
+    animator.setThrottle(-1);
   } else if (!stickActive) {
     animator.setThrottle(0);
   }
   if (!survival.canRun() && animator.state === 'run') {
     runLatched = false;
     animator.setState('walk');
-    if (touchUI.setRunLatched) touchUI.setRunLatched(false);
+    if (touchUI && touchUI.setRunLatched) touchUI.setRunLatched(false);
   }
   animator.speedScale = survival.speedScale();
   survival.update(dt, survCtx());
@@ -1184,6 +1332,40 @@ function stepSim(dt) {
   animator.unhitched = !physics.hitched;
   animator.update(dt);
   if (world.keepHorseInValley) world.keepHorseInValley(animator, dt);
+
+  // Penahan badan gerobak saat kuda bebas (agar mundur ke saku batang berhenti pas di depan bak,
+  // tidak tembus ke dalam badan gerobak).
+  if (!physics.hitched && !physics.flipped && !hitchAnim.active) {
+    const cfx = Math.cos(physics.yaw), cfz = -Math.sin(physics.yaw);
+    const clx = -cfz, clz = cfx;
+    const tx = physics.pos.x + cfx * HITCH_DIST;
+    const tz = physics.pos.z + cfz * HITCH_DIST;
+    const dx = animator.x - tx, dz = animator.z - tz;
+    const longErr = dx * cfx + dz * cfz;
+    const latErr = dx * clx + dz * clz;
+    if (longErr < -0.55 && longErr > -3.6 && Math.abs(latErr) < 1.15) {
+      const penFront = -0.55 - longErr;
+      const penRear = longErr - (-3.6);
+      const penLat = 1.15 - Math.abs(latErr);
+      if (penFront <= penRear && penFront <= penLat) {
+        animator.x += cfx * penFront;
+        animator.z += cfz * penFront;
+        if (animator.speed < 0) animator.speed = 0;
+      } else if (penRear <= penFront && penRear <= penLat) {
+        animator.x -= cfx * penRear;
+        animator.z -= cfz * penRear;
+        if (animator.speed > 0) animator.speed = 0;
+      } else {
+        const s = latErr >= 0 ? 1 : -1;
+        animator.x += clx * s * penLat;
+        animator.z += clz * s * penLat;
+      }
+      if (animator.horse && animator.horse.root) {
+        animator.horse.root.position.x = animator.x;
+        animator.horse.root.position.z = animator.z;
+      }
+    }
+  }
   world.setCartPose(physics.pos.x, physics.pos.z);
   world.update(animator.x, dt, animator.z, animator.yaw);
   party.update(animator.x, animator.z, animator.yaw, dt, cart, physics);
@@ -1208,6 +1390,15 @@ function stepSim(dt) {
   });
 
   updateShafts(dt);
+
+  if (hitchAnim.active) {
+    hitchAnim.elapsed += dt;
+    physics.unhitchedDroop = HC.damp(physics.unhitchedDroop || 0, 0, 7.5, dt);
+    if (physics.syncVisual) physics.syncVisual();
+    if ((animator.docking && animator.docking.arrived) || hitchAnim.elapsed >= 2.2) {
+      finalizeReHitch();
+    }
+  }
 
   scene.updateMatrixWorld(true);
   readAnchors();
@@ -1255,13 +1446,17 @@ function stepSim(dt) {
   controls.update();
   if (world.syncCamera) world.syncCamera(camera);
 
-  const st = animator.jumpActive ? 'jump' : animator.state;
-  if (hudState) hudState.textContent = stateLabel[st] || st.toUpperCase();
-  for (const [m, id] of [['walk','btn-walk'],['run','btn-run'],['jump','btn-jump'],['graze','btn-graze']]) {
+  const st = animator.jumpActive ? 'jump'
+    : hitchAnim.active ? 'dock'
+    : animator.speed < -0.08 ? 'rev'
+    : animator.state;
+  const label = st === 'dock' ? 'NGEPASIN' : st === 'rev' ? 'MUNDUR' : (stateLabel[st] || st.toUpperCase());
+  if (hudState) hudState.textContent = label;
+  for (const [m, id] of [['walk','btn-walk'],['rev','btn-rev'],['run','btn-run'],['jump','btn-jump'],['graze','btn-graze']]) {
     const b = document.getElementById(id);
     if (b) b.classList.toggle('primary', st === m);
   }
-  if (hudSpeed) hudSpeed.textContent = (animator.speed * 3.6).toFixed(1) + ' km/j';
+  if (hudSpeed) hudSpeed.textContent = (Math.abs(animator.speed) * 3.6).toFixed(1) + ' km/j';
   syncVitals();
   if (hudHead) {
     const st2 = animator.steer;

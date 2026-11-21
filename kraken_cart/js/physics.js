@@ -578,11 +578,14 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
         fLatThill = Math.max(-26000, Math.min(26000, fLatThill));
         addForce(latX * fLatThill, 0, latZ * fLatThill, bx, axleY, bz);
 
-        // 2) Breeching (rem belakang batang tarik) saat gerobak menyusul kuda yang ngerem.
+        // 2) Breeching (rem belakang batang tarik) saat gerobak menyusul kuda yang ngerem,
+        // atau mendorong mundur gerobak secara halus ketika kuda mundur terikat.
+        const hFwdSpeed = hvx * hfx + hvz * hfz;
         const overRun = (bx - colMidX) * hfx + (bz - colMidZ) * hfz;
         const relFwd = (vB.x - vCx) * hfx + (vB.z - vCz) * hfz;
-        if (overRun > 0.03 || (this._hSpeed < 0.35 && relFwd > 0.04)) {
-          const comp = Math.max(0, overRun - 0.03);
+        const revEngage = hFwdSpeed < -0.05 && (overRun > -0.02 || relFwd > 0.02);
+        if (overRun > 0.03 || (this._hSpeed < 0.35 && relFwd > 0.04) || revEngage) {
+          const comp = Math.max(0, overRun - (revEngage ? -0.02 : 0.03));
           let fBrake = comp * 44000 + Math.max(0, relFwd) * 9500;
           if (this._hSpeed < 0.25 && relFwd > 0) fBrake += relFwd * 3200;
           fBrake = Math.min(30000, fBrake);
@@ -600,8 +603,8 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
           Ty += tAlign;
         }
 
-        // 4) Tarikan pemusat lembut di jalur lurus supaya gerobak cepat kembali di belakang kuda
-        if (this._hSpeed > 0.35 && Math.abs(hYawRate) < 0.15) {
+        // 4) Tarikan pemusat lembut di jalur lurus maju supaya gerobak cepat kembali di belakang kuda
+        if (hFwdSpeed > 0.35 && Math.abs(hYawRate) < 0.15) {
           const hLx = -hfz, hLz = hfx;
           const latOff = (this.pos.x - horsePos.x) * hLx + (this.pos.z - horsePos.z) * hLz;
           const fCenter = Math.max(-4500, Math.min(4500, -latOff * 2200));
@@ -884,7 +887,7 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
 
       // jackknife: batang mentok pinggang kuda (aktif hanya saat kuda terikat)
       const dJack = this._wrapAngle(this.yaw - horseYaw);
-      const maxJack = 0.40;
+      const maxJack = 0.58;
       if (this.hitched && Math.abs(this.roll) < LAY_ANG && Math.abs(dJack) > maxJack) {
         const sg = Math.sign(dJack);
         this.yaw = this._wrapAngle(horseYaw + sg * maxJack);

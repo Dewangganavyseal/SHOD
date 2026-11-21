@@ -82,6 +82,7 @@
     <button id="btn-left" class="steer" title="Belok Kiri (A / ←)"><span class="k">A/← </span>↶ Kiri</button>
     <button id="btn-right" class="steer" title="Belok Kanan (D / →)"><span class="k">D/→ </span>Kanan ↷</button>
     <button id="btn-walk" class="primary" title="Tahan untuk Maju (W / ↑)"><span class="k">W/↑ </span>▲ Maju</button>
+    <button id="btn-rev" title="Tahan untuk Mundur (S / ↓)"><span class="k">S/↓ </span>▼ Mundur</button>
     <button id="btn-run" title="Toggle Lari (2 / R / Shift)"><span class="k">2/R. </span>Lari</button>
     <button id="btn-jump"><span class="k">Space. </span>Lompat</button>
     <button id="btn-graze" title="Makan Rumput (3 / E)"><span class="k">3/E. </span>Makan</button>
@@ -139,7 +140,7 @@
     (function boot() {
       function loadBundle() {
         const s = document.createElement('script');
-        s.src = './dist/game.bundle.js?v=hutan21';
+        s.src = './dist/game.bundle.js?v=hutan22';
         s.onerror = () => reportBootError('Gagal memuat ./dist/game.bundle.js');
         document.body.appendChild(s);
       }
@@ -151,7 +152,7 @@
 
       const mod = document.createElement('script');
       mod.type = 'module';
-      mod.src = './js/main.js?v=hutan11';
+      mod.src = './js/main.js?v=hutan12';
       mod.onerror = () => loadBundle();
       document.body.appendChild(mod);
     })();

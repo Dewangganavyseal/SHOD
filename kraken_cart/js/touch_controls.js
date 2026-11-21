@@ -95,11 +95,20 @@ export function initTouchControls({ animator, survival, onJump, onEat, onDrink, 
     applyStick();
   }
   function applyStick() {
-    // gas: dorong ke atas. Kalau cuma menyamping, kasih gas jalan pelan biar
-    // kuda tetap bisa belok pelan tanpa harus digas penuh.
+    // gas: dorong ke atas (maju) / tarik ke bawah (mundur). Saat bebas (unhitched)
+    // dorong samping memutar kuda perlahan di tempat tanpa harus jalan maju.
     const m = Math.hypot(vec.x, vec.y);
-    let thr = m < 0.12 ? 0 : clamp(-vec.y * 1.25 + (Math.abs(vec.x) > 0.55 ? 0.42 : 0), 0, 1);
-    if (thr > 0 && thr < 0.16) thr = 0.16;      // deadzone kecil
+    let thr = 0;
+    if (m >= 0.12) {
+      if (vec.y > 0.20) {
+        thr = clamp(-vec.y * 1.25, -1, 0);
+      } else if (Math.abs(vec.y) <= 0.20 && Math.abs(vec.x) > 0.25) {
+        thr = animator.unhitched ? 0 : 0.38;
+      } else {
+        thr = clamp(-vec.y * 1.25 + (Math.abs(vec.x) > 0.55 ? 0.38 : 0), 0, 1);
+      }
+      if (Math.abs(thr) > 0 && Math.abs(thr) < 0.16) thr = Math.sign(thr) * 0.16;
+    }
     animator.setThrottle(thr);
     animator.setSteer(m < 0.12 ? 0 : clamp(-vec.x * 1.35, -1, 1));
   }
