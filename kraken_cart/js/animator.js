@@ -71,6 +71,7 @@ const THREE = HC.THREE, S = HC.vs;
       this.targetSpeed = 0;
       this.throttle = 0;        // gas 0..1 dari input (diam sampai ditekan maju)
       this.speedScale = 1;      // limiter kondisi badan (survival)
+      this.unhitched = false;   // tanpa gerobak: kuda jauh lebih lincah & cepat
       this.phase = 0;
       this.time = 0;
 
@@ -136,20 +137,24 @@ const THREE = HC.THREE, S = HC.vs;
 
       // Desired forward speed. Kecepatan puncak ditentukan toggle LARI, tapi
       // besar gas tetap dari analog; kondisi badan (survival) menskalakan semua.
+      const walkMax = this.unhitched ? 2.30 : 1.95;
+      const runMax = this.unhitched ? 6.15 : 5.25;
       if (isGraze || !moving) {
         this.targetSpeed = 0;
       } else {
-        const span = HC.lerp(1.95, 5.25, this.runBlend);
+        const span = HC.lerp(walkMax, runMax, this.runBlend);
         this.targetSpeed = span * Math.min(1, thr) * this.speedScale;
-        if (this.jumpActive) this.targetSpeed = Math.max(this.targetSpeed, 3.2 * this.speedScale);
+        if (this.jumpActive) this.targetSpeed = Math.max(this.targetSpeed, (this.unhitched ? 3.8 : 3.2) * this.speedScale);
       }
-      this.speed = HC.damp(this.speed, this.targetSpeed, 6.5, dt);
+      this.speed = HC.damp(this.speed, this.targetSpeed, this.unhitched ? 10.5 : 6.5, dt);
       if (!moving && this.speed < 0.04) this.speed = 0;
 
       // ---- Steering: kepala menoleh dulu, badan menyusul, kaki mengikuti jalur ----
-      this.steer = HC.damp(this.steer, this.steerInput, 6.5, dt);
-      const turnRate = this.steer * Math.min(0.55, this.speed * 0.30) * (1 - this.grazeBlend * 0.9) * (this.jumpActive ? 0.55 : 1);
-      this.yawRate = HC.damp(this.yawRate, turnRate, 8.0, dt);
+      this.steer = HC.damp(this.steer, this.steerInput, this.unhitched ? 9.5 : 6.5, dt);
+      const turnCap = this.unhitched ? 0.78 : 0.55;
+      const turnMul = this.unhitched ? 0.42 : 0.30;
+      const turnRate = this.steer * Math.min(turnCap, this.speed * turnMul) * (1 - this.grazeBlend * 0.9) * (this.jumpActive ? 0.55 : 1);
+      this.yawRate = HC.damp(this.yawRate, turnRate, this.unhitched ? 10.5 : 8.0, dt);
       this.yaw += this.yawRate * dt;
 
       // kepala + leher mendahului putaran badan (anticipation), badan menyusul dengan lag
@@ -164,7 +169,7 @@ const THREE = HC.THREE, S = HC.vs;
 
       // Advance gait cycle phase proportional to distance travelled
       const freq = HC.lerp(1.22, 2.38, this.runBlend);
-      const speedRatio = HC.clamp(this.speed / HC.lerp(1.95, 5.25, this.runBlend), 0, 1.35);
+      const speedRatio = HC.clamp(this.speed / HC.lerp(walkMax, runMax, this.runBlend), 0, 1.35);
       if (this.speed > 0.02) {
         this.phase = (this.phase + dt * freq * speedRatio * (1 - this.grazeBlend * 0.92)) % 1;
       }
@@ -187,7 +192,7 @@ const THREE = HC.THREE, S = HC.vs;
           // 2) Airborne parabola
           const a = (u - 0.18) / 0.64;
           const arc = 4 * a * (1 - a);
-          jumpHeave = 0.68 * arc;
+          jumpHeave = (this.unhitched ? 0.80 : 0.68) * arc;
           jumpPitch = HC.lerp(0.32, -0.28, a);
           jumpTuckFront = Math.sin(Math.PI * HC.clamp((a - 0.02) / 0.72, 0, 1));
           jumpTuckRear = Math.sin(Math.PI * HC.clamp((a - 0.18) / 0.75, 0, 1));

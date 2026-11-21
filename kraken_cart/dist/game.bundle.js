@@ -8053,6 +8053,7 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
 
       const geo = new THREE.BoxGeometry(1, 1, 1);
       const mat = new THREE.MeshLambertMaterial({ color });
+      this.visible = true;
       this.meshes = [];
       for (let i = 0; i < segments; i++) {
         const m = new THREE.Mesh(geo, mat);
@@ -8189,7 +8190,13 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
         m.position.copy(p0).addScaledVector(dir, 0.5);
         m.quaternion.setFromUnitVectors(up, dir.normalize());
         m.scale.set(this.thickness, len * 1.06, this.thickness);
+        m.visible = this.visible !== false;
       }
+    }
+
+    setVisible(v) {
+      this.visible = !!v;
+      for (const m of this.meshes) m.visible = this.visible;
     }
   }
 
@@ -8232,6 +8239,10 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
       this.flipped = false;
       this.flipDir = 0;
       this.flipCooldown = 0;
+      this.hitched = true;
+      this.unhitchedDroop = 0;
+      this.liftProgress = 0;
+      this.onFlip = null;
 
       this.wheels = cart.wheels.map((w) => ({
         ref: w,
@@ -8521,12 +8532,12 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
       }
 
       // ---------- (1a) TALI TARIK (traces): sabuk perut kuda -> singletree gerobak ----------
-      // Ini yang menarik gerobak. Pegas-damper aksial simetris kiri-kanan supaya tidak narik miring.
+      // Aktif hanya saat kuda terikat (hitched).
       this._src = 'trace';
       if (lying) { this.vel.x *= 0.995; this.vel.z *= 0.995; }   // kuda gak bisa nggeret gerobak rebah
       if (!this.traceRest) this.traceRest = [null, null];
       const girths = [hitchGirthL, hitchGirthR];
-      if (!lying && (this.traceRest[0] == null || !isFinite(this.traceRest[0])) && girths[0] && girths[1]) {
+      if (this.hitched && !lying && (this.traceRest[0] == null || !isFinite(this.traceRest[0])) && girths[0] && girths[1]) {
         // Panjang istirahat kiri & kanan HARUS identik agar tidak pernah mengunci tarikan miring
         let sumL = 0;
         for (let i = 0; i < 2; i++) {
@@ -8541,42 +8552,41 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
         this.traceRest[0] = symRest;
         this.traceRest[1] = symRest;
       }
-      for (let i = 0; i < 2; i++) {
-        const A = girths[i];
-        if (!A || lying) continue;
-        const rl = this._w3.copy(this.traceLocal[i]).applyQuaternion(q);
-        const bx = this.pos.x + rl.x, by = rootY + rl.y, bz = this.pos.z + rl.z;
-        const dx = bx - A.x, dy = by - A.y, dz = bz - A.z;
-        const L = Math.sqrt(dx * dx + dy * dy + dz * dz);
-        if (!(L > 1e-4)) continue;
-        const nx = dx / L, ny = dy / L, nz = dz / L;
-        if (this.traceRest[i] == null || !isFinite(this.traceRest[i])) this.traceRest[i] = L;
+      if (this.hitched) {
+        for (let i = 0; i < 2; i++) {
+          const A = girths[i];
+          if (!A || lying) continue;
+          const rl = this._w3.copy(this.traceLocal[i]).applyQuaternion(q);
+          const bx = this.pos.x + rl.x, by = rootY + rl.y, bz = this.pos.z + rl.z;
+          const dx = bx - A.x, dy = by - A.y, dz = bz - A.z;
+          const L = Math.sqrt(dx * dx + dy * dy + dz * dz);
+          if (!(L > 1e-4)) continue;
+          const nx = dx / L, ny = dy / L, nz = dz / L;
+          if (this.traceRest[i] == null || !isFinite(this.traceRest[i])) this.traceRest[i] = L;
 
-        const rAx = A.x - horsePos.x, rAz = A.z - horsePos.z;
-        const vAx = hvx + hYawRate * rAz;
-        const vAz = hvz - hYawRate * rAx;
-        const vB = velAt(bx, by, bz, this._w4);
-        const relN = (vAx - vB.x) * nx + (0 - vB.y) * ny + (vAz - vB.z) * nz;
+          const rAx = A.x - horsePos.x, rAz = A.z - horsePos.z;
+          const vAx = hvx + hYawRate * rAz;
+          const vAz = hvz - hYawRate * rAx;
+          const vB = velAt(bx, by, bz, this._w4);
+          const relN = (vAx - vB.x) * nx + (0 - vB.y) * ny + (vAz - vB.z) * nz;
 
-        // damping: laju regangan = (vB - vA)·n  ->  -cTrace*relN
-        let F = this.kTrace * (L - this.traceRest[i]) - this.cTrace * relN;
-        F = Math.max(0, Math.min(22000, F));
-        if (F > 0) addForce(-nx * F, -ny * F, -nz * F, bx, by, bz);
+          // damping: laju regangan = (vB - vA)·n  ->  -cTrace*relN
+          let F = this.kTrace * (L - this.traceRest[i]) - this.cTrace * relN;
+          F = Math.max(0, Math.min(22000, F));
+          if (F > 0) addForce(-nx * F, -ny * F, -nz * F, bx, by, bz);
+        }
       }
 
-      // Permintaan percepatan sentripetal dari gerak kuda. Dipakai untuk
-      // kemiringan bodi: gerobaknya sendiri melambat karena ban nyeret, jadi
-      // kalau pakai yawV gerobak, miringnya hilang justru saat tikungan tajam.
-      this._hSpeed = Math.hypot(hvx, hvz);
-      this._aLatDemand = this._hSpeed * hYawRate;   // m/s² (positif = belok kiri)
+      // Permintaan percepatan sentripetal dari gerak kuda (nol saat kuda dilepas).
+      this._hSpeed = this.hitched ? Math.hypot(hvx, hvz) : 0;
+      this._aLatDemand = this._hSpeed * (this.hitched ? hYawRate : 0);
 
       // ---------- (1b) BATANG PENARIK (thills) + BREECHING (rem mundur) + SELF-ALIGN ----------
-      // Menggunakan titik tengah kalung & ujung batang agar simetris (tidak pernah kunci miring).
       this._src = 'thill';
       const latX = leftA.x, latZ = leftA.z;
       const hfx = Math.cos(horseYaw), hfz = -Math.sin(horseYaw);
       const axleY = rootY + (this.wheels[0] ? this.wheels[0].wa.y : 0.28);
-      if (!lying && hitchColL && hitchColR) {
+      if (this.hitched && !lying && hitchColL && hitchColR) {
         const colMidX = (hitchColL.x + hitchColR.x) * 0.5;
         const colMidZ = (hitchColL.z + hitchColR.z) * 0.5;
         const rlMid = this._w5.copy(this.tipMidLocal).applyQuaternion(q);
@@ -8595,7 +8605,6 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
         addForce(latX * fLatThill, 0, latZ * fLatThill, bx, axleY, bz);
 
         // 2) Breeching (rem belakang batang tarik) saat gerobak menyusul kuda yang ngerem.
-        // Diterapkan horizontal tepat di tinggi COM agar tidak bikin bak nongak/terbang!
         const overRun = (bx - colMidX) * hfx + (bz - colMidZ) * hfz;
         const relFwd = (vB.x - vCx) * hfx + (vB.z - vCz) * hfz;
         if (overRun > 0.03 || (this._hSpeed < 0.35 && relFwd > 0.04)) {
@@ -8606,8 +8615,7 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
           if (fBrake > 0) addForce(-hfx * fBrake, 0, -hfz * fBrake, com.x, com.y, com.z);
         }
 
-        // 3) Torsi penyearah alami (self-aligning trail): hidung gerobak selalu
-        // meluruskan diri ke arah kalung kuda supaya tidak pernah macet melenceng.
+        // 3) Torsi penyearah alami (self-aligning trail): hidung gerobak selalu meluruskan diri ke kalung
         const toColX = colMidX - this.pos.x;
         const toColZ = colMidZ - this.pos.z;
         const toColDist = Math.hypot(toColX, toColZ);
@@ -8634,6 +8642,14 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
             addForce(-(this.vel.x / vCartMag) * parkDamp, 0, -(this.vel.z / vCartMag) * parkDamp, com.x, com.y, com.z);
           }
         }
+      } else if (!this.hitched && !lying) {
+        // Gerobak diparkir tanpa kuda: rem parkir kuat menahan agar tidak menggelinding
+        const vCartMag = Math.hypot(this.vel.x, this.vel.z);
+        if (vCartMag > 0.008) {
+          const parkDamp = Math.min(16000, vCartMag * 4800);
+          addForce(-(this.vel.x / vCartMag) * parkDamp, 0, -(this.vel.z / vCartMag) * parkDamp, com.x, com.y, com.z);
+        }
+        this.yawV *= Math.exp(-5.0 * h);
       }
 
       // ---------- (2b) GEROBAK vs KUDANYA SENDIRI ----------
@@ -8717,13 +8733,8 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
         if (!this.flipped && Math.abs(this.roll) < LAY_ANG && (beyondCrit || this._tipArm > 0.04)) {
           this._tipGravT = (this._tipGravT || 0) + h;
           if (this._tipGravT > (beyondCrit ? 0.03 : 0.12)) {
-            this.flipped = true;
-            this._tipLatched = true;
-            this.flipAxis = 'roll';
-            this.flipDir = Math.sign(this.roll) || 1;
             this._tipGravT = 0;
-            this.spillCargo();
-            this.shedBrokenWheels();
+            this._triggerFlip('roll', Math.sign(this.roll) || 1, true);
           }
         } else {
           this._tipGravT = 0;
@@ -8843,13 +8854,8 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
           if (aLatAbs > aTip) this._tipT = (this._tipT || 0) + h;
           else this._tipT = Math.max(0, (this._tipT || 0) - h * 2.5);
           if (!this.flipped && this._tipT > 0.20 && Math.abs(this.roll) < LAY_ANG) {
-            this.flipped = true;
-            this._tipLatched = true;
-            this.flipAxis = 'roll';
-            this.flipDir = -Math.sign(aLat) || 1;
             this._tipT = 0;
-            this.spillCargo();
-            this.shedBrokenWheels();
+            this._triggerFlip('roll', -Math.sign(aLat) || 1, true);
           }
         }
         if (this.flipped && Math.abs(this.roll) < LAY_ANG) {
@@ -8902,13 +8908,10 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
         if (this.heaveVel > 0) this.heaveVel *= 0.4;
       }
 
-      // jackknife: batang mentok pinggang kuda (batas geometri, bukan animasi)
+      // jackknife: batang mentok pinggang kuda (aktif hanya saat kuda terikat)
       const dJack = this._wrapAngle(this.yaw - horseYaw);
-      // Poros dipatri = gerobak tidak bisa "ikut belok" sendiri, jadi sudut
-      // batang ke kuda wajar lebih besar daripada wagon ber-steering. Ini juga
-      // yang bikin ban nyeret (dan bodi miring) saat tikungan tajam.
       const maxJack = 0.40;
-      if (Math.abs(this.roll) < LAY_ANG && Math.abs(dJack) > maxJack) {
+      if (this.hitched && Math.abs(this.roll) < LAY_ANG && Math.abs(dJack) > maxJack) {
         const sg = Math.sign(dJack);
         this.yaw = this._wrapAngle(horseYaw + sg * maxJack);
         if (this.yawV * sg > 0) this.yawV *= -0.25;
@@ -8920,7 +8923,7 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
        kuda + pembatas amplop hitch), dipanggil di setiap substep supaya gerobak
        tidak pernah tembus ke kuda saat kuda mengerem mendadak di kecepatan tinggi. */
     _resolveHorseContact(horseX, horseZ, horseYaw, hvx, hvz) {
-      if (this.flipped || this._lying) { this._horsePen = 0; return; }
+      if (!this.hitched || this.flipped || this._lying) { this._horsePen = 0; return; }
       this.euler.set(this.roll, this.yaw, this.pitch, 'YZX');
       this.q.setFromEuler(this.euler);
       const q = this.q, Sv = HC.cartVS;
@@ -9237,18 +9240,24 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
       // (bukan angka gameplay) — di atas ~24° muatan sudah longsor & roda satu sisi lepas
       const tilt = Math.max(Math.abs(this.roll), Math.abs(this.pitch) * 0.8);
       if (!this.flipped && tilt > FLIP_ANG) {
-        this.flipped = true;
-        this.flipAxis = Math.abs(this.roll) >= Math.abs(this.pitch) * 0.8 ? 'roll' : 'pitch';
-        this.flipDir = Math.sign(this.roll || this.pitch) || 1;
-        this.spillCargo();
-        this.shedBrokenWheels();   // roda yang HP-nya udah 0 lepas pas gerobak guling
+        this._triggerFlip(
+          Math.abs(this.roll) >= Math.abs(this.pitch) * 0.8 ? 'roll' : 'pitch',
+          Math.sign(this.roll || this.pitch) || 1,
+          false
+        );
       } else if (this.flipped && !this._tipLatched && tilt < 0.90) {
         // hanya rollover fisik biasa yang bisa auto-recover; trigger sentrifugal terkunci sampai Reset
         this.flipped = false;
       }
 
-      // ---- sinkron visual ----
-      this.euler.set(this.roll, this.yaw, this.pitch, 'YZX');
+      // ---- sinkron visual (termasuk gerobak mendingkluk ke depan saat kuda lepas) ----
+      const wantDroop = (!this.hitched && !this.flipped) ? 1 : 0;
+      this.unhitchedDroop = HC.damp(this.unhitchedDroop || 0, wantDroop, 5.5, dt);
+      const visPitch = this.pitch - this.unhitchedDroop * 0.13;
+      const visRoll = (this.flipped && this.liftProgress > 0)
+        ? this.roll * (1 - this.liftProgress * 0.88)
+        : this.roll;
+      this.euler.set(visRoll, this.yaw, visPitch, 'YZX');
       this.q.setFromEuler(this.euler);
       this.cart.root.position.set(this.pos.x, this.groundY + this.pivotY + this.heave, this.pos.z);
       this.cart.chassis.quaternion.copy(this.q);
@@ -9963,9 +9972,81 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
       this.syncVisual();
     }
 
+    _triggerFlip(axis = 'roll', dir = 1, latched = false) {
+      if (this.flipped) return;
+      this.flipped = true;
+      if (latched) this._tipLatched = true;
+      this.flipAxis = axis;
+      this.flipDir = dir || 1;
+      this.hitched = false;
+      this.liftProgress = 0;
+      for (const w of (this.wheels || [])) {
+        if (!w || w.detached) continue;
+        const maxHp = w.hpMax || 100;
+        w.hp = Math.max(0, (w.hp ?? maxHp) - maxHp * 0.20);
+        if (w.hp <= 0) w.broken = true;
+      }
+      this.spillCargo();
+      this.shedBrokenWheels();
+      if (typeof this.onFlip === 'function') {
+        try { this.onFlip(); } catch (e) { /* no-op */ }
+      }
+    }
+
+    rightCartInPlace() {
+      this.flipped = false;
+      this._lying = false;
+      this._tipLatched = false;
+      this._tipT = 0;
+      this._tipGravT = 0;
+      this._sleepT = 0;
+      this.asleep = false;
+      this.flipDir = 0;
+      this.liftProgress = 0;
+      this.roll = 0; this.rollV = 0;
+      this.pitch = 0; this.pitchV = 0;
+      this.yawV = 0;
+      this.heave = 0; this.heaveVel = 0;
+      this.vel.set(0, 0, 0);
+      this.hitched = false;
+      this.unhitchedDroop = 1;
+      this._dmgGrace = 1.0;
+
+      this.clearDebris();
+      for (const w of (this.wheels || [])) {
+        if (w.detached) {
+          w.detached = false;
+          w.broken = false;
+          w.hp = 20;
+          const ref = w.ref;
+          if (ref && ref.wheelPivot && this.cart && this.cart.root) {
+            if (ref.wheelPivot.parent !== this.cart.root) this.cart.root.add(ref.wheelPivot);
+            ref.wheelPivot.position.set(w.wa.x, w.wa.y + (w.comp || 0), w.wa.z);
+            ref.wheelPivot.rotation.set(0, 0, 0);
+          }
+        }
+        w._imp = 0; w._lat = 0; w._rigidLoad = 0; w._hitFlash = 0;
+        w._wasContact = false; w._prevPen = 0; w._lastDmg = 0; w._dmgCd = 0;
+      }
+
+      for (const item of this.spilled) {
+        this.cart.body.add(item.mesh);
+      }
+      this.initCargoItems();
+      this.syncVisual();
+    }
+
     syncVisual() {
       const root = this.cart.root;
       root.position.set(this.pos.x, this.groundY + this.pivotY + this.heave, this.pos.z);
+      const visPitch = this.pitch - (this.unhitchedDroop || 0) * 0.13;
+      const visRoll = (this.flipped && this.liftProgress > 0)
+        ? this.roll * (1 - this.liftProgress * 0.88)
+        : this.roll;
+      if (this.euler && this.q) {
+        this.euler.set(visRoll, this.yaw, visPitch, 'YZX');
+        this.q.setFromEuler(this.euler);
+      }
       if (this.q) this.cart.chassis.quaternion.copy(this.q);
       if (this.wheels) {
         for (const w of this.wheels) {
@@ -9981,10 +10062,14 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
 
     reset(horseX = 0, horseZ = 0, horseYaw = 0) {
       this.flipped = false;
+      this._lying = false;
       this._tipLatched = false;
       this._tipT = 0;
       this._tipGravT = 0;
       this.flipDir = 0;
+      this.hitched = true;
+      this.unhitchedDroop = 0;
+      this.liftProgress = 0;
       this.roll = 0; this.rollV = 0;
       this.pitch = 0; this.pitchV = 0;
       this.heave = 0; this.heaveVel = 0;
@@ -10090,6 +10175,7 @@ const THREE = HC.THREE, S = HC.vs;
       this.targetSpeed = 0;
       this.throttle = 0;        // gas 0..1 dari input (diam sampai ditekan maju)
       this.speedScale = 1;      // limiter kondisi badan (survival)
+      this.unhitched = false;   // tanpa gerobak: kuda jauh lebih lincah & cepat
       this.phase = 0;
       this.time = 0;
 
@@ -10155,20 +10241,24 @@ const THREE = HC.THREE, S = HC.vs;
 
       // Desired forward speed. Kecepatan puncak ditentukan toggle LARI, tapi
       // besar gas tetap dari analog; kondisi badan (survival) menskalakan semua.
+      const walkMax = this.unhitched ? 2.30 : 1.95;
+      const runMax = this.unhitched ? 6.15 : 5.25;
       if (isGraze || !moving) {
         this.targetSpeed = 0;
       } else {
-        const span = HC.lerp(1.95, 5.25, this.runBlend);
+        const span = HC.lerp(walkMax, runMax, this.runBlend);
         this.targetSpeed = span * Math.min(1, thr) * this.speedScale;
-        if (this.jumpActive) this.targetSpeed = Math.max(this.targetSpeed, 3.2 * this.speedScale);
+        if (this.jumpActive) this.targetSpeed = Math.max(this.targetSpeed, (this.unhitched ? 3.8 : 3.2) * this.speedScale);
       }
-      this.speed = HC.damp(this.speed, this.targetSpeed, 6.5, dt);
+      this.speed = HC.damp(this.speed, this.targetSpeed, this.unhitched ? 10.5 : 6.5, dt);
       if (!moving && this.speed < 0.04) this.speed = 0;
 
       // ---- Steering: kepala menoleh dulu, badan menyusul, kaki mengikuti jalur ----
-      this.steer = HC.damp(this.steer, this.steerInput, 6.5, dt);
-      const turnRate = this.steer * Math.min(0.55, this.speed * 0.30) * (1 - this.grazeBlend * 0.9) * (this.jumpActive ? 0.55 : 1);
-      this.yawRate = HC.damp(this.yawRate, turnRate, 8.0, dt);
+      this.steer = HC.damp(this.steer, this.steerInput, this.unhitched ? 9.5 : 6.5, dt);
+      const turnCap = this.unhitched ? 0.78 : 0.55;
+      const turnMul = this.unhitched ? 0.42 : 0.30;
+      const turnRate = this.steer * Math.min(turnCap, this.speed * turnMul) * (1 - this.grazeBlend * 0.9) * (this.jumpActive ? 0.55 : 1);
+      this.yawRate = HC.damp(this.yawRate, turnRate, this.unhitched ? 10.5 : 8.0, dt);
       this.yaw += this.yawRate * dt;
 
       // kepala + leher mendahului putaran badan (anticipation), badan menyusul dengan lag
@@ -10183,7 +10273,7 @@ const THREE = HC.THREE, S = HC.vs;
 
       // Advance gait cycle phase proportional to distance travelled
       const freq = HC.lerp(1.22, 2.38, this.runBlend);
-      const speedRatio = HC.clamp(this.speed / HC.lerp(1.95, 5.25, this.runBlend), 0, 1.35);
+      const speedRatio = HC.clamp(this.speed / HC.lerp(walkMax, runMax, this.runBlend), 0, 1.35);
       if (this.speed > 0.02) {
         this.phase = (this.phase + dt * freq * speedRatio * (1 - this.grazeBlend * 0.92)) % 1;
       }
@@ -10206,7 +10296,7 @@ const THREE = HC.THREE, S = HC.vs;
           // 2) Airborne parabola
           const a = (u - 0.18) / 0.64;
           const arc = 4 * a * (1 - a);
-          jumpHeave = 0.68 * arc;
+          jumpHeave = (this.unhitched ? 0.80 : 0.68) * arc;
           jumpPitch = HC.lerp(0.32, -0.28, a);
           jumpTuckFront = Math.sin(Math.PI * HC.clamp((a - 0.02) / 0.72, 0, 1));
           jumpTuckRear = Math.sin(Math.PI * HC.clamp((a - 0.18) / 0.75, 0, 1));
@@ -22664,37 +22754,120 @@ HC.NPCParty = class {
       return;
     }
 
+    // ---- state === 'fallen': terjatuh ke tanah saat gerobak terguling, lalu bangun ----
+    if (m.state === 'fallen') {
+      m.fallT = (m.fallT || 0) + dt / 0.90;
+      const u = Math.max(0, Math.min(1, m.fallT));
+      const tilt = u < 0.45
+        ? Math.PI * 0.42
+        : Math.PI * 0.42 * Math.max(0, 1 - (u - 0.45) / 0.55);
+      const gy = this._groundY(m.x, m.z);
+      root.position.set(m.x, gy + (u < 0.45 ? 0.14 : 0.04 * (1 - u)), m.z);
+      root.rotation.set(tilt, m.dir, 0);
+      if (st) {
+        st.pos.copy(root.position);
+        st.walking = false;
+        st.working = false;
+        st.vel.x = 0; st.vel.z = 0;
+        st.headAngle = 0;
+      }
+      HC.animateNPC(root, dt);
+      if (m.fallT >= 1) {
+        root.rotation.set(0, m.dir, 0);
+        m.state = m._wantHelpAfterFall ? 'helping_flip' : 'following';
+        m._wantHelpAfterFall = false;
+        m.roamPhase = 'roam';
+        m.roamT = 0.4;
+        this._notify();
+      }
+      return;
+    }
+
+    // ---- state === 'helping_flip': merapat ke samping gerobak terbalik & ikut mendorong ----
+    if (m.state === 'helping_flip') {
+      const cfx = Math.cos(cc.yaw), cfz = -Math.sin(cc.yaw);
+      const clx = -cfz, clz = cfx;
+      const side = (physics && physics.flipDir) ? -Math.sign(physics.flipDir) : -1;
+      const along = (m.seatIndex - 1) * 1.15;
+      const tgtX = cc.x + cfx * along + clx * side * 1.75;
+      const tgtZ = cc.z + cfz * along + clz * side * 1.75;
+      const dx = tgtX - m.x, dz = tgtZ - m.z;
+      const dist = Math.hypot(dx, dz);
+      let walkingNow = false;
+      if (dist > 0.35) {
+        const sp = 3.2;
+        const move = Math.min(dist, sp * dt);
+        m.x += (dx / dist) * move;
+        m.z += (dz / dist) * move;
+        m.dir = this._turnToward(m.dir, Math.atan2(dx, dz), 9.0, dt);
+        walkingNow = true;
+      } else {
+        m.dir = this._turnToward(m.dir, Math.atan2(cc.x - m.x, cc.z - m.z), 9.0, dt);
+      }
+      const gy = this._groundY(m.x, m.z);
+      root.position.set(m.x, gy, m.z);
+      root.rotation.set(0, m.dir, 0);
+      if (st) {
+        st.pos.copy(root.position);
+        st.walking = walkingNow;
+        st.working = !walkingNow;
+        st.swing = !walkingNow ? ((this._clock * 2.2 + m.seatIndex) % 0.9) : 0;
+        st.vel.x = walkingNow ? (dx / dist) * 3.2 : 0;
+        st.vel.z = walkingNow ? (dz / dist) * 3.2 : 0;
+        st.headAngle = 0;
+      }
+      HC.animateNPC(root, dt);
+      return;
+    }
+
     // ---- state === 'following': turun, jalan-jalan di sekitar gerobak saat diam, ikut gerak saat jalan ----
-    const midX = (hx + cc.x) * 0.5;
-    const midZ = (hz + cc.z) * 0.5;
-    const distToCart = Math.hypot(m.x - cc.x, m.z - cc.z);
-    if (distToCart > 26) {
-      const snap = this._cartRearWorld(c, 2.4, (m.seatIndex - 1) * 0.9);
-      m.x = snap.x; m.z = snap.z;
+    const horseMovedSpd = this._horseMoveSpd || 0;
+    const unhitchedFar = physics && !physics.hitched && Math.hypot(hx - cc.x, hz - cc.z) > 9.0;
+    const anchorX = unhitchedFar ? hx : (hx + cc.x) * 0.5;
+    const anchorZ = unhitchedFar ? hz : (hz + cc.z) * 0.5;
+    const refSpd = unhitchedFar ? horseMovedSpd : Math.max(rigSpd, horseMovedSpd);
+    const distToAnchor = Math.hypot(anchorX - m.x, anchorZ - m.z);
+
+    if (distToAnchor > 26) {
+      if (unhitchedFar) {
+        const rfx0 = Math.cos(hyaw), rfz0 = -Math.sin(hyaw);
+        m.x = hx - rfx0 * 2.8 + (m.seatIndex - 1) * 0.9;
+        m.z = hz - rfz0 * 2.8;
+      } else {
+        const snap = this._cartRearWorld(c, 2.4, (m.seatIndex - 1) * 0.9);
+        m.x = snap.x; m.z = snap.z;
+      }
     }
 
     const rfx = Math.cos(hyaw), rfz = -Math.sin(hyaw);
     const rlx = -rfz, rlz = rfx;
-    const escortOffsets = [
-      { fwd: -0.9, lat: 2.85 },   // sisi kiri gerobak-kuda
-      { fwd: -0.9, lat: -2.85 },  // sisi kanan gerobak-kuda
-      { fwd: -4.8, lat: 1.90 },   // mengawal di belakang kiri
-    ];
+    const escortBaseX = unhitchedFar ? hx : cc.x;
+    const escortBaseZ = unhitchedFar ? hz : cc.z;
+    const escortOffsets = unhitchedFar
+      ? [
+          { fwd: -2.2, lat: 2.0 },
+          { fwd: -2.2, lat: -2.0 },
+          { fwd: -3.4, lat: 0.9 },
+        ]
+      : [
+          { fwd: -0.9, lat: 2.85 },   // sisi kiri gerobak-kuda
+          { fwd: -0.9, lat: -2.85 },  // sisi kanan gerobak-kuda
+          { fwd: -4.8, lat: 1.90 },   // mengawal di belakang kiri
+        ];
     const off = escortOffsets[m.seatIndex % escortOffsets.length];
-    const escortX = cc.x + rfx * off.fwd + rlx * off.lat;
-    const escortZ = cc.z + rfz * off.fwd + rlz * off.lat;
+    const escortX = escortBaseX + rfx * off.fwd + rlx * off.lat;
+    const escortZ = escortBaseZ + rfz * off.fwd + rlz * off.lat;
     const distToEscort = Math.hypot(escortX - m.x, escortZ - m.z);
-    const distToMid = Math.hypot(midX - m.x, midZ - m.z);
 
     let walkingNow = false;
     let curSpeed = 0;
 
-    if (rigSpd > 0.35 || distToMid > 6.5) {
-      // Gerobak sedang jalan atau NPC ketinggalan jauh -> terus kejar & ikuti gerobak
+    if (refSpd > 0.35 || distToAnchor > 6.5) {
+      // Gerobak / kuda sedang jalan atau NPC ketinggalan jauh -> terus kejar & ikuti
       m.roamPhase = 'roam';
       m.roamT = 0.5;
       if (distToEscort > 0.55) {
-        const sp = Math.min(Math.max((m.role.speed || 3.4) * 1.15, rigSpd + 2.2), Math.max(1.85, distToEscort * 2.1));
+        const sp = Math.min(Math.max((m.role.speed || 3.4) * 1.25, refSpd + 2.2), Math.max(1.85, distToEscort * 2.1));
         const move = Math.min(distToEscort, sp * dt);
         m.x += ((escortX - m.x) / distToEscort) * move;
         m.z += ((escortZ - m.z) / distToEscort) * move;
@@ -22705,7 +22878,7 @@ HC.NPCParty = class {
         m.dir = this._turnToward(m.dir, hyaw + Math.PI * 0.5, 6.0, dt);
       }
     } else {
-      // Gerobak diam -> NPC berjalan-jalan santai di sekitar kuda & gerobak
+      // Gerobak/kuda diam -> NPC berjalan-jalan santai di sekitar kuda & gerobak
       m.roamT = (m.roamT ?? 0) - dt;
       if (m.roamT <= 0 || !m.roamTarget) {
         if (m.roamPhase === 'roam') {
@@ -22718,8 +22891,8 @@ HC.NPCParty = class {
           for (let attempt = 0; attempt < 8; attempt++) {
             const ang = Math.random() * Math.PI * 2;
             const rad = 2.9 + Math.random() * 2.4;
-            const px = midX + Math.cos(ang) * rad;
-            const pz = midZ + Math.sin(ang) * rad;
+            const px = anchorX + Math.cos(ang) * rad;
+            const pz = anchorZ + Math.sin(ang) * rad;
             if (Math.hypot(px - hx, pz - hz) < 1.85) continue;
             if (Math.hypot(px - cc.x, pz - cc.z) < 2.35) continue;
             picked = { x: px, z: pz };
@@ -22769,7 +22942,7 @@ HC.NPCParty = class {
 
     const gy = this._groundY(m.x, m.z);
     root.position.set(m.x, gy, m.z);
-    root.rotation.y = m.dir;
+    root.rotation.set(0, m.dir, 0);
     if (st) {
       st.pos.copy(root.position);
       st.vel.x = walkingNow ? Math.sin(m.dir) * curSpeed : 0;
@@ -22781,9 +22954,17 @@ HC.NPCParty = class {
     HC.animateNPC(root, dt);
   }
   update(x, z, yaw, dt, cart = null, physics = null) {
+    const stepDt = dt || 1 / 60;
+    if (this._prevHPos) {
+      this._horseMoveSpd = Math.hypot(x - this._prevHPos.x, z - this._prevHPos.z) / Math.max(stepDt, 1e-4);
+    } else {
+      this._horseMoveSpd = 0;
+    }
+    this._prevHPos = { x, z };
     this.lastHorse.x = x; this.lastHorse.z = z; this.lastHorse.yaw = yaw;
     if (cart) this.cart = cart;
-    this._clock += dt || 1 / 60;
+    if (physics) this.physics = physics;
+    this._clock += stepDt;
     for (let i = 0; i < this.wild.length; i++) {
       const w = this.wild[i];
       if (w.respawnAt && this._clock >= w.respawnAt) {
@@ -22796,7 +22977,7 @@ HC.NPCParty = class {
     }
     for (const m of this.members) {
       if (m.state !== 'seated') {
-        this._updateMember(m, dt || 1 / 60, x, z, yaw, this.cart, physics);
+        this._updateMember(m, stepDt, x, z, yaw, this.cart, physics);
       }
     }
   }
@@ -22931,6 +23112,11 @@ HC.NPCParty = class {
     return role;
   }
   boardMember(uid) {
+    if (this.physics && this.physics.flipped) {
+      this.lastMessage = 'Balikkan gerobak dulu sebelum NPC bisa naik.';
+      this._notify();
+      return false;
+    }
     const m = this.members.find((it) => it.uid === uid);
     if (!m || m.state === 'seated' || m.state === 'boarding' || m.state === 'hopping_in') return false;
     m.state = 'boarding';
@@ -22939,6 +23125,57 @@ HC.NPCParty = class {
     this.lastMessage = `${m.role.e} ${m.role.name} menuju belakang gerobak untuk naik.`;
     this._notify();
     return true;
+  }
+  onCartFlip(cart, physics) {
+    const c = cart || this.cart;
+    if (c) this.cart = c;
+    if (physics) this.physics = physics;
+    const cc = this._cartCenterWorld(c);
+    const cfx = Math.cos(cc.yaw), cfz = -Math.sin(cc.yaw);
+    const clx = -cfz, clz = cfx;
+    const side = (physics && physics.flipDir) ? Math.sign(physics.flipDir) : 1;
+    for (const m of this.members) {
+      m._wantHelpAfterFall = false;
+      if (m.state === 'seated' || m.state === 'hopping_in') {
+        if (m.seatRoot) this._detachSeated(m, c);
+        const lat = side * (1.85 + m.seatIndex * 0.55);
+        const fwd = (m.seatIndex - 1) * 0.85;
+        const landX = cc.x + cfx * fwd + clx * lat;
+        const landZ = cc.z + cfz * fwd + clz * lat;
+        this._spawnStanding(m, landX, landZ, cc.yaw);
+        m.state = 'fallen';
+        m.fallT = 0;
+        m.fallSide = side;
+      } else if (m.state === 'boarding') {
+        m.state = 'following';
+        m.boardT = 0;
+        m.hopFrom = null;
+      }
+    }
+    this._syncDefaultPassengers(c);
+    if (this.members.length) {
+      this.lastMessage = 'Gerobak terguling! Semua NPC terjatuh ke tanah.';
+    }
+    this._notify();
+  }
+  setHelpingFlip(active) {
+    for (const m of this.members) {
+      if (active) {
+        if (m.state === 'fallen') {
+          m._wantHelpAfterFall = true;
+        } else if (m.state !== 'seated') {
+          m.state = 'helping_flip';
+        }
+      } else {
+        m._wantHelpAfterFall = false;
+        if (m.state === 'helping_flip') {
+          m.state = 'following';
+          m.roamPhase = 'roam';
+          m.roamT = 0.2;
+        }
+      }
+    }
+    this._notify();
   }
   disembarkMember(uid) {
     const m = this.members.find((it) => it.uid === uid);
@@ -23346,6 +23583,9 @@ class Survival {
     const moving = !!ctx.moving;
     const running = !!ctx.running && moving;
     const grazing = this.eating;
+    const unhitched = !!ctx.unhitched;
+    const vitalMul = unhitched ? 0.60 : 1.0;
+    const stamMul = unhitched ? 0.55 : 1.0;
 
     if (this.eatT > 0) {
       this.eatT = Math.max(0, this.eatT - dt);
@@ -23353,7 +23593,7 @@ class Survival {
       this.stamina = Math.min(SURV_CAP, this.stamina + 14.0 * dt);
       if (this.eatT === 0) this.msg = 'Kenyang. Gas lagi.';
     } else {
-      this.hunger = Math.max(0, this.hunger - dt * (0.45 + (running ? 0.30 : moving ? 0.10 : 0)));
+      this.hunger = Math.max(0, this.hunger - dt * (0.45 + (running ? 0.30 : moving ? 0.10 : 0)) * vitalMul);
     }
 
     if (this.drinkT > 0) {
@@ -23362,13 +23602,13 @@ class Survival {
       this.stamina = Math.min(SURV_CAP, this.stamina + 12.0 * dt);
       if (this.drinkT === 0) this.msg = 'Udah minum.';
     } else {
-      this.thirst = Math.max(0, this.thirst - dt * (0.32 + (running ? 0.38 : moving ? 0.10 : 0)));
+      this.thirst = Math.max(0, this.thirst - dt * (0.32 + (running ? 0.38 : moving ? 0.10 : 0)) * vitalMul);
     }
 
-    // Stamina: lari lebih irit, jalan santai hampir tidak menguras, diam/makan/minum cepat pulih.
-    if (running) this.stamina = Math.max(0, this.stamina - 3.2 * dt);
-    else if (moving) this.stamina = Math.max(0, this.stamina - 0.25 * dt);
-    else if (!grazing && !this.drinking) this.stamina = Math.min(SURV_CAP, this.stamina + 12.0 * dt);
+    // Stamina: saat lepas tali (tanpa beban gerobak), pemakaian stamina jauh lebih hemat.
+    if (running) this.stamina = Math.max(0, this.stamina - 3.2 * stamMul * dt);
+    else if (moving) this.stamina = Math.max(0, this.stamina - 0.25 * stamMul * dt);
+    else if (!grazing && !this.drinking) this.stamina = Math.min(SURV_CAP, this.stamina + (unhitched ? 14.0 : 12.0) * dt);
 
     // HP: lapar/haus akut dan gerobak rebah menggerus; istirahat kenyang pelan pulih.
     let dmg = 0;
@@ -24123,6 +24363,7 @@ animator.forwardZ = -Math.sin(startPose.yaw);
 const physics = new HC.CartPhysics(cart, world, PIVOT_Y);
 physics.joltScale = store.joltScale();
 physics.reset(startPose.x, startPose.z, startPose.yaw);
+const HITCH_DIST = Math.max(2.2, Math.hypot(startPose.x - physics.pos.x, startPose.z - physics.pos.z));
 
 // ---------------- NPC squad (roster Sylvan Dominion) ----------------
 const party = new HC.NPCParty(scene);
@@ -24305,6 +24546,23 @@ const SHAFT_LEN = (HC.shaftTipVox - 24.0) * HC.cartVS;
 function updateShafts(dt) {
   const sg = cart.shaftGroup;
   if (!sg) return;
+
+  if (physics.flipped) {
+    sg.rotation.order = 'YXZ';
+    sg.rotation.y = HC.damp(sg.rotation.y, 0, 10, dt);
+    sg.rotation.z = HC.damp(sg.rotation.z, -SHAFT_BASE_PITCH * 0.5, 10, dt);
+    sg.scale.x = HC.damp(sg.scale.x, 1, 10, dt);
+    return;
+  }
+
+  if (!physics.hitched) {
+    sg.rotation.order = 'YXZ';
+    sg.rotation.y = HC.damp(sg.rotation.y, 0, 12, dt);
+    sg.rotation.z = HC.damp(sg.rotation.z, -SHAFT_BASE_PITCH - 0.05, 12, dt);
+    sg.scale.x = HC.damp(sg.scale.x, 1, 12, dt);
+    return;
+  }
+
   sg.getWorldPosition(_shaftPivotW);
   _shaftCollarMid.copy(anchors.a).add(anchors.c).multiplyScalar(0.5);
   _shaftDirW.copy(_shaftCollarMid).sub(_shaftPivotW);
@@ -24435,6 +24693,7 @@ const survCtx = () => ({
   moving: animator.throttle > 0.06,
   running: animator.state === 'run' && animator.throttle > 0.06,
   flipped: !!physics.flipped,
+  unhitched: !physics.hitched,
 });
 function stopForSurvivalAction() {
   keysHeld.forward = false;
@@ -24463,8 +24722,9 @@ function doDrink() {
   syncVitals();
 }
 function doJump() {
-  if (survival.stamina < 6) { survival.msg = 'Stamina kurang buat lompat.'; syncVitals(); return; }
-  survival.stamina = Math.max(0, survival.stamina - 6);
+  const cost = physics.hitched ? 6 : 4;
+  if (survival.stamina < cost) { survival.msg = 'Stamina kurang buat lompat.'; syncVitals(); return; }
+  survival.stamina = Math.max(0, survival.stamina - cost);
   animator.setState('jump');
 }
 
@@ -24565,13 +24825,18 @@ function syncNpcHud() {
 function renderNpcDock() {
   if (!npcDockEl) return;
   const near = party.members.length < HC.NPC_TEAM_MAX ? party.nearby(animator.x, animator.z) : null;
+  const isStationary = Math.abs(animator.speed) < 0.85 && Math.hypot(physics.vel.x, physics.vel.z) < 0.85;
+  const canHitchAction = !physics.flipped && (!physics.hitched || isStationary);
+  const nearFront = Math.hypot(animator.x - physics.pos.x, animator.z - physics.pos.z) <= 6.5;
+  const hitchMode = !canHitchAction ? 'none' : physics.hitched ? 'detach' : nearFront ? 'attach' : 'far';
   const sig = party.members.map((m) => `${m.uid}:${m.role.id}:${m.state}`).join('|') +
-    '#' + (near ? near.npc.role.id : '');
+    '#' + (near ? near.npc.role.id : '') +
+    '@' + hitchMode + (physics.flipped ? ':F' : '');
   if (sig === _lastDockSig) return;
   _lastDockSig = sig;
 
   npcDockEl.innerHTML = '';
-  const hasAny = party.members.length > 0 || !!near;
+  const hasAny = party.members.length > 0 || !!near || canHitchAction;
   npcDockEl.hidden = !hasAny;
   if (!hasAny) return;
 
@@ -24580,6 +24845,8 @@ function renderNpcDock() {
     hopping_in: 'Naik Kursi...',
     seated: 'Di Kursi',
     following: 'Jalan Ikut',
+    fallen: 'Terjatuh!',
+    helping_flip: 'Bantu Angkat',
   };
   for (const m of party.members) {
     const r = m.role;
@@ -24614,6 +24881,15 @@ function renderNpcDock() {
     if (m.state === 'hopping_in') {
       btnToggle.disabled = true;
       btnToggle.textContent = 'Naik...';
+    } else if (m.state === 'fallen') {
+      btnToggle.disabled = true;
+      btnToggle.textContent = 'Terjatuh';
+    } else if (m.state === 'helping_flip') {
+      btnToggle.disabled = true;
+      btnToggle.textContent = 'Dorong...';
+    } else if (canBoard && physics.flipped) {
+      btnToggle.disabled = true;
+      btnToggle.textContent = '⬆ Terbalik';
     } else if (canBoard) {
       btnToggle.textContent = '⬆ Naik';
       bindTapSafe(btnToggle, () => {
@@ -24655,6 +24931,20 @@ function renderNpcDock() {
     bindTapSafe(pill, recruitNearbyNPC);
     npcDockEl.appendChild(pill);
   }
+
+  if (canHitchAction) {
+    const hBtn = document.createElement('button');
+    hBtn.type = 'button';
+    hBtn.className = 'npc-hitch-card' + (!physics.hitched ? ' free' : '');
+    if (physics.hitched) {
+      hBtn.textContent = '🔓 Lepas Tali Gerobak';
+    } else {
+      hBtn.textContent = nearFront ? '🔗 Pasang Tali Gerobak' : '🔗 Pasang Tali (Dekati Gerobak)';
+      hBtn.disabled = !nearFront;
+    }
+    bindTapSafe(hBtn, toggleHitch);
+    npcDockEl.appendChild(hBtn);
+  }
 }
 party.onChange = renderNpcDock;
 
@@ -24672,6 +24962,315 @@ bindBtn('btn-recruit', recruitNearbyNPC);
 bindBtn('btn-release', releaseLastNPC);
 window.recruitNearbyNPC = recruitNearbyNPC;
 window.releaseLastNPC = releaseLastNPC;
+const ALL_ROPES = [towL, towR, traceL, traceR, reinL, reinR];
+function setRopesVisible(v) {
+  for (const r of ALL_ROPES) if (r && r.setVisible) r.setVisible(v);
+}
+
+const btnHitchEl = document.getElementById('btn-hitch');
+let _lastHitchSig = '';
+function syncHitchUi() {
+  if (!btnHitchEl) return;
+  const free = !physics.hitched;
+  const movingFast = Math.abs(animator.speed) >= 0.85 || Math.hypot(physics.vel.x, physics.vel.z) >= 0.85;
+  const nearFront = Math.hypot(animator.x - physics.pos.x, animator.z - physics.pos.z) <= 6.5;
+  const sig = `${physics.flipped ? 'F' : ''}|${free ? 'U' : 'H'}|${movingFast ? 'M' : 'S'}|${nearFront ? 'N' : 'D'}`;
+  if (sig === _lastHitchSig) return;
+  _lastHitchSig = sig;
+  btnHitchEl.classList.toggle('active-free', free);
+  if (physics.flipped) {
+    btnHitchEl.disabled = true;
+    btnHitchEl.textContent = '⚠ Terbalik';
+  } else if (physics.hitched) {
+    btnHitchEl.disabled = movingFast;
+    btnHitchEl.textContent = movingFast ? '🔗 Berhenti Dulu' : '🔓 Lepas Tali [V]';
+  } else {
+    btnHitchEl.disabled = !nearFront;
+    btnHitchEl.textContent = nearFront ? '🔗 Pasang Tali [V]' : '🔗 Dekati Gerobak';
+  }
+}
+
+function unhitchCart(fromFlip = false) {
+  if (!fromFlip) {
+    if (physics.flipped) {
+      survival.msg = 'Gerobak sedang terbalik!';
+      syncVitals();
+      return false;
+    }
+    const movingFast = Math.abs(animator.speed) >= 0.85 || Math.hypot(physics.vel.x, physics.vel.z) >= 0.85;
+    if (physics.hitched && movingFast) {
+      survival.msg = 'Hentikan kuda & gerobak dulu sebelum melepas tali.';
+      syncVitals();
+      return false;
+    }
+  }
+  physics.hitched = false;
+  animator.unhitched = true;
+  setRopesVisible(false);
+  if (!fromFlip) {
+    survival.msg = 'Tali dilepas — kuda bebas bergerak & lebih hemat energi.';
+    syncVitals();
+  }
+  _lastDockSig = '';
+  _lastHitchSig = '';
+  renderNpcDock();
+  syncHitchUi();
+  return true;
+}
+
+function reHitchCart() {
+  if (physics.flipped) {
+    survival.msg = 'Balikkan gerobak terlebih dahulu.';
+    syncVitals();
+    return false;
+  }
+  if (physics.hitched) return true;
+  const dist = Math.hypot(animator.x - physics.pos.x, animator.z - physics.pos.z);
+  if (dist > 6.5) {
+    survival.msg = 'Dekatkan kuda ke depan gerobak untuk memasang tali.';
+    syncVitals();
+    return false;
+  }
+  animator.speed = 0;
+  animator.targetSpeed = 0;
+  animator.yawRate = 0;
+  animator.steer = 0;
+  animator.setThrottle(0);
+  animator.unhitched = false;
+  animator.yaw = physics.yaw;
+  animator.forwardX = Math.cos(physics.yaw);
+  animator.forwardZ = -Math.sin(physics.yaw);
+  animator.x = physics.pos.x + animator.forwardX * HITCH_DIST;
+  animator.z = physics.pos.z + animator.forwardZ * HITCH_DIST;
+  physics.vel.set(0, 0, 0);
+  physics.angVel = 0;
+  physics.hitched = true;
+  physics.unhitchedDroop = 0;
+  if (cart.shaftGroup) {
+    cart.shaftGroup.rotation.set(0, 0, 0);
+    cart.shaftGroup.scale.set(1, 1, 1);
+  }
+  animator.update(0.001);
+  if (physics.syncVisual) physics.syncVisual();
+  setRopesVisible(true);
+  resetRopes();
+  survival.msg = 'Tali dipasang — gerobak siap ditarik kembali.';
+  syncVitals();
+  _lastDockSig = '';
+  _lastHitchSig = '';
+  renderNpcDock();
+  syncHitchUi();
+  return true;
+}
+
+function toggleHitch() {
+  if (physics.hitched) return unhitchCart(false);
+  return reHitchCart();
+}
+bindBtn('btn-hitch', toggleHitch);
+window.toggleHitch = toggleHitch;
+
+// ---- Minigame Balikkan Gerobak (dibantu NPC) ----
+const flipBannerEl = document.getElementById('flip-banner');
+const fbNpcCountEl = document.getElementById('fb-npc-count');
+const btnStartFlipEl = document.getElementById('btn-start-flip');
+const flipGameEl = document.getElementById('flip-minigame');
+const fmHelpBadgeEl = document.getElementById('fm-help-badge');
+const fmProgFillEl = document.getElementById('fm-prog-fill');
+const fmProgPctEl = document.getElementById('fm-prog-pct');
+const fmZoneEl = document.getElementById('fm-zone');
+const fmPerfectEl = document.getElementById('fm-perfect');
+const fmCursorEl = document.getElementById('fm-cursor');
+const fmFeedbackEl = document.getElementById('fm-feedback');
+const btnFlipPushEl = document.getElementById('btn-flip-push');
+const btnFlipCancelEl = document.getElementById('btn-flip-cancel');
+
+let _lastBannerSig = '';
+function syncFlipBanner() {
+  if (!flipBannerEl) return;
+  const show = !!physics.flipped && !flipGame.active;
+  const npcN = party.members.length;
+  const sig = `${show ? '1' : '0'}|${npcN}`;
+  if (sig === _lastBannerSig) return;
+  _lastBannerSig = sig;
+  flipBannerEl.hidden = !show;
+  flipBannerEl.style.display = show ? '' : 'none';
+  if (fbNpcCountEl) {
+    fbNpcCountEl.textContent = npcN > 0
+      ? `${npcN} NPC siap membantu`
+      : 'Sendirian (lebih berat — rekrut NPC jika ada)';
+  }
+}
+
+const flipGame = {
+  active: false,
+  progress: 0,
+  cursor: 0.5,
+  dir: 1,
+  zoneCenter: 0.5,
+  cooldown: 0,
+  _shakeTimer: null,
+
+  configForCount(npcCount) {
+    const c = Math.max(0, Math.min(4, Math.floor(npcCount || 0)));
+    const table = [
+      { zoneWidth: 0.18, perfectWidth: 0.06, cursorSpeed: 1.45, gainGood: 14, gainPerfect: 22, missPenalty: 12, decayPerSec: 4.2, label: '0 NPC (Sendirian — Berat!)' },
+      { zoneWidth: 0.26, perfectWidth: 0.09, cursorSpeed: 1.22, gainGood: 20, gainPerfect: 30, missPenalty: 9,  decayPerSec: 2.8, label: '1 NPC Membantu (+Mudah)' },
+      { zoneWidth: 0.34, perfectWidth: 0.12, cursorSpeed: 1.04, gainGood: 26, gainPerfect: 38, missPenalty: 6,  decayPerSec: 1.6, label: '2 NPC Membantu (+Lebih Mudah)' },
+      { zoneWidth: 0.42, perfectWidth: 0.16, cursorSpeed: 0.88, gainGood: 32, gainPerfect: 46, missPenalty: 4,  decayPerSec: 0.8, label: '3 NPC Membantu (Sangat Ringan!)' },
+    ];
+    return table[Math.min(3, c)];
+  },
+
+  _render(cfg) {
+    const c = cfg || this.configForCount(party.members.length);
+    if (fmHelpBadgeEl) fmHelpBadgeEl.textContent = c.label;
+    const pct = Math.max(0, Math.min(100, Math.round(this.progress)));
+    if (fmProgFillEl) fmProgFillEl.style.width = pct + '%';
+    if (fmProgPctEl) fmProgPctEl.textContent = pct + '%';
+    if (fmZoneEl) {
+      fmZoneEl.style.left = ((this.zoneCenter - c.zoneWidth * 0.5) * 100).toFixed(2) + '%';
+      fmZoneEl.style.width = (c.zoneWidth * 100).toFixed(2) + '%';
+    }
+    if (fmPerfectEl) {
+      fmPerfectEl.style.left = ((this.zoneCenter - c.perfectWidth * 0.5) * 100).toFixed(2) + '%';
+      fmPerfectEl.style.width = (c.perfectWidth * 100).toFixed(2) + '%';
+    }
+    if (fmCursorEl) {
+      fmCursorEl.style.left = (this.cursor * 100).toFixed(2) + '%';
+    }
+  },
+
+  _setFeedback(text, kind) {
+    if (!fmFeedbackEl) return;
+    fmFeedbackEl.textContent = text;
+    fmFeedbackEl.dataset.kind = kind || '';
+  },
+
+  _shake() {
+    if (!flipGameEl) return;
+    flipGameEl.classList.remove('fm-shake');
+    void flipGameEl.offsetWidth;
+    flipGameEl.classList.add('fm-shake');
+    if (this._shakeTimer) clearTimeout(this._shakeTimer);
+    this._shakeTimer = setTimeout(() => flipGameEl.classList.remove('fm-shake'), 320);
+  },
+
+  start() {
+    if (!physics.flipped) return false;
+    this.active = true;
+    this.progress = 8;
+    this.cursor = 0.18;
+    this.dir = 1;
+    this.zoneCenter = 0.5;
+    this.cooldown = 0;
+    party.setHelpingFlip(true);
+    if (flipGameEl) {
+      flipGameEl.hidden = false;
+      flipGameEl.style.display = '';
+    }
+    this._setFeedback('Tekan SPASI atau DORONG saat jarum di zona hijau!', 'info');
+    this._render();
+    _lastDockSig = '';
+    renderNpcDock();
+    syncFlipBanner();
+    return true;
+  },
+
+  stop(succeeded = false) {
+    this.active = false;
+    if (!succeeded) physics.liftProgress = 0;
+    party.setHelpingFlip(false);
+    if (flipGameEl) {
+      flipGameEl.hidden = true;
+      flipGameEl.style.display = 'none';
+    }
+    _lastDockSig = '';
+    _lastBannerSig = '';
+    renderNpcDock();
+    syncFlipBanner();
+  },
+
+  step(dt) {
+    if (!this.active) return;
+    if (!physics.flipped) {
+      this.stop(false);
+      return;
+    }
+    const cfg = this.configForCount(party.members.length);
+    if (this.cooldown > 0) this.cooldown = Math.max(0, this.cooldown - dt);
+    this.cursor += this.dir * cfg.cursorSpeed * dt;
+    if (this.cursor >= 0.96) { this.cursor = 0.96; this.dir = -1; }
+    else if (this.cursor <= 0.04) { this.cursor = 0.04; this.dir = 1; }
+    if (this.progress > 0) {
+      this.progress = Math.max(0, this.progress - cfg.decayPerSec * dt);
+    }
+    physics.liftProgress = Math.max(0, Math.min(1, this.progress / 100));
+    this._render(cfg);
+  },
+
+  push() {
+    if (!this.active || !physics.flipped) return false;
+    if (this.cooldown > 0) return false;
+    this.cooldown = 0.20;
+    const npcN = party.members.length;
+    const cfg = this.configForCount(npcN);
+    const dist = Math.abs(this.cursor - this.zoneCenter);
+    if (dist <= cfg.perfectWidth * 0.5) {
+      this.progress = Math.min(100, this.progress + cfg.gainPerfect);
+      this._setFeedback(`SEMPURNA! Angkatan kuat (+${cfg.gainPerfect}%)`, 'perfect');
+      this.zoneCenter = 0.34 + Math.random() * 0.32;
+    } else if (dist <= cfg.zoneWidth * 0.5) {
+      this.progress = Math.min(100, this.progress + cfg.gainGood);
+      this._setFeedback(`BAGUS! Terus dorong (+${cfg.gainGood}%)`, 'good');
+      this.zoneCenter = 0.34 + Math.random() * 0.32;
+    } else {
+      this.progress = Math.max(0, this.progress - cfg.missPenalty);
+      this._setFeedback(`MELESET! (-${cfg.missPenalty}%) Tunggu zona hijau`, 'miss');
+      this._shake();
+    }
+    physics.liftProgress = Math.max(0, Math.min(1, this.progress / 100));
+    this._render(cfg);
+
+    if (this.progress >= 100) {
+      physics.liftProgress = 1;
+      physics.rightCartInPlace();
+      this.stop(true);
+      survival.msg = npcN > 0
+        ? `Gerobak berhasil ditegakkan bersama ${npcN} NPC! Dekati gerobak untuk pasang tali.`
+        : 'Gerobak berhasil ditegakkan! Dekati gerobak untuk pasang tali.';
+      syncVitals();
+      syncNpcHud();
+      syncHitchUi();
+    }
+    return true;
+  },
+};
+
+if (btnStartFlipEl) bindTapSafe(btnStartFlipEl, () => flipGame.start());
+if (btnFlipPushEl) bindTapSafe(btnFlipPushEl, () => flipGame.push());
+if (btnFlipCancelEl) bindTapSafe(btnFlipCancelEl, () => flipGame.stop(false));
+if (flipBannerEl) { flipBannerEl.hidden = true; flipBannerEl.style.display = 'none'; }
+if (flipGameEl) { flipGameEl.hidden = true; flipGameEl.style.display = 'none'; }
+window.FLIP_GAME = flipGame;
+
+physics.onFlip = () => {
+  unhitchCart(true);
+  party.onCartFlip(cart, physics);
+  const dmgRep = physics.wheelReport ? physics.wheelReport() : [];
+  const broken = dmgRep.filter((r) => r.detached).length;
+  survival.msg = broken > 0
+    ? `Gerobak terguling! Kuda terlepas, ${broken} roda lepas, NPC terjatuh.`
+    : 'Gerobak terguling! Kuda terlepas, ban -20% HP, NPC terjatuh.';
+  _lastDockSig = '';
+  _lastBannerSig = '';
+  syncVitals();
+  syncNpcHud();
+  renderNpcDock();
+  syncHitchUi();
+  syncFlipBanner();
+};
+
 function clearRamps() {
   if (!world || !world.ramps) return;
   for (let i = 0; i < world.ramps.length; i++) {
@@ -24682,7 +25281,8 @@ function clearRamps() {
 }
 function resetRig() {
   clearRamps();
-  const pose = (world.initialHorsePose && (physics.flipped || Math.hypot(animator.x, animator.z) > 28))
+  flipGame.stop(false);
+  const pose = (world.initialHorsePose && (physics.flipped || !physics.hitched || Math.hypot(animator.x, animator.z) > 28))
     ? world.initialHorsePose()
     : { x: animator.x, z: animator.z, yaw: animator.yaw };
   animator.x = pose.x;
@@ -24692,10 +25292,22 @@ function resetRig() {
   animator.forwardZ = -Math.sin(pose.yaw);
   animator.speed = 0;
   animator.targetSpeed = 0;
+  animator.unhitched = false;
   animator.setThrottle(0);
+  if (cart.shaftGroup) {
+    cart.shaftGroup.rotation.set(0, 0, 0);
+    cart.shaftGroup.scale.set(1, 1, 1);
+  }
   physics.reset(animator.x, animator.z, animator.yaw);
+  setRopesVisible(true);
   resetRopes();
   animator.setState('walk');
+  _lastDockSig = '';
+  _lastHitchSig = '';
+  _lastBannerSig = '';
+  renderNpcDock();
+  syncHitchUi();
+  syncFlipBanner();
 }
 bindBtn('btn-reset', resetRig);
 
@@ -24776,13 +25388,25 @@ window.addEventListener('keydown', (e) => {
     if (touchUI && touchUI.setRunLatched) touchUI.setRunLatched(false);
   }
   else if (k === '2' || k === 'r' || k === 'shift') { if (!e.repeat) toggleRun(); }
-  else if (k === ' ' || k === 'j') { e.preventDefault(); doJump(); }
+  else if (k === ' ' || k === 'j' || k === 'enter') {
+    if (flipGame.active && (k === ' ' || k === 'enter')) {
+      e.preventDefault();
+      if (!e.repeat) flipGame.push();
+    } else if (k === ' ' || k === 'j') {
+      e.preventDefault();
+      doJump();
+    }
+  }
+  else if (k === 'escape') {
+    if (flipGame.active) { e.preventDefault(); flipGame.stop(false); }
+  }
   else if (k === '3' || k === 'e') doEat();
   else if (k === '4' || k === 'f' || k === 'm') doDrink();
   else if (k === 't') spawnTipRamp();
   else if (k === 'b') world.spawnPebbleClusterAhead(animator.x, animator.z, animator.yaw);
   else if (k === 'g') recruitNearbyNPC();
   else if (k === 'h') releaseLastNPC();
+  else if (k === 'v') { e.preventDefault(); if (!e.repeat) toggleHitch(); }
   else if (k === 'x') resetRig();
   else if (k === 'u') {
     const p = document.getElementById('upgrade-panel');
@@ -24807,6 +25431,8 @@ window.addEventListener('blur', () => {
 // ---------------- loop ----------------
 resetRopes();
 scene.updateMatrixWorld(true);
+syncHitchUi();
+syncFlipBanner();
 
 let last = performance.now();
 let camPrevYaw = animator.yaw;
@@ -24837,13 +25463,9 @@ function stepSim(dt) {
   const stillActing = survival.eating || survival.drinking;
   if (wasActing && !stillActing) animator.setState(runLatched ? 'run' : 'walk');
 
-  // Gerobak udah rebah (lewat batas 75°): kuda TERPAKU TOTAL — posisi, langkah,
-  // kepala, semuanya beku. Gak ada input yang bisa ngusik dia sampai Reset.
-  if (!physics.flipped) {
-    animator.update(dt);
-    if (world.keepHorseInValley) world.keepHorseInValley(animator, dt);
-  }
-  else { animator.speed = 0; animator.targetSpeed = 0; animator.yawRate = 0; animator.steer = 0; }
+  animator.unhitched = !physics.hitched;
+  animator.update(dt);
+  if (world.keepHorseInValley) world.keepHorseInValley(animator, dt);
   world.setCartPose(physics.pos.x, physics.pos.z);
   world.update(animator.x, dt, animator.z, animator.yaw);
   party.update(animator.x, animator.z, animator.yaw, dt, cart, physics);
@@ -24871,12 +25493,18 @@ function stepSim(dt) {
 
   scene.updateMatrixWorld(true);
   readAnchors();
-  towL.update(dt, anchors.a, anchors.b);
-  towR.update(dt, anchors.c, anchors.d);
-  traceL.update(dt, anchors.gL, anchors.stL);
-  traceR.update(dt, anchors.gR, anchors.stR);
-  reinL.update(dt, anchors.bitL, anchors.seat);
-  reinR.update(dt, anchors.bitR, anchors.seat);
+  if (physics.hitched) {
+    towL.update(dt, anchors.a, anchors.b);
+    towR.update(dt, anchors.c, anchors.d);
+    traceL.update(dt, anchors.gL, anchors.stL);
+    traceR.update(dt, anchors.gR, anchors.stR);
+    reinL.update(dt, anchors.bitL, anchors.seat);
+    reinR.update(dt, anchors.bitR, anchors.seat);
+  }
+
+  flipGame.step(dt);
+  syncFlipBanner();
+  syncHitchUi();
 
   const gyHorse = world.terrainHeightAt ? world.terrainHeightAt(animator.x, animator.z) : 0;
   horseBlob.position.set(animator.x - Math.cos(animator.yaw) * 0.15, gyHorse + 0.02, animator.z + Math.sin(animator.yaw) * 0.15);

@@ -739,37 +739,120 @@ HC.NPCParty = class {
       return;
     }
 
+    // ---- state === 'fallen': terjatuh ke tanah saat gerobak terguling, lalu bangun ----
+    if (m.state === 'fallen') {
+      m.fallT = (m.fallT || 0) + dt / 0.90;
+      const u = Math.max(0, Math.min(1, m.fallT));
+      const tilt = u < 0.45
+        ? Math.PI * 0.42
+        : Math.PI * 0.42 * Math.max(0, 1 - (u - 0.45) / 0.55);
+      const gy = this._groundY(m.x, m.z);
+      root.position.set(m.x, gy + (u < 0.45 ? 0.14 : 0.04 * (1 - u)), m.z);
+      root.rotation.set(tilt, m.dir, 0);
+      if (st) {
+        st.pos.copy(root.position);
+        st.walking = false;
+        st.working = false;
+        st.vel.x = 0; st.vel.z = 0;
+        st.headAngle = 0;
+      }
+      HC.animateNPC(root, dt);
+      if (m.fallT >= 1) {
+        root.rotation.set(0, m.dir, 0);
+        m.state = m._wantHelpAfterFall ? 'helping_flip' : 'following';
+        m._wantHelpAfterFall = false;
+        m.roamPhase = 'roam';
+        m.roamT = 0.4;
+        this._notify();
+      }
+      return;
+    }
+
+    // ---- state === 'helping_flip': merapat ke samping gerobak terbalik & ikut mendorong ----
+    if (m.state === 'helping_flip') {
+      const cfx = Math.cos(cc.yaw), cfz = -Math.sin(cc.yaw);
+      const clx = -cfz, clz = cfx;
+      const side = (physics && physics.flipDir) ? -Math.sign(physics.flipDir) : -1;
+      const along = (m.seatIndex - 1) * 1.15;
+      const tgtX = cc.x + cfx * along + clx * side * 1.75;
+      const tgtZ = cc.z + cfz * along + clz * side * 1.75;
+      const dx = tgtX - m.x, dz = tgtZ - m.z;
+      const dist = Math.hypot(dx, dz);
+      let walkingNow = false;
+      if (dist > 0.35) {
+        const sp = 3.2;
+        const move = Math.min(dist, sp * dt);
+        m.x += (dx / dist) * move;
+        m.z += (dz / dist) * move;
+        m.dir = this._turnToward(m.dir, Math.atan2(dx, dz), 9.0, dt);
+        walkingNow = true;
+      } else {
+        m.dir = this._turnToward(m.dir, Math.atan2(cc.x - m.x, cc.z - m.z), 9.0, dt);
+      }
+      const gy = this._groundY(m.x, m.z);
+      root.position.set(m.x, gy, m.z);
+      root.rotation.set(0, m.dir, 0);
+      if (st) {
+        st.pos.copy(root.position);
+        st.walking = walkingNow;
+        st.working = !walkingNow;
+        st.swing = !walkingNow ? ((this._clock * 2.2 + m.seatIndex) % 0.9) : 0;
+        st.vel.x = walkingNow ? (dx / dist) * 3.2 : 0;
+        st.vel.z = walkingNow ? (dz / dist) * 3.2 : 0;
+        st.headAngle = 0;
+      }
+      HC.animateNPC(root, dt);
+      return;
+    }
+
     // ---- state === 'following': turun, jalan-jalan di sekitar gerobak saat diam, ikut gerak saat jalan ----
-    const midX = (hx + cc.x) * 0.5;
-    const midZ = (hz + cc.z) * 0.5;
-    const distToCart = Math.hypot(m.x - cc.x, m.z - cc.z);
-    if (distToCart > 26) {
-      const snap = this._cartRearWorld(c, 2.4, (m.seatIndex - 1) * 0.9);
-      m.x = snap.x; m.z = snap.z;
+    const horseMovedSpd = this._horseMoveSpd || 0;
+    const unhitchedFar = physics && !physics.hitched && Math.hypot(hx - cc.x, hz - cc.z) > 9.0;
+    const anchorX = unhitchedFar ? hx : (hx + cc.x) * 0.5;
+    const anchorZ = unhitchedFar ? hz : (hz + cc.z) * 0.5;
+    const refSpd = unhitchedFar ? horseMovedSpd : Math.max(rigSpd, horseMovedSpd);
+    const distToAnchor = Math.hypot(anchorX - m.x, anchorZ - m.z);
+
+    if (distToAnchor > 26) {
+      if (unhitchedFar) {
+        const rfx0 = Math.cos(hyaw), rfz0 = -Math.sin(hyaw);
+        m.x = hx - rfx0 * 2.8 + (m.seatIndex - 1) * 0.9;
+        m.z = hz - rfz0 * 2.8;
+      } else {
+        const snap = this._cartRearWorld(c, 2.4, (m.seatIndex - 1) * 0.9);
+        m.x = snap.x; m.z = snap.z;
+      }
     }
 
     const rfx = Math.cos(hyaw), rfz = -Math.sin(hyaw);
     const rlx = -rfz, rlz = rfx;
-    const escortOffsets = [
-      { fwd: -0.9, lat: 2.85 },   // sisi kiri gerobak-kuda
-      { fwd: -0.9, lat: -2.85 },  // sisi kanan gerobak-kuda
-      { fwd: -4.8, lat: 1.90 },   // mengawal di belakang kiri
-    ];
+    const escortBaseX = unhitchedFar ? hx : cc.x;
+    const escortBaseZ = unhitchedFar ? hz : cc.z;
+    const escortOffsets = unhitchedFar
+      ? [
+          { fwd: -2.2, lat: 2.0 },
+          { fwd: -2.2, lat: -2.0 },
+          { fwd: -3.4, lat: 0.9 },
+        ]
+      : [
+          { fwd: -0.9, lat: 2.85 },   // sisi kiri gerobak-kuda
+          { fwd: -0.9, lat: -2.85 },  // sisi kanan gerobak-kuda
+          { fwd: -4.8, lat: 1.90 },   // mengawal di belakang kiri
+        ];
     const off = escortOffsets[m.seatIndex % escortOffsets.length];
-    const escortX = cc.x + rfx * off.fwd + rlx * off.lat;
-    const escortZ = cc.z + rfz * off.fwd + rlz * off.lat;
+    const escortX = escortBaseX + rfx * off.fwd + rlx * off.lat;
+    const escortZ = escortBaseZ + rfz * off.fwd + rlz * off.lat;
     const distToEscort = Math.hypot(escortX - m.x, escortZ - m.z);
-    const distToMid = Math.hypot(midX - m.x, midZ - m.z);
 
     let walkingNow = false;
     let curSpeed = 0;
 
-    if (rigSpd > 0.35 || distToMid > 6.5) {
-      // Gerobak sedang jalan atau NPC ketinggalan jauh -> terus kejar & ikuti gerobak
+    if (refSpd > 0.35 || distToAnchor > 6.5) {
+      // Gerobak / kuda sedang jalan atau NPC ketinggalan jauh -> terus kejar & ikuti
       m.roamPhase = 'roam';
       m.roamT = 0.5;
       if (distToEscort > 0.55) {
-        const sp = Math.min(Math.max((m.role.speed || 3.4) * 1.15, rigSpd + 2.2), Math.max(1.85, distToEscort * 2.1));
+        const sp = Math.min(Math.max((m.role.speed || 3.4) * 1.25, refSpd + 2.2), Math.max(1.85, distToEscort * 2.1));
         const move = Math.min(distToEscort, sp * dt);
         m.x += ((escortX - m.x) / distToEscort) * move;
         m.z += ((escortZ - m.z) / distToEscort) * move;
@@ -780,7 +863,7 @@ HC.NPCParty = class {
         m.dir = this._turnToward(m.dir, hyaw + Math.PI * 0.5, 6.0, dt);
       }
     } else {
-      // Gerobak diam -> NPC berjalan-jalan santai di sekitar kuda & gerobak
+      // Gerobak/kuda diam -> NPC berjalan-jalan santai di sekitar kuda & gerobak
       m.roamT = (m.roamT ?? 0) - dt;
       if (m.roamT <= 0 || !m.roamTarget) {
         if (m.roamPhase === 'roam') {
@@ -793,8 +876,8 @@ HC.NPCParty = class {
           for (let attempt = 0; attempt < 8; attempt++) {
             const ang = Math.random() * Math.PI * 2;
             const rad = 2.9 + Math.random() * 2.4;
-            const px = midX + Math.cos(ang) * rad;
-            const pz = midZ + Math.sin(ang) * rad;
+            const px = anchorX + Math.cos(ang) * rad;
+            const pz = anchorZ + Math.sin(ang) * rad;
             if (Math.hypot(px - hx, pz - hz) < 1.85) continue;
             if (Math.hypot(px - cc.x, pz - cc.z) < 2.35) continue;
             picked = { x: px, z: pz };
@@ -844,7 +927,7 @@ HC.NPCParty = class {
 
     const gy = this._groundY(m.x, m.z);
     root.position.set(m.x, gy, m.z);
-    root.rotation.y = m.dir;
+    root.rotation.set(0, m.dir, 0);
     if (st) {
       st.pos.copy(root.position);
       st.vel.x = walkingNow ? Math.sin(m.dir) * curSpeed : 0;
@@ -856,9 +939,17 @@ HC.NPCParty = class {
     HC.animateNPC(root, dt);
   }
   update(x, z, yaw, dt, cart = null, physics = null) {
+    const stepDt = dt || 1 / 60;
+    if (this._prevHPos) {
+      this._horseMoveSpd = Math.hypot(x - this._prevHPos.x, z - this._prevHPos.z) / Math.max(stepDt, 1e-4);
+    } else {
+      this._horseMoveSpd = 0;
+    }
+    this._prevHPos = { x, z };
     this.lastHorse.x = x; this.lastHorse.z = z; this.lastHorse.yaw = yaw;
     if (cart) this.cart = cart;
-    this._clock += dt || 1 / 60;
+    if (physics) this.physics = physics;
+    this._clock += stepDt;
     for (let i = 0; i < this.wild.length; i++) {
       const w = this.wild[i];
       if (w.respawnAt && this._clock >= w.respawnAt) {
@@ -871,7 +962,7 @@ HC.NPCParty = class {
     }
     for (const m of this.members) {
       if (m.state !== 'seated') {
-        this._updateMember(m, dt || 1 / 60, x, z, yaw, this.cart, physics);
+        this._updateMember(m, stepDt, x, z, yaw, this.cart, physics);
       }
     }
   }
@@ -1006,6 +1097,11 @@ HC.NPCParty = class {
     return role;
   }
   boardMember(uid) {
+    if (this.physics && this.physics.flipped) {
+      this.lastMessage = 'Balikkan gerobak dulu sebelum NPC bisa naik.';
+      this._notify();
+      return false;
+    }
     const m = this.members.find((it) => it.uid === uid);
     if (!m || m.state === 'seated' || m.state === 'boarding' || m.state === 'hopping_in') return false;
     m.state = 'boarding';
@@ -1014,6 +1110,57 @@ HC.NPCParty = class {
     this.lastMessage = `${m.role.e} ${m.role.name} menuju belakang gerobak untuk naik.`;
     this._notify();
     return true;
+  }
+  onCartFlip(cart, physics) {
+    const c = cart || this.cart;
+    if (c) this.cart = c;
+    if (physics) this.physics = physics;
+    const cc = this._cartCenterWorld(c);
+    const cfx = Math.cos(cc.yaw), cfz = -Math.sin(cc.yaw);
+    const clx = -cfz, clz = cfx;
+    const side = (physics && physics.flipDir) ? Math.sign(physics.flipDir) : 1;
+    for (const m of this.members) {
+      m._wantHelpAfterFall = false;
+      if (m.state === 'seated' || m.state === 'hopping_in') {
+        if (m.seatRoot) this._detachSeated(m, c);
+        const lat = side * (1.85 + m.seatIndex * 0.55);
+        const fwd = (m.seatIndex - 1) * 0.85;
+        const landX = cc.x + cfx * fwd + clx * lat;
+        const landZ = cc.z + cfz * fwd + clz * lat;
+        this._spawnStanding(m, landX, landZ, cc.yaw);
+        m.state = 'fallen';
+        m.fallT = 0;
+        m.fallSide = side;
+      } else if (m.state === 'boarding') {
+        m.state = 'following';
+        m.boardT = 0;
+        m.hopFrom = null;
+      }
+    }
+    this._syncDefaultPassengers(c);
+    if (this.members.length) {
+      this.lastMessage = 'Gerobak terguling! Semua NPC terjatuh ke tanah.';
+    }
+    this._notify();
+  }
+  setHelpingFlip(active) {
+    for (const m of this.members) {
+      if (active) {
+        if (m.state === 'fallen') {
+          m._wantHelpAfterFall = true;
+        } else if (m.state !== 'seated') {
+          m.state = 'helping_flip';
+        }
+      } else {
+        m._wantHelpAfterFall = false;
+        if (m.state === 'helping_flip') {
+          m.state = 'following';
+          m.roamPhase = 'roam';
+          m.roamT = 0.2;
+        }
+      }
+    }
+    this._notify();
   }
   disembarkMember(uid) {
     const m = this.members.find((it) => it.uid === uid);

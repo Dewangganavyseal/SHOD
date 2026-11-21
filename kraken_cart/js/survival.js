@@ -81,6 +81,9 @@ export class Survival {
     const moving = !!ctx.moving;
     const running = !!ctx.running && moving;
     const grazing = this.eating;
+    const unhitched = !!ctx.unhitched;
+    const vitalMul = unhitched ? 0.60 : 1.0;
+    const stamMul = unhitched ? 0.55 : 1.0;
 
     if (this.eatT > 0) {
       this.eatT = Math.max(0, this.eatT - dt);
@@ -88,7 +91,7 @@ export class Survival {
       this.stamina = Math.min(SURV_CAP, this.stamina + 14.0 * dt);
       if (this.eatT === 0) this.msg = 'Kenyang. Gas lagi.';
     } else {
-      this.hunger = Math.max(0, this.hunger - dt * (0.45 + (running ? 0.30 : moving ? 0.10 : 0)));
+      this.hunger = Math.max(0, this.hunger - dt * (0.45 + (running ? 0.30 : moving ? 0.10 : 0)) * vitalMul);
     }
 
     if (this.drinkT > 0) {
@@ -97,13 +100,13 @@ export class Survival {
       this.stamina = Math.min(SURV_CAP, this.stamina + 12.0 * dt);
       if (this.drinkT === 0) this.msg = 'Udah minum.';
     } else {
-      this.thirst = Math.max(0, this.thirst - dt * (0.32 + (running ? 0.38 : moving ? 0.10 : 0)));
+      this.thirst = Math.max(0, this.thirst - dt * (0.32 + (running ? 0.38 : moving ? 0.10 : 0)) * vitalMul);
     }
 
-    // Stamina: lari lebih irit, jalan santai hampir tidak menguras, diam/makan/minum cepat pulih.
-    if (running) this.stamina = Math.max(0, this.stamina - 3.2 * dt);
-    else if (moving) this.stamina = Math.max(0, this.stamina - 0.25 * dt);
-    else if (!grazing && !this.drinking) this.stamina = Math.min(SURV_CAP, this.stamina + 12.0 * dt);
+    // Stamina: saat lepas tali (tanpa beban gerobak), pemakaian stamina jauh lebih hemat.
+    if (running) this.stamina = Math.max(0, this.stamina - 3.2 * stamMul * dt);
+    else if (moving) this.stamina = Math.max(0, this.stamina - 0.25 * stamMul * dt);
+    else if (!grazing && !this.drinking) this.stamina = Math.min(SURV_CAP, this.stamina + (unhitched ? 14.0 : 12.0) * dt);
 
     // HP: lapar/haus akut dan gerobak rebah menggerus; istirahat kenyang pelan pulih.
     let dmg = 0;

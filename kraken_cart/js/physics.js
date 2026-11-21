@@ -27,6 +27,7 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
 
       const geo = new THREE.BoxGeometry(1, 1, 1);
       const mat = new THREE.MeshLambertMaterial({ color });
+      this.visible = true;
       this.meshes = [];
       for (let i = 0; i < segments; i++) {
         const m = new THREE.Mesh(geo, mat);
@@ -163,7 +164,13 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
         m.position.copy(p0).addScaledVector(dir, 0.5);
         m.quaternion.setFromUnitVectors(up, dir.normalize());
         m.scale.set(this.thickness, len * 1.06, this.thickness);
+        m.visible = this.visible !== false;
       }
+    }
+
+    setVisible(v) {
+      this.visible = !!v;
+      for (const m of this.meshes) m.visible = this.visible;
     }
   }
 
@@ -206,6 +213,10 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
       this.flipped = false;
       this.flipDir = 0;
       this.flipCooldown = 0;
+      this.hitched = true;
+      this.unhitchedDroop = 0;
+      this.liftProgress = 0;
+      this.onFlip = null;
 
       this.wheels = cart.wheels.map((w) => ({
         ref: w,
@@ -495,12 +506,12 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
       }
 
       // ---------- (1a) TALI TARIK (traces): sabuk perut kuda -> singletree gerobak ----------
-      // Ini yang menarik gerobak. Pegas-damper aksial simetris kiri-kanan supaya tidak narik miring.
+      // Aktif hanya saat kuda terikat (hitched).
       this._src = 'trace';
       if (lying) { this.vel.x *= 0.995; this.vel.z *= 0.995; }   // kuda gak bisa nggeret gerobak rebah
       if (!this.traceRest) this.traceRest = [null, null];
       const girths = [hitchGirthL, hitchGirthR];
-      if (!lying && (this.traceRest[0] == null || !isFinite(this.traceRest[0])) && girths[0] && girths[1]) {
+      if (this.hitched && !lying && (this.traceRest[0] == null || !isFinite(this.traceRest[0])) && girths[0] && girths[1]) {
         // Panjang istirahat kiri & kanan HARUS identik agar tidak pernah mengunci tarikan miring
         let sumL = 0;
         for (let i = 0; i < 2; i++) {
@@ -515,42 +526,41 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
         this.traceRest[0] = symRest;
         this.traceRest[1] = symRest;
       }
-      for (let i = 0; i < 2; i++) {
-        const A = girths[i];
-        if (!A || lying) continue;
-        const rl = this._w3.copy(this.traceLocal[i]).applyQuaternion(q);
-        const bx = this.pos.x + rl.x, by = rootY + rl.y, bz = this.pos.z + rl.z;
-        const dx = bx - A.x, dy = by - A.y, dz = bz - A.z;
-        const L = Math.sqrt(dx * dx + dy * dy + dz * dz);
-        if (!(L > 1e-4)) continue;
-        const nx = dx / L, ny = dy / L, nz = dz / L;
-        if (this.traceRest[i] == null || !isFinite(this.traceRest[i])) this.traceRest[i] = L;
+      if (this.hitched) {
+        for (let i = 0; i < 2; i++) {
+          const A = girths[i];
+          if (!A || lying) continue;
+          const rl = this._w3.copy(this.traceLocal[i]).applyQuaternion(q);
+          const bx = this.pos.x + rl.x, by = rootY + rl.y, bz = this.pos.z + rl.z;
+          const dx = bx - A.x, dy = by - A.y, dz = bz - A.z;
+          const L = Math.sqrt(dx * dx + dy * dy + dz * dz);
+          if (!(L > 1e-4)) continue;
+          const nx = dx / L, ny = dy / L, nz = dz / L;
+          if (this.traceRest[i] == null || !isFinite(this.traceRest[i])) this.traceRest[i] = L;
 
-        const rAx = A.x - horsePos.x, rAz = A.z - horsePos.z;
-        const vAx = hvx + hYawRate * rAz;
-        const vAz = hvz - hYawRate * rAx;
-        const vB = velAt(bx, by, bz, this._w4);
-        const relN = (vAx - vB.x) * nx + (0 - vB.y) * ny + (vAz - vB.z) * nz;
+          const rAx = A.x - horsePos.x, rAz = A.z - horsePos.z;
+          const vAx = hvx + hYawRate * rAz;
+          const vAz = hvz - hYawRate * rAx;
+          const vB = velAt(bx, by, bz, this._w4);
+          const relN = (vAx - vB.x) * nx + (0 - vB.y) * ny + (vAz - vB.z) * nz;
 
-        // damping: laju regangan = (vB - vA)·n  ->  -cTrace*relN
-        let F = this.kTrace * (L - this.traceRest[i]) - this.cTrace * relN;
-        F = Math.max(0, Math.min(22000, F));
-        if (F > 0) addForce(-nx * F, -ny * F, -nz * F, bx, by, bz);
+          // damping: laju regangan = (vB - vA)·n  ->  -cTrace*relN
+          let F = this.kTrace * (L - this.traceRest[i]) - this.cTrace * relN;
+          F = Math.max(0, Math.min(22000, F));
+          if (F > 0) addForce(-nx * F, -ny * F, -nz * F, bx, by, bz);
+        }
       }
 
-      // Permintaan percepatan sentripetal dari gerak kuda. Dipakai untuk
-      // kemiringan bodi: gerobaknya sendiri melambat karena ban nyeret, jadi
-      // kalau pakai yawV gerobak, miringnya hilang justru saat tikungan tajam.
-      this._hSpeed = Math.hypot(hvx, hvz);
-      this._aLatDemand = this._hSpeed * hYawRate;   // m/s² (positif = belok kiri)
+      // Permintaan percepatan sentripetal dari gerak kuda (nol saat kuda dilepas).
+      this._hSpeed = this.hitched ? Math.hypot(hvx, hvz) : 0;
+      this._aLatDemand = this._hSpeed * (this.hitched ? hYawRate : 0);
 
       // ---------- (1b) BATANG PENARIK (thills) + BREECHING (rem mundur) + SELF-ALIGN ----------
-      // Menggunakan titik tengah kalung & ujung batang agar simetris (tidak pernah kunci miring).
       this._src = 'thill';
       const latX = leftA.x, latZ = leftA.z;
       const hfx = Math.cos(horseYaw), hfz = -Math.sin(horseYaw);
       const axleY = rootY + (this.wheels[0] ? this.wheels[0].wa.y : 0.28);
-      if (!lying && hitchColL && hitchColR) {
+      if (this.hitched && !lying && hitchColL && hitchColR) {
         const colMidX = (hitchColL.x + hitchColR.x) * 0.5;
         const colMidZ = (hitchColL.z + hitchColR.z) * 0.5;
         const rlMid = this._w5.copy(this.tipMidLocal).applyQuaternion(q);
@@ -569,7 +579,6 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
         addForce(latX * fLatThill, 0, latZ * fLatThill, bx, axleY, bz);
 
         // 2) Breeching (rem belakang batang tarik) saat gerobak menyusul kuda yang ngerem.
-        // Diterapkan horizontal tepat di tinggi COM agar tidak bikin bak nongak/terbang!
         const overRun = (bx - colMidX) * hfx + (bz - colMidZ) * hfz;
         const relFwd = (vB.x - vCx) * hfx + (vB.z - vCz) * hfz;
         if (overRun > 0.03 || (this._hSpeed < 0.35 && relFwd > 0.04)) {
@@ -580,8 +589,7 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
           if (fBrake > 0) addForce(-hfx * fBrake, 0, -hfz * fBrake, com.x, com.y, com.z);
         }
 
-        // 3) Torsi penyearah alami (self-aligning trail): hidung gerobak selalu
-        // meluruskan diri ke arah kalung kuda supaya tidak pernah macet melenceng.
+        // 3) Torsi penyearah alami (self-aligning trail): hidung gerobak selalu meluruskan diri ke kalung
         const toColX = colMidX - this.pos.x;
         const toColZ = colMidZ - this.pos.z;
         const toColDist = Math.hypot(toColX, toColZ);
@@ -608,6 +616,14 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
             addForce(-(this.vel.x / vCartMag) * parkDamp, 0, -(this.vel.z / vCartMag) * parkDamp, com.x, com.y, com.z);
           }
         }
+      } else if (!this.hitched && !lying) {
+        // Gerobak diparkir tanpa kuda: rem parkir kuat menahan agar tidak menggelinding
+        const vCartMag = Math.hypot(this.vel.x, this.vel.z);
+        if (vCartMag > 0.008) {
+          const parkDamp = Math.min(16000, vCartMag * 4800);
+          addForce(-(this.vel.x / vCartMag) * parkDamp, 0, -(this.vel.z / vCartMag) * parkDamp, com.x, com.y, com.z);
+        }
+        this.yawV *= Math.exp(-5.0 * h);
       }
 
       // ---------- (2b) GEROBAK vs KUDANYA SENDIRI ----------
@@ -691,13 +707,8 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
         if (!this.flipped && Math.abs(this.roll) < LAY_ANG && (beyondCrit || this._tipArm > 0.04)) {
           this._tipGravT = (this._tipGravT || 0) + h;
           if (this._tipGravT > (beyondCrit ? 0.03 : 0.12)) {
-            this.flipped = true;
-            this._tipLatched = true;
-            this.flipAxis = 'roll';
-            this.flipDir = Math.sign(this.roll) || 1;
             this._tipGravT = 0;
-            this.spillCargo();
-            this.shedBrokenWheels();
+            this._triggerFlip('roll', Math.sign(this.roll) || 1, true);
           }
         } else {
           this._tipGravT = 0;
@@ -817,13 +828,8 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
           if (aLatAbs > aTip) this._tipT = (this._tipT || 0) + h;
           else this._tipT = Math.max(0, (this._tipT || 0) - h * 2.5);
           if (!this.flipped && this._tipT > 0.20 && Math.abs(this.roll) < LAY_ANG) {
-            this.flipped = true;
-            this._tipLatched = true;
-            this.flipAxis = 'roll';
-            this.flipDir = -Math.sign(aLat) || 1;
             this._tipT = 0;
-            this.spillCargo();
-            this.shedBrokenWheels();
+            this._triggerFlip('roll', -Math.sign(aLat) || 1, true);
           }
         }
         if (this.flipped && Math.abs(this.roll) < LAY_ANG) {
@@ -876,13 +882,10 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
         if (this.heaveVel > 0) this.heaveVel *= 0.4;
       }
 
-      // jackknife: batang mentok pinggang kuda (batas geometri, bukan animasi)
+      // jackknife: batang mentok pinggang kuda (aktif hanya saat kuda terikat)
       const dJack = this._wrapAngle(this.yaw - horseYaw);
-      // Poros dipatri = gerobak tidak bisa "ikut belok" sendiri, jadi sudut
-      // batang ke kuda wajar lebih besar daripada wagon ber-steering. Ini juga
-      // yang bikin ban nyeret (dan bodi miring) saat tikungan tajam.
       const maxJack = 0.40;
-      if (Math.abs(this.roll) < LAY_ANG && Math.abs(dJack) > maxJack) {
+      if (this.hitched && Math.abs(this.roll) < LAY_ANG && Math.abs(dJack) > maxJack) {
         const sg = Math.sign(dJack);
         this.yaw = this._wrapAngle(horseYaw + sg * maxJack);
         if (this.yawV * sg > 0) this.yawV *= -0.25;
@@ -894,7 +897,7 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
        kuda + pembatas amplop hitch), dipanggil di setiap substep supaya gerobak
        tidak pernah tembus ke kuda saat kuda mengerem mendadak di kecepatan tinggi. */
     _resolveHorseContact(horseX, horseZ, horseYaw, hvx, hvz) {
-      if (this.flipped || this._lying) { this._horsePen = 0; return; }
+      if (!this.hitched || this.flipped || this._lying) { this._horsePen = 0; return; }
       this.euler.set(this.roll, this.yaw, this.pitch, 'YZX');
       this.q.setFromEuler(this.euler);
       const q = this.q, Sv = HC.cartVS;
@@ -1211,18 +1214,24 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
       // (bukan angka gameplay) — di atas ~24° muatan sudah longsor & roda satu sisi lepas
       const tilt = Math.max(Math.abs(this.roll), Math.abs(this.pitch) * 0.8);
       if (!this.flipped && tilt > FLIP_ANG) {
-        this.flipped = true;
-        this.flipAxis = Math.abs(this.roll) >= Math.abs(this.pitch) * 0.8 ? 'roll' : 'pitch';
-        this.flipDir = Math.sign(this.roll || this.pitch) || 1;
-        this.spillCargo();
-        this.shedBrokenWheels();   // roda yang HP-nya udah 0 lepas pas gerobak guling
+        this._triggerFlip(
+          Math.abs(this.roll) >= Math.abs(this.pitch) * 0.8 ? 'roll' : 'pitch',
+          Math.sign(this.roll || this.pitch) || 1,
+          false
+        );
       } else if (this.flipped && !this._tipLatched && tilt < 0.90) {
         // hanya rollover fisik biasa yang bisa auto-recover; trigger sentrifugal terkunci sampai Reset
         this.flipped = false;
       }
 
-      // ---- sinkron visual ----
-      this.euler.set(this.roll, this.yaw, this.pitch, 'YZX');
+      // ---- sinkron visual (termasuk gerobak mendingkluk ke depan saat kuda lepas) ----
+      const wantDroop = (!this.hitched && !this.flipped) ? 1 : 0;
+      this.unhitchedDroop = HC.damp(this.unhitchedDroop || 0, wantDroop, 5.5, dt);
+      const visPitch = this.pitch - this.unhitchedDroop * 0.13;
+      const visRoll = (this.flipped && this.liftProgress > 0)
+        ? this.roll * (1 - this.liftProgress * 0.88)
+        : this.roll;
+      this.euler.set(visRoll, this.yaw, visPitch, 'YZX');
       this.q.setFromEuler(this.euler);
       this.cart.root.position.set(this.pos.x, this.groundY + this.pivotY + this.heave, this.pos.z);
       this.cart.chassis.quaternion.copy(this.q);
@@ -1937,9 +1946,81 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
       this.syncVisual();
     }
 
+    _triggerFlip(axis = 'roll', dir = 1, latched = false) {
+      if (this.flipped) return;
+      this.flipped = true;
+      if (latched) this._tipLatched = true;
+      this.flipAxis = axis;
+      this.flipDir = dir || 1;
+      this.hitched = false;
+      this.liftProgress = 0;
+      for (const w of (this.wheels || [])) {
+        if (!w || w.detached) continue;
+        const maxHp = w.hpMax || 100;
+        w.hp = Math.max(0, (w.hp ?? maxHp) - maxHp * 0.20);
+        if (w.hp <= 0) w.broken = true;
+      }
+      this.spillCargo();
+      this.shedBrokenWheels();
+      if (typeof this.onFlip === 'function') {
+        try { this.onFlip(); } catch (e) { /* no-op */ }
+      }
+    }
+
+    rightCartInPlace() {
+      this.flipped = false;
+      this._lying = false;
+      this._tipLatched = false;
+      this._tipT = 0;
+      this._tipGravT = 0;
+      this._sleepT = 0;
+      this.asleep = false;
+      this.flipDir = 0;
+      this.liftProgress = 0;
+      this.roll = 0; this.rollV = 0;
+      this.pitch = 0; this.pitchV = 0;
+      this.yawV = 0;
+      this.heave = 0; this.heaveVel = 0;
+      this.vel.set(0, 0, 0);
+      this.hitched = false;
+      this.unhitchedDroop = 1;
+      this._dmgGrace = 1.0;
+
+      this.clearDebris();
+      for (const w of (this.wheels || [])) {
+        if (w.detached) {
+          w.detached = false;
+          w.broken = false;
+          w.hp = 20;
+          const ref = w.ref;
+          if (ref && ref.wheelPivot && this.cart && this.cart.root) {
+            if (ref.wheelPivot.parent !== this.cart.root) this.cart.root.add(ref.wheelPivot);
+            ref.wheelPivot.position.set(w.wa.x, w.wa.y + (w.comp || 0), w.wa.z);
+            ref.wheelPivot.rotation.set(0, 0, 0);
+          }
+        }
+        w._imp = 0; w._lat = 0; w._rigidLoad = 0; w._hitFlash = 0;
+        w._wasContact = false; w._prevPen = 0; w._lastDmg = 0; w._dmgCd = 0;
+      }
+
+      for (const item of this.spilled) {
+        this.cart.body.add(item.mesh);
+      }
+      this.initCargoItems();
+      this.syncVisual();
+    }
+
     syncVisual() {
       const root = this.cart.root;
       root.position.set(this.pos.x, this.groundY + this.pivotY + this.heave, this.pos.z);
+      const visPitch = this.pitch - (this.unhitchedDroop || 0) * 0.13;
+      const visRoll = (this.flipped && this.liftProgress > 0)
+        ? this.roll * (1 - this.liftProgress * 0.88)
+        : this.roll;
+      if (this.euler && this.q) {
+        this.euler.set(visRoll, this.yaw, visPitch, 'YZX');
+        this.q.setFromEuler(this.euler);
+      }
       if (this.q) this.cart.chassis.quaternion.copy(this.q);
       if (this.wheels) {
         for (const w of this.wheels) {
@@ -1955,10 +2036,14 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
 
     reset(horseX = 0, horseZ = 0, horseYaw = 0) {
       this.flipped = false;
+      this._lying = false;
       this._tipLatched = false;
       this._tipT = 0;
       this._tipGravT = 0;
       this.flipDir = 0;
+      this.hitched = true;
+      this.unhitchedDroop = 0;
+      this.liftProgress = 0;
       this.roll = 0; this.rollV = 0;
       this.pitch = 0; this.pitchV = 0;
       this.heave = 0; this.heaveVel = 0;

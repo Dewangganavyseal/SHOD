@@ -253,6 +253,8 @@ button.steer.held, button.steer:active { background: #1e5aa8; border-color: #164
 }
 .npc-dot.boarding, .npc-dot.hopping_in { background: #f59e0b; }
 .npc-dot.following { background: #3b82f6; }
+.npc-dot.fallen { background: #ef4444; }
+.npc-dot.helping_flip { background: #8b5cf6; }
 
 .npc-meta { flex: 1; min-width: 0; }
 .npc-name {
@@ -516,6 +518,139 @@ body.is-touch.portrait #v-msg { bottom: 40vh; }
 }
 body.is-touch #hud .brand { display: none; }
 body.is-touch #hud .title { font-size: 11px; }
+
+.npc-hitch-card {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  background: rgba(239,246,255,0.95);
+  border: 1px solid #93c5fd;
+  border-radius: 10px;
+  padding: 6px 8px;
+  font-size: 11px; font-weight: 700; color: #1e40af;
+  box-shadow: 0 3px 12px rgba(0,0,0,0.08);
+  cursor: pointer;
+}
+.npc-hitch-card:hover { background: #dbeafe; }
+
+#btn-hitch.active-free {
+  background: #0f766e; color: #fff; border-color: #0f766e;
+}
+
+/* ---------------- Flip Alert Banner & Lifting Minigame ---------------- */
+#flip-banner {
+  position: fixed;
+  left: 50%;
+  bottom: 84px;
+  transform: translateX(-50%);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  border-radius: 12px;
+  background: rgba(24, 24, 27, 0.92);
+  border: 1px solid rgba(251, 191, 36, 0.55);
+  color: #fef3c7;
+  box-shadow: 0 8px 26px rgba(0,0,0,0.28);
+  backdrop-filter: blur(6px);
+  max-width: 92vw;
+}
+#flip-banner[hidden] { display: none; }
+#flip-banner .fb-text { font-size: 12px; font-weight: 700; }
+#btn-start-flip {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #fff; border: 1px solid #fbbf24;
+  font-size: 12px; font-weight: 800; padding: 6px 12px; border-radius: 8px;
+  white-space: nowrap;
+}
+#btn-start-flip:hover { filter: brightness(1.08); }
+body.is-touch #flip-banner { bottom: 190px; flex-wrap: wrap; justify-content: center; text-align: center; }
+
+#flip-minigame {
+  position: fixed;
+  left: 50%;
+  bottom: 94px;
+  transform: translateX(-50%);
+  width: min(370px, 92vw);
+  z-index: 60;
+  background: rgba(17, 24, 39, 0.94);
+  border: 1px solid rgba(255,255,255,0.20);
+  border-radius: 14px;
+  padding: 12px 14px;
+  color: #f9fafb;
+  box-shadow: 0 14px 36px rgba(0,0,0,0.42);
+  backdrop-filter: blur(8px);
+}
+#flip-minigame[hidden] { display: none; }
+#flip-minigame.shake { animation: fmShake 0.24s ease; }
+@keyframes fmShake {
+  0%, 100% { transform: translateX(-50%); }
+  25% { transform: translateX(calc(-50% - 6px)); }
+  75% { transform: translateX(calc(-50% + 6px)); }
+}
+.fm-head {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 8px; margin-bottom: 8px;
+}
+.fm-title { font-size: 13px; font-weight: 800; letter-spacing: 0.04em; color: #fde68a; }
+.fm-help {
+  font-size: 10.5px; font-weight: 700;
+  padding: 2px 7px; border-radius: 999px;
+  background: rgba(59, 130, 246, 0.22); border: 1px solid rgba(147, 197, 253, 0.45);
+  color: #bfdbfe;
+}
+.fm-prog-wrap {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+}
+.fm-prog-bar {
+  flex: 1; height: 10px; border-radius: 999px;
+  background: rgba(255,255,255,0.12); overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.14);
+}
+.fm-prog-bar i {
+  display: block; height: 100%; width: 0%;
+  background: linear-gradient(90deg, #f59e0b, #22c55e);
+  transition: width 0.08s linear;
+}
+#fm-prog-pct { font-size: 11px; width: 34px; text-align: right; color: #86efac; }
+.fm-track {
+  position: relative; height: 26px; border-radius: 8px;
+  background: rgba(255,255,255,0.10);
+  border: 1px solid rgba(255,255,255,0.22);
+  overflow: hidden; margin-bottom: 8px;
+}
+.fm-zone {
+  position: absolute; top: 0; bottom: 0;
+  background: rgba(34, 197, 94, 0.42);
+  border-left: 2px solid #4ade80;
+  border-right: 2px solid #4ade80;
+}
+.fm-perfect {
+  position: absolute; top: 0; bottom: 0; left: 50%; transform: translateX(-50%);
+  background: rgba(250, 204, 21, 0.72);
+}
+.fm-cursor {
+  position: absolute; top: -2px; bottom: -2px; width: 5px;
+  transform: translateX(-50%);
+  border-radius: 3px;
+  background: #ffffff;
+  box-shadow: 0 0 8px rgba(255,255,255,0.95);
+}
+.fm-feedback {
+  font-size: 11px; text-align: center; min-height: 15px;
+  color: #cbd5e1; font-weight: 600; margin-bottom: 9px;
+}
+.fm-actions { display: flex; gap: 8px; }
+.fm-push {
+  flex: 1; padding: 8px 12px; font-size: 13px; font-weight: 800;
+  border-radius: 9px; border: 1px solid #4ade80;
+  background: linear-gradient(135deg, #16a34a, #15803d); color: #fff;
+}
+.fm-cancel {
+  padding: 8px 12px; font-size: 12px; font-weight: 700;
+  border-radius: 9px; background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.25); color: #e2e8f0;
+}
+body.is-touch #flip-minigame { bottom: 192px; }
 
 #boot-error:not([hidden]) {
   position: fixed;

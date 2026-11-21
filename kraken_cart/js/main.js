@@ -81,6 +81,7 @@ animator.forwardZ = -Math.sin(startPose.yaw);
 const physics = new HC.CartPhysics(cart, world, PIVOT_Y);
 physics.joltScale = store.joltScale();
 physics.reset(startPose.x, startPose.z, startPose.yaw);
+const HITCH_DIST = Math.max(2.2, Math.hypot(startPose.x - physics.pos.x, startPose.z - physics.pos.z));
 
 // ---------------- NPC squad (roster Sylvan Dominion) ----------------
 const party = new HC.NPCParty(scene);
@@ -263,6 +264,23 @@ const SHAFT_LEN = (HC.shaftTipVox - 24.0) * HC.cartVS;
 function updateShafts(dt) {
   const sg = cart.shaftGroup;
   if (!sg) return;
+
+  if (physics.flipped) {
+    sg.rotation.order = 'YXZ';
+    sg.rotation.y = HC.damp(sg.rotation.y, 0, 10, dt);
+    sg.rotation.z = HC.damp(sg.rotation.z, -SHAFT_BASE_PITCH * 0.5, 10, dt);
+    sg.scale.x = HC.damp(sg.scale.x, 1, 10, dt);
+    return;
+  }
+
+  if (!physics.hitched) {
+    sg.rotation.order = 'YXZ';
+    sg.rotation.y = HC.damp(sg.rotation.y, 0, 12, dt);
+    sg.rotation.z = HC.damp(sg.rotation.z, -SHAFT_BASE_PITCH - 0.05, 12, dt);
+    sg.scale.x = HC.damp(sg.scale.x, 1, 12, dt);
+    return;
+  }
+
   sg.getWorldPosition(_shaftPivotW);
   _shaftCollarMid.copy(anchors.a).add(anchors.c).multiplyScalar(0.5);
   _shaftDirW.copy(_shaftCollarMid).sub(_shaftPivotW);
@@ -393,6 +411,7 @@ const survCtx = () => ({
   moving: animator.throttle > 0.06,
   running: animator.state === 'run' && animator.throttle > 0.06,
   flipped: !!physics.flipped,
+  unhitched: !physics.hitched,
 });
 function stopForSurvivalAction() {
   keysHeld.forward = false;
@@ -421,8 +440,9 @@ function doDrink() {
   syncVitals();
 }
 function doJump() {
-  if (survival.stamina < 6) { survival.msg = 'Stamina kurang buat lompat.'; syncVitals(); return; }
-  survival.stamina = Math.max(0, survival.stamina - 6);
+  const cost = physics.hitched ? 6 : 4;
+  if (survival.stamina < cost) { survival.msg = 'Stamina kurang buat lompat.'; syncVitals(); return; }
+  survival.stamina = Math.max(0, survival.stamina - cost);
   animator.setState('jump');
 }
 
@@ -523,13 +543,18 @@ function syncNpcHud() {
 function renderNpcDock() {
   if (!npcDockEl) return;
   const near = party.members.length < HC.NPC_TEAM_MAX ? party.nearby(animator.x, animator.z) : null;
+  const isStationary = Math.abs(animator.speed) < 0.85 && Math.hypot(physics.vel.x, physics.vel.z) < 0.85;
+  const canHitchAction = !physics.flipped && (!physics.hitched || isStationary);
+  const nearFront = Math.hypot(animator.x - physics.pos.x, animator.z - physics.pos.z) <= 6.5;
+  const hitchMode = !canHitchAction ? 'none' : physics.hitched ? 'detach' : nearFront ? 'attach' : 'far';
   const sig = party.members.map((m) => `${m.uid}:${m.role.id}:${m.state}`).join('|') +
-    '#' + (near ? near.npc.role.id : '');
+    '#' + (near ? near.npc.role.id : '') +
+    '@' + hitchMode + (physics.flipped ? ':F' : '');
   if (sig === _lastDockSig) return;
   _lastDockSig = sig;
 
   npcDockEl.innerHTML = '';
-  const hasAny = party.members.length > 0 || !!near;
+  const hasAny = party.members.length > 0 || !!near || canHitchAction;
   npcDockEl.hidden = !hasAny;
   if (!hasAny) return;
 
@@ -538,6 +563,8 @@ function renderNpcDock() {
     hopping_in: 'Naik Kursi...',
     seated: 'Di Kursi',
     following: 'Jalan Ikut',
+    fallen: 'Terjatuh!',
+    helping_flip: 'Bantu Angkat',
   };
   for (const m of party.members) {
     const r = m.role;
@@ -572,6 +599,15 @@ function renderNpcDock() {
     if (m.state === 'hopping_in') {
       btnToggle.disabled = true;
       btnToggle.textContent = 'Naik...';
+    } else if (m.state === 'fallen') {
+      btnToggle.disabled = true;
+      btnToggle.textContent = 'Terjatuh';
+    } else if (m.state === 'helping_flip') {
+      btnToggle.disabled = true;
+      btnToggle.textContent = 'Dorong...';
+    } else if (canBoard && physics.flipped) {
+      btnToggle.disabled = true;
+      btnToggle.textContent = '⬆ Terbalik';
     } else if (canBoard) {
       btnToggle.textContent = '⬆ Naik';
       bindTapSafe(btnToggle, () => {
@@ -613,6 +649,20 @@ function renderNpcDock() {
     bindTapSafe(pill, recruitNearbyNPC);
     npcDockEl.appendChild(pill);
   }
+
+  if (canHitchAction) {
+    const hBtn = document.createElement('button');
+    hBtn.type = 'button';
+    hBtn.className = 'npc-hitch-card' + (!physics.hitched ? ' free' : '');
+    if (physics.hitched) {
+      hBtn.textContent = '🔓 Lepas Tali Gerobak';
+    } else {
+      hBtn.textContent = nearFront ? '🔗 Pasang Tali Gerobak' : '🔗 Pasang Tali (Dekati Gerobak)';
+      hBtn.disabled = !nearFront;
+    }
+    bindTapSafe(hBtn, toggleHitch);
+    npcDockEl.appendChild(hBtn);
+  }
 }
 party.onChange = renderNpcDock;
 
@@ -630,6 +680,315 @@ bindBtn('btn-recruit', recruitNearbyNPC);
 bindBtn('btn-release', releaseLastNPC);
 window.recruitNearbyNPC = recruitNearbyNPC;
 window.releaseLastNPC = releaseLastNPC;
+const ALL_ROPES = [towL, towR, traceL, traceR, reinL, reinR];
+function setRopesVisible(v) {
+  for (const r of ALL_ROPES) if (r && r.setVisible) r.setVisible(v);
+}
+
+const btnHitchEl = document.getElementById('btn-hitch');
+let _lastHitchSig = '';
+function syncHitchUi() {
+  if (!btnHitchEl) return;
+  const free = !physics.hitched;
+  const movingFast = Math.abs(animator.speed) >= 0.85 || Math.hypot(physics.vel.x, physics.vel.z) >= 0.85;
+  const nearFront = Math.hypot(animator.x - physics.pos.x, animator.z - physics.pos.z) <= 6.5;
+  const sig = `${physics.flipped ? 'F' : ''}|${free ? 'U' : 'H'}|${movingFast ? 'M' : 'S'}|${nearFront ? 'N' : 'D'}`;
+  if (sig === _lastHitchSig) return;
+  _lastHitchSig = sig;
+  btnHitchEl.classList.toggle('active-free', free);
+  if (physics.flipped) {
+    btnHitchEl.disabled = true;
+    btnHitchEl.textContent = '⚠ Terbalik';
+  } else if (physics.hitched) {
+    btnHitchEl.disabled = movingFast;
+    btnHitchEl.textContent = movingFast ? '🔗 Berhenti Dulu' : '🔓 Lepas Tali [V]';
+  } else {
+    btnHitchEl.disabled = !nearFront;
+    btnHitchEl.textContent = nearFront ? '🔗 Pasang Tali [V]' : '🔗 Dekati Gerobak';
+  }
+}
+
+function unhitchCart(fromFlip = false) {
+  if (!fromFlip) {
+    if (physics.flipped) {
+      survival.msg = 'Gerobak sedang terbalik!';
+      syncVitals();
+      return false;
+    }
+    const movingFast = Math.abs(animator.speed) >= 0.85 || Math.hypot(physics.vel.x, physics.vel.z) >= 0.85;
+    if (physics.hitched && movingFast) {
+      survival.msg = 'Hentikan kuda & gerobak dulu sebelum melepas tali.';
+      syncVitals();
+      return false;
+    }
+  }
+  physics.hitched = false;
+  animator.unhitched = true;
+  setRopesVisible(false);
+  if (!fromFlip) {
+    survival.msg = 'Tali dilepas — kuda bebas bergerak & lebih hemat energi.';
+    syncVitals();
+  }
+  _lastDockSig = '';
+  _lastHitchSig = '';
+  renderNpcDock();
+  syncHitchUi();
+  return true;
+}
+
+function reHitchCart() {
+  if (physics.flipped) {
+    survival.msg = 'Balikkan gerobak terlebih dahulu.';
+    syncVitals();
+    return false;
+  }
+  if (physics.hitched) return true;
+  const dist = Math.hypot(animator.x - physics.pos.x, animator.z - physics.pos.z);
+  if (dist > 6.5) {
+    survival.msg = 'Dekatkan kuda ke depan gerobak untuk memasang tali.';
+    syncVitals();
+    return false;
+  }
+  animator.speed = 0;
+  animator.targetSpeed = 0;
+  animator.yawRate = 0;
+  animator.steer = 0;
+  animator.setThrottle(0);
+  animator.unhitched = false;
+  animator.yaw = physics.yaw;
+  animator.forwardX = Math.cos(physics.yaw);
+  animator.forwardZ = -Math.sin(physics.yaw);
+  animator.x = physics.pos.x + animator.forwardX * HITCH_DIST;
+  animator.z = physics.pos.z + animator.forwardZ * HITCH_DIST;
+  physics.vel.set(0, 0, 0);
+  physics.angVel = 0;
+  physics.hitched = true;
+  physics.unhitchedDroop = 0;
+  if (cart.shaftGroup) {
+    cart.shaftGroup.rotation.set(0, 0, 0);
+    cart.shaftGroup.scale.set(1, 1, 1);
+  }
+  animator.update(0.001);
+  if (physics.syncVisual) physics.syncVisual();
+  setRopesVisible(true);
+  resetRopes();
+  survival.msg = 'Tali dipasang — gerobak siap ditarik kembali.';
+  syncVitals();
+  _lastDockSig = '';
+  _lastHitchSig = '';
+  renderNpcDock();
+  syncHitchUi();
+  return true;
+}
+
+function toggleHitch() {
+  if (physics.hitched) return unhitchCart(false);
+  return reHitchCart();
+}
+bindBtn('btn-hitch', toggleHitch);
+window.toggleHitch = toggleHitch;
+
+// ---- Minigame Balikkan Gerobak (dibantu NPC) ----
+const flipBannerEl = document.getElementById('flip-banner');
+const fbNpcCountEl = document.getElementById('fb-npc-count');
+const btnStartFlipEl = document.getElementById('btn-start-flip');
+const flipGameEl = document.getElementById('flip-minigame');
+const fmHelpBadgeEl = document.getElementById('fm-help-badge');
+const fmProgFillEl = document.getElementById('fm-prog-fill');
+const fmProgPctEl = document.getElementById('fm-prog-pct');
+const fmZoneEl = document.getElementById('fm-zone');
+const fmPerfectEl = document.getElementById('fm-perfect');
+const fmCursorEl = document.getElementById('fm-cursor');
+const fmFeedbackEl = document.getElementById('fm-feedback');
+const btnFlipPushEl = document.getElementById('btn-flip-push');
+const btnFlipCancelEl = document.getElementById('btn-flip-cancel');
+
+let _lastBannerSig = '';
+function syncFlipBanner() {
+  if (!flipBannerEl) return;
+  const show = !!physics.flipped && !flipGame.active;
+  const npcN = party.members.length;
+  const sig = `${show ? '1' : '0'}|${npcN}`;
+  if (sig === _lastBannerSig) return;
+  _lastBannerSig = sig;
+  flipBannerEl.hidden = !show;
+  flipBannerEl.style.display = show ? '' : 'none';
+  if (fbNpcCountEl) {
+    fbNpcCountEl.textContent = npcN > 0
+      ? `${npcN} NPC siap membantu`
+      : 'Sendirian (lebih berat — rekrut NPC jika ada)';
+  }
+}
+
+const flipGame = {
+  active: false,
+  progress: 0,
+  cursor: 0.5,
+  dir: 1,
+  zoneCenter: 0.5,
+  cooldown: 0,
+  _shakeTimer: null,
+
+  configForCount(npcCount) {
+    const c = Math.max(0, Math.min(4, Math.floor(npcCount || 0)));
+    const table = [
+      { zoneWidth: 0.18, perfectWidth: 0.06, cursorSpeed: 1.45, gainGood: 14, gainPerfect: 22, missPenalty: 12, decayPerSec: 4.2, label: '0 NPC (Sendirian — Berat!)' },
+      { zoneWidth: 0.26, perfectWidth: 0.09, cursorSpeed: 1.22, gainGood: 20, gainPerfect: 30, missPenalty: 9,  decayPerSec: 2.8, label: '1 NPC Membantu (+Mudah)' },
+      { zoneWidth: 0.34, perfectWidth: 0.12, cursorSpeed: 1.04, gainGood: 26, gainPerfect: 38, missPenalty: 6,  decayPerSec: 1.6, label: '2 NPC Membantu (+Lebih Mudah)' },
+      { zoneWidth: 0.42, perfectWidth: 0.16, cursorSpeed: 0.88, gainGood: 32, gainPerfect: 46, missPenalty: 4,  decayPerSec: 0.8, label: '3 NPC Membantu (Sangat Ringan!)' },
+    ];
+    return table[Math.min(3, c)];
+  },
+
+  _render(cfg) {
+    const c = cfg || this.configForCount(party.members.length);
+    if (fmHelpBadgeEl) fmHelpBadgeEl.textContent = c.label;
+    const pct = Math.max(0, Math.min(100, Math.round(this.progress)));
+    if (fmProgFillEl) fmProgFillEl.style.width = pct + '%';
+    if (fmProgPctEl) fmProgPctEl.textContent = pct + '%';
+    if (fmZoneEl) {
+      fmZoneEl.style.left = ((this.zoneCenter - c.zoneWidth * 0.5) * 100).toFixed(2) + '%';
+      fmZoneEl.style.width = (c.zoneWidth * 100).toFixed(2) + '%';
+    }
+    if (fmPerfectEl) {
+      fmPerfectEl.style.left = ((this.zoneCenter - c.perfectWidth * 0.5) * 100).toFixed(2) + '%';
+      fmPerfectEl.style.width = (c.perfectWidth * 100).toFixed(2) + '%';
+    }
+    if (fmCursorEl) {
+      fmCursorEl.style.left = (this.cursor * 100).toFixed(2) + '%';
+    }
+  },
+
+  _setFeedback(text, kind) {
+    if (!fmFeedbackEl) return;
+    fmFeedbackEl.textContent = text;
+    fmFeedbackEl.dataset.kind = kind || '';
+  },
+
+  _shake() {
+    if (!flipGameEl) return;
+    flipGameEl.classList.remove('fm-shake');
+    void flipGameEl.offsetWidth;
+    flipGameEl.classList.add('fm-shake');
+    if (this._shakeTimer) clearTimeout(this._shakeTimer);
+    this._shakeTimer = setTimeout(() => flipGameEl.classList.remove('fm-shake'), 320);
+  },
+
+  start() {
+    if (!physics.flipped) return false;
+    this.active = true;
+    this.progress = 8;
+    this.cursor = 0.18;
+    this.dir = 1;
+    this.zoneCenter = 0.5;
+    this.cooldown = 0;
+    party.setHelpingFlip(true);
+    if (flipGameEl) {
+      flipGameEl.hidden = false;
+      flipGameEl.style.display = '';
+    }
+    this._setFeedback('Tekan SPASI atau DORONG saat jarum di zona hijau!', 'info');
+    this._render();
+    _lastDockSig = '';
+    renderNpcDock();
+    syncFlipBanner();
+    return true;
+  },
+
+  stop(succeeded = false) {
+    this.active = false;
+    if (!succeeded) physics.liftProgress = 0;
+    party.setHelpingFlip(false);
+    if (flipGameEl) {
+      flipGameEl.hidden = true;
+      flipGameEl.style.display = 'none';
+    }
+    _lastDockSig = '';
+    _lastBannerSig = '';
+    renderNpcDock();
+    syncFlipBanner();
+  },
+
+  step(dt) {
+    if (!this.active) return;
+    if (!physics.flipped) {
+      this.stop(false);
+      return;
+    }
+    const cfg = this.configForCount(party.members.length);
+    if (this.cooldown > 0) this.cooldown = Math.max(0, this.cooldown - dt);
+    this.cursor += this.dir * cfg.cursorSpeed * dt;
+    if (this.cursor >= 0.96) { this.cursor = 0.96; this.dir = -1; }
+    else if (this.cursor <= 0.04) { this.cursor = 0.04; this.dir = 1; }
+    if (this.progress > 0) {
+      this.progress = Math.max(0, this.progress - cfg.decayPerSec * dt);
+    }
+    physics.liftProgress = Math.max(0, Math.min(1, this.progress / 100));
+    this._render(cfg);
+  },
+
+  push() {
+    if (!this.active || !physics.flipped) return false;
+    if (this.cooldown > 0) return false;
+    this.cooldown = 0.20;
+    const npcN = party.members.length;
+    const cfg = this.configForCount(npcN);
+    const dist = Math.abs(this.cursor - this.zoneCenter);
+    if (dist <= cfg.perfectWidth * 0.5) {
+      this.progress = Math.min(100, this.progress + cfg.gainPerfect);
+      this._setFeedback(`SEMPURNA! Angkatan kuat (+${cfg.gainPerfect}%)`, 'perfect');
+      this.zoneCenter = 0.34 + Math.random() * 0.32;
+    } else if (dist <= cfg.zoneWidth * 0.5) {
+      this.progress = Math.min(100, this.progress + cfg.gainGood);
+      this._setFeedback(`BAGUS! Terus dorong (+${cfg.gainGood}%)`, 'good');
+      this.zoneCenter = 0.34 + Math.random() * 0.32;
+    } else {
+      this.progress = Math.max(0, this.progress - cfg.missPenalty);
+      this._setFeedback(`MELESET! (-${cfg.missPenalty}%) Tunggu zona hijau`, 'miss');
+      this._shake();
+    }
+    physics.liftProgress = Math.max(0, Math.min(1, this.progress / 100));
+    this._render(cfg);
+
+    if (this.progress >= 100) {
+      physics.liftProgress = 1;
+      physics.rightCartInPlace();
+      this.stop(true);
+      survival.msg = npcN > 0
+        ? `Gerobak berhasil ditegakkan bersama ${npcN} NPC! Dekati gerobak untuk pasang tali.`
+        : 'Gerobak berhasil ditegakkan! Dekati gerobak untuk pasang tali.';
+      syncVitals();
+      syncNpcHud();
+      syncHitchUi();
+    }
+    return true;
+  },
+};
+
+if (btnStartFlipEl) bindTapSafe(btnStartFlipEl, () => flipGame.start());
+if (btnFlipPushEl) bindTapSafe(btnFlipPushEl, () => flipGame.push());
+if (btnFlipCancelEl) bindTapSafe(btnFlipCancelEl, () => flipGame.stop(false));
+if (flipBannerEl) { flipBannerEl.hidden = true; flipBannerEl.style.display = 'none'; }
+if (flipGameEl) { flipGameEl.hidden = true; flipGameEl.style.display = 'none'; }
+window.FLIP_GAME = flipGame;
+
+physics.onFlip = () => {
+  unhitchCart(true);
+  party.onCartFlip(cart, physics);
+  const dmgRep = physics.wheelReport ? physics.wheelReport() : [];
+  const broken = dmgRep.filter((r) => r.detached).length;
+  survival.msg = broken > 0
+    ? `Gerobak terguling! Kuda terlepas, ${broken} roda lepas, NPC terjatuh.`
+    : 'Gerobak terguling! Kuda terlepas, ban -20% HP, NPC terjatuh.';
+  _lastDockSig = '';
+  _lastBannerSig = '';
+  syncVitals();
+  syncNpcHud();
+  renderNpcDock();
+  syncHitchUi();
+  syncFlipBanner();
+};
+
 function clearRamps() {
   if (!world || !world.ramps) return;
   for (let i = 0; i < world.ramps.length; i++) {
@@ -640,7 +999,8 @@ function clearRamps() {
 }
 function resetRig() {
   clearRamps();
-  const pose = (world.initialHorsePose && (physics.flipped || Math.hypot(animator.x, animator.z) > 28))
+  flipGame.stop(false);
+  const pose = (world.initialHorsePose && (physics.flipped || !physics.hitched || Math.hypot(animator.x, animator.z) > 28))
     ? world.initialHorsePose()
     : { x: animator.x, z: animator.z, yaw: animator.yaw };
   animator.x = pose.x;
@@ -650,10 +1010,22 @@ function resetRig() {
   animator.forwardZ = -Math.sin(pose.yaw);
   animator.speed = 0;
   animator.targetSpeed = 0;
+  animator.unhitched = false;
   animator.setThrottle(0);
+  if (cart.shaftGroup) {
+    cart.shaftGroup.rotation.set(0, 0, 0);
+    cart.shaftGroup.scale.set(1, 1, 1);
+  }
   physics.reset(animator.x, animator.z, animator.yaw);
+  setRopesVisible(true);
   resetRopes();
   animator.setState('walk');
+  _lastDockSig = '';
+  _lastHitchSig = '';
+  _lastBannerSig = '';
+  renderNpcDock();
+  syncHitchUi();
+  syncFlipBanner();
 }
 bindBtn('btn-reset', resetRig);
 
@@ -734,13 +1106,25 @@ window.addEventListener('keydown', (e) => {
     if (touchUI && touchUI.setRunLatched) touchUI.setRunLatched(false);
   }
   else if (k === '2' || k === 'r' || k === 'shift') { if (!e.repeat) toggleRun(); }
-  else if (k === ' ' || k === 'j') { e.preventDefault(); doJump(); }
+  else if (k === ' ' || k === 'j' || k === 'enter') {
+    if (flipGame.active && (k === ' ' || k === 'enter')) {
+      e.preventDefault();
+      if (!e.repeat) flipGame.push();
+    } else if (k === ' ' || k === 'j') {
+      e.preventDefault();
+      doJump();
+    }
+  }
+  else if (k === 'escape') {
+    if (flipGame.active) { e.preventDefault(); flipGame.stop(false); }
+  }
   else if (k === '3' || k === 'e') doEat();
   else if (k === '4' || k === 'f' || k === 'm') doDrink();
   else if (k === 't') spawnTipRamp();
   else if (k === 'b') world.spawnPebbleClusterAhead(animator.x, animator.z, animator.yaw);
   else if (k === 'g') recruitNearbyNPC();
   else if (k === 'h') releaseLastNPC();
+  else if (k === 'v') { e.preventDefault(); if (!e.repeat) toggleHitch(); }
   else if (k === 'x') resetRig();
   else if (k === 'u') {
     const p = document.getElementById('upgrade-panel');
@@ -765,6 +1149,8 @@ window.addEventListener('blur', () => {
 // ---------------- loop ----------------
 resetRopes();
 scene.updateMatrixWorld(true);
+syncHitchUi();
+syncFlipBanner();
 
 let last = performance.now();
 let camPrevYaw = animator.yaw;
@@ -795,13 +1181,9 @@ function stepSim(dt) {
   const stillActing = survival.eating || survival.drinking;
   if (wasActing && !stillActing) animator.setState(runLatched ? 'run' : 'walk');
 
-  // Gerobak udah rebah (lewat batas 75°): kuda TERPAKU TOTAL — posisi, langkah,
-  // kepala, semuanya beku. Gak ada input yang bisa ngusik dia sampai Reset.
-  if (!physics.flipped) {
-    animator.update(dt);
-    if (world.keepHorseInValley) world.keepHorseInValley(animator, dt);
-  }
-  else { animator.speed = 0; animator.targetSpeed = 0; animator.yawRate = 0; animator.steer = 0; }
+  animator.unhitched = !physics.hitched;
+  animator.update(dt);
+  if (world.keepHorseInValley) world.keepHorseInValley(animator, dt);
   world.setCartPose(physics.pos.x, physics.pos.z);
   world.update(animator.x, dt, animator.z, animator.yaw);
   party.update(animator.x, animator.z, animator.yaw, dt, cart, physics);
@@ -829,12 +1211,18 @@ function stepSim(dt) {
 
   scene.updateMatrixWorld(true);
   readAnchors();
-  towL.update(dt, anchors.a, anchors.b);
-  towR.update(dt, anchors.c, anchors.d);
-  traceL.update(dt, anchors.gL, anchors.stL);
-  traceR.update(dt, anchors.gR, anchors.stR);
-  reinL.update(dt, anchors.bitL, anchors.seat);
-  reinR.update(dt, anchors.bitR, anchors.seat);
+  if (physics.hitched) {
+    towL.update(dt, anchors.a, anchors.b);
+    towR.update(dt, anchors.c, anchors.d);
+    traceL.update(dt, anchors.gL, anchors.stL);
+    traceR.update(dt, anchors.gR, anchors.stR);
+    reinL.update(dt, anchors.bitL, anchors.seat);
+    reinR.update(dt, anchors.bitR, anchors.seat);
+  }
+
+  flipGame.step(dt);
+  syncFlipBanner();
+  syncHitchUi();
 
   const gyHorse = world.terrainHeightAt ? world.terrainHeightAt(animator.x, animator.z) : 0;
   horseBlob.position.set(animator.x - Math.cos(animator.yaw) * 0.15, gyHorse + 0.02, animator.z + Math.sin(animator.yaw) * 0.15);

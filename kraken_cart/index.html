@@ -89,8 +89,34 @@
     <button id="btn-pebble"><span class="k">B. </span>Kerikil</button>
     <button id="btn-recruit"><span class="k">G. </span>Rekrut NPC</button>
     <button id="btn-release"><span class="k">H. </span>Lepas</button>
+    <button id="btn-hitch" title="Lepas / Pasang Tali Gerobak (V)"><span class="k">V. </span>Lepas Tali</button>
     <button id="btn-ramp" class="warn"><span class="k">T. </span>Miring</button>
     <button id="btn-reset"><span class="k">X. </span>Reset</button>
+  </div>
+
+  <div id="flip-banner" hidden>
+    <div class="fb-text">⚠️ Gerobak terguling! Ban -20% HP · Kuda terlepas</div>
+    <button id="btn-start-flip" type="button">🔄 Balikkan Gerobak (<span id="fb-npc-count">0</span> NPC)</button>
+  </div>
+
+  <div id="flip-minigame" hidden>
+    <div class="fm-head">
+      <span class="fm-title">💪 ANGKAT GEROBAK</span>
+      <span class="fm-help" id="fm-help-badge">0 NPC (Berat)</span>
+    </div>
+    <div class="fm-prog-wrap">
+      <div class="fm-prog-bar"><i id="fm-prog-fill"></i></div>
+      <b id="fm-prog-pct">0%</b>
+    </div>
+    <div class="fm-track" id="fm-track">
+      <div class="fm-zone" id="fm-zone"><div class="fm-perfect" id="fm-perfect"></div></div>
+      <div class="fm-cursor" id="fm-cursor"></div>
+    </div>
+    <div class="fm-feedback" id="fm-feedback">Tekan SPASI atau DORONG saat jarum di zona hijau!</div>
+    <div class="fm-actions">
+      <button id="btn-flip-push" type="button" class="fm-push">💪 DORONG! (Spasi)</button>
+      <button id="btn-flip-cancel" type="button" class="fm-cancel">Batal</button>
+    </div>
   </div>
 
   <div id="boot-error" hidden></div>
@@ -113,7 +139,7 @@
     (function boot() {
       function loadBundle() {
         const s = document.createElement('script');
-        s.src = './dist/game.bundle.js?v=hutan20';
+        s.src = './dist/game.bundle.js?v=hutan21';
         s.onerror = () => reportBootError('Gagal memuat ./dist/game.bundle.js');
         document.body.appendChild(s);
       }
@@ -125,7 +151,7 @@
 
       const mod = document.createElement('script');
       mod.type = 'module';
-      mod.src = './js/main.js?v=hutan10';
+      mod.src = './js/main.js?v=hutan11';
       mod.onerror = () => loadBundle();
       document.body.appendChild(mod);
     })();
