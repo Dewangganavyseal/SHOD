@@ -217,6 +217,7 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
       this.unhitchedDroop = 0;
       this.liftProgress = 0;
       this.onFlip = null;
+      this._envHit = { hit: false, nx: 0, nz: 0, pen: 0, hitType: null };
 
       this.wheels = cart.wheels.map((w) => ({
         ref: w,
@@ -247,6 +248,7 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
       this._w4 = new THREE.Vector3();
       this._w5 = new THREE.Vector3();
       this._w6 = new THREE.Vector3();
+      this._w8 = new THREE.Vector3();
       this._rebuildDims();
       this.initCargoItems();
     }
@@ -1013,6 +1015,70 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
       this._horsePen = Math.max(0, maxOver, boxPen);
     }
 
+    _resolveEnvCollisions() {
+      if (!this.world || typeof this.world.resolveCircleCollision !== 'function') {
+        this._envHit.hit = false;
+        this._envHit.pen = 0;
+        this._envHit.hitType = null;
+        return;
+      }
+      this.euler.set(this.roll, this.yaw, this.pitch, 'YZX');
+      this.q.setFromEuler(this.euler);
+      const q = this.q, Sv = HC.cartVS;
+      const capH = (this.cart.specs && this.cart.specs.capSpec) || {};
+      const frontX = (capH.bedFrontX ?? 24) * Sv;
+      const rearX = (capH.bedRearX ?? -24) * Sv;
+      const midX = (frontX + rearX) * 0.5;
+      const wLat = this.wheels && this.wheels[0] ? Math.abs(this.wheels[0].wa.z) + 0.06 : 1.02;
+      const halfW = Math.max((capH.bedHalfW ?? 15) * Sv, wLat);
+      const hullPts = [
+        [frontX, halfW], [frontX, 0], [frontX, -halfW],
+        [midX, halfW], [midX, -halfW],
+        [rearX, halfW], [rearX, 0], [rearX, -halfW],
+      ];
+      let hit = false, bestNx = 0, bestNz = 0, bestPen = 0, hitType = null;
+      let pushX = 0, pushZ = 0, torqueY = 0;
+      const footY = this.groundY - 0.35;
+      const tmp = this._w8 || (this._w8 = new THREE.Vector3());
+      for (let i = 0; i < hullPts.length; i++) {
+        const p = hullPts[i];
+        const rl = tmp.set(p[0], 0, p[1]).applyQuaternion(q);
+        const wx = this.pos.x + rl.x, wz = this.pos.z + rl.z;
+        const res = this.world.resolveCircleCollision(wx, wz, 0.28, footY);
+        if (res.hit) {
+          const px = res.x - wx, pz = res.z - wz;
+          hit = true;
+          if (Math.abs(px) > Math.abs(pushX)) pushX = px;
+          if (Math.abs(pz) > Math.abs(pushZ)) pushZ = pz;
+          torqueY += (rl.z * px - rl.x * pz);
+          if (res.pen > bestPen) {
+            bestPen = res.pen;
+            bestNx = res.nx;
+            bestNz = res.nz;
+            hitType = res.hitType;
+          }
+        }
+      }
+      this._envHit.hit = hit;
+      this._envHit.nx = bestNx;
+      this._envHit.nz = bestNz;
+      this._envHit.pen = bestPen;
+      this._envHit.hitType = hitType;
+      if (hit) {
+        this.pos.x += pushX;
+        this.pos.z += pushZ;
+        const vn = this.vel.x * bestNx + this.vel.z * bestNz;
+        if (vn < 0) {
+          const bounce = vn * 1.12;
+          this.vel.x -= bestNx * bounce;
+          this.vel.z -= bestNz * bounce;
+        }
+        if (!this.flipped && !this._lying) {
+          this.yawV = Math.max(-1.8, Math.min(1.8, this.yawV + Math.max(-0.5, Math.min(0.5, torqueY * 1.4))));
+        }
+      }
+    }
+
     update(dt, horseX, horseSpeed, horseZ = 0, horseYaw = 0, collarWorld = null) {
       dt = Math.min(Math.max(dt, 0.0005), 0.033);
       const prevVx = this.vel.x, prevVz = this.vel.z, prevHeaveVel = this.heaveVel;
@@ -1066,13 +1132,25 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
         }
       }
       let peakHorsePen = 0;
+      let peakEnvPen = 0;
+      let peakEnvHit = { hit: false, nx: 0, nz: 0, pen: 0, hitType: null };
       for (let i = 0; i < SUB; i++) {
         this._substep(h, horseYaw, hvx, hvz, hYawRate, colL, colR, girL, girR, horsePos);
-        // Selesaikan kontak keras tiap substep supaya bak tidak pernah menembus buritan kuda
+        // Selesaikan kontak keras tiap substep supaya bak tidak pernah menembus buritan kuda & objek alam
         this._resolveHorseContact(horseX, horseZ, horseYaw, hvx, hvz);
+        this._resolveEnvCollisions();
         if (this._horsePen > peakHorsePen) peakHorsePen = this._horsePen;
+        if (this._envHit.hit && this._envHit.pen >= peakEnvPen) {
+          peakEnvPen = this._envHit.pen;
+          peakEnvHit.hit = true;
+          peakEnvHit.nx = this._envHit.nx;
+          peakEnvHit.nz = this._envHit.nz;
+          peakEnvHit.pen = this._envHit.pen;
+          peakEnvHit.hitType = this._envHit.hitType;
+        }
       }
       this._horsePen = peakHorsePen;
+      this._envHit = peakEnvHit;
       if (this.susRigid && rigidBump.length) {
         /* Poros kaku = tinggi rangka MENGIKUTI roda, tidak ada langkah pegas.
            Jadi undakan di bawah roda langsung jadi displacement bodi (bukan
@@ -1383,6 +1461,17 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
         d.obj.rotation.y += d.ang.y * dt;
         d.obj.rotation.z += d.ang.z * dt;
         const p = d.obj.position;
+        if (this.world && typeof this.world.resolveCircleCollision === 'function') {
+          const er = this.world.resolveCircleCollision(p.x, p.z, d.r || 0.35, p.y - (d.r || 0.35));
+          if (er.hit) {
+            p.x = er.x; p.z = er.z;
+            const vn = d.vel.x * er.nx + d.vel.z * er.nz;
+            if (vn < 0) {
+              d.vel.x -= er.nx * vn * 1.25;
+              d.vel.z -= er.nz * vn * 1.25;
+            }
+          }
+        }
         const gy = this.world.heightAt(p.x, p.z) + d.r * 0.55;
         if (p.y <= gy) {
           p.y = gy;
@@ -1823,6 +1912,17 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
         const item = this.spilled[i];
         item.vel.y -= g * dt;
         item.pos.addScaledVector(item.vel, dt);
+        if (this.world && typeof this.world.resolveCircleCollision === 'function') {
+          const er = this.world.resolveCircleCollision(item.pos.x, item.pos.z, item.radius || 0.25, item.pos.y - (item.radius || 0.25));
+          if (er.hit) {
+            item.pos.x = er.x; item.pos.z = er.z;
+            const vn = item.vel.x * er.nx + item.vel.z * er.nz;
+            if (vn < 0) {
+              item.vel.x -= er.nx * vn * 1.25;
+              item.vel.z -= er.nz * vn * 1.25;
+            }
+          }
+        }
         item.mesh.position.copy(item.pos);
         item.quat.multiply(
           new THREE.Quaternion().setFromEuler(

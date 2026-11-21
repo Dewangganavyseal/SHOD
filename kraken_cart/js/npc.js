@@ -379,6 +379,14 @@ HC.updateWildNPC = function (item, dt, horse, world) {
       b.turnSign = -(b.turnSign || 1);
       walkSpeed = 0;
     }
+    if (world && typeof world.resolveCircleCollision === 'function') {
+      const colRes = world.resolveCircleCollision(item.x, item.z, 0.34);
+      if (colRes.hit) {
+        item.x = colRes.x; item.z = colRes.z;
+        b.dir = Math.atan2(colRes.nx, colRes.nz) + (b.turnSign || 1) * 0.45;
+        b.turnSign = -(b.turnSign || 1);
+      }
+    }
     // Klem KERAS: radius kamp adalah batas wilayah, bukan saran. Tanpa ini
     // warga terus melangkah sepanjang timer jalan (terukur 2,48 m di radius 2,4).
     const ox = item.x - item.homeX, oz = item.z - item.homeZ;
@@ -626,6 +634,12 @@ HC.NPCParty = class {
     const cc = this._cartCenterWorld(c);
     const rigSpd = physics ? Math.hypot(physics.vel.x, physics.vel.z) : 0;
     const flipLock = !!(physics && physics.flipped);
+    const resolveProps = (rad = 0.34) => {
+      if (this.world && typeof this.world.resolveCircleCollision === 'function') {
+        const res = this.world.resolveCircleCollision(m.x, m.z, rad);
+        if (res.hit) { m.x = res.x; m.z = res.z; }
+      }
+    };
 
     if (m.state === 'boarding') {
       if (flipLock) {
@@ -675,6 +689,7 @@ HC.NPCParty = class {
         m.x = cc.x + (nRelX / dC) * 1.50;
         m.z = cc.z + (nRelZ / dC) * 1.50;
       }
+      resolveProps(0.34);
 
       const gy = this._groundY(m.x, m.z);
       root.position.set(m.x, gy, m.z);
@@ -741,6 +756,7 @@ HC.NPCParty = class {
 
     // ---- state === 'fallen': terjatuh ke tanah saat gerobak terguling, lalu bangun ----
     if (m.state === 'fallen') {
+      resolveProps(0.34);
       m.fallT = (m.fallT || 0) + dt / 0.90;
       const u = Math.max(0, Math.min(1, m.fallT));
       const tilt = u < 0.45
@@ -789,6 +805,7 @@ HC.NPCParty = class {
       } else {
         m.dir = this._turnToward(m.dir, Math.atan2(cc.x - m.x, cc.z - m.z), 9.0, dt);
       }
+      resolveProps(0.34);
       const gy = this._groundY(m.x, m.z);
       root.position.set(m.x, gy, m.z);
       root.rotation.set(0, m.dir, 0);
@@ -924,6 +941,7 @@ HC.NPCParty = class {
         pushOut(other.x, other.z, 1.05);
       }
     }
+    resolveProps(0.34);
 
     const gy = this._groundY(m.x, m.z);
     root.position.set(m.x, gy, m.z);

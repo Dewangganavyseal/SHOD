@@ -1332,6 +1332,9 @@ function stepSim(dt) {
   animator.unhitched = !physics.hitched;
   animator.update(dt);
   if (world.keepHorseInValley) world.keepHorseInValley(animator, dt);
+  if (world.resolveHorseCollision) {
+    window.__lastEnvHit = world.resolveHorseCollision(animator);
+  }
 
   // Penahan badan gerobak saat kuda bebas (agar mundur ke saku batang berhenti pas di depan bak,
   // tidak tembus ke dalam badan gerobak).
@@ -1388,6 +1391,25 @@ function stepSim(dt) {
     collarL: anchors.a, collarR: anchors.c,
     girthL: anchors.gL, girthR: anchors.gR
   });
+
+  if (physics.hitched && !physics.flipped && physics._envHit && physics._envHit.hit) {
+    const tx = animator.x - physics.pos.x;
+    const tz = animator.z - physics.pos.z;
+    const tDist = Math.hypot(tx, tz);
+    const maxTether = HITCH_DIST + 0.40;
+    if (tDist > maxTether && tDist > 1e-4) {
+      const nx = tx / tDist, nz = tz / tDist;
+      animator.x = physics.pos.x + nx * maxTether;
+      animator.z = physics.pos.z + nz * maxTether;
+      const vOut = animator.speed * (animator.forwardX * nx + animator.forwardZ * nz);
+      if (vOut > 0) animator.speed *= 0.20;
+      if (world.resolveHorseCollision) world.resolveHorseCollision(animator);
+      if (animator.horse && animator.horse.root) {
+        animator.horse.root.position.x = animator.x;
+        animator.horse.root.position.z = animator.z;
+      }
+    }
+  }
 
   updateShafts(dt);
 

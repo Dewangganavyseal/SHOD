@@ -40,6 +40,48 @@ class World {
     let currentPerfMode = QUALITY ? QUALITY.key : (isMobileDevice ? 'medium' : 'high');
     this._quality = QUALITY;
 
+    // ---- Environment Mesh Collider Registry + 2D Spatial Hash Grid ----
+    const colliders = [];
+    const colliderGrid = new Map();
+    const GRID_CELL = 6.0;
+    function indexCollider(col) {
+      const gx0 = Math.floor(col.minX / GRID_CELL), gx1 = Math.floor(col.maxX / GRID_CELL);
+      const gz0 = Math.floor(col.minZ / GRID_CELL), gz1 = Math.floor(col.maxZ / GRID_CELL);
+      for (let gx = gx0; gx <= gx1; gx++) {
+        for (let gz = gz0; gz <= gz1; gz++) {
+          const key = gx + ',' + gz;
+          let bucket = colliderGrid.get(key);
+          if (!bucket) { bucket = []; colliderGrid.set(key, bucket); }
+          bucket.push(col);
+        }
+      }
+      colliders.push(col);
+      return col;
+    }
+    function addCircleCollider(type, x, z, r, yMax, mesh = null) {
+      const rad = Math.max(0.08, r || 0.25);
+      const col = {
+        id: colliders.length, kind: 'circle', type,
+        x, z, r: rad, yMax: yMax ?? 99,
+        minX: x - rad, maxX: x + rad, minZ: z - rad, maxZ: z + rad,
+        mesh,
+      };
+      if (mesh && mesh.userData) mesh.userData.collider = col;
+      return indexCollider(col);
+    }
+    function addCapsuleCollider(type, x1, z1, x2, z2, r, yMax, mesh = null) {
+      const rad = Math.max(0.08, r || 0.14);
+      const col = {
+        id: colliders.length, kind: 'capsule', type,
+        x1, z1, x2, z2, r: rad, yMax: yMax ?? 99,
+        minX: Math.min(x1, x2) - rad, maxX: Math.max(x1, x2) + rad,
+        minZ: Math.min(z1, z2) - rad, maxZ: Math.max(z1, z2) + rad,
+        mesh,
+      };
+      if (mesh && mesh.userData) mesh.userData.collider = col;
+      return indexCollider(col);
+    }
+
     scene.background = new THREE.Color(0x6bb0e6);
     scene.fog = null;
 
@@ -2589,6 +2631,7 @@ class World {
             swayingCanopies.push(treeData);
             interactiveTrees.push(group);
             scene.add(group);
+            addCircleCollider('tree', x, z, cfg.baseR * scale * 1.18, y + cfg.h * scale, group);
             return group;
         }
 
@@ -2633,6 +2676,7 @@ class World {
             };
             interactiveTrees.push(group);
             scene.add(group);
+            addCircleCollider('tree', x, z, 0.28 * scale * 1.18, y + h * scale, group);
             return group;
         }
 
@@ -3111,6 +3155,7 @@ class World {
             swayingCanopies.push(treeData);
             interactiveTrees.push(group);
             scene.add(group);
+            addCircleCollider('tree', x, z, 0.34 * scale * 1.18, y + 4.5 * scale, group);
             return group;
         }
 
@@ -3190,6 +3235,7 @@ class World {
         campfireGroup.position.set(0, cfY, 0);
         campfireGroup.userData = { type: 'campfire', flareBoost: 0 };
         scene.add(campfireGroup);
+        addCircleCollider('campfire', 0, 0, 0.96, cfY + 1.2, campfireGroup);
 
         const stoneRingMat = new THREE.MeshStandardMaterial({ color: 0x7f8c8d, roughness: 0.88 });
         applyStylizedCelShading(stoneRingMat);
@@ -3225,6 +3271,12 @@ class World {
         seat1.rotation.y = 0.55;
         seat1.castShadow = true;
         scene.add(seat1);
+        addCapsuleCollider(
+            'log',
+            -2.2 - Math.cos(0.55) * 0.85, 1.2 + Math.sin(0.55) * 0.85,
+            -2.2 + Math.cos(0.55) * 0.85, 1.2 - Math.sin(0.55) * 0.85,
+            0.28, seat1.position.y + 0.34, seat1
+        );
 
         const flames = [];
         const flameColors = [0xff5400, 0xff9e00, 0xffea00];
@@ -3359,6 +3411,7 @@ class World {
             rMesh.castShadow = true;
             rMesh.receiveShadow = true;
             pondGroup.add(rMesh);
+            addCircleCollider('pond_rock', ob.x, ob.z, ob.r * 1.12, POND_WATER_Y + ob.h, rMesh);
         });
 
         // Colorful Underwater Pebbles (Visible through BotW crystal-clear shallow water)
@@ -3688,6 +3741,7 @@ class World {
         // 1. Winding Wooden Post-and-Rail Countryside Fences (Merged into 1 single draw call!)
         (function buildCountrysideFences() {
             const fenceGeos = [];
+            const fenceCaps = [];
             const segments = [
                 { side: 1, zStart: 3.5, zEnd: 17.5, step: 2.3 },
                 { side: -1, zStart: -11.0, zEnd: 15.5, step: 2.4 },
@@ -3734,6 +3788,11 @@ class World {
                         rGeo.applyMatrix4(railDummy.matrix);
                         fenceGeos.push(rGeo);
                     });
+
+                    fenceCaps.push(addCapsuleCollider(
+                        'fence', p1.x, p1.z, p2.x, p2.z,
+                        0.14, Math.max(p1.y, p2.y) + 1.05, null
+                    ));
                 }
             });
 
@@ -3742,7 +3801,9 @@ class World {
                 const fenceMesh = new THREE.Mesh(mergedFence, fenceWoodMat);
                 fenceMesh.castShadow = !isMobileDevice;
                 fenceMesh.receiveShadow = true;
+                fenceMesh.userData = { type: 'fence', colliderCount: fenceCaps.length };
                 scene.add(fenceMesh);
+                for (const fc of fenceCaps) fc.mesh = fenceMesh;
             }
         })();
 
@@ -3776,6 +3837,7 @@ class World {
             signGroup.add(b2);
 
             scene.add(signGroup);
+            addCircleCollider('signpost', sx, sz, 0.20, sy + 2.1, signGroup);
         })();
 
         // Soft Warm Radial Glow Sprite Texture (shared by Lanterns & Truck Headlights)
@@ -3844,6 +3906,7 @@ class World {
 
             roadLanterns.push({ group: lGroup, halo, glassMat, phase: idx * 1.9 });
             scene.add(lGroup);
+            addCircleCollider('lantern', ls.x, ls.z, 0.20, ly + 2.8, lGroup);
         });
 
         // Model truk pickup dan lampu depannya dihapus.
@@ -3946,6 +4009,11 @@ class World {
             rock.rotation.set(r[0], r[1], 0.3);
             rock.receiveShadow = true;
             scene.add(rock);
+            rock.updateMatrixWorld(true);
+            const rBox = new THREE.Box3().setFromObject(rock);
+            const rSize = rBox.getSize(new THREE.Vector3());
+            const rTight = Math.min(r[2] * 1.12, Math.max(rSize.x, rSize.z) * 0.40);
+            addCircleCollider('rock', r[0], r[1], rTight, rBox.max.y, rock);
         });
 
         const interactiveMushrooms = [];
@@ -4084,6 +4152,11 @@ class World {
     this._getTerrainNormal = getTerrainNormal;
     this._paintGrassVisibilityCircle = paintGrassVisibilityCircle;
     this._grassMapTexture = grassMapTexture;
+    this.colliders = colliders;
+    this._colliderGrid = colliderGrid;
+    this._gridCell = GRID_CELL;
+    this._colSeen = new Set();
+    this._colTmp = [];
 
     this.burstParticles = [];
     this._sharedLeafBurstGeo = new THREE.PlaneGeometry(0.16, 0.08);
@@ -4216,6 +4289,148 @@ class World {
     if (animator.z > lim) animator.z = lim;
   }
 
+  colliderCounts() {
+    const out = {};
+    for (let i = 0; i < this.colliders.length; i++) {
+      const t = this.colliders[i].type;
+      out[t] = (out[t] || 0) + 1;
+    }
+    return out;
+  }
+
+  _queryCollidersNear(x, z, pad = 2.5) {
+    const list = this._colTmp;
+    const seen = this._colSeen;
+    list.length = 0;
+    seen.clear();
+    const cs = this._gridCell || 6.0;
+    const gx0 = Math.floor((x - pad) / cs), gx1 = Math.floor((x + pad) / cs);
+    const gz0 = Math.floor((z - pad) / cs), gz1 = Math.floor((z + pad) / cs);
+    for (let gx = gx0; gx <= gx1; gx++) {
+      for (let gz = gz0; gz <= gz1; gz++) {
+        const bucket = this._colliderGrid.get(gx + ',' + gz);
+        if (!bucket) continue;
+        for (let i = 0; i < bucket.length; i++) {
+          const c = bucket[i];
+          if (!seen.has(c.id)) {
+            seen.add(c.id);
+            list.push(c);
+          }
+        }
+      }
+    }
+    return list;
+  }
+
+  resolveCircleCollision(x, z, radius = 0.4, footY = -999) {
+    let px = x, pz = z;
+    let hit = false, bestNx = 0, bestNz = 0, maxPen = 0, hitType = null, hitCol = null;
+    const nearby = this._queryCollidersNear(x, z, radius + 3.2);
+    if (!nearby.length) return { x: px, z: pz, hit: false, nx: 0, nz: 0, pen: 0, hitType: null, collider: null };
+
+    for (let pass = 0; pass < 3; pass++) {
+      let pushedPass = false;
+      for (let i = 0; i < nearby.length; i++) {
+        const col = nearby[i];
+        if (footY > col.yMax + 0.12) continue;
+        if (px + radius < col.minX || px - radius > col.maxX || pz + radius < col.minZ || pz - radius > col.maxZ) continue;
+
+        let cx, cz;
+        if (col.kind === 'capsule') {
+          const ax = col.x2 - col.x1, az = col.z2 - col.z1;
+          const alen2 = ax * ax + az * az;
+          if (alen2 > 1e-6) {
+            const t = HC.clamp(((px - col.x1) * ax + (pz - col.z1) * az) / alen2, 0, 1);
+            cx = col.x1 + ax * t;
+            cz = col.z1 + az * t;
+          } else {
+            cx = col.x1; cz = col.z1;
+          }
+        } else {
+          cx = col.x; cz = col.z;
+        }
+
+        const dx = px - cx, dz = pz - cz;
+        const minR = col.r + radius;
+        const d2 = dx * dx + dz * dz;
+        if (d2 >= minR * minR) continue;
+
+        const d = Math.sqrt(d2);
+        let nx, nz;
+        if (d > 1e-5) {
+          nx = dx / d; nz = dz / d;
+        } else if (col.kind === 'capsule') {
+          const ax = col.x2 - col.x1, az = col.z2 - col.z1;
+          const al = Math.hypot(ax, az) || 1;
+          nx = -az / al; nz = ax / al;
+        } else {
+          nx = 1; nz = 0;
+        }
+        const pen = minR - d;
+        px += nx * pen;
+        pz += nz * pen;
+        pushedPass = true;
+        hit = true;
+        if (pen > maxPen) {
+          maxPen = pen;
+          bestNx = nx;
+          bestNz = nz;
+          hitType = col.type;
+          hitCol = col;
+        }
+        if (col.type === 'tree' && col.mesh && col.mesh.userData) {
+          col.mesh.userData.rustleBoost = Math.max(col.mesh.userData.rustleBoost || 0, 0.85);
+        }
+      }
+      if (!pushedPass) break;
+    }
+    return { x: px, z: pz, hit, nx: bestNx, nz: bestNz, pen: maxPen, hitType, collider: hitCol };
+  }
+
+  resolveHorseCollision(animator) {
+    if (!animator) return { hit: false, nx: 0, nz: 0, pen: 0, hitType: null };
+    const fx = Math.cos(animator.yaw), fz = -Math.sin(animator.yaw);
+    const footY = this._getTerrainHeight(animator.x, animator.z) + (animator.jumpActive ? Math.max(0, animator.jumpY || 0) : 0);
+    const spheres = [
+      { off: 0.46, r: 0.42 },
+      { off: -0.44, r: 0.42 },
+    ];
+    let hit = false, bestNx = 0, bestNz = 0, maxPen = 0, hitType = null;
+    for (let iter = 0; iter < 2; iter++) {
+      let moved = false;
+      for (const s of spheres) {
+        const sx = animator.x + fx * s.off;
+        const sz = animator.z + fz * s.off;
+        const res = this.resolveCircleCollision(sx, sz, s.r, footY);
+        if (res.hit) {
+          animator.x += (res.x - sx);
+          animator.z += (res.z - sz);
+          moved = true;
+          hit = true;
+          if (res.pen > maxPen) {
+            maxPen = res.pen;
+            bestNx = res.nx;
+            bestNz = res.nz;
+            hitType = res.hitType;
+          }
+        }
+      }
+      if (!moved) break;
+    }
+    if (hit) {
+      const vDotN = animator.speed * (fx * bestNx + fz * bestNz);
+      if (vDotN < 0) {
+        const block = Math.min(1, (-vDotN) / Math.max(0.15, Math.abs(animator.speed)));
+        animator.speed *= (1 - block * 0.92);
+      }
+      if (animator.horse && animator.horse.root) {
+        animator.horse.root.position.x = animator.x;
+        animator.horse.root.position.z = animator.z;
+      }
+    }
+    return { hit, nx: bestNx, nz: bestNz, pen: maxPen, hitType };
+  }
+
   // ---- Tempatkan 18 warga NPC Sylvan di titik-titik cozy dalam lembah ----
   placeNPCsInWorld(party) {
     this._party = party;
@@ -4248,13 +4463,15 @@ class World {
     for (let i = 0; i < party.wild.length; i++) {
       const w = party.wild[i];
       const sp = spots[i % spots.length];
-      const gy = this.terrainHeightAt(sp.x, sp.z);
-      const yaw = Math.atan2(sp.faceX - sp.x, sp.faceZ - sp.z);
-      w.x = sp.x; w.z = sp.z;
-      w.homeX = sp.x; w.homeZ = sp.z;
-      if (w.anchor) { w.anchor.x = sp.x; w.anchor.z = sp.z; w.anchor.yaw = yaw; }
+      const cleared = this.resolveCircleCollision(sp.x, sp.z, 0.42);
+      const sx = cleared.x, sz = cleared.z;
+      const gy = this.terrainHeightAt(sx, sz);
+      const yaw = Math.atan2(sp.faceX - sx, sp.faceZ - sz);
+      w.x = sx; w.z = sz;
+      w.homeX = sx; w.homeZ = sz;
+      if (w.anchor) { w.anchor.x = sx; w.anchor.z = sz; w.anchor.yaw = yaw; }
       if (w.root) {
-        w.root.position.set(sp.x, gy, sp.z);
+        w.root.position.set(sx, gy, sz);
         w.root.rotation.y = yaw;
       }
     }
