@@ -3281,7 +3281,10 @@ class World {
 
             // Smoothly grade the Truckful dirt road & carve subtle twin wheel tracks
             const roadDist = getRoadDistance(x, z);
-            const roadFlatten = 1.0 - smoothstepJS(1.8, 4.4, roadDist);
+            // Di zona bukit luar, grade jalan dilebarkan supaya bahu jalan tidak
+            // jadi tebing 20 derajat (peta besar naik sampai +9 m di rim).
+            const shoulderWide = 4.4 + Math.max(0.0, distOrigin - 34.0) * 0.35;
+            const roadFlatten = 1.0 - smoothstepJS(1.8, shoulderWide, roadDist);
             const roadBaseY = 0.24 + Math.sin(z * 0.07) * 0.32;
             h = THREE.MathUtils.lerp(h, roadBaseY, roadFlatten * 0.78);
             const rutMask = Math.exp(-Math.pow((roadDist - 0.78) / 0.32, 2.0));
@@ -6993,6 +6996,8 @@ class World {
     const dzPond = z - this.POND_CENTER.z;
     const distPond = Math.hypot(dxPond, dzPond);
 
+    // Sabuk aman hanya di area awal dekat api unggun/kolam. Setelah keluar
+    // 24 m, player bebas menjelajah; jangan dipaksa orbit radius 14.5 lagi.
     if (Math.abs(animator.steerInput) < 0.05 && animator.speed > 0.1) {
       let targetX = null, targetZ = null, wantRate = 0.75;
       if (distPond < this.POND_CENTER.radius + 2.4) {
@@ -7006,14 +7011,18 @@ class World {
         targetX = this.POND_CENTER.x + Math.cos(safeAng) * safeR;
         targetZ = this.POND_CENTER.z + Math.sin(safeAng) * safeR;
         wantRate = 0.90;
-      } else if (distOrigin > 17.5) {
-        // Putar halus menyusuri tepi lembah (bebas U-turn tajam)
+      } else if (distOrigin > 24.0 && distOrigin < this.TERRAIN_SIZE * 0.5 - 9.0) {
+        // Jelajah bebas di sabuk lembah besar: tidak ada orbit paksa.
+        // (blok kosong, clamp tepi tetap jalan di bawah)
+      } else if (distOrigin > this.TERRAIN_SIZE * 0.5 - 9.0) {
+        // Bukit perimeter adalah batas alam (lereng masih bisa dinaiki,
+        // tetapi pemain tidak bisa menembus tepi mesh tanah).
         const ang = Math.atan2(z, x);
         const fx = Math.cos(animator.yaw), fz = -Math.sin(animator.yaw);
         const txCCW = -Math.sin(ang), tzCCW = Math.cos(ang);
         const dir = (fx * txCCW + fz * tzCCW) >= 0 ? 1 : -1;
         const nextAng = ang + dir * 0.45;
-        const orbitR = 14.5;
+        const orbitR = this.TERRAIN_SIZE * 0.5 - 12.0;
         targetX = Math.cos(nextAng) * orbitR;
         targetZ = Math.sin(nextAng) * orbitR;
         wantRate = 0.85;
