@@ -22,7 +22,7 @@ export const QUALITY_PRESETS = {
     label: 'Kentang',
     icon: '🥔',
     pixelRatioCap: 1.0,
-    renderScale: 0.75,
+    renderScale: 1.0,
     antialias: false,
     preserveDrawingBuffer: false,
     shadows: false,
@@ -32,7 +32,8 @@ export const QUALITY_PRESETS = {
     npcLod: true,
     npcLodNear: 7,
     npcCull: 34,
-    hint: 'HP kelas bawah: bayangan mati, resolusi 75%, rumput 30%, warga jauh pakai LOD'
+    treeImpostor: 26,
+    hint: 'HP kelas bawah: bayangan mati, resolusi tetap 100% (bukan 75%), rumput 30%, pohon jauh jadi billboard impostor'
   },
   medium: {
     key: 'medium',
@@ -50,7 +51,8 @@ export const QUALITY_PRESETS = {
     npcLod: true,
     npcLodNear: 13,
     npcCull: 48,
-    hint: 'HP menengah: bayangan diperbarui berkala, rumput 62%, warga jauh pakai LOD'
+    treeImpostor: 38,
+    hint: 'HP menengah: bayangan diperbarui berkala, rumput 62%, pohon jauh jadi billboard impostor'
   },
   high: {
     key: 'high',
@@ -67,6 +69,7 @@ export const QUALITY_PRESETS = {
     npcLod: false,
     npcLodNear: 0,
     npcCull: 0,
+    treeImpostor: 58,
     hint: 'PC/HP kencang: semua detail, NPC utuh, bayangan penuh'
   }
 };

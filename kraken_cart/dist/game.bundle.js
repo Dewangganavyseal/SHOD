@@ -2843,7 +2843,7 @@ HC.buildCart = function (pivotY = 0.58, upgrades = {}) {
    SHOD — WORLD HUTAN COZY INTERAKTIF 3D (Port 1:1 dari "Hutan Cozy Interaktif 3D (2).html")
    Seluruh terrain 36-chunk, jalan tanah berkelok, kolam BotW (Voronoi caustics,
    batu, teratai, ilalang, ikan koi), api unggun, pagar kayu, papan petunjuk,
-   lentera jalan, truk pickup merah, pohon pinus BotW & pohon daun Truckful,
+   lentera jalan, pohon pinus BotW & pohon daun Truckful (truk pickup dihapus),
    semak beri/bunga, rumpun rumput 4-bilah + bunga liar, jamur menyala, kunang-kunang,
    god-rays matahari, interaksi lingkungan, audio prosedural, langit berawan FBM,
    dan 3 suasana (Pagi / Sore / Malam).
@@ -2865,13 +2865,13 @@ class World {
     const wantsShadows = QUALITY ? QUALITY.shadows !== false : true;
 
     const PERF_PROFILES = {
-      potato:   { label: 'Kentang',  pixelRatio: 1.0,  cullDistance: 30.0, grassRatio: 0.30 },
-      medium:   { label: 'Menengah', pixelRatio: 1.25, cullDistance: 52.0, grassRatio: 0.62 },
-      high:     { label: 'Ultra PC', pixelRatio: 2.0,  cullDistance: 84.0, grassRatio: 1.0  },
+      potato:   { label: 'Kentang',  pixelRatio: 1.0,  cullDistance: 30.0, grassRatio: 0.30, treeImpostor: 26.0 },
+      medium:   { label: 'Menengah', pixelRatio: 1.25, cullDistance: 52.0, grassRatio: 0.62, treeImpostor: 38.0 },
+      high:     { label: 'Ultra PC', pixelRatio: 2.0,  cullDistance: 84.0, grassRatio: 1.0,  treeImpostor: 58.0 },
       // alias lama supaya kode/probe yang masih menyebut nama ini tetap jalan
-      mobile:   { label: 'Kentang',  pixelRatio: 1.0,  cullDistance: 30.0, grassRatio: 0.30 },
-      balanced: { label: 'Menengah', pixelRatio: 1.25, cullDistance: 52.0, grassRatio: 0.62 },
-      ultra:    { label: 'Ultra PC', pixelRatio: 2.0,  cullDistance: 84.0, grassRatio: 1.0  }
+      mobile:   { label: 'Kentang',  pixelRatio: 1.0,  cullDistance: 30.0, grassRatio: 0.30, treeImpostor: 26.0 },
+      balanced: { label: 'Menengah', pixelRatio: 1.25, cullDistance: 52.0, grassRatio: 0.62, treeImpostor: 38.0 },
+      ultra:    { label: 'Ultra PC', pixelRatio: 2.0,  cullDistance: 84.0, grassRatio: 1.0,  treeImpostor: 58.0 }
     };
     let currentPerfMode = QUALITY ? QUALITY.key : (isMobileDevice ? 'medium' : 'high');
     this._quality = QUALITY;
@@ -3229,8 +3229,11 @@ class World {
         // ============================================================================
         // 4. CHUNKED TERRAIN (36 FRUSTUM-CULLED CHUNKS), TRUCKFUL DIRT ROAD & POND BASIN
         // ============================================================================
-        const TERRAIN_SIZE = 76;
-        const CHUNK_GRID = 6;
+        // Peta diperbesar: 150 x 150 m (dulu 76) supaya ada ruang jelajah.
+        // Grid chunk dinaikkan supaya ukuran chunk tetap ~15 m -> frustum culling
+        // tetap membuang sebagian besar peta dari tiap frame.
+        const TERRAIN_SIZE = 150;
+        const CHUNK_GRID = 10;
         const CHUNK_SIZE = TERRAIN_SIZE / CHUNK_GRID;
         const POND_CENTER = { x: 8.2, z: 6.2, radius: 4.5 };
 
@@ -3263,6 +3266,14 @@ class World {
             // Gentle valley amphitheater rise toward the outer edges
             const distOrigin = Math.hypot(x, z);
             h += smoothstepJS(16.0, 38.0, distOrigin) * 2.4;
+
+            // Bukit luar untuk peta besar: naik pelan sampai rim lembah (~70 m),
+            // lalu dataran tinggi bergelombang supaya cakrawala tidak rata.
+            h += smoothstepJS(34.0, 74.0, distOrigin) * 9.5;
+            if (distOrigin > 60.0) {
+                const outer = smoothstepJS(60.0, 84.0, distOrigin);
+                h += outer * (Math.sin(x * 0.05 + z * 0.037) * 3.1 + Math.cos(z * 0.043 - x * 0.028) * 2.4);
+            }
 
             // Flatten central campfire clearing smoothly
             const clearingFlatten = 1.0 - smoothstepJS(2.2, 6.2, distOrigin);
@@ -4128,7 +4139,9 @@ class World {
         const BASE_GRASS_QUAD_GEO = new THREE.PlaneGeometry(0.42, 0.56);
         BASE_GRASS_QUAD_GEO.translate(0, 0.24, 0);
         const grassChunks = [];
-        const TARGET_TUFTS_PER_CHUNK = 2200;
+        // Peta besar: 100 chunk. Kepadatan rumput per chunk mengekor preset
+        // kualitas supaya boot di HP kentang tidak menyiapkan 220 ribu bilah.
+        const TARGET_TUFTS_PER_CHUNK = Math.round(2200 * (QUALITY ? (0.45 + 0.55 * QUALITY.grassRatio) : 1.0));
         const grassDummy = new THREE.Object3D();
 
         for (let gz = 0; gz < CHUNK_GRID; gz++) {
@@ -5959,9 +5972,9 @@ class World {
         const variantCycle = ['tall_alpine', 'deciduous', 'broad_woodland', 'deciduous', 'high_canopy', 'young_bushy'];
         const colorCycle = ['emerald', 'teal', 'olive', 'emerald'];
 
-        for (let i = 0; i < 58; i++) {
-            const angle = (i / 58) * Math.PI * 2 + (Math.random() - 0.5) * 0.12;
-            const radius = 15.5 + Math.random() * 25;
+        for (let i = 0; i < 110; i++) {
+            const angle = (i / 110) * Math.PI * 2 + (Math.random() - 0.5) * 0.12;
+            const radius = 15.5 + Math.random() * (TERRAIN_SIZE * 0.42);
             const x = Math.cos(angle) * radius;
             const z = Math.sin(angle) * radius;
 
@@ -5985,9 +5998,9 @@ class World {
         }
 
         // Outer horizon forest ring framing the valley rim
-        for (let i = 0; i < 28; i++) {
-            const angle = (i / 28) * Math.PI * 2 + (Math.sin(i * 4.7) * 0.07);
-            const radius = 30.5 + (i % 4) * 1.85;
+        for (let i = 0; i < 46; i++) {
+            const angle = (i / 46) * Math.PI * 2 + (Math.sin(i * 4.7) * 0.07);
+            const radius = TERRAIN_SIZE * 0.46 + (i % 4) * 1.85;
             const x = Math.cos(angle) * radius;
             const z = Math.sin(angle) * radius;
             if (Math.hypot(x - POND_CENTER.x, z - POND_CENTER.z) < POND_CENTER.radius + 3.0) continue;
@@ -6666,218 +6679,9 @@ class World {
             scene.add(lGroup);
         });
 
-        // 4. Iconic Truckful Cozy Red Vintage Pickup Truck (Interactive Suspension + Volumetric Headlights!)
-        const truckGroup = new THREE.Group();
-        const TRUCK_Z = 7.4;
-        const TRUCK_X = getRoadCenterX(TRUCK_Z) - 3.25;
-        paintGrassVisibilityCircle(TRUCK_X, TRUCK_Z, 2.6, 0.0);
-        grassMapTexture.needsUpdate = true;
-        const TRUCK_Y = getTerrainHeight(TRUCK_X, TRUCK_Z);
-        const TRUCK_YAW = getRoadTangentAngle(TRUCK_Z) + Math.PI; // Facing into the cozy clearing/forest
-
-        truckGroup.position.set(TRUCK_X, TRUCK_Y, TRUCK_Z);
-        truckGroup.rotation.y = TRUCK_YAW;
-        truckGroup.userData = {
-            type: 'truck',
-            bounceEnergy: 0,
-            baseY: TRUCK_Y
-        };
-
-        const truckBodyGroup = new THREE.Group();
-        truckGroup.add(truckBodyGroup);
-
-        const truckRedMat = new THREE.MeshStandardMaterial({ color: 0xd6453a, roughness: 0.48, metalness: 0.08 });
-        applyStylizedCelShading(truckRedMat, { rimStrength: 0.30, shadowLift: 0.52 });
-
-        const truckCreamMat = new THREE.MeshStandardMaterial({ color: 0xf6ead4, roughness: 0.55 });
-        applyStylizedCelShading(truckCreamMat, { rimStrength: 0.24, shadowLift: 0.58 });
-
-        const truckGlassMat = new THREE.MeshStandardMaterial({ color: 0x7cb9c4, roughness: 0.22, metalness: 0.15 });
-        applyStylizedCelShading(truckGlassMat, { rimStrength: 0.38, shadowLift: 0.55 });
-
-        const tireMat = new THREE.MeshStandardMaterial({ color: 0x2a2d34, roughness: 0.92 });
-        const crateMat = new THREE.MeshStandardMaterial({ color: 0xc8955c, roughness: 0.85 });
-        applyStylizedCelShading(crateMat, { rimStrength: 0.16, shadowLift: 0.55 });
-
-        // Lower chassis & front hood (chunky cozy storybook silhouette)
-        const chassis = new THREE.Mesh(new THREE.BoxGeometry(1.58, 0.52, 3.35), truckRedMat);
-        chassis.position.set(0, 0.62, 0);
-        chassis.castShadow = true;
-        chassis.receiveShadow = true;
-        truckBodyGroup.add(chassis);
-
-        // Rounded front hood bulge
-        const hood = new THREE.Mesh(new THREE.BoxGeometry(1.44, 0.22, 1.05), truckRedMat);
-        hood.position.set(0, 0.94, 1.08);
-        hood.castShadow = true;
-        truckBodyGroup.add(hood);
-
-        // Cabin & Cream Roof
-        const cab = new THREE.Mesh(new THREE.BoxGeometry(1.46, 0.78, 1.05), truckRedMat);
-        cab.position.set(0, 1.24, 0.18);
-        cab.castShadow = true;
-        truckBodyGroup.add(cab);
-
-        const roof = new THREE.Mesh(new THREE.BoxGeometry(1.52, 0.14, 1.12), truckCreamMat);
-        roof.position.set(0, 1.66, 0.18);
-        roof.castShadow = true;
-        truckBodyGroup.add(roof);
-
-        // Windshield & Side Windows
-        const windshield = new THREE.Mesh(new THREE.BoxGeometry(1.30, 0.44, 1.09), truckGlassMat);
-        windshield.position.set(0, 1.32, 0.18);
-        truckBodyGroup.add(windshield);
-
-        const sideGlass = new THREE.Mesh(new THREE.BoxGeometry(1.50, 0.40, 0.72), truckGlassMat);
-        sideGlass.position.set(0, 1.32, 0.18);
-        truckBodyGroup.add(sideGlass);
-
-        // Chrome Front & Rear Bumpers + Grill
-        const frontBumper = new THREE.Mesh(new THREE.BoxGeometry(1.70, 0.16, 0.22), truckCreamMat);
-        frontBumper.position.set(0, 0.44, 1.72);
-        truckBodyGroup.add(frontBumper);
-
-        const grill = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.34, 0.08), darkIronMat);
-        grill.position.set(0, 0.72, 1.68);
-        truckBodyGroup.add(grill);
-
-        // Wooden Cargo Bed Side Rails
-        [-0.74, 0.74].forEach(rx => {
-            const rail = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.36, 1.48), fenceWoodMat);
-            rail.position.set(rx, 1.02, -0.94);
-            truckBodyGroup.add(rail);
-        });
-        const backRail = new THREE.Mesh(new THREE.BoxGeometry(1.56, 0.34, 0.08), fenceWoodMat);
-        backRail.position.set(0, 1.00, -1.64);
-        truckBodyGroup.add(backRail);
-
-        // Cozy Packed Delivery Cargo in the Truck Bed (Crates, Barrel & Cloth Bundle!)
-        const crate1 = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.56, 0.62), crateMat);
-        crate1.position.set(-0.32, 1.12, -0.82);
-        crate1.rotation.y = 0.14;
-        crate1.castShadow = true;
-        truckBodyGroup.add(crate1);
-
-        const crate2 = new THREE.Mesh(new THREE.BoxGeometry(0.50, 0.42, 0.52), crateMat);
-        crate2.position.set(0.32, 1.06, -1.16);
-        crate2.rotation.y = -0.18;
-        truckBodyGroup.add(crate2);
-
-        const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.26, 0.62, 8), fenceWoodMat);
-        barrel.position.set(0.32, 1.14, -0.58);
-        barrel.rotation.z = 0.08;
-        truckBodyGroup.add(barrel);
-
-        const parcelMat = new THREE.MeshStandardMaterial({ color: 0x529688, roughness: 0.75 });
-        applyStylizedCelShading(parcelMat);
-        const parcel = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.34, 0.44), parcelMat);
-        parcel.position.set(-0.24, 1.54, -0.84);
-        parcel.rotation.y = -0.22;
-        truckBodyGroup.add(parcel);
-
-        // 4 Chunky Bouncy Rubber Wheels with Cream Hubcaps
-        const wheelGeo = new THREE.CylinderGeometry(0.38, 0.38, 0.30, 12);
-        wheelGeo.rotateZ(Math.PI * 0.5);
-        const hubGeo = new THREE.CylinderGeometry(0.18, 0.18, 0.33, 10);
-        hubGeo.rotateZ(Math.PI * 0.5);
-        [
-            [-0.82, 0.38, 1.04], [0.82, 0.38, 1.04],
-            [-0.82, 0.38, -0.96], [0.82, 0.38, -0.96]
-        ].forEach(wp => {
-            const wGroup = new THREE.Group();
-            wGroup.position.set(wp[0], wp[1], wp[2]);
-            const tire = new THREE.Mesh(wheelGeo, tireMat);
-            tire.castShadow = true;
-            const hub = new THREE.Mesh(hubGeo, truckCreamMat);
-            wGroup.add(tire);
-            wGroup.add(hub);
-            truckGroup.add(wGroup);
-        });
-
-        // Glowing Headlights, Taillights & Volumetric Headlight Cones (Signature Truckful look!)
+        // Model truk pickup dan lampu depannya dihapus.
+        // Sakelar lampu jalan dipertahankan untuk mode malam.
         let isHeadlightsOn = true;
-        const headlightCones = [];
-        const headlightSprites = [];
-
-        const headBeamMat = new THREE.ShaderMaterial({
-            transparent: true,
-            depthWrite: false,
-            side: THREE.DoubleSide,
-            blending: THREE.AdditiveBlending,
-            uniforms: {
-                uColor: { value: new THREE.Color(0xffe09c) },
-                uOpacity: { value: 0.32 }
-            },
-            vertexShader: `
-                varying vec2 vUv;
-                varying vec3 vNormalV;
-                varying vec3 vViewDir;
-                void main() {
-                    vUv = uv;
-                    vec4 mvPos = modelViewMatrix * vec4(position, 1.0);
-                    vNormalV = normalize(normalMatrix * normal);
-                    vViewDir = normalize(-mvPos.xyz);
-                    gl_Position = projectionMatrix * mvPos;
-                }
-            `,
-            fragmentShader: `
-                uniform vec3 uColor;
-                uniform float uOpacity;
-                varying vec2 vUv;
-                varying vec3 vNormalV;
-                varying vec3 vViewDir;
-                void main() {
-                    // Fade softly along cone length (vUv.y = 1 near lamp -> 0 at far end) & edges
-                    float lenFade = pow(clamp(vUv.y, 0.0, 1.0), 1.65) * (1.0 - smoothstep(0.88, 1.0, vUv.y));
-                    float edgeFade = pow(abs(dot(normalize(vNormalV), normalize(vViewDir))), 1.35);
-                    float alpha = lenFade * edgeFade * uOpacity;
-                    gl_FragColor = vec4(uColor, alpha);
-                }
-            `
-        });
-
-        const beamGeo = new THREE.ConeGeometry(1.55, 7.2, 14, 1, true);
-        beamGeo.translate(0, -3.6, 0);
-        beamGeo.rotateX(-Math.PI * 0.5 + 0.08);
-
-        const lampBulbMat = new THREE.MeshBasicMaterial({ color: 0xfff3c4 });
-        const tailLampMat = new THREE.MeshBasicMaterial({ color: 0xff4d4d });
-
-        [-0.56, 0.56].forEach(lx => {
-            const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.11, 8, 6), lampBulbMat);
-            bulb.position.set(lx, 0.74, 1.68);
-            truckBodyGroup.add(bulb);
-
-            const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
-                map: warmGlowTex,
-                color: 0xffe09c,
-                transparent: true,
-                opacity: 0.85,
-                blending: THREE.AdditiveBlending,
-                depthWrite: false
-            }));
-            sprite.position.set(lx, 0.74, 1.76);
-            sprite.scale.set(1.1, 1.1, 1.0);
-            truckBodyGroup.add(sprite);
-            headlightSprites.push(sprite);
-
-            const beam = new THREE.Mesh(beamGeo, headBeamMat);
-            beam.position.set(lx, 0.74, 1.72);
-            truckBodyGroup.add(beam);
-            headlightCones.push(beam);
-
-            const tail = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.12, 0.08), tailLampMat);
-            tail.position.set(lx * 1.1, 0.72, -1.68);
-            truckBodyGroup.add(tail);
-        });
-
-        // Subtle warm headlight bounce light in front of the truck (no shadow map!)
-        const truckHeadLight = new THREE.PointLight(0xffd78a, 1.4 * Math.PI, 11, 0);
-        truckHeadLight.position.set(0, 1.1, 4.4);
-        truckHeadLight.castShadow = false;
-        truckBodyGroup.add(truckHeadLight);
-
-        scene.add(truckGroup);
         // 5. Volumetric Sunbeams / Golden God-Rays (Default OFF to avoid any foggy veil; optional in panel)
         let isSunbeamsEnabled = true;
         const sunbeamsGroup = new THREE.Group();
@@ -7091,12 +6895,6 @@ class World {
     this.lilyPads = lilyPads;
     this.pondFishList = pondFishList;
     this.roadLanterns = roadLanterns;
-    this.truckGroup = truckGroup;
-    this.truckBodyGroup = truckBodyGroup;
-    this.truckHeadLight = truckHeadLight;
-    this.headBeamMat = headBeamMat;
-    this.headlightCones = headlightCones;
-    this.headlightSprites = headlightSprites;
     this.isHeadlightsOn = isHeadlightsOn;
     this.sunbeamsGroup = sunbeamsGroup;
     this.sunbeamUniforms = sunbeamUniforms;
@@ -7238,7 +7036,7 @@ class World {
         animator.forwardZ = -Math.sin(animator.yaw);
       }
     }
-    const lim = 33.5;
+    const lim = this.TERRAIN_SIZE ? this.TERRAIN_SIZE * 0.5 - 5.0 : 33.5;
     if (animator.x < -lim) animator.x = -lim;
     if (animator.x > lim) animator.x = lim;
     if (animator.z < -lim) animator.z = -lim;
@@ -7477,7 +7275,7 @@ class World {
     this._raycaster.setFromCamera(this._pointer, camera);
 
     const targets = [
-      this.pondMesh, this.campfireGroup, this.truckGroup,
+      this.pondMesh, this.campfireGroup,
       ...this.interactiveMushrooms, ...this.interactiveBushes, ...this.interactiveTrees
     ];
     const intersects = this._raycaster.intersectObjects(targets, true);
@@ -7487,13 +7285,6 @@ class World {
     let obj = intersects[0].object;
     while (obj.parent && !obj.userData.type) obj = obj.parent;
 
-    if (obj.userData.type === 'truck') {
-      obj.userData.bounceEnergy = 1.65;
-      const exhaustWorld = new THREE.Vector3(-0.45, 0.45, -1.78).applyMatrix4(this.truckGroup.matrixWorld);
-      this.spawnBurst(exhaustWorld, 0xfff1d6, 9, true, false);
-      this.playTruckHornBeep();
-      return 'Tin-tin! Truk pikap Truckful membal!';
-    }
     if (obj.userData.type === 'pond') {
       this.triggerPondRipple(hitPoint.x, hitPoint.z);
       this.spawnBurst(new THREE.Vector3(hitPoint.x, this.POND_WATER_Y + 0.12, hitPoint.z), 0xa5f3fc, 12, true, false);
@@ -7645,7 +7436,7 @@ class World {
     if (!this.pebbleMesh) return;
     for (let i = 0; i < this.pebbles.length; i++) {
       const p = this.pebbles[i];
-      const gy = (Math.abs(p.x) < 40 && Math.abs(p.z) < 40) ? this._getTerrainHeight(p.x, p.z) : -50;
+      const gy = (Math.abs(p.x) < this.TERRAIN_SIZE * 0.5 && Math.abs(p.z) < this.TERRAIN_SIZE * 0.5) ? this._getTerrainHeight(p.x, p.z) : -50;
       this._pDummy.position.set(p.x, gy + p.h * 0.35, p.z);
       this._pDummy.rotation.copy(p.rot);
       this._pDummy.scale.set(p.r * 2, p.h * 2, p.r * 2);
@@ -7674,6 +7465,200 @@ class World {
   setCartPose(cx, cz) {
     this.cartX = cx;
     this.cartZ = cz;
+  }
+
+  /* --------------------------------------------------------------------------
+     IMPOSTOR JAUH (open-world style LOD untuk pohon)
+     Pohon yang jaraknya lewat ambang diganti satu billboard bertekstur — dari
+     jauh terbaca sebagai satu gambar utuh, bukan 7-8 mesh per pohon. Begitu
+     pemain mendekat, billboard hilang dan model asli muncul lagi.
+     Semua billboard satu bucket digambar lewat SATU InstancedMesh, jadi biaya
+     puluhan pohon jauh cuma ~1 draw call per jenis warna.
+     -------------------------------------------------------------------------- */
+  _makeTreeImpostorTexture(leafColor, kind) {
+    const THREE = HC.THREE;
+    const W = 96, H = 128;
+    const cv = document.createElement('canvas');
+    cv.width = W; cv.height = H;
+    const g = cv.getContext('2d');
+    g.clearRect(0, 0, W, H);
+
+    const base = (leafColor || new THREE.Color(0x3f7d3a)).clone();
+    const dark = base.clone().multiplyScalar(0.58);
+    const light = base.clone().lerp(new THREE.Color(0xffffff), 0.26);
+    const hex = (c) => '#' + c.getHexString();
+
+    g.filter = 'blur(1.4px)';
+
+    // Batang
+    g.fillStyle = kind === 'dead' ? '#6b5236' : '#4a3722';
+    g.beginPath();
+    g.moveTo(W * 0.455, H);
+    g.lineTo(W * 0.478, H * 0.52);
+    g.lineTo(W * 0.522, H * 0.52);
+    g.lineTo(W * 0.545, H);
+    g.closePath();
+    g.fill();
+
+    if (kind === 'dead') {
+      g.strokeStyle = '#6b5236';
+      g.lineWidth = 2.6;
+      for (let i = 0; i < 5; i++) {
+        const t = 0.34 + i * 0.1;
+        g.beginPath();
+        g.moveTo(W * 0.5, H * t);
+        g.lineTo(W * (0.5 + (i % 2 ? 0.24 : -0.24)), H * (t - 0.06));
+        g.stroke();
+      }
+    } else {
+      const blobs = kind === 'pine'
+        ? [[0.50, 0.26, 0.27], [0.50, 0.45, 0.31], [0.50, 0.64, 0.25]]
+        : [[0.35, 0.34, 0.24], [0.65, 0.32, 0.22], [0.50, 0.22, 0.25], [0.50, 0.50, 0.30]];
+      for (const [cx, cy, r] of blobs) {
+        const rad = g.createRadialGradient(W * cx, H * cy, W * r * 0.12, W * cx, H * cy, W * r);
+        rad.addColorStop(0, hex(light));
+        rad.addColorStop(0.62, hex(base));
+        rad.addColorStop(1, hex(dark));
+        g.fillStyle = rad;
+        g.beginPath();
+        g.arc(W * cx, H * cy, W * r, 0, Math.PI * 2);
+        g.fill();
+      }
+    }
+    g.filter = 'none';
+
+    const tex = new THREE.CanvasTexture(cv);
+    tex.anisotropy = 1;
+    if ('colorSpace' in tex && THREE.SRGBColorSpace) tex.colorSpace = THREE.SRGBColorSpace;
+    else if (THREE.sRGBEncoding !== undefined) tex.encoding = THREE.sRGBEncoding;
+    tex.needsUpdate = true;
+    return tex;
+  }
+
+  _buildTreeImpostors() {
+    const THREE = HC.THREE;
+    const trees = this.interactiveTrees || [];
+    this._treeImpostorEntries = [];
+    this._impGroups = [];
+    if (!trees.length) return;
+
+    const geo = new THREE.PlaneGeometry(1, 1);
+    geo.translate(0, 0.5, 0);
+
+    const buckets = new Map();
+    for (let i = 0; i < trees.length; i++) {
+      const tree = trees[i];
+      const ud = tree.userData || {};
+      const sphere = ud.boundingSphere;
+      if (!sphere) continue;
+      const leaf = ud.leafColor || new THREE.Color(0x3f7d3a);
+      // Billboard valid untuk POHON BIASA saja; pohon kering tetap mesh aslinya
+      // (cuma 7 batang kecil dan siluetnya tidak cocok dibuat billboard).
+      const kind = (ud.type === 'tree' && ud.treeKind !== 'dead' && ud.foliageMesh && ud.naturalColorKey)
+        ? (ud.treeKind || 'pine')
+        : null;
+      if (kind === null) continue;
+      const key = kind + '|' + Math.round(leaf.r * 5) + Math.round(leaf.g * 5) + Math.round(leaf.b * 5);
+      let bucket = buckets.get(key);
+      if (!bucket) { bucket = { leaf, kind, trees: [] }; buckets.set(key, bucket); }
+      bucket.trees.push(tree);
+    }
+
+    for (const bucket of buckets.values()) {
+      const tex = this._makeTreeImpostorTexture(bucket.leaf, bucket.kind);
+      const mat = new THREE.MeshLambertMaterial({
+        map: tex,
+        transparent: true,
+        alphaTest: 0.32,
+        side: THREE.DoubleSide,
+        depthWrite: true
+      });
+      if (mat.emissive !== undefined) mat.emissive = new THREE.Color(0x1b2a15);
+      const mesh = new THREE.InstancedMesh(geo, mat, bucket.trees.length);
+      mesh.count = 0;
+      mesh.frustumCulled = false;
+      mesh.castShadow = false;
+      mesh.receiveShadow = false;
+      mesh.renderOrder = 1;
+      mesh.userData.isTreeImpostor = true;
+      if (mesh.instanceMatrix && mesh.instanceMatrix.setUsage) {
+        mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      }
+      this.scene.add(mesh);
+
+      const entries = bucket.trees.map((tree) => {
+        const sphere = tree.userData.boundingSphere;
+        const groundY = tree.position.y;
+        const topY = sphere.center.y + sphere.radius;
+        const h = Math.max(2.4, topY - groundY);
+        const entry = {
+          tree,
+          x: sphere.center.x,
+          y: groundY,
+          z: sphere.center.z,
+          w: Math.max(1.2, h * 0.62),
+          h,
+          far: false
+        };
+        this._treeImpostorEntries.push(entry);
+        return entry;
+      });
+      this._impGroups.push({ mesh, entries });
+    }
+    this._impDummy = new THREE.Object3D();
+    this._impQuat = new THREE.Quaternion();
+    this._impAxisY = new THREE.Vector3(0, 1, 0);
+  }
+
+  _updateTreeImpostors(camera) {
+    if (!this._impGroups) this._buildTreeImpostors();
+    if (!this._impGroups || !this._impGroups.length) return;
+
+    const camPos = camera.position;
+    const prof = this.PERF_PROFILES[this.currentPerfMode] || this.PERF_PROFILES.ultra;
+    const q = this._quality || {};
+    const impDist = Math.max(12, q.treeImpostor || prof.treeImpostor || 34);
+
+    const dir = this._tmpCamForward;
+    const yaw = Math.atan2(dir.x, dir.z);
+    this._impQuat.setFromAxisAngle(this._impAxisY, yaw);
+    const dummy = this._impDummy;
+    dummy.quaternion.copy(this._impQuat);
+    dummy.rotation.set(0, yaw, 0);
+
+    for (let g = 0; g < this._impGroups.length; g++) {
+      const group = this._impGroups[g];
+      const entries = group.entries;
+      let n = 0;
+      for (let i = 0; i < entries.length; i++) {
+        const e = entries[i];
+        const dist = Math.hypot(camPos.x - e.x, camPos.y - e.y, camPos.z - e.z);
+        // histeresis: begitu jadi impostor, baru balik ke model asli saat lebih dekat
+        if (e.far) { if (dist < impDist * 0.82) e.far = false; } else if (dist > impDist) e.far = true;
+
+        // Keputusan visible terakhir untuk pohon ini:
+        // - dekat  = mesh asli (walau di belakang kamera, biar bayangan tetap masuk)
+        // - jauh   = billboard saja, mesh asli dimatikan
+        // - jauh + di luar layar = dua-duanya dimatikan
+        const ud = e.tree.userData;
+        ud._lodFar = e.far;
+        const inFrustum = !!ud._inFrustum;
+        if (e.far) {
+          e.tree.visible = false;
+          if (inFrustum) {
+            dummy.position.set(e.x, e.y, e.z);
+            dummy.scale.set(e.w, e.h, 1);
+            dummy.updateMatrix();
+            group.mesh.setMatrixAt(n, dummy.matrix);
+            n++;
+          }
+        } else {
+          e.tree.visible = (ud._camDist < 18.0) || !!ud._baseVisible;
+        }
+      }
+      group.mesh.count = n;
+      if (n > 0) group.mesh.instanceMatrix.needsUpdate = true;
+    }
   }
 
   updateCameraFrustumCulling(camera) {
@@ -7709,10 +7694,15 @@ class World {
     for (let i = 0; i < this.interactiveTrees.length; i++) {
       const tree = this.interactiveTrees[i];
       const sphere = tree.userData.boundingSphere;
-      if (sphere) {
-        const dist = camPos.distanceTo(sphere.center);
-        tree.visible = (dist < 18.0) || this._cameraFrustum.intersectsSphere(sphere);
-      }
+      if (!sphere) continue;
+      const inFrustum = this._cameraFrustum.intersectsSphere(sphere);
+      const dist = camPos.distanceTo(sphere.center);
+      // radius visibility culling sebelum LOD: objek yang lewat budget jarak
+      // tak perlu masuk ke pass canopy/interaksi.
+      tree.userData._baseVisible = (dist <= prof.cullDistance + 12.0) && inFrustum;
+      tree.userData._inFrustum = inFrustum;
+      tree.userData._camDist = dist;
+      tree.visible = (dist < 18.0) || tree.userData._baseVisible;
     }
 
     for (let i = 0; i < this.interactiveBushes.length; i++) {
@@ -7725,6 +7715,9 @@ class World {
       const dist = camPos.distanceTo(sphere.center);
       bush.visible = (dist <= prof.cullDistance + 8.0) && this._cameraFrustum.intersectsSphere(sphere);
     }
+
+    // Tahap terakhir: pohon jauh ditukar jadi billboard impostor (1 gambar utuh).
+    this._updateTreeImpostors(camera);
   }
 
   syncCamera(camera) {
@@ -7864,7 +7857,7 @@ class World {
     const windFactor = this.grassUniforms.uWindSpeed.value;
     for (let i = 0; i < this.interactiveTrees.length; i++) {
       const treeGroup = this.interactiveTrees[i];
-      if (!treeGroup.visible) continue;
+      if (!treeGroup.visible || !treeGroup.userData._baseVisible || treeGroup.userData._lodFar) continue;
       const treeData = treeGroup.userData;
       if (treeData.rustleBoost > 0) {
         treeData.rustleBoost = Math.max(0, treeData.rustleBoost - delta * 2.2);
@@ -7896,30 +7889,8 @@ class World {
     }
     const boost = this.campfireGroup.userData.flareBoost;
 
-    // Truk pickup idle, bounce suspensi, & lampu sorot
-    const idleEngine = Math.sin(elapsed * 18.0) * 0.008;
-    if (this.truckGroup.userData.bounceEnergy > 0) {
-      this.truckGroup.userData.bounceEnergy = Math.max(0, this.truckGroup.userData.bounceEnergy - delta * 2.1);
-    }
-    const bEnergy = this.truckGroup.userData.bounceEnergy;
-    const bounceY = Math.sin(bEnergy * Math.PI * 3.5) * 0.14 * bEnergy;
-    const bounceRoll = Math.sin(bEnergy * Math.PI * 3.0) * 0.065 * bEnergy;
-    this.truckBodyGroup.position.y = idleEngine + Math.max(-0.04, bounceY);
-    this.truckBodyGroup.rotation.z = bounceRoll;
-    this.truckBodyGroup.rotation.x = Math.cos(bEnergy * Math.PI * 2.5) * 0.04 * bEnergy;
-
+    // Lampu lentera jalan tetap hidup; tak ada animasi atau mesh kendaraan.
     const lampStrength = this.isHeadlightsOn ? activeAtmosphere.lanternIntensity : 0.0;
-    this.headBeamMat.uniforms.uOpacity.value = THREE.MathUtils.lerp(
-      this.headBeamMat.uniforms.uOpacity.value,
-      lampStrength * (0.28 + bEnergy * 0.12),
-      0.15
-    );
-    this.headlightCones.forEach((c) => { c.visible = lampStrength > 0.03; });
-    this.headlightSprites.forEach((s) => {
-      s.visible = this.isHeadlightsOn;
-      s.material.opacity = Math.min(1.0, 0.45 + lampStrength * 0.45);
-    });
-    this.truckHeadLight.intensity = THREE.MathUtils.lerp(this.truckHeadLight.intensity, lampStrength * 1.6 * Math.PI, 0.15);
 
     this.roadLanterns.forEach((rl) => {
       const sway = Math.sin(elapsed * 1.4 + rl.phase) * 0.06;
@@ -23042,7 +23013,7 @@ const QUALITY_PRESETS = {
     label: 'Kentang',
     icon: '🥔',
     pixelRatioCap: 1.0,
-    renderScale: 0.75,
+    renderScale: 1.0,
     antialias: false,
     preserveDrawingBuffer: false,
     shadows: false,
@@ -23052,7 +23023,8 @@ const QUALITY_PRESETS = {
     npcLod: true,
     npcLodNear: 7,
     npcCull: 34,
-    hint: 'HP kelas bawah: bayangan mati, resolusi 75%, rumput 30%, warga jauh pakai LOD'
+    treeImpostor: 26,
+    hint: 'HP kelas bawah: bayangan mati, resolusi tetap 100% (bukan 75%), rumput 30%, pohon jauh jadi billboard impostor'
   },
   medium: {
     key: 'medium',
@@ -23070,7 +23042,8 @@ const QUALITY_PRESETS = {
     npcLod: true,
     npcLodNear: 13,
     npcCull: 48,
-    hint: 'HP menengah: bayangan diperbarui berkala, rumput 62%, warga jauh pakai LOD'
+    treeImpostor: 38,
+    hint: 'HP menengah: bayangan diperbarui berkala, rumput 62%, pohon jauh jadi billboard impostor'
   },
   high: {
     key: 'high',
@@ -23087,6 +23060,7 @@ const QUALITY_PRESETS = {
     npcLod: false,
     npcLodNear: 0,
     npcCull: 0,
+    treeImpostor: 58,
     hint: 'PC/HP kencang: semua detail, NPC utuh, bayangan penuh'
   }
 };
