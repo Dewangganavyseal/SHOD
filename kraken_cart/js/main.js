@@ -85,6 +85,7 @@ physics.reset(startPose.x, startPose.z, startPose.yaw);
 // ---------------- NPC squad (roster Sylvan Dominion) ----------------
 const party = new HC.NPCParty(scene);
 party.world = world;   // NPC liar berdiri di permukaan terrain
+party.bindCart(cart);
 if (world.placeNPCsInWorld) {
   world.placeNPCsInWorld(party);
 } else {
@@ -291,7 +292,8 @@ function rebuildCartFromStore() {
   physics.joltScale = store.joltScale();
   cart = newCart;
   window.RIG.cart = newCart;
-  if (party.squad.length) party.mount(cart);   // penumpang NPC ikut pindah ke bak baru
+  party.bindCart(cart);
+  if (party.members.length) party.mount(cart);   // penumpang NPC duduk ikut pindah ke bak baru
   reanchorRopes();
 }
 
@@ -494,21 +496,135 @@ bindBtn('btn-pebble', () => {
   world.spawnPebbleClusterAhead(animator.x, animator.z, animator.yaw);
   animator.setState('run');
 });
-function recruitNearbyNPC() {
-  const role = party.recruit(animator.x, animator.z);
-  if (role) party.mount(cart);
+const npcDockEl = document.getElementById('npc-dock');
+let _lastDockSig = '';
+const hexCss = (n, fallback) => '#' + ((typeof n === 'number' ? n : fallback) >>> 0).toString(16).padStart(6, '0');
+function bindTapSafe(el, fn) {
+  let lastTouch = 0;
+  el.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    lastTouch = performance.now();
+    fn();
+  }, { passive: false });
+  el.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (performance.now() - lastTouch < 400) return;
+    fn();
+  });
+}
+function syncNpcHud() {
   physics.damageScale = party.defenseScale();
   if (hudNpcMsg) hudNpcMsg.textContent = party.lastMessage;
-  if (hudNpc) hudNpc.textContent = `${party.squad.length}/${HC.NPC_TEAM_MAX}` + (party.squad.length ? ` — ${party.squad.map((r) => r.name).join(', ')}` : '');
+  if (hudNpc) {
+    const names = party.squad.map((r) => `${r.e || ''}${r.name}`).join(', ');
+    hudNpc.textContent = `${party.squad.length}/${HC.NPC_TEAM_MAX}` + (names ? ` — ${names}` : '');
+  }
+}
+function renderNpcDock() {
+  if (!npcDockEl) return;
+  const near = party.members.length < HC.NPC_TEAM_MAX ? party.nearby(animator.x, animator.z) : null;
+  const sig = party.members.map((m) => `${m.uid}:${m.role.id}:${m.state}`).join('|') +
+    '#' + (near ? near.npc.role.id : '');
+  if (sig === _lastDockSig) return;
+  _lastDockSig = sig;
+
+  npcDockEl.innerHTML = '';
+  const hasAny = party.members.length > 0 || !!near;
+  npcDockEl.hidden = !hasAny;
+  if (!hasAny) return;
+
+  const stateText = {
+    boarding: 'Menuju Bak...',
+    hopping_in: 'Naik Kursi...',
+    seated: 'Di Kursi',
+    following: 'Jalan Ikut',
+  };
+  for (const m of party.members) {
+    const r = m.role;
+    const card = document.createElement('div');
+    card.className = 'npc-card';
+    card.dataset.uid = String(m.uid);
+    card.dataset.state = m.state;
+
+    const rarityCls = r.mythic ? 'mythic' : r.legendary ? 'legendary' : r.rare ? 'rare' : '';
+    const robe = hexCss(r.robe, 0x4f6b34);
+    const hood = hexCss(r.hood, 0x3c4a68);
+
+    const top = document.createElement('div');
+    top.className = 'npc-card-top';
+    top.innerHTML =
+      `<div class="npc-thumb ${rarityCls}" style="--robe:${robe};--hood:${hood}">` +
+        `<span>${r.e || '👤'}</span>` +
+        `<i class="npc-dot ${m.state}"></i>` +
+      `</div>` +
+      `<div class="npc-meta">` +
+        `<div class="npc-name">${r.name}</div>` +
+        `<div class="npc-state">${stateText[m.state] || m.state}</div>` +
+      `</div>`;
+    card.appendChild(top);
+
+    const acts = document.createElement('div');
+    acts.className = 'npc-actions';
+    const btnToggle = document.createElement('button');
+    btnToggle.type = 'button';
+    const canBoard = m.state === 'following';
+    btnToggle.className = 'npc-toggle' + (canBoard ? ' mount' : '');
+    if (m.state === 'hopping_in') {
+      btnToggle.disabled = true;
+      btnToggle.textContent = 'Naik...';
+    } else if (canBoard) {
+      btnToggle.textContent = '⬆ Naik';
+      bindTapSafe(btnToggle, () => {
+        party.toggleMemberMount(m.uid);
+        syncNpcHud();
+        renderNpcDock();
+      });
+    } else {
+      btnToggle.textContent = '⬇ Turun';
+      bindTapSafe(btnToggle, () => {
+        party.toggleMemberMount(m.uid);
+        syncNpcHud();
+        renderNpcDock();
+      });
+    }
+    const btnKick = document.createElement('button');
+    btnKick.type = 'button';
+    btnKick.className = 'npc-kick';
+    btnKick.title = 'Lepas NPC';
+    btnKick.textContent = '×';
+    bindTapSafe(btnKick, () => {
+      party.releaseMember(m.uid);
+      syncNpcHud();
+      renderNpcDock();
+    });
+
+    acts.appendChild(btnToggle);
+    acts.appendChild(btnKick);
+    card.appendChild(acts);
+    npcDockEl.appendChild(card);
+  }
+
+  if (near) {
+    const r = near.npc.role;
+    const pill = document.createElement('button');
+    pill.type = 'button';
+    pill.className = 'npc-nearby-card';
+    pill.textContent = `+ Rekrut ${r.e || ''} ${r.name}`;
+    bindTapSafe(pill, recruitNearbyNPC);
+    npcDockEl.appendChild(pill);
+  }
+}
+party.onChange = renderNpcDock;
+
+function recruitNearbyNPC() {
+  party.recruit(animator.x, animator.z);
+  syncNpcHud();
+  renderNpcDock();
 }
 function releaseLastNPC() {
-  const role = party.squad.pop();
-  if (role) party.lastMessage = `${role.name} dilepas dari regu.`;
-  else party.lastMessage = 'Regu kosong.';
-  party.mount(cart);
-  physics.damageScale = party.defenseScale();
-  if (hudNpcMsg) hudNpcMsg.textContent = party.lastMessage;
-  if (hudNpc) hudNpc.textContent = `${party.squad.length}/${HC.NPC_TEAM_MAX}` + (party.squad.length ? ` — ${party.squad.map((r) => r.name).join(', ')}` : '');
+  party.releaseLast();
+  syncNpcHud();
+  renderNpcDock();
 }
 bindBtn('btn-recruit', recruitNearbyNPC);
 bindBtn('btn-release', releaseLastNPC);
@@ -688,7 +804,7 @@ function stepSim(dt) {
   else { animator.speed = 0; animator.targetSpeed = 0; animator.yawRate = 0; animator.steer = 0; }
   world.setCartPose(physics.pos.x, physics.pos.z);
   world.update(animator.x, dt, animator.z, animator.yaw);
-  party.update(animator.x, animator.z, animator.yaw, dt);
+  party.update(animator.x, animator.z, animator.yaw, dt, cart, physics);
   cullDistantNpcs(party.wild, animator.x, animator.z, quality.npcCull);
   // LOD dievaluasi tiap 12 frame saja: hasil tetap sama di mata, biaya CPU
   // turun (jarak warga jarang berubah signifikan dalam 0.2 s).
@@ -697,14 +813,8 @@ function stepSim(dt) {
   }
   party.applyEffects(dt, physics, world);
   for (const p of cart.npcPassengers || []) HC.animateNPC(p, dt);
-  physics.damageScale = party.defenseScale();
-  if (hudNpc) {
-    const names = party.squad.map((r) => `${r.e || ''}${r.name}`).join(', ');
-    hudNpc.textContent = `${party.squad.length}/${HC.NPC_TEAM_MAX}` + (names ? ` — ${names}` : '');
-  }
-  if (hudNpcMsg && party.lastMessage && hudNpcMsg.textContent !== party.lastMessage) {
-    hudNpcMsg.textContent = party.lastMessage;
-  }
+  syncNpcHud();
+  renderNpcDock();
 
   // anchor sabuk perut & kalung kuda harus segar sebelum physics:
   // gerobak ditarik lewat tali (traces) + dibimbing batang (thills)

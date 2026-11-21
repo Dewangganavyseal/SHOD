@@ -76,6 +76,8 @@
     </div>
   </aside>
 
+  <aside id="npc-dock" aria-label="Regu NPC" hidden></aside>
+
   <div id="controls">
     <button id="btn-left" class="steer" title="Belok Kiri (A / ←)"><span class="k">A/← </span>↶ Kiri</button>
     <button id="btn-right" class="steer" title="Belok Kanan (D / →)"><span class="k">D/→ </span>Kanan ↷</button>
@@ -111,7 +113,7 @@
     (function boot() {
       function loadBundle() {
         const s = document.createElement('script');
-        s.src = './dist/game.bundle.js?v=hutan19';
+        s.src = './dist/game.bundle.js?v=hutan20';
         s.onerror = () => reportBootError('Gagal memuat ./dist/game.bundle.js');
         document.body.appendChild(s);
       }
@@ -123,7 +125,7 @@
 
       const mod = document.createElement('script');
       mod.type = 'module';
-      mod.src = './js/main.js?v=hutan9';
+      mod.src = './js/main.js?v=hutan10';
       mod.onerror = () => loadBundle();
       document.body.appendChild(mod);
     })();

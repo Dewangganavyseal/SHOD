@@ -210,6 +210,79 @@ button.steer.held, button.steer:active { background: #1e5aa8; border-color: #164
   font-size: 11px; color: #5f656e; flex-shrink: 0;
 }
 
+/* ---------------- Right-side NPC Squad Thumbnail Dock ---------------- */
+#npc-dock {
+  position: fixed; top: 14px; right: 312px; z-index: 15;
+  display: flex; flex-direction: column; gap: 8px;
+  width: 184px;
+  pointer-events: auto;
+  transition: right 0.18s ease, top 0.18s ease;
+}
+#npc-dock[hidden] { display: none; }
+#upgrade-panel.collapsed ~ #npc-dock { right: 14px; top: 64px; }
+
+.npc-card {
+  display: flex; flex-direction: column; gap: 6px;
+  background: rgba(255,255,255,0.92);
+  backdrop-filter: blur(6px);
+  border: 1px solid #d8dbe0;
+  border-radius: 11px;
+  padding: 7px 8px;
+  box-shadow: 0 3px 14px rgba(0,0,0,0.09);
+}
+.npc-card-top {
+  display: flex; align-items: center; gap: 8px; min-width: 0;
+}
+.npc-thumb {
+  position: relative;
+  width: 40px; height: 40px; flex-shrink: 0;
+  border-radius: 10px;
+  background: linear-gradient(155deg, var(--hood, #3c4a68) 0%, var(--robe, #4f6b34) 100%);
+  border: 2px solid rgba(255,255,255,0.85);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.35);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 21px; line-height: 1;
+}
+.npc-thumb.rare { box-shadow: 0 0 0 2px #d97706, 0 2px 8px rgba(217,119,6,0.35); }
+.npc-thumb.legendary { box-shadow: 0 0 0 2px #7c3aed, 0 2px 8px rgba(124,58,237,0.38); }
+.npc-thumb.mythic { box-shadow: 0 0 0 2px #10b981, 0 2px 8px rgba(16,185,129,0.42); }
+.npc-dot {
+  position: absolute; right: -3px; bottom: -3px;
+  width: 11px; height: 11px; border-radius: 50%;
+  border: 2px solid #fff; background: #22c55e;
+}
+.npc-dot.boarding, .npc-dot.hopping_in { background: #f59e0b; }
+.npc-dot.following { background: #3b82f6; }
+
+.npc-meta { flex: 1; min-width: 0; }
+.npc-name {
+  font-weight: 700; font-size: 12px; color: #16191d;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.npc-state { font-size: 10px; font-weight: 600; color: #5b616a; margin-top: 1px; }
+.npc-actions { display: flex; gap: 5px; }
+.npc-toggle {
+  flex: 1; padding: 4px 7px; font-size: 11px; font-weight: 700;
+  border-radius: 7px; background: #1f242c; color: #fff; border-color: #1f242c;
+}
+.npc-toggle.mount { background: #0f766e; border-color: #0f766e; color: #fff; }
+.npc-toggle:disabled { opacity: 0.6; cursor: default; }
+.npc-kick {
+  padding: 4px 8px; font-size: 11px; font-weight: 700;
+  border-radius: 7px; background: #fef2f2; color: #b91c1c; border-color: #fecaca;
+}
+.npc-nearby-card {
+  display: flex; align-items: center; justify-content: space-between; gap: 6px;
+  background: rgba(236,253,245,0.95);
+  border: 1px solid #6ee7b7;
+  border-radius: 10px;
+  padding: 6px 8px;
+  font-size: 11px; font-weight: 700; color: #065f46;
+  box-shadow: 0 3px 12px rgba(0,0,0,0.08);
+  cursor: pointer;
+}
+.npc-nearby-card:hover { background: #d1fae5; }
+
 /* ---------------- Mobile & Small Screen Responsive ---------------- */
 @media (max-width: 768px) {
   #hud {
@@ -283,6 +356,11 @@ button.steer.held, button.steer:active { background: #1e5aa8; border-color: #164
   #upgrade-header .ug-title { font-size: 11px; }
   #upgrade-header .ug-sub { font-size: 10px; }
   #upgrade-footer { display: none; }
+
+  #npc-dock,
+  #upgrade-panel.collapsed ~ #npc-dock {
+    right: 8px; top: 50px; width: 156px; z-index: 35;
+  }
 }
 
 @media (max-height: 500px) and (orientation: landscape) {
@@ -329,6 +407,10 @@ body.is-touch #vitals .bar { height: 9px; }
 
 body.is-touch #controls { display: none; }
 body.is-touch #upgrade-panel.collapsed { top: 8px; right: 8px; bottom: auto; }
+body.is-touch #npc-dock,
+body.is-touch #upgrade-panel.collapsed ~ #npc-dock {
+  right: 8px; top: 50px; width: 156px; z-index: 35;
+}
 
 body.is-touch #stick {
   display: block;

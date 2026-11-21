@@ -22362,13 +22362,17 @@ HC.updateWildNPC = function (item, dt, horse, world) {
 };
 
 /* ============================================================================
-   PARTY — rekrut NPC liar, duduk di bangku belakang, buff gerobak.
+   PARTY — rekrut NPC liar, jalan ke belakang gerobak, naik/turun kursi, & kawal.
    ============================================================================ */
 HC.NPCParty = class {
   constructor(scene) {
     this.scene = scene;
     this.roles = HC.NPC_RECRUITABLE;
     this.squad = [];
+    this.members = [];
+    this._nextUid = 1;
+    this.cart = null;
+    this.onChange = null;
     this.wild = [];
     this.nextRole = 0;
     this.lastHorse = { x: 0, z: 0, yaw: 0 };
@@ -22377,6 +22381,14 @@ HC.NPCParty = class {
     this._clock = 0;
     // Kelompok warga permanen dari peta. Tidak ada spawn mengikuti arah kuda.
     this._spawnSettlements();
+  }
+  bindCart(cart) {
+    this.cart = cart;
+  }
+  _notify() {
+    if (typeof this.onChange === 'function') {
+      try { this.onChange(); } catch (e) { /* no-op */ }
+    }
   }
   // NPC liar berdiri di atas terrain, bukan di y=0 (medan sekarang berbukit).
   _groundY(x, z) {
@@ -22412,8 +22424,365 @@ HC.NPCParty = class {
     }
     return item;
   }
-  update(x, z, yaw, dt) {
+  _seatDefs(cart) {
+    const spec = (cart && cart.specs && cart.specs.capSpec) || { bedHalfL: 32 };
+    const xBack = -spec.bedHalfL;
+    const x0 = xBack + 3, x1 = -6, span = x1 - x0;
+    const xA = x0 + span * 0.28, xB = x0 + span * 0.72, z = 9.3;
+    /* Model Sylvan menghadap +Z lokal: bangku +Z diputar PI agar menghadap lorong (-Z),
+       sedangkan bangku -Z tetap rotasi 0 agar menghadap lorong (+Z). */
+    return [
+      { x: xA, z: z, rot: Math.PI },
+      { x: xA, z: -z, rot: 0 },
+      { x: xB, z: z, rot: Math.PI },
+    ];
+  }
+  _cartCenterWorld(cart) {
+    if (cart && cart.root && cart.root.position && HC.THREE) {
+      let yaw = this.lastHorse.yaw || 0;
+      if (cart.body) {
+        cart.root.updateMatrixWorld(true);
+        const fwd = new HC.THREE.Vector3(1, 0, 0);
+        const q = new HC.THREE.Quaternion();
+        cart.body.getWorldQuaternion(q);
+        fwd.applyQuaternion(q);
+        yaw = Math.atan2(-fwd.z, fwd.x);
+      }
+      return { x: cart.root.position.x, z: cart.root.position.z, yaw };
+    }
+    const hy = this.lastHorse.yaw || 0;
+    const d = HC.hitchDist || 4.2;
+    return {
+      x: this.lastHorse.x - Math.cos(hy) * d,
+      z: this.lastHorse.z + Math.sin(hy) * d,
+      yaw: hy,
+    };
+  }
+  _cartRearWorld(cart, extraBack = 1.05, lateral = 0) {
+    const bedHalfL = (cart && cart.specs && cart.specs.capSpec && cart.specs.capSpec.bedHalfL) || 32;
+    const vs = HC.cartVS || 0.075;
+    if (cart && cart.root && cart.body && HC.THREE) {
+      cart.root.updateMatrixWorld(true);
+      const v = new HC.THREE.Vector3(-(bedHalfL * vs) - extraBack, 0, lateral).applyMatrix4(cart.body.matrixWorld);
+      const cc = this._cartCenterWorld(cart);
+      return { x: v.x, z: v.z, yaw: cc.yaw };
+    }
+    const cc = this._cartCenterWorld(cart);
+    const fx = Math.cos(cc.yaw), fz = -Math.sin(cc.yaw);
+    const lx = -fz, lz = fx;
+    const back = bedHalfL * vs + extraBack;
+    return {
+      x: cc.x - fx * back + lx * lateral,
+      z: cc.z - fz * back + lz * lateral,
+      yaw: cc.yaw,
+    };
+  }
+  _syncDefaultPassengers(cart) {
+    if (!cart) return;
+    const hasSquad = this.members.length > 0;
+    for (const p of cart.passengers || []) {
+      if (p && p.root) p.root.visible = !hasSquad;
+    }
+  }
+  _detachSeated(member, cart) {
+    if (member && member.seatRoot) {
+      if (member.seatRoot.parent) member.seatRoot.parent.remove(member.seatRoot);
+      const c = cart || this.cart;
+      if (c && Array.isArray(c.npcPassengers)) {
+        const idx = c.npcPassengers.indexOf(member.seatRoot);
+        if (idx >= 0) c.npcPassengers.splice(idx, 1);
+      }
+      member.seatRoot = null;
+    }
+  }
+  _spawnStanding(member, x, z, dir) {
+    if (member.root) this.scene.remove(member.root);
+    const root = HC.buildNPC(member.role, 'stand');
+    root.position.set(x, this._groundY(x, z), z);
+    if (root.rotation) root.rotation.y = dir;
+    this.scene.add(root);
+    member.root = root;
+    member.x = x;
+    member.z = z;
+    member.dir = dir;
+    member.hopFrom = null;
+    member.boardT = 0;
+    return root;
+  }
+  _attachSeated(member, cart) {
+    const c = cart || this.cart;
+    if (member.root) {
+      this.scene.remove(member.root);
+      member.root = null;
+    }
+    this._detachSeated(member, c);
+    if (c && c.body) {
+      const seats = this._seatDefs(c);
+      const seat = seats[member.seatIndex % seats.length];
+      const seatRoot = HC.buildNPC(member.role, 'sit');
+      const vs = HC.cartVS || 0.075;
+      seatRoot.position.x = seat.x * vs;
+      seatRoot.position.z = seat.z * vs;
+      seatRoot.rotation.y = seat.rot;
+      seatRoot.userData.npcRoleId = member.role.id;
+      c.body.add(seatRoot);
+      c.npcPassengers = c.npcPassengers || [];
+      c.npcPassengers.push(seatRoot);
+      member.seatRoot = seatRoot;
+    }
+    member.state = 'seated';
+    member.boardT = 0;
+    member.hopFrom = null;
+    this._syncDefaultPassengers(c);
+    this._notify();
+  }
+  _turnToward(cur, tgt, rate, dt) {
+    let diff = ((tgt - cur + Math.PI) % (Math.PI * 2));
+    if (diff < 0) diff += Math.PI * 2;
+    diff -= Math.PI;
+    const step = rate * dt;
+    return Math.abs(diff) <= step ? tgt : cur + Math.sign(diff) * step;
+  }
+  _updateMember(m, dt, hx, hz, hyaw, cart, physics) {
+    const root = m.root;
+    if (!root || !HC.THREE) return;
+    const st = root.userData && root.userData.npc;
+    const c = cart || this.cart;
+    const cc = this._cartCenterWorld(c);
+    const rigSpd = physics ? Math.hypot(physics.vel.x, physics.vel.z) : 0;
+    const flipLock = !!(physics && physics.flipped);
+
+    if (m.state === 'boarding') {
+      if (flipLock) {
+        if (st) { st.walking = false; st.vel.x = 0; st.vel.z = 0; }
+        HC.animateNPC(root, dt);
+        return;
+      }
+      const rear = this._cartRearWorld(c, 0.95);
+      const cfx = Math.cos(cc.yaw), cfz = -Math.sin(cc.yaw);
+      const clx = -cfz, clz = cfx;
+      const bedHalfL = ((c && c.specs && c.specs.capSpec && c.specs.capSpec.bedHalfL) || 32) * (HC.cartVS || 0.075);
+
+      const relX = m.x - cc.x, relZ = m.z - cc.z;
+      const mFwd = relX * cfx + relZ * cfz;
+      const mLat = relX * clx + relZ * clz;
+
+      // Jika NPC berada di depan/samping bak, arahkan dulu ke samping luar agar memutar lewat belakang (bukan menembus bak)
+      let tgtX = rear.x, tgtZ = rear.z;
+      const directDist = Math.hypot(rear.x - m.x, rear.z - m.z);
+      if (mFwd > -(bedHalfL + 0.15) && Math.abs(mLat) < 1.85 && directDist > 0.9) {
+        const side = mLat >= 0 ? 1 : -1;
+        const backDist = bedHalfL + 1.05;
+        tgtX = cc.x - cfx * backDist + clx * side * 2.05;
+        tgtZ = cc.z - cfz * backDist + clz * side * 2.05;
+      }
+
+      const dx = tgtX - m.x, dz = tgtZ - m.z;
+      const stepDist = Math.hypot(dx, dz);
+      const sp = directDist > 4.0 ? Math.max(2.2, rigSpd + 1.8) : Math.max(1.55, rigSpd + 1.1);
+      if (stepDist > 1e-4) {
+        const move = Math.min(stepDist, sp * dt);
+        m.x += (dx / stepDist) * move;
+        m.z += (dz / stepDist) * move;
+        m.dir = this._turnToward(m.dir, Math.atan2(dx, dz), 9.0, dt);
+      }
+
+      // Hindari menembus badan kuda atau gerobak saat memutar dari depan
+      const dH = Math.hypot(m.x - hx, m.z - hz);
+      if (dH < 1.35 && dH > 1e-4) {
+        m.x = hx + ((m.x - hx) / dH) * 1.35;
+        m.z = hz + ((m.z - hz) / dH) * 1.35;
+      }
+      const nRelX = m.x - cc.x, nRelZ = m.z - cc.z;
+      const nFwd = nRelX * cfx + nRelZ * cfz;
+      const dC = Math.hypot(nRelX, nRelZ);
+      if (nFwd > -bedHalfL + 0.2 && dC < 1.50 && dC > 1e-4) {
+        m.x = cc.x + (nRelX / dC) * 1.50;
+        m.z = cc.z + (nRelZ / dC) * 1.50;
+      }
+
+      const gy = this._groundY(m.x, m.z);
+      root.position.set(m.x, gy, m.z);
+      root.rotation.y = m.dir;
+      if (st) {
+        st.pos.copy(root.position);
+        st.vel.x = stepDist > 1e-4 ? (dx / stepDist) * sp : 0;
+        st.vel.z = stepDist > 1e-4 ? (dz / stepDist) * sp : 0;
+        st.walking = true;
+        st.working = false;
+        st.headAngle = 0;
+      }
+      HC.animateNPC(root, dt);
+
+      if (Math.hypot(rear.x - m.x, rear.z - m.z) < 0.72) {
+        if (c && c.body) {
+          m.state = 'hopping_in';
+          m.boardT = 0;
+          m.hopFrom = { x: m.x, y: gy, z: m.z };
+          this._notify();
+        } else {
+          this._attachSeated(m, c);
+        }
+      }
+      return;
+    }
+
+    if (m.state === 'hopping_in') {
+      if (flipLock || !c || !c.body) {
+        m.state = 'following';
+        this._notify();
+        return;
+      }
+      m.boardT += dt / 0.38;
+      const u = Math.max(0, Math.min(1, m.boardT));
+      const seats = this._seatDefs(c);
+      const seat = seats[m.seatIndex % seats.length];
+      const vs = HC.cartVS || 0.075;
+      c.root.updateMatrixWorld(true);
+      const targetW = new HC.THREE.Vector3(seat.x * vs, 0.36, seat.z * vs).applyMatrix4(c.body.matrixWorld);
+      const from = m.hopFrom || { x: m.x, y: this._groundY(m.x, m.z), z: m.z };
+      const arc = Math.sin(Math.PI * u) * 0.45;
+      const px = from.x + (targetW.x - from.x) * u;
+      const py = from.y + (targetW.y - from.y) * u + arc;
+      const pz = from.z + (targetW.z - from.z) * u;
+      root.position.set(px, py, pz);
+      m.x = px; m.z = pz;
+      m.dir = this._turnToward(m.dir, cc.yaw + seat.rot, 12.0, dt);
+      root.rotation.y = m.dir;
+      if (st) {
+        st.pos.copy(root.position);
+        st.walking = false;
+        st.vel.x = 0; st.vel.z = 0;
+        st.headAngle = 0;
+      }
+      HC.animateNPC(root, dt);
+
+      if (m.boardT >= 1) {
+        this._attachSeated(m, c);
+        this.lastMessage = `${m.role.e} ${m.role.name} sudah duduk di bangku gerobak.`;
+      }
+      return;
+    }
+
+    // ---- state === 'following': turun, jalan-jalan di sekitar gerobak saat diam, ikut gerak saat jalan ----
+    const midX = (hx + cc.x) * 0.5;
+    const midZ = (hz + cc.z) * 0.5;
+    const distToCart = Math.hypot(m.x - cc.x, m.z - cc.z);
+    if (distToCart > 26) {
+      const snap = this._cartRearWorld(c, 2.4, (m.seatIndex - 1) * 0.9);
+      m.x = snap.x; m.z = snap.z;
+    }
+
+    const rfx = Math.cos(hyaw), rfz = -Math.sin(hyaw);
+    const rlx = -rfz, rlz = rfx;
+    const escortOffsets = [
+      { fwd: -0.9, lat: 2.85 },   // sisi kiri gerobak-kuda
+      { fwd: -0.9, lat: -2.85 },  // sisi kanan gerobak-kuda
+      { fwd: -4.8, lat: 1.90 },   // mengawal di belakang kiri
+    ];
+    const off = escortOffsets[m.seatIndex % escortOffsets.length];
+    const escortX = cc.x + rfx * off.fwd + rlx * off.lat;
+    const escortZ = cc.z + rfz * off.fwd + rlz * off.lat;
+    const distToEscort = Math.hypot(escortX - m.x, escortZ - m.z);
+    const distToMid = Math.hypot(midX - m.x, midZ - m.z);
+
+    let walkingNow = false;
+    let curSpeed = 0;
+
+    if (rigSpd > 0.35 || distToMid > 6.5) {
+      // Gerobak sedang jalan atau NPC ketinggalan jauh -> terus kejar & ikuti gerobak
+      m.roamPhase = 'roam';
+      m.roamT = 0.5;
+      if (distToEscort > 0.55) {
+        const sp = Math.min(Math.max((m.role.speed || 3.4) * 1.15, rigSpd + 2.2), Math.max(1.85, distToEscort * 2.1));
+        const move = Math.min(distToEscort, sp * dt);
+        m.x += ((escortX - m.x) / distToEscort) * move;
+        m.z += ((escortZ - m.z) / distToEscort) * move;
+        m.dir = this._turnToward(m.dir, Math.atan2(escortX - m.x, escortZ - m.z), 8.5, dt);
+        walkingNow = true;
+        curSpeed = sp;
+      } else {
+        m.dir = this._turnToward(m.dir, hyaw + Math.PI * 0.5, 6.0, dt);
+      }
+    } else {
+      // Gerobak diam -> NPC berjalan-jalan santai di sekitar kuda & gerobak
+      m.roamT = (m.roamT ?? 0) - dt;
+      if (m.roamT <= 0 || !m.roamTarget) {
+        if (m.roamPhase === 'roam') {
+          m.roamPhase = 'idle';
+          m.roamT = 1.4 + Math.random() * 1.8;
+        } else {
+          m.roamPhase = 'roam';
+          m.roamT = 2.4 + Math.random() * 2.2;
+          let picked = null;
+          for (let attempt = 0; attempt < 8; attempt++) {
+            const ang = Math.random() * Math.PI * 2;
+            const rad = 2.9 + Math.random() * 2.4;
+            const px = midX + Math.cos(ang) * rad;
+            const pz = midZ + Math.sin(ang) * rad;
+            if (Math.hypot(px - hx, pz - hz) < 1.85) continue;
+            if (Math.hypot(px - cc.x, pz - cc.z) < 2.35) continue;
+            picked = { x: px, z: pz };
+            break;
+          }
+          m.roamTarget = picked || { x: escortX, z: escortZ };
+        }
+      }
+      if (m.roamPhase === 'roam' && m.roamTarget) {
+        const dx = m.roamTarget.x - m.x, dz = m.roamTarget.z - m.z;
+        const d = Math.hypot(dx, dz);
+        if (d > 0.35) {
+          const sp = 1.45;
+          const move = Math.min(d, sp * dt);
+          m.x += (dx / d) * move;
+          m.z += (dz / d) * move;
+          m.dir = this._turnToward(m.dir, Math.atan2(dx, dz), 6.5, dt);
+          walkingNow = true;
+          curSpeed = sp;
+        } else {
+          m.roamPhase = 'idle';
+          m.roamT = 1.2 + Math.random() * 1.5;
+        }
+      } else {
+        // Saat diam, sesekali menengok ke arah kuda/gerobak
+        const look = Math.atan2(hx - m.x, hz - m.z);
+        m.dir = this._turnToward(m.dir, look, 2.5, dt);
+      }
+    }
+
+    // Jaga jarak aman terhadap kuda, gerobak, dan sesama NPC yang turun
+    const pushOut = (ox, oz, minR) => {
+      const dx = m.x - ox, dz = m.z - oz;
+      const d = Math.hypot(dx, dz);
+      if (d < minR && d > 1e-4) {
+        m.x = ox + (dx / d) * minR;
+        m.z = oz + (dz / d) * minR;
+      }
+    };
+    pushOut(hx, hz, 1.75);
+    pushOut(cc.x, cc.z, 2.25);
+    for (const other of this.members) {
+      if (other !== m && other.state === 'following' && other.root) {
+        pushOut(other.x, other.z, 1.05);
+      }
+    }
+
+    const gy = this._groundY(m.x, m.z);
+    root.position.set(m.x, gy, m.z);
+    root.rotation.y = m.dir;
+    if (st) {
+      st.pos.copy(root.position);
+      st.vel.x = walkingNow ? Math.sin(m.dir) * curSpeed : 0;
+      st.vel.z = walkingNow ? Math.cos(m.dir) * curSpeed : 0;
+      st.walking = walkingNow;
+      st.working = false;
+      st.headAngle = 0;
+    }
+    HC.animateNPC(root, dt);
+  }
+  update(x, z, yaw, dt, cart = null, physics = null) {
     this.lastHorse.x = x; this.lastHorse.z = z; this.lastHorse.yaw = yaw;
+    if (cart) this.cart = cart;
     this._clock += dt || 1 / 60;
     for (let i = 0; i < this.wild.length; i++) {
       const w = this.wild[i];
@@ -22424,6 +22793,11 @@ HC.NPCParty = class {
       if (w.recruited) continue;
       // Tetap berkelompok di kamp/pos; TIDAK respawn random di depan kuda.
       if (w.root) HC.updateWildNPC(w, dt || 1 / 60, { x, z }, this.world);
+    }
+    for (const m of this.members) {
+      if (m.state !== 'seated') {
+        this._updateMember(m, dt || 1 / 60, x, z, yaw, this.cart, physics);
+      }
     }
   }
   avoidSiteProps(world, item) {
@@ -22462,7 +22836,7 @@ HC.NPCParty = class {
       const d = Math.hypot(w.x - x, w.z - z);
       if (d < dist) { best = w; dist = d; }
     }
-    return best && dist <= 3.2 ? { npc: best, distance: dist } : null;
+    return best && dist <= 3.8 ? { npc: best, distance: dist } : null;
   }
   /* Damage roda = hasil kali efek semua anggota (mis. guardian 0.82 + warrior
      0.60 -> 0.49), dibatasi 0.35 supaya tidak pernah nol. */
@@ -22513,49 +22887,115 @@ HC.NPCParty = class {
       this.lastMessage = 'Regu penuh (3/3). Lepas anggota dulu.'; return null;
     }
     const hit = this.nearby(x, z);
-    if (!hit) { this.lastMessage = 'Belum ada NPC dalam jangkauan 3.2 m. Deketin kelompoknya dulu.'; return null; }
+    if (!hit) { this.lastMessage = 'Belum ada NPC dalam jangkauan 3.8 m. Deketin kelompoknya dulu.'; return null; }
     const w = hit.npc;
     const role = w.role;              // ambil dulu: respawn menimpa item.role
+    const startX = w.x, startZ = w.z;
+    const startDir = (w.root && w.root.rotation && w.root.rotation.y) || 0;
     this.squad.push(role);
     this.scene.remove(w.root);
     // Warga pergi ikut regu; slot di kamp diisi lagi nanti (30 s) DI SITUS YANG
     // SAMA, bukan muncul mendadak di depan kuda.
     w.recruited = true;
     w.respawnAt = this._clock + 30;
+
+    const usedSeats = new Set(this.members.map((m) => m.seatIndex));
+    let seatIndex = 0;
+    while (usedSeats.has(seatIndex) && seatIndex < HC.NPC_TEAM_MAX) seatIndex++;
+
+    const member = {
+      uid: this._nextUid++,
+      role,
+      seatIndex,
+      state: 'boarding',
+      x: startX,
+      z: startZ,
+      dir: startDir,
+      root: null,
+      seatRoot: null,
+      boardT: 0,
+      hopFrom: null,
+      roamPhase: 'roam',
+      roamT: 1.5,
+      roamTarget: { x: startX, z: startZ },
+      actT: 5,
+      swingT: -1,
+    };
+    this.members.push(member);
+    this._spawnStanding(member, startX, startZ, startDir);
+    this._syncDefaultPassengers(this.cart);
+
     const fx = HC.npcSkillFx(role);
-    this.lastMessage = `${role.e} ${role.name} direkrut — ${role.skill.name}: ${fx.note}`;
+    this.lastMessage = `${role.e} ${role.name} direkrut — berjalan ke belakang gerobak... (${fx.note})`;
+    this._notify();
     return role;
   }
+  boardMember(uid) {
+    const m = this.members.find((it) => it.uid === uid);
+    if (!m || m.state === 'seated' || m.state === 'boarding' || m.state === 'hopping_in') return false;
+    m.state = 'boarding';
+    m.boardT = 0;
+    m.hopFrom = null;
+    this.lastMessage = `${m.role.e} ${m.role.name} menuju belakang gerobak untuk naik.`;
+    this._notify();
+    return true;
+  }
+  disembarkMember(uid) {
+    const m = this.members.find((it) => it.uid === uid);
+    if (!m || m.state === 'following') return false;
+    if (m.state === 'seated') {
+      this._detachSeated(m, this.cart);
+      const rear = this._cartRearWorld(this.cart, 1.15, (m.seatIndex - 1) * 0.65);
+      this._spawnStanding(m, rear.x, rear.z, rear.yaw + Math.PI);
+    }
+    m.state = 'following';
+    m.roamPhase = 'roam';
+    m.roamT = 0.2;
+    m.roamTarget = null;
+    this.lastMessage = `${m.role.e} ${m.role.name} turun dan berjalan di sekitar gerobak.`;
+    this._notify();
+    return true;
+  }
+  toggleMemberMount(uid) {
+    const m = this.members.find((it) => it.uid === uid);
+    if (!m) return false;
+    return m.state === 'following' ? this.boardMember(uid) : this.disembarkMember(uid);
+  }
+  releaseMember(uid) {
+    const idx = this.members.findIndex((it) => it.uid === uid);
+    if (idx < 0) return null;
+    const [m] = this.members.splice(idx, 1);
+    const sIdx = this.squad.indexOf(m.role);
+    if (sIdx >= 0) this.squad.splice(sIdx, 1);
+    else this.squad.splice(idx, 1);
+    if (m.root) { this.scene.remove(m.root); m.root = null; }
+    this._detachSeated(m, this.cart);
+    this._syncDefaultPassengers(this.cart);
+    this.lastMessage = `${m.role.e} ${m.role.name} dilepas dari regu.`;
+    this._notify();
+    return m.role;
+  }
+  releaseLast() {
+    if (!this.members.length) {
+      const role = this.squad.pop();
+      this.lastMessage = role ? `${role.name} dilepas dari regu.` : 'Regu kosong.';
+      this._notify();
+      return role || null;
+    }
+    const last = this.members[this.members.length - 1];
+    return this.releaseMember(last.uid);
+  }
   unmount(cart) {
+    if (!cart) return;
     for (const p of cart.npcPassengers || []) if (p.parent) p.parent.remove(p);
     cart.npcPassengers = [];
   }
   mount(cart) {
+    this.cart = cart;
     this.unmount(cart);
-    const active = this.squad.length > 0;
-    for (const p of cart.passengers || []) p.root.visible = !active;
-    const spec = cart.specs.capSpec, xBack = -spec.bedHalfL;
-    const x0 = xBack + 3, x1 = -6, span = x1 - x0;
-    const xA = x0 + span * 0.28, xB = x0 + span * 0.72, z = 9.3;
-    /* Arah hadap: model Sylvan menghadap +Z lokal (BUKAN +X seperti penumpang
-       voxel SHOD), sedangkan root di sini tidak diberi kompensasi di holder.
-       Karena itu rotasi bangku memakai sumbu Z: bangku +Z harus diputar PI
-       supaya hidungnya menuju lorong (-Z), dan bangku -Z tetap 0 supaya
-       menghadap +Z. Sebelumnya dipakai +/-PI/2 (resep penumpang SHOD), jadi
-       semua kru duduk menyamping menghadap DEPAN gerobak, bukan berhadapan. */
-    const seats = [
-      { x: xA, z: z, rot: Math.PI },        // bangku +Z -> hadap lorong (-Z)
-      { x: xA, z: -z, rot: 0 },             // bangku -Z -> hadap lorong (+Z)
-      { x: xB, z: z, rot: Math.PI },        // stasiun depan, sisi +Z
-    ];
-    for (let i = 0; i < this.squad.length; i++) {
-      const role = this.squad[i], seat = seats[i], root = HC.buildNPC(role, 'sit');
-      root.position.x = seat.x * HC.cartVS;
-      root.position.z = seat.z * HC.cartVS;
-      root.rotation.y = seat.rot;
-      root.userData.npcRoleId = role.id;
-      cart.body.add(root);
-      cart.npcPassengers.push(root);
+    this._syncDefaultPassengers(cart);
+    for (const m of this.members) {
+      if (m.state === 'seated') this._attachSeated(m, cart);
     }
   }
 };
@@ -23687,6 +24127,7 @@ physics.reset(startPose.x, startPose.z, startPose.yaw);
 // ---------------- NPC squad (roster Sylvan Dominion) ----------------
 const party = new HC.NPCParty(scene);
 party.world = world;   // NPC liar berdiri di permukaan terrain
+party.bindCart(cart);
 if (world.placeNPCsInWorld) {
   world.placeNPCsInWorld(party);
 } else {
@@ -23893,7 +24334,8 @@ function rebuildCartFromStore() {
   physics.joltScale = store.joltScale();
   cart = newCart;
   window.RIG.cart = newCart;
-  if (party.squad.length) party.mount(cart);   // penumpang NPC ikut pindah ke bak baru
+  party.bindCart(cart);
+  if (party.members.length) party.mount(cart);   // penumpang NPC duduk ikut pindah ke bak baru
   reanchorRopes();
 }
 
@@ -24096,21 +24538,135 @@ bindBtn('btn-pebble', () => {
   world.spawnPebbleClusterAhead(animator.x, animator.z, animator.yaw);
   animator.setState('run');
 });
-function recruitNearbyNPC() {
-  const role = party.recruit(animator.x, animator.z);
-  if (role) party.mount(cart);
+const npcDockEl = document.getElementById('npc-dock');
+let _lastDockSig = '';
+const hexCss = (n, fallback) => '#' + ((typeof n === 'number' ? n : fallback) >>> 0).toString(16).padStart(6, '0');
+function bindTapSafe(el, fn) {
+  let lastTouch = 0;
+  el.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    lastTouch = performance.now();
+    fn();
+  }, { passive: false });
+  el.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (performance.now() - lastTouch < 400) return;
+    fn();
+  });
+}
+function syncNpcHud() {
   physics.damageScale = party.defenseScale();
   if (hudNpcMsg) hudNpcMsg.textContent = party.lastMessage;
-  if (hudNpc) hudNpc.textContent = `${party.squad.length}/${HC.NPC_TEAM_MAX}` + (party.squad.length ? ` — ${party.squad.map((r) => r.name).join(', ')}` : '');
+  if (hudNpc) {
+    const names = party.squad.map((r) => `${r.e || ''}${r.name}`).join(', ');
+    hudNpc.textContent = `${party.squad.length}/${HC.NPC_TEAM_MAX}` + (names ? ` — ${names}` : '');
+  }
+}
+function renderNpcDock() {
+  if (!npcDockEl) return;
+  const near = party.members.length < HC.NPC_TEAM_MAX ? party.nearby(animator.x, animator.z) : null;
+  const sig = party.members.map((m) => `${m.uid}:${m.role.id}:${m.state}`).join('|') +
+    '#' + (near ? near.npc.role.id : '');
+  if (sig === _lastDockSig) return;
+  _lastDockSig = sig;
+
+  npcDockEl.innerHTML = '';
+  const hasAny = party.members.length > 0 || !!near;
+  npcDockEl.hidden = !hasAny;
+  if (!hasAny) return;
+
+  const stateText = {
+    boarding: 'Menuju Bak...',
+    hopping_in: 'Naik Kursi...',
+    seated: 'Di Kursi',
+    following: 'Jalan Ikut',
+  };
+  for (const m of party.members) {
+    const r = m.role;
+    const card = document.createElement('div');
+    card.className = 'npc-card';
+    card.dataset.uid = String(m.uid);
+    card.dataset.state = m.state;
+
+    const rarityCls = r.mythic ? 'mythic' : r.legendary ? 'legendary' : r.rare ? 'rare' : '';
+    const robe = hexCss(r.robe, 0x4f6b34);
+    const hood = hexCss(r.hood, 0x3c4a68);
+
+    const top = document.createElement('div');
+    top.className = 'npc-card-top';
+    top.innerHTML =
+      `<div class="npc-thumb ${rarityCls}" style="--robe:${robe};--hood:${hood}">` +
+        `<span>${r.e || '👤'}</span>` +
+        `<i class="npc-dot ${m.state}"></i>` +
+      `</div>` +
+      `<div class="npc-meta">` +
+        `<div class="npc-name">${r.name}</div>` +
+        `<div class="npc-state">${stateText[m.state] || m.state}</div>` +
+      `</div>`;
+    card.appendChild(top);
+
+    const acts = document.createElement('div');
+    acts.className = 'npc-actions';
+    const btnToggle = document.createElement('button');
+    btnToggle.type = 'button';
+    const canBoard = m.state === 'following';
+    btnToggle.className = 'npc-toggle' + (canBoard ? ' mount' : '');
+    if (m.state === 'hopping_in') {
+      btnToggle.disabled = true;
+      btnToggle.textContent = 'Naik...';
+    } else if (canBoard) {
+      btnToggle.textContent = '⬆ Naik';
+      bindTapSafe(btnToggle, () => {
+        party.toggleMemberMount(m.uid);
+        syncNpcHud();
+        renderNpcDock();
+      });
+    } else {
+      btnToggle.textContent = '⬇ Turun';
+      bindTapSafe(btnToggle, () => {
+        party.toggleMemberMount(m.uid);
+        syncNpcHud();
+        renderNpcDock();
+      });
+    }
+    const btnKick = document.createElement('button');
+    btnKick.type = 'button';
+    btnKick.className = 'npc-kick';
+    btnKick.title = 'Lepas NPC';
+    btnKick.textContent = '×';
+    bindTapSafe(btnKick, () => {
+      party.releaseMember(m.uid);
+      syncNpcHud();
+      renderNpcDock();
+    });
+
+    acts.appendChild(btnToggle);
+    acts.appendChild(btnKick);
+    card.appendChild(acts);
+    npcDockEl.appendChild(card);
+  }
+
+  if (near) {
+    const r = near.npc.role;
+    const pill = document.createElement('button');
+    pill.type = 'button';
+    pill.className = 'npc-nearby-card';
+    pill.textContent = `+ Rekrut ${r.e || ''} ${r.name}`;
+    bindTapSafe(pill, recruitNearbyNPC);
+    npcDockEl.appendChild(pill);
+  }
+}
+party.onChange = renderNpcDock;
+
+function recruitNearbyNPC() {
+  party.recruit(animator.x, animator.z);
+  syncNpcHud();
+  renderNpcDock();
 }
 function releaseLastNPC() {
-  const role = party.squad.pop();
-  if (role) party.lastMessage = `${role.name} dilepas dari regu.`;
-  else party.lastMessage = 'Regu kosong.';
-  party.mount(cart);
-  physics.damageScale = party.defenseScale();
-  if (hudNpcMsg) hudNpcMsg.textContent = party.lastMessage;
-  if (hudNpc) hudNpc.textContent = `${party.squad.length}/${HC.NPC_TEAM_MAX}` + (party.squad.length ? ` — ${party.squad.map((r) => r.name).join(', ')}` : '');
+  party.releaseLast();
+  syncNpcHud();
+  renderNpcDock();
 }
 bindBtn('btn-recruit', recruitNearbyNPC);
 bindBtn('btn-release', releaseLastNPC);
@@ -24290,7 +24846,7 @@ function stepSim(dt) {
   else { animator.speed = 0; animator.targetSpeed = 0; animator.yawRate = 0; animator.steer = 0; }
   world.setCartPose(physics.pos.x, physics.pos.z);
   world.update(animator.x, dt, animator.z, animator.yaw);
-  party.update(animator.x, animator.z, animator.yaw, dt);
+  party.update(animator.x, animator.z, animator.yaw, dt, cart, physics);
   cullDistantNpcs(party.wild, animator.x, animator.z, quality.npcCull);
   // LOD dievaluasi tiap 12 frame saja: hasil tetap sama di mata, biaya CPU
   // turun (jarak warga jarang berubah signifikan dalam 0.2 s).
@@ -24299,14 +24855,8 @@ function stepSim(dt) {
   }
   party.applyEffects(dt, physics, world);
   for (const p of cart.npcPassengers || []) HC.animateNPC(p, dt);
-  physics.damageScale = party.defenseScale();
-  if (hudNpc) {
-    const names = party.squad.map((r) => `${r.e || ''}${r.name}`).join(', ');
-    hudNpc.textContent = `${party.squad.length}/${HC.NPC_TEAM_MAX}` + (names ? ` — ${names}` : '');
-  }
-  if (hudNpcMsg && party.lastMessage && hudNpcMsg.textContent !== party.lastMessage) {
-    hudNpcMsg.textContent = party.lastMessage;
-  }
+  syncNpcHud();
+  renderNpcDock();
 
   // anchor sabuk perut & kalung kuda harus segar sebelum physics:
   // gerobak ditarik lewat tali (traces) + dibimbing batang (thills)
