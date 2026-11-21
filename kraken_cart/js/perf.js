@@ -32,8 +32,9 @@ export const QUALITY_PRESETS = {
     npcLod: true,
     npcLodNear: 7,
     npcCull: 34,
-    treeImpostor: 26,
-    hint: 'HP kelas bawah: bayangan mati, resolusi tetap 100% (bukan 75%), rumput 30%, pohon jauh jadi billboard impostor'
+    treeLod: 45,
+    treeFar: 95,
+    hint: 'HP kelas bawah: bayangan mati, resolusi tetap 100%, rumput 30%, pohon >45 m jadi versi low-detail (bukan billboard)'
   },
   medium: {
     key: 'medium',
@@ -51,8 +52,9 @@ export const QUALITY_PRESETS = {
     npcLod: true,
     npcLodNear: 13,
     npcCull: 48,
-    treeImpostor: 38,
-    hint: 'HP menengah: bayangan diperbarui berkala, rumput 62%, pohon jauh jadi billboard impostor'
+    treeLod: 60,
+    treeFar: 115,
+    hint: 'HP menengah: bayangan diperbarui berkala, rumput 62%, pohon >60 m versi low-detail'
   },
   high: {
     key: 'high',
@@ -69,8 +71,9 @@ export const QUALITY_PRESETS = {
     npcLod: false,
     npcLodNear: 0,
     npcCull: 0,
-    treeImpostor: 58,
-    hint: 'PC/HP kencang: semua detail, NPC utuh, bayangan penuh'
+    treeLod: 80,
+    treeFar: 135,
+    hint: 'PC/HP kencang: semua detail dekat, pohon >80 m versi low-detail, NPC utuh, bayangan penuh'
   }
 };
 

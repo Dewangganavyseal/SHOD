@@ -27,13 +27,15 @@ class World {
     const wantsShadows = QUALITY ? QUALITY.shadows !== false : true;
 
     const PERF_PROFILES = {
-      potato:   { label: 'Kentang',  pixelRatio: 1.0,  cullDistance: 30.0, grassRatio: 0.30, treeImpostor: 26.0 },
-      medium:   { label: 'Menengah', pixelRatio: 1.25, cullDistance: 52.0, grassRatio: 0.62, treeImpostor: 38.0 },
-      high:     { label: 'Ultra PC', pixelRatio: 2.0,  cullDistance: 84.0, grassRatio: 1.0,  treeImpostor: 58.0 },
+      // treeLod  = jarak mulai pakai geometri pohon gabungan (low-detail, 1 draw call per jenis)
+      // treeFar  = jarak maksimum pohon low-detail masih digambar (siluet cakrawala)
+      potato:   { label: 'Kentang',  pixelRatio: 1.0,  cullDistance: 30.0, grassRatio: 0.30, treeLod: 45.0, treeFar: 95.0 },
+      medium:   { label: 'Menengah', pixelRatio: 1.25, cullDistance: 52.0, grassRatio: 0.62, treeLod: 60.0, treeFar: 115.0 },
+      high:     { label: 'Ultra PC', pixelRatio: 2.0,  cullDistance: 84.0, grassRatio: 1.0,  treeLod: 80.0, treeFar: 135.0 },
       // alias lama supaya kode/probe yang masih menyebut nama ini tetap jalan
-      mobile:   { label: 'Kentang',  pixelRatio: 1.0,  cullDistance: 30.0, grassRatio: 0.30, treeImpostor: 26.0 },
-      balanced: { label: 'Menengah', pixelRatio: 1.25, cullDistance: 52.0, grassRatio: 0.62, treeImpostor: 38.0 },
-      ultra:    { label: 'Ultra PC', pixelRatio: 2.0,  cullDistance: 84.0, grassRatio: 1.0,  treeImpostor: 58.0 }
+      mobile:   { label: 'Kentang',  pixelRatio: 1.0,  cullDistance: 30.0, grassRatio: 0.30, treeLod: 45.0, treeFar: 95.0 },
+      balanced: { label: 'Menengah', pixelRatio: 1.25, cullDistance: 52.0, grassRatio: 0.62, treeLod: 60.0, treeFar: 115.0 },
+      ultra:    { label: 'Ultra PC', pixelRatio: 2.0,  cullDistance: 84.0, grassRatio: 1.0,  treeLod: 80.0, treeFar: 135.0 }
     };
     let currentPerfMode = QUALITY ? QUALITY.key : (isMobileDevice ? 'medium' : 'high');
     this._quality = QUALITY;
@@ -4646,156 +4648,138 @@ class World {
      Semua billboard satu bucket digambar lewat SATU InstancedMesh, jadi biaya
      puluhan pohon jauh cuma ~1 draw call per jenis warna.
      -------------------------------------------------------------------------- */
-  _makeTreeImpostorTexture(leafColor, kind) {
+  /* --------------------------------------------------------------------------
+     LOD 3D POHON JAUH (bukan billboard 2D).
+     Siluet & geometri pohon TETAP ada di jauh, cuma bentuknya versi "burik":
+     semua sub-mesh digabung jadi SATU geometri, warna dipanggang ke vertex,
+     shader angin/tekstur tidak dipakai lagi. Semua pohon jauh dari jenis yang
+     sama digambar sebagai INSTANCE geometri itu (1 draw call per jenis).
+     Dekat: model asli lengkap (trunk pahat + kanopi shader angin) seperti biasa.
+     Ambang pindah jauh: Hass Tampilan berbeda hanya mulai lewat beberapa puluh
+     meter, bukan 20 m seperti versi billboard yang pertama.
+     -------------------------------------------------------------------------- */
+  _bakeTreeForLod(tree, leafHex) {
     const THREE = HC.THREE;
-    const W = 96, H = 128;
-    const cv = document.createElement('canvas');
-    cv.width = W; cv.height = H;
-    const g = cv.getContext('2d');
-    g.clearRect(0, 0, W, H);
+    tree.updateMatrixWorld(true);
+    const rootInv = new THREE.Matrix4().copy(tree.matrixWorld).invert();
+    const positions = [], normals = [], colors = [];
+    const c = new THREE.Color();
+    const m4 = new THREE.Matrix4();
+    const treeScale = tree.scale.x || 1;
+    const templateScale = 1 / treeScale;
 
-    const base = (leafColor || new THREE.Color(0x3f7d3a)).clone();
-    const dark = base.clone().multiplyScalar(0.58);
-    const light = base.clone().lerp(new THREE.Color(0xffffff), 0.26);
-    const hex = (c) => '#' + c.getHexString();
+    tree.traverse((o) => {
+      if (!o.isMesh || !o.geometry) return;
+      let g = o.geometry.clone();
+      if (g.index) g = g.toNonIndexed();
+      m4.multiplyMatrices(rootInv, o.matrixWorld);
+      g.applyMatrix4(m4);
+      // Buat geometri template tetap pada skala 1; variasi ukuran tiap pohon
+      // akan dibawa oleh matrix instance, bukan terkunci pada pohon pertama.
+      g.scale(templateScale, templateScale, templateScale);
 
-    g.filter = 'blur(1.4px)';
-
-    // Batang
-    g.fillStyle = kind === 'dead' ? '#6b5236' : '#4a3722';
-    g.beginPath();
-    g.moveTo(W * 0.455, H);
-    g.lineTo(W * 0.478, H * 0.52);
-    g.lineTo(W * 0.522, H * 0.52);
-    g.lineTo(W * 0.545, H);
-    g.closePath();
-    g.fill();
-
-    if (kind === 'dead') {
-      g.strokeStyle = '#6b5236';
-      g.lineWidth = 2.6;
-      for (let i = 0; i < 5; i++) {
-        const t = 0.34 + i * 0.1;
-        g.beginPath();
-        g.moveTo(W * 0.5, H * t);
-        g.lineTo(W * (0.5 + (i % 2 ? 0.24 : -0.24)), H * (t - 0.06));
-        g.stroke();
+      const mat = Array.isArray(o.material) ? o.material[0] : o.material;
+      const isFoliage = !!(tree.userData && tree.userData.foliageMesh === o);
+      // Foliage pakai tekstur/shader, jadi material.color-nya putih: pakai warna
+      // palet daun milik pohon ini, jangan putih.
+      let hex = isFoliage ? leafHex : 0x4f7b3a;
+      if (mat) {
+        if (mat.color && mat.color.isColor && !isFoliage) hex = mat.color.getHex();
+        else if (mat.uniforms) {
+          const u = mat.uniforms.uColor || mat.uniforms.color || mat.uniforms.uLeafColor;
+          if (u && u.value && u.value.getHex) hex = u.value.getHex();
+        }
       }
-    } else {
-      const blobs = kind === 'pine'
-        ? [[0.50, 0.26, 0.27], [0.50, 0.45, 0.31], [0.50, 0.64, 0.25]]
-        : [[0.35, 0.34, 0.24], [0.65, 0.32, 0.22], [0.50, 0.22, 0.25], [0.50, 0.50, 0.30]];
-      for (const [cx, cy, r] of blobs) {
-        const rad = g.createRadialGradient(W * cx, H * cy, W * r * 0.12, W * cx, H * cy, W * r);
-        rad.addColorStop(0, hex(light));
-        rad.addColorStop(0.62, hex(base));
-        rad.addColorStop(1, hex(dark));
-        g.fillStyle = rad;
-        g.beginPath();
-        g.arc(W * cx, H * cy, W * r, 0, Math.PI * 2);
-        g.fill();
-      }
-    }
-    g.filter = 'none';
+      c.setHex(hex === undefined || hex === null ? 0x4f7b3a : hex);
 
-    const tex = new THREE.CanvasTexture(cv);
-    tex.anisotropy = 1;
-    if ('colorSpace' in tex && THREE.SRGBColorSpace) tex.colorSpace = THREE.SRGBColorSpace;
-    else if (THREE.sRGBEncoding !== undefined) tex.encoding = THREE.sRGBEncoding;
-    tex.needsUpdate = true;
-    return tex;
+      const attr = g.attributes.position;
+      const norm = g.attributes.normal;
+      const srcColor = g.attributes.color;
+      for (let i = 0; i < attr.count; i++) {
+        positions.push(attr.getX(i), attr.getY(i), attr.getZ(i));
+        if (norm) normals.push(norm.getX(i), norm.getY(i), norm.getZ(i));
+        else normals.push(0, 1, 0);
+        if (srcColor) colors.push(srcColor.getX(i), srcColor.getY(i), srcColor.getZ(i));
+        else colors.push(c.r, c.g, c.b);
+      }
+      g.dispose();
+    });
+
+    const out = new THREE.BufferGeometry();
+    out.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    out.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+    out.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    out.computeBoundingSphere();
+    return out;
   }
 
-  _buildTreeImpostors() {
+  _buildTreeLod() {
     const THREE = HC.THREE;
     const trees = this.interactiveTrees || [];
-    this._treeImpostorEntries = [];
+    this._treeLodEntries = [];
     this._impGroups = [];
     if (!trees.length) return;
-
-    const geo = new THREE.PlaneGeometry(1, 1);
-    geo.translate(0, 0.5, 0);
 
     const buckets = new Map();
     for (let i = 0; i < trees.length; i++) {
       const tree = trees[i];
       const ud = tree.userData || {};
-      const sphere = ud.boundingSphere;
-      if (!sphere) continue;
+      if (ud.type !== 'tree' || !ud.boundingSphere) continue;
       const leaf = ud.leafColor || new THREE.Color(0x3f7d3a);
-      // Billboard valid untuk POHON BIASA saja; pohon kering tetap mesh aslinya
-      // (cuma 7 batang kecil dan siluetnya tidak cocok dibuat billboard).
-      const kind = (ud.type === 'tree' && ud.treeKind !== 'dead' && ud.foliageMesh && ud.naturalColorKey)
-        ? (ud.treeKind || 'pine')
-        : null;
-      if (kind === null) continue;
-      const key = kind + '|' + Math.round(leaf.r * 5) + Math.round(leaf.g * 5) + Math.round(leaf.b * 5);
+      const kind = ud.treeKind || 'pine';
+      const paletteKey = ud.naturalColorKey || 'green';
+      const key = kind + '|' + paletteKey;
       let bucket = buckets.get(key);
-      if (!bucket) { bucket = { leaf, kind, trees: [] }; buckets.set(key, bucket); }
+      if (!bucket) { bucket = { trees: [] }; buckets.set(key, bucket); }
       bucket.trees.push(tree);
+      ud._lodManaged = true;
     }
 
     for (const bucket of buckets.values()) {
-      const tex = this._makeTreeImpostorTexture(bucket.leaf, bucket.kind);
+      const leafHex = (bucket.trees[0].userData.leafColor || new THREE.Color(0x4f7b3a)).getHex();
+      // Bark mesh berbagi geometry baking dengan foliage; gunakan warna daun
+      // hanya pada canopy dan warna cokelat pada seluruh bagian kayu.
+      const geo = this._bakeTreeForLod(bucket.trees[0], leafHex);
       const mat = new THREE.MeshLambertMaterial({
-        map: tex,
-        transparent: true,
-        alphaTest: 0.32,
-        side: THREE.DoubleSide,
-        depthWrite: true
+        vertexColors: true,
+        side: THREE.DoubleSide
       });
-      if (mat.emissive !== undefined) mat.emissive = new THREE.Color(0x1b2a15);
       const mesh = new THREE.InstancedMesh(geo, mat, bucket.trees.length);
       mesh.count = 0;
       mesh.frustumCulled = false;
       mesh.castShadow = false;
       mesh.receiveShadow = false;
-      mesh.renderOrder = 1;
-      mesh.userData.isTreeImpostor = true;
+      mesh.userData.isFarTreeLod = true;
       if (mesh.instanceMatrix && mesh.instanceMatrix.setUsage) {
         mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
       }
       this.scene.add(mesh);
-
       const entries = bucket.trees.map((tree) => {
-        const sphere = tree.userData.boundingSphere;
-        const groundY = tree.position.y;
-        const topY = sphere.center.y + sphere.radius;
-        const h = Math.max(2.4, topY - groundY);
+        // Rotasi Y acak per pohon: geometri template sama, tapi tidak terlihat
+        // seperti satu model yang dicopy (siluet cakrawala jadi bervariasi).
+        const s = tree.scale.x || 1;
         const entry = {
           tree,
-          x: sphere.center.x,
-          y: groundY,
-          z: sphere.center.z,
-          w: Math.max(1.2, h * 0.62),
-          h,
-          far: false
+          far: false,
+          m4: new THREE.Matrix4(),
+          quat: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.random() * Math.PI * 2),
+          scaleVec: new THREE.Vector3(s, s, s)
         };
-        this._treeImpostorEntries.push(entry);
+        this._treeLodEntries.push(entry);
         return entry;
       });
       this._impGroups.push({ mesh, entries });
     }
-    this._impDummy = new THREE.Object3D();
-    this._impQuat = new THREE.Quaternion();
-    this._impAxisY = new THREE.Vector3(0, 1, 0);
   }
 
-  _updateTreeImpostors(camera) {
-    if (!this._impGroups) this._buildTreeImpostors();
+  _updateTreeLod(camera) {
+    if (!this._impGroups) this._buildTreeLod();
     if (!this._impGroups || !this._impGroups.length) return;
 
-    const camPos = camera.position;
     const prof = this.PERF_PROFILES[this.currentPerfMode] || this.PERF_PROFILES.ultra;
     const q = this._quality || {};
-    const impDist = Math.max(12, q.treeImpostor || prof.treeImpostor || 34);
-
-    const dir = this._tmpCamForward;
-    const yaw = Math.atan2(dir.x, dir.z);
-    this._impQuat.setFromAxisAngle(this._impAxisY, yaw);
-    const dummy = this._impDummy;
-    dummy.quaternion.copy(this._impQuat);
-    dummy.rotation.set(0, yaw, 0);
+    const lodDist = Math.max(20, q.treeLod || prof.treeLod || 45);
+    const farDist = Math.max(lodDist + 20, q.treeFar || prof.treeFar || lodDist + 45);
 
     for (let g = 0; g < this._impGroups.length; g++) {
       const group = this._impGroups[g];
@@ -4803,34 +4787,32 @@ class World {
       let n = 0;
       for (let i = 0; i < entries.length; i++) {
         const e = entries[i];
-        const dist = Math.hypot(camPos.x - e.x, camPos.y - e.y, camPos.z - e.z);
-        // histeresis: begitu jadi impostor, baru balik ke model asli saat lebih dekat
-        if (e.far) { if (dist < impDist * 0.82) e.far = false; } else if (dist > impDist) e.far = true;
-
-        // Keputusan visible terakhir untuk pohon ini:
-        // - dekat  = mesh asli (walau di belakang kamera, biar bayangan tetap masuk)
-        // - jauh   = billboard saja, mesh asli dimatikan
-        // - jauh + di luar layar = dua-duanya dimatikan
         const ud = e.tree.userData;
+        const dist = ud._camDist || 0;
+        // histeresis: begitu jauh, baru kembali ke model asli saat lebih dekat
+        if (e.far) { if (dist < lodDist * 0.82) e.far = false; }
+        else if (dist > lodDist) e.far = true;
+
         ud._lodFar = e.far;
         const inFrustum = !!ud._inFrustum;
+
         if (e.far) {
           e.tree.visible = false;
-          if (inFrustum) {
-            dummy.position.set(e.x, e.y, e.z);
-            dummy.scale.set(e.w, e.h, 1);
-            dummy.updateMatrix();
-            group.mesh.setMatrixAt(n, dummy.matrix);
+          if (inFrustum && dist <= farDist) {
+            // geometri template sudah di skala 1 -> matrix cukup posisi + yaw + skala
+            e.m4.compose(e.tree.position, e.quat, e.scaleVec);
+            group.mesh.setMatrixAt(n, e.m4);
             n++;
           }
         } else {
-          e.tree.visible = (ud._camDist < 18.0) || !!ud._baseVisible;
+          e.tree.visible = (dist < 18.0) || (inFrustum && dist <= lodDist);
         }
       }
       group.mesh.count = n;
       if (n > 0) group.mesh.instanceMatrix.needsUpdate = true;
     }
   }
+
 
   updateCameraFrustumCulling(camera) {
     if (!camera) return;
@@ -4887,8 +4869,8 @@ class World {
       bush.visible = (dist <= prof.cullDistance + 8.0) && this._cameraFrustum.intersectsSphere(sphere);
     }
 
-    // Tahap terakhir: pohon jauh ditukar jadi billboard impostor (1 gambar utuh).
-    this._updateTreeImpostors(camera);
+    // Tahap akhir: pohon jauh ditukar jadi instance geometri low-detail (3D).
+    this._updateTreeLod(camera);
   }
 
   syncCamera(camera) {
