@@ -2304,38 +2304,122 @@ class World {
 
         // Gouache painterly evergreen scalloped pine-fan texture (zero black outline via createCleanAlphaDataTexture!)
         function createBotWPineFanTexture(palette) {
-            const cShadow = hexToRgbBytes(palette.shadow);
-            const cBase = hexToRgbBytes(palette.base);
-            const cMid = hexToRgbBytes(palette.mid);
-            const cTip = hexToRgbBytes(palette.tip);
-            const cHi = hexToRgbBytes(palette.highlight);
-            return createPixelFoliageTexture(32, ({ stampPixelLeaf }) => {
-                let s = 31337;
-                const rand = () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; };
-                const rootX = 15.5;
-                const rootY = 29.0;
-                for (let i = -3; i <= 3; i++) {
-                    const frac = i / 3;
-                    const ang = frac * 0.82;
-                    const len = (21 - Math.abs(frac) * 6.5) + rand() * 1.5;
-                    stampPixelLeaf(rootX + frac * 1.8, rootY - 0.8, len, 4.4, ang, cShadow, cBase);
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, 512, 512);
+
+            const rootX = 256;
+            const rootY = 472;
+
+            // Draws a chunky, soft hand-painted BotW pine-needle spray lobe (not a flat fern!)
+            function drawEvergreenSprayLobe(x, y, length, width, angle, colBase, colMid, colTip, needles = 7) {
+                ctx.save();
+                ctx.translate(x, y);
+                ctx.rotate(angle);
+
+                // Soft gouache body mass
+                const grad = ctx.createLinearGradient(0, 0, 0, -length);
+                grad.addColorStop(0.0, colBase);
+                grad.addColorStop(0.55, colMid);
+                grad.addColorStop(1.0, colTip);
+                ctx.fillStyle = grad;
+
+                ctx.beginPath();
+                ctx.moveTo(-width * 0.24, 0);
+                ctx.bezierCurveTo(-width * 0.62, -length * 0.35, -width * 0.58, -length * 0.78, 0, -length * 0.94);
+                ctx.bezierCurveTo(width * 0.58, -length * 0.78, width * 0.62, -length * 0.35, width * 0.24, 0);
+                ctx.closePath();
+                ctx.fill();
+
+                // Radiating stylized evergreen needle spikes around the outer scalloped fan tip
+                for (let i = 0; i < needles; i++) {
+                    const u = (i / (needles - 1)) * 2.0 - 1.0; // -1..+1
+                    const spikeAng = u * 0.68;
+                    const spikeBaseX = u * width * 0.30;
+                    const spikeBaseY = -length * (0.64 - Math.abs(u) * 0.14);
+                    const spikeLen = length * (0.42 - Math.abs(u) * 0.10);
+                    const spikeW = width * 0.17;
+
+                    ctx.save();
+                    ctx.translate(spikeBaseX, spikeBaseY);
+                    ctx.rotate(spikeAng);
+
+                    const nGrad = ctx.createLinearGradient(0, 0, 0, -spikeLen);
+                    nGrad.addColorStop(0.0, colMid);
+                    nGrad.addColorStop(1.0, colTip);
+                    ctx.fillStyle = nGrad;
+
+                    ctx.beginPath();
+                    ctx.moveTo(-spikeW * 0.55, 6);
+                    ctx.quadraticCurveTo(-spikeW * 0.45, -spikeLen * 0.55, 0, -spikeLen);
+                    ctx.quadraticCurveTo(spikeW * 0.45, -spikeLen * 0.55, spikeW * 0.55, 6);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.restore();
                 }
-                for (let i = -4; i <= 4; i++) {
-                    const frac = i / 4;
-                    const ang = frac * 0.92 + (rand() - 0.5) * 0.08;
-                    const len = (24 - Math.abs(frac) * 7.5) + rand() * 1.8;
-                    stampPixelLeaf(rootX + frac * 2.2, rootY - 1.8, len, 3.4, ang, cBase, cMid);
-                }
-                for (let i = -3; i <= 3; i++) {
-                    const frac = i / 3;
-                    const ang = frac * 0.80 + (rand() - 0.5) * 0.1;
-                    const baseDist = 8.2 + (1.0 - Math.abs(frac)) * 5.2;
-                    const fx = rootX + Math.sin(ang) * baseDist;
-                    const fy = rootY - 2.2 - Math.cos(ang) * baseDist;
-                    const len = 9.5 + (1.0 - Math.abs(frac)) * 4.0 + rand() * 1.6;
-                    stampPixelLeaf(fx, fy, len, 2.5, ang, cMid, (i % 2 === 0) ? cHi : cTip);
-                }
+
+                // Soft painterly sunlit ridge dab along the upper center of the cluster
+                ctx.globalAlpha = 0.28;
+                ctx.fillStyle = colTip;
+                ctx.beginPath();
+                ctx.ellipse(0, -length * 0.58, width * 0.22, length * 0.26, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.restore();
+            }
+
+            // 1. Dense inner fan shadow cushion (ensures thick evergreen volume with zero hollow gaps)
+            const backFan = [
+                { ang: -0.92, len: 295, w: 145 },
+                { ang: -0.58, len: 355, w: 165 },
+                { ang: -0.22, len: 405, w: 175 },
+                { ang: 0.22, len: 405, w: 175 },
+                { ang: 0.58, len: 355, w: 165 },
+                { ang: 0.92, len: 295, w: 145 }
+            ];
+            backFan.forEach(f => {
+                drawEvergreenSprayLobe(rootX, rootY + 12, f.len, f.w, f.ang, palette.shadow, palette.base, palette.mid, 7);
             });
+
+            // 2. Main broad overlapping evergreen bough sprays forming BotW's signature scalloped paw silhouette
+            const midFan = [
+                { x: rootX - 42, y: rootY - 22, ang: -0.82, len: 285, w: 135 },
+                { x: rootX + 42, y: rootY - 22, ang: 0.82, len: 285, w: 135 },
+                { x: rootX - 30, y: rootY - 40, ang: -0.45, len: 355, w: 155 },
+                { x: rootX + 30, y: rootY - 40, ang: 0.45, len: 355, w: 155 },
+                { x: rootX, y: rootY - 48, ang: -0.08, len: 392, w: 168 },
+                { x: rootX + 8, y: rootY - 52, ang: 0.10, len: 382, w: 162 }
+            ];
+            midFan.forEach(f => {
+                drawEvergreenSprayLobe(f.x, f.y, f.len, f.w, f.ang, palette.base, palette.mid, palette.tip, 7);
+            });
+
+            // 3. Upper sunlit painterly needle tufts (warm bright tips catching Hyrule sunlight)
+            const topTufts = [
+                { x: rootX - 96, y: 298, ang: -0.70, len: 165, w: 96 },
+                { x: rootX + 96, y: 298, ang: 0.70, len: 165, w: 96 },
+                { x: rootX - 58, y: 235, ang: -0.38, len: 185, w: 108 },
+                { x: rootX + 58, y: 235, ang: 0.38, len: 185, w: 108 },
+                { x: rootX, y: 215, ang: 0.0, len: 205, w: 118 },
+                { x: rootX - 24, y: 342, ang: -0.28, len: 150, w: 98 },
+                { x: rootX + 24, y: 342, ang: 0.28, len: 150, w: 98 }
+            ];
+            topTufts.forEach(t => {
+                drawEvergreenSprayLobe(t.x, t.y, t.len, t.w, t.ang, palette.mid, palette.tip, palette.highlight, 6);
+            });
+
+            // Subtle shaded base depth right where the pad meets the inner trunk skirt
+            const baseShade = ctx.createRadialGradient(rootX, 505, 10, rootX, 505, 130);
+            baseShade.addColorStop(0.0, 'rgba(18, 42, 34, 0.55)');
+            baseShade.addColorStop(1.0, 'rgba(18, 42, 34, 0.0)');
+            ctx.fillStyle = baseShade;
+            ctx.beginPath();
+            ctx.arc(rootX, 505, 130, 0, Math.PI * 2);
+            ctx.fill();
+
+            return createCleanAlphaDataTexture(ctx, 512, 512, palette.mid);
         }
 
                 // Curved 3D BotW Pine Bough Pad (gently arched downward with upturned evergreen tips, pinned cleanly at socket z=0)
@@ -2538,7 +2622,7 @@ class World {
             const tex = createBotWPineFanTexture(PINE_PALETTES[key]);
             const mat = new THREE.MeshStandardMaterial({
                 map: tex,
-                alphaTest: 0.44,
+                alphaTest: 0.38,
                 side: THREE.DoubleSide,
                 roughness: 0.88,
                 metalness: 0.0
@@ -2549,7 +2633,7 @@ class World {
             const depthMat = new THREE.MeshDepthMaterial({
                 depthPacking: THREE.RGBADepthPacking,
                 map: tex,
-                alphaTest: 0.44
+                alphaTest: 0.40
             });
             depthMat.onBeforeCompile = injectBranchSocketWindShader;
             pineDepthMaterials[key] = depthMat;
