@@ -266,19 +266,61 @@ HC.buildNPC = function (role, pose = 'stand') {
 /* Animasi bawaan Sylvan; untuk pose duduk paha dikembalikan ke posisi duduk
    setelah animate() supaya tidak diluruskan lagi. Error TIDAK ditelan diam-diam:
    dicatat ke HC.npcAnimErrors supaya probe bisa membedakan "modelnya diam" dari
-   "animate() meledak di frame pertama". */
+   "animate() meledak di frame pertama".
+
+   YAW: di Sylvan `n.mesh` ADALAH entitasnya — NPCS.update menulis
+   `n.mesh.position.copy(n.pos)` lalu memutar `n.mesh.rotation.y` dengan angLerp,
+   dan model membacanya untuk oleng badan saat belok (guard/hunter: `st.turn`),
+   kibaran cape, pandangan kepala patroli, serta arah hadap skill. Di SHOD yang
+   diputar adalah `root` (mesh cuma anak dari root -> holder), jadi
+   `n.mesh.rotation.y` selalu 0 dan semua oleng-belok itu mati.
+   Solusi: pinjamkan yaw root (dihaluskan dulu seperti angLerp Sylvan) ke mesh
+   HANYA selama animate() dipanggil, lalu kembalikan ke nilai render aslinya
+   supaya hadap dunia tetap milik root (tidak dobel putar).
+
+   VEL: Sylvan selalu menyetel `n.vel` lewat lerp, jadi ayunan kaki menggelinding
+   masuk/keluar. SHOD menulis `st.vel` secara instan (AI-nya yang pegang angka),
+   jadi di sini vel dihaluskan sebentar untuk konsumsi animate() lalu dipulihkan. */
 HC.npcAnimErrors = HC.npcAnimErrors || {};
 HC.animateNPC = function (root, dt) {
   const st = root.userData && root.userData.npc;
   if (!st || !HC.SD_NPC_MODELS[st.role.id]) return;
   const ent = HC.SD_NPC_MODELS[st.role.id];
   if (typeof ent.animate !== 'function') return;
+  const step = dt || 1 / 60;
+
+  const rawVx = st.vel.x, rawVz = st.vel.z;
+  const vS = st._velSmooth || (st._velSmooth = { x: rawVx, z: rawVz });
+  const kv = 1 - Math.exp(-10 * step);
+  vS.x += (rawVx - vS.x) * kv;
+  vS.z += (rawVz - vS.z) * kv;
+  st.vel.x = vS.x;
+  st.vel.z = vS.z;
+
+  const mesh = st.mesh;
+  const mirror = !!(mesh && mesh.rotation);
+  const renderYaw = mirror ? mesh.rotation.y : 0;
+  if (mirror) {
+    const targetYaw = (root.rotation && root.rotation.y) || 0;
+    if (st._animYaw === undefined) st._animYaw = targetYaw;
+    let dYaw = targetYaw - st._animYaw;
+    dYaw = ((dYaw + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
+    st._animYaw += dYaw * (1 - Math.exp(-7 * step));
+    mesh.rotation.y = st._animYaw;
+  }
+
   try {
-    ent.animate(st, dt || 1 / 60);
+    ent.animate(st, step);
     delete HC.npcAnimErrors[st.role.id];
   } catch (e) {
     HC.npcAnimErrors[st.role.id] = (e && e.message) || String(e);
   }
+
+  /* Model yang menulis sendiri mesh.rotation.y / n.vel (goblin, lich, elfmage,
+     magesupport, lionknight) ikut dikembalikan: hadap & gerak tetap milik AI. */
+  if (mirror) mesh.rotation.y = renderYaw;
+  st.vel.x = rawVx;
+  st.vel.z = rawVz;
   if (st.pose === 'sit') for (const lg of st._legs) lg.rotation.x = -Math.PI / 2;
 };
 

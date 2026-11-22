@@ -466,16 +466,22 @@ export function setNpcLod(root, useLod) {
   return want;
 }
 
-/* Update LOD semua warga liar tiap beberapa frame (bukan tiap frame). */
-export function updateNpcLod(items, x, z, nearDist) {
+/* Update LOD semua warga liar tiap beberapa frame (bukan tiap frame).
+   Warga yang SEDANG BERJALAN (atau bertarung) di dekat kamera tetap memakai
+   model penuh: hasil bake itu pose beku, jadi kalau dipakai saat ia melangkah
+   yang terlihat cuma badan meluncur tanpa ayunan kaki. */
+export function updateNpcLod(items, x, z, nearDist, walkDist) {
   if (!items || !nearDist) return 0;
+  const keepWalk = walkDist || nearDist * 2.2;
   let count = 0;
   for (const it of items) {
     const root = it && it.root;
     if (!root || !root.parent) continue;      // sudah direkrut: bukan lagi di dunia
     if (!root.userData || !root.userData.__npcLod) continue;
     const d = Math.hypot((it.x || 0) - x, (it.z || 0) - z);
-    if (setNpcLod(root, d > nearDist)) count++;
+    const st = root.userData.npc;
+    const busy = !!(st && (st.walking || st.target));
+    if (setNpcLod(root, d > nearDist && !(busy && d <= keepWalk))) count++;
   }
   return count;
 }

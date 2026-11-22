@@ -591,7 +591,7 @@ function renderNpcDock() {
     : !al.alignedLat ? 'lat'
     : al.longErr > 1.25 ? 'rev'
     : 'pos';
-  const sig = party.members.map((m) => `${m.uid}:${m.role.id}:${m.state}:${m.inCombat ? 'C' : ''}:${Math.round(m.hp ?? m.maxHp ?? 100)}`).join('|') +
+  const sig = party.members.map((m) => `${m.uid}:${m.role.id}:${m.state}:${m.inCombat ? 'C' + ((m.cBrain && m.cBrain.phase) || '') : ''}:${Math.round(m.hp ?? m.maxHp ?? 100)}`).join('|') +
     '#' + (near ? near.npc.role.id : '') +
     '@' + hitchMode + (physics.flipped ? ':F' : '');
   if (sig === _lastDockSig) return;
@@ -624,7 +624,10 @@ function renderNpcDock() {
     const maxHp = Math.max(1, Math.round(m.maxHp ?? r.hp ?? 100));
     const hpPct = Math.round((curHp / maxHp) * 100);
     const dotCls = m.inCombat ? 'fighting' : m.state;
-    const statusLabel = m.inCombat ? '⚔ Bertarung' : (stateText[m.state] || m.state);
+    const cbPhase = m.cBrain && m.cBrain.phase;
+    const statusLabel = m.inCombat
+      ? (cbPhase === 'guard' ? '🛡 Menahan' : cbPhase === 'dodge' ? '💨 Menghindar' : '⚔ Bertarung')
+      : (stateText[m.state] || m.state);
 
     const top = document.createElement('div');
     top.className = 'npc-card-top';

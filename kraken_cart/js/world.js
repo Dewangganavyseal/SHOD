@@ -491,13 +491,43 @@ class World {
         // ============================================================================
         // 4. CHUNKED TERRAIN (36 FRUSTUM-CULLED CHUNKS), TRUCKFUL DIRT ROAD & POND BASIN
         // ============================================================================
-        // Peta diperbesar: 150 x 150 m (dulu 76) supaya ada ruang jelajah.
-        // Grid chunk dinaikkan supaya ukuran chunk tetap ~15 m -> frustum culling
-        // tetap membuang sebagian besar peta dari tiap frame.
-        const TERRAIN_SIZE = 150;
-        const CHUNK_GRID = 10;
+        // Peta diperbesar 4x lipat: 300 x 300 m (150 -> 300, luas 4x).
+        // Grid chunk ikut dinaikkan 10 -> 20 supaya ukuran chunk tetap ~15 m ->
+        // frustum culling tetap membuang sebagian besar peta dari tiap frame.
+        // ============================================================================
+        const TERRAIN_SIZE = 300;
+        const CHUNK_GRID = 20;
         const CHUNK_SIZE = TERRAIN_SIZE / CHUNK_GRID;
         const POND_CENTER = { x: 8.2, z: 6.2, radius: 4.5 };
+
+        /* ------------------------------------------------------------------------
+           SUNGAI + FORD
+           Alur berkelok yang memotong lembah ke arah X. Dasarnya digali ke -1,05 m
+           (dalam) tetapi di tiga ford naik ke -0,30 m sehingga kuda bisa menyeberang
+           — yang menyeberang di luar ford akan tergenang lebih dalam.
+           ------------------------------------------------------------------------ */
+        const RIVER = {
+            zBase: 30, amp: 5.2, halfWidth: 4.8, bank: 3.4,
+            waterY: -0.22, bedDeep: -1.05, bedFord: -0.30,
+            fords: [
+                { x: -5.4, half: 6.0 },   // jalur utama (jalan desa)
+                { x: 24.0, half: 5.0 },   // jalur timur
+                { x: -34.0, half: 5.0 },  // jalur barat
+            ],
+        };
+        function riverCenterZ(x) {
+            return RIVER.zBase + Math.sin(x * 0.05) * RIVER.amp + Math.cos(x * 0.021) * 2.6;
+        }
+        function riverFordAt(x) {
+            let best = 0;
+            for (const f of RIVER.fords) {
+                best = Math.max(best, 1 - smoothstepJS(f.half, f.half + 6.0, Math.abs(x - f.x)));
+            }
+            return best;
+        }
+
+        // Pusat dataran desa (dipakai terrain & pembangun rumah)
+        const VILLAGE = { z: 70, radius: 15.5 };
 
         // Winding cozy Truckful countryside dirt road path
         function getRoadCenterX(z) {
@@ -552,12 +582,30 @@ class World {
             const rutMask = Math.exp(-Math.pow((roadDist - 0.78) / 0.32, 2.0));
             h -= rutMask * 0.055;
 
+            // Dataran desa: ratakan tanah di sekitar rumah supaya tidak melayang
+            const vdx = x - getRoadCenterX(VILLAGE.z);
+            const vdz = z - VILLAGE.z;
+            const villageFlatten = 1.0 - smoothstepJS(VILLAGE.radius * 0.45, VILLAGE.radius, Math.hypot(vdx * 0.85, vdz));
+            if (villageFlatten > 0.001) {
+                const villageY = 0.30 + Math.sin(z * 0.06) * 0.20;
+                h = THREE.MathUtils.lerp(h, villageY, villageFlatten * 0.92);
+            }
+
             // Carve crystal-clear BotW pond basin smoothly below water surface (-0.30)
             const distPond = Math.hypot(x - POND_CENTER.x, z - POND_CENTER.z);
             const pondShoreBlend = 1.0 - smoothstepJS(POND_CENTER.radius * 0.25, POND_CENTER.radius + 1.9, distPond);
             if (pondShoreBlend > 0.001) {
                 const basinDepth = -1.62 + smoothstepJS(0.0, POND_CENTER.radius, distPond) * 1.38;
                 h = THREE.MathUtils.lerp(h, basinDepth, pondShoreBlend);
+            }
+
+            // Carve sungai berkelok: dasar dalam, tapi naik di tiga ford
+            const riverDist = Math.abs(z - riverCenterZ(x));
+            const riverBank = 1.0 - smoothstepJS(RIVER.halfWidth * 0.62, RIVER.halfWidth + RIVER.bank, riverDist);
+            if (riverBank > 0.001) {
+                const ford = riverFordAt(x);
+                const bed = THREE.MathUtils.lerp(RIVER.bedDeep, RIVER.bedFord, ford);
+                h = THREE.MathUtils.lerp(h, bed, riverBank * 0.94);
             }
 
             return h;
@@ -3375,7 +3423,10 @@ class World {
         campfireGroup.position.set(0, cfY, 0);
         campfireGroup.userData = { type: 'campfire', flareBoost: 0 };
         scene.add(campfireGroup);
-        addCircleCollider('campfire', 0, 0, 0.96, cfY + 1.2, campfireGroup);
+        /* Collider api unggun dipasang SETELAH batu & kayu berdiri, dan diukur
+           dari mesh aslinya: keliling lingkaran batu + tinggi puncaknya, bukan
+           angka 1,2 m yang dulu membuatnya mustahil dilompati. */
+        const campfireParts = [];
 
         const stoneRingMat = new THREE.MeshStandardMaterial({ color: 0x7f8c8d, roughness: 0.88 });
         applyStylizedCelShading(stoneRingMat);
@@ -3386,6 +3437,7 @@ class World {
             stone.scale.set(1.2, 0.75, 1.0);
             stone.rotation.y = ang;
             campfireGroup.add(stone);
+            campfireParts.push(stone);
         }
 
         const fireLogMat = new THREE.MeshStandardMaterial({
@@ -3401,7 +3453,15 @@ class World {
             log.rotation.z = Math.PI * 0.38;
             log.rotation.y = ang;
             campfireGroup.add(log);
+            campfireParts.push(log);
         }
+
+        campfireGroup.updateMatrixWorld(true);
+        const cfBox = new THREE.Box3();
+        for (const part of campfireParts) cfBox.expandByObject(part);
+        const cfTop = Math.min(cfY + 0.55, isFinite(cfBox.max.y) ? cfBox.max.y : cfY + 0.35);
+        const cfRad = Math.max(0.55, Math.max(cfBox.max.x - cfBox.min.x, cfBox.max.z - cfBox.min.z) * 0.5);
+        addCircleCollider('campfire', 0, 0, cfRad, cfTop, campfireGroup);
 
         // Seat logs near campfire
         const seatLogGeo = new THREE.CylinderGeometry(0.24, 0.26, 1.9, 8);
@@ -3929,9 +3989,12 @@ class World {
                         fenceGeos.push(rGeo);
                     });
 
+                    /* yMax = puncak palang atas pagar (0,68 + tebal), bukan 1,05:
+                       collider tetap mengikuti bentuk pagar (kapsul per segmen),
+                       tapi sekarang kuda yang melompat bisa melewatinya. */
                     fenceCaps.push(addCapsuleCollider(
                         'fence', p1.x, p1.z, p2.x, p2.z,
-                        0.14, Math.max(p1.y, p2.y) + 1.05, null
+                        0.14, Math.max(p1.y, p2.y) + 0.74, null
                     ));
                 }
             });
@@ -4151,6 +4214,203 @@ class World {
             scene.add(rock);
             addRockMeshCollider('rock', rock);
         });
+
+        // ============================================================================
+        // 8B. AIR SUNGAI, TANTANGAN BEBATUAN & DESA KECIL
+        // ============================================================================
+
+        // ---- Permukaan air sungai: pita yang mengikuti alur riverCenterZ(x) ----
+        (function buildRiverSurface() {
+            const step = 3.0;
+            const x0 = -TERRAIN_SIZE * 0.5 + 8;
+            const x1 = TERRAIN_SIZE * 0.5 - 8;
+            const verts = [];
+            const idx = [];
+            let vi = 0;
+            for (let x = x0; x <= x1; x += step) {
+                const cz = riverCenterZ(x);
+                const half = RIVER.halfWidth * (0.90 + 0.10 * Math.sin(x * 0.08));
+                verts.push(x, RIVER.waterY, cz - half, x, RIVER.waterY, cz + half);
+                if (vi >= 2) {
+                    const a = vi - 2, b = vi - 1, c = vi, d = vi + 1;
+                    idx.push(a, c, b, b, c, d);
+                }
+                vi += 2;
+            }
+            const geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+            geo.setIndex(idx);
+            geo.computeVertexNormals();
+            const mat = new THREE.MeshStandardMaterial({
+                color: 0x3f8fa6, roughness: 0.16, metalness: 0.06,
+                transparent: true, opacity: 0.82, side: THREE.DoubleSide,
+            });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.name = 'river-water';
+            mesh.receiveShadow = false;
+            scene.add(mesh);
+
+            // Tanda ford: batu penyeberangan kecil di tepi jalur (bukan collider,
+            // supaya roda tidak terhentak di tengah arus).
+            for (const f of RIVER.fords) {
+                for (const side of [-1, 1]) {
+                    const fx = f.x + side * (f.half + 0.9);
+                    const fz = riverCenterZ(fx) - RIVER.halfWidth - 1.2;
+                    const marker = new THREE.Mesh(new THREE.DodecahedronGeometry(0.28, 0), rockMat);
+                    marker.position.set(fx, getTerrainHeight(fx, fz) + 0.16, fz);
+                    marker.scale.set(1.1, 0.8, 1.0);
+                    marker.receiveShadow = true;
+                    scene.add(marker);
+                }
+            }
+        })();
+
+        // ---- Tantangan bebatuan: gerbang batu sempit + onggokan di bahu jalur ----
+        (function buildBoulderChallenge() {
+            const rocks = [
+                // gerbang sempit berpasangan: harus pas melintas / melompat
+                [-8.2, -38, 1.60], [-1.2, -38, 1.60],
+                [-8.6, -45, 1.85], [-0.8, -45, 1.85],
+                [-8.0, -52, 1.45], [-1.4, -52, 1.45],
+                // bebatuan berserak di bahu jalur
+                [-11.4, -41, 1.15], [2.2, -41, 1.15],
+                [-11.8, -48, 1.30], [2.8, -48, 1.30],
+                [-9.8, -34, 0.95], [0.2, -34, 0.95],
+            ];
+            for (const [x, z, r] of rocks) {
+                const y = getTerrainHeight(x, z);
+                const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 0), rockMat);
+                rock.position.set(x, y + r * 0.40, z);
+                rock.scale.set(1.18, 0.86, 1.06);
+                rock.rotation.set(x * 0.31, z * 0.73, 0.22);
+                rock.castShadow = !isMobileDevice;
+                rock.receiveShadow = true;
+                scene.add(rock);
+                addRockMeshCollider('challenge_rock', rock);
+            }
+        })();
+
+        // ---- Desa kecil di utara jalan (rumah panggung batu- kayu) ----
+        (function buildVillage() {
+            const houseWallMat = new THREE.MeshStandardMaterial({ color: 0xd8c9a8, roughness: 0.94 });
+            const houseWoodMat = new THREE.MeshStandardMaterial({ color: 0x9a6b45, roughness: 0.92 });
+            const houseRoofMat = new THREE.MeshStandardMaterial({ color: 0x8a4234, roughness: 0.86 });
+            const houseGlassMat = new THREE.MeshStandardMaterial({
+                color: 0xffd79a, emissive: 0xff9c3c, emissiveIntensity: 0.45, roughness: 0.5,
+            });
+            applyStylizedCelShading(houseWallMat, { rimStrength: 0.14, shadowLift: 0.58 });
+            applyStylizedCelShading(houseWoodMat, { rimStrength: 0.16, shadowLift: 0.56 });
+            applyStylizedCelShading(houseRoofMat, { rimStrength: 0.18, shadowLift: 0.52 });
+
+            function buildHouse(x, z, yaw, w, d, hgt) {
+                const gy = getTerrainHeight(x, z);
+                const g = new THREE.Group();
+                g.position.set(x, gy - 0.12, z);
+                g.rotation.y = yaw;
+
+                const walls = new THREE.Mesh(new THREE.BoxGeometry(w, hgt, d), houseWallMat);
+                walls.position.y = hgt * 0.5;
+                walls.castShadow = !isMobileDevice;
+                walls.receiveShadow = true;
+                g.add(walls);
+
+                for (const sx of [-1, 1]) {
+                    for (const sz of [-1, 1]) {
+                        const post = new THREE.Mesh(new THREE.BoxGeometry(0.16, hgt, 0.16), houseWoodMat);
+                        post.position.set(sx * (w * 0.5 - 0.09), hgt * 0.5, sz * (d * 0.5 - 0.09));
+                        g.add(post);
+                    }
+                }
+
+                const eave = new THREE.Mesh(new THREE.BoxGeometry(w + 0.34, 0.10, d + 0.34), houseWoodMat);
+                eave.position.y = hgt + 0.01;
+                g.add(eave);
+
+                const roof = new THREE.Mesh(
+                    new THREE.ConeGeometry(Math.max(w, d) * 0.82, hgt * 0.74, 4),
+                    houseRoofMat
+                );
+                roof.position.y = hgt + hgt * 0.34;
+                roof.rotation.y = Math.PI * 0.25;
+                roof.castShadow = !isMobileDevice;
+                g.add(roof);
+
+                const door = new THREE.Mesh(new THREE.BoxGeometry(0.62, 1.05, 0.08), houseWoodMat);
+                door.position.set(0, 0.52, -d * 0.5 - 0.02);
+                g.add(door);
+                for (const sx of [-1, 1]) {
+                    const win = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.42, 0.06), houseGlassMat);
+                    win.position.set(sx * w * 0.26, hgt * 0.62, -d * 0.5 - 0.02);
+                    g.add(win);
+                }
+
+                scene.add(g);
+                addCircleCollider('house', x, z, Math.max(w, d) * 0.58, gy + hgt * 1.5, g);
+                return g;
+            }
+
+            const lots = [
+                { z: 58, side: -1, off: 7.6, w: 4.2, d: 3.6, h: 2.6, rot: 0.10 },
+                { z: 64, side: 1, off: 7.0, w: 3.8, d: 3.4, h: 2.5, rot: -0.16 },
+                { z: 70, side: -1, off: 8.6, w: 4.6, d: 3.8, h: 2.9, rot: 0.04 },
+                { z: 76, side: 1, off: 7.6, w: 4.0, d: 3.5, h: 2.6, rot: -0.08 },
+                { z: 82, side: -1, off: 6.9, w: 3.4, d: 3.2, h: 2.3, rot: 0.20 },
+            ];
+            for (const lot of lots) {
+                const roadX = getRoadCenterX(lot.z);
+                const hx = roadX + lot.side * lot.off;
+                // pintu (sisi -Z lokal) menghadap jalan
+                const yaw = (lot.side > 0 ? Math.PI * 0.5 : -Math.PI * 0.5) + lot.rot;
+                buildHouse(hx, lot.z, yaw, lot.w, lot.d, lot.h);
+            }
+
+            // Sumur desa di tengah dataran
+            const wellX = getRoadCenterX(VILLAGE.z) + 4.6;
+            const wellZ = VILLAGE.z - 1.5;
+            const wellY = getTerrainHeight(wellX, wellZ);
+            const wellGroup = new THREE.Group();
+            wellGroup.position.set(wellX, wellY, wellZ);
+            const wellRing = new THREE.Mesh(new THREE.CylinderGeometry(0.72, 0.78, 0.62, 10), stoneRingMat);
+            wellRing.position.y = 0.31;
+            wellRing.castShadow = !isMobileDevice;
+            wellGroup.add(wellRing);
+            const wellWater = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 0.04, 10), houseWoodMat);
+            wellWater.position.y = 0.56;
+            wellGroup.add(wellWater);
+            for (const sx of [-1, 1]) {
+                const post = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 1.5, 6), houseWoodMat);
+                post.position.set(sx * 0.62, 0.75, 0);
+                wellGroup.add(post);
+            }
+            const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.5, 6), houseWoodMat);
+            beam.rotation.z = Math.PI * 0.5;
+            beam.position.y = 1.48;
+            wellGroup.add(beam);
+            scene.add(wellGroup);
+            addCircleCollider('well', wellX, wellZ, 0.82, wellY + 1.5, wellGroup);
+
+            // Obor kayu penyambut di tepi jalan desa (tanpa PointLight: hemat HP)
+            for (const tz of [60, 74]) {
+                const tx = getRoadCenterX(tz) + (tz === 60 ? 2.9 : -2.9);
+                const ty = getTerrainHeight(tx, tz);
+                const torchGroup = new THREE.Group();
+                torchGroup.position.set(tx, ty, tz);
+                const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 1.6, 6), houseWoodMat);
+                pole.position.y = 0.8;
+                pole.castShadow = !isMobileDevice;
+                torchGroup.add(pole);
+                const bowl = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.12, 0.16, 8), houseWoodMat);
+                bowl.position.y = 1.64;
+                torchGroup.add(bowl);
+                const flameMat = new THREE.MeshBasicMaterial({ color: 0xff9e3c, transparent: true, opacity: 0.9 });
+                const flame = new THREE.Mesh(new THREE.OctahedronGeometry(0.16, 0), flameMat);
+                flame.position.y = 1.86;
+                flame.userData = { baseY: 1.86, speed: 2.1, offset: tz * 0.13 };
+                torchGroup.add(flame);
+                scene.add(torchGroup);
+                addCircleCollider('torch', tx, tz, 0.16, ty + 1.9, torchGroup);
+            }
+        })();
 
         const interactiveMushrooms = [];
         const mushroomCapMaterials = [];

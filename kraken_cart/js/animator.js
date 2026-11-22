@@ -82,6 +82,12 @@ const THREE = HC.THREE, S = HC.vs;
       this.jumpDur = 1.05;
       this.jumpY = 0;
       this.jumpPitch = 0;
+      /* Momentum lompat: diambil saat kaki lepas tanah, lalu menggerus kuda
+         ke depan selama di udara. Lari -> lompat lebih jauh & sedikit lebih
+         tinggi, jalan -> lompatan kecil ke depan, diam -> lompat di tempat. */
+      this.jumpTakeoff = 0;
+      this.jumpImpulse = 0;
+      this.jumpRun = 0;
 
       // Graze blending (0 = normal posture, 1 = head down grazing)
       this.grazeBlend = 0;
@@ -114,6 +120,13 @@ const THREE = HC.THREE, S = HC.vs;
       if (mode === 'jump') {
         if (!this.jumpActive) {
           if (this.state === 'graze') this.state = this.prevMoveState || 'walk';
+          /* Catat kecepatan saat lepas tanah. Impuls depan = bagian dari
+             kecepatan itu + dorongan lari, jadi lompat sambil lari benar-benar
+             melesat ke depan, bukan cuma naik-turun di tempat. */
+          this.jumpTakeoff = Math.max(0, this.speed);
+          this.jumpRun = this.runBlend;
+          this.jumpImpulse = this.jumpTakeoff * (0.55 + 0.45 * this.jumpRun)
+            + (this.jumpTakeoff > 0.5 ? 0.9 + 1.1 * this.jumpRun : 0);
           this.jumpActive = true;
           this.jumpT = 0;
         }
@@ -212,6 +225,8 @@ const THREE = HC.THREE, S = HC.vs;
         }
         this.speed = HC.damp(this.speed, this.targetSpeed, this.unhitched ? 10.5 : 6.5, dt);
         if (!moving && Math.abs(this.speed) < 0.04) this.speed = 0;
+        // Di udara kuda tidak mengerem: momentum lepas tanah dipertahankan.
+        if (this.jumpActive) this.speed = Math.max(this.speed, this.jumpTakeoff);
 
         // ---- Steering: kepala menoleh dulu, badan menyusul; radius belok jauh lebih lincah ----
         this.steer = HC.damp(this.steer, this.steerInput, this.unhitched ? 10.5 : 8.0, dt);
@@ -233,8 +248,12 @@ const THREE = HC.THREE, S = HC.vs;
 
         this.forwardX = Math.cos(this.yaw);
         this.forwardZ = -Math.sin(this.yaw);
-        this.x += this.forwardX * this.speed * dt;
-        this.z += this.forwardZ * this.speed * dt;
+        // Dorongan depan saat melompat: penuh di awal lompatan, habis saat mendarat.
+        const airPush = this.jumpActive
+          ? this.jumpImpulse * Math.max(0, 1 - Math.pow(HC.clamp(this.jumpT, 0, 1), 2))
+          : 0;
+        this.x += this.forwardX * (this.speed + airPush) * dt;
+        this.z += this.forwardZ * (this.speed + airPush) * dt;
 
         pivoting = this.unhitched && Math.abs(this.yawRate) > 0.12 && absSpd < 0.15 && !isGraze && !this.jumpActive;
       }
@@ -270,7 +289,9 @@ const THREE = HC.THREE, S = HC.vs;
         } else if (u < 0.84) {
           // 2) Smooth parabolic bascule arc (C0 continuous pitch + heave)
           const a = (u - 0.16) / 0.68;
-          const maxH = this.unhitched ? 0.84 : 0.72;
+          // Lari -> lompat lebih tinggi; tanpa gerobak lebih tinggi lagi.
+          const maxH = ((this.unhitched ? 0.84 : 0.72) * (1 + 0.26 * (this.jumpRun || 0)))
+            + (this.jumpTakeoff > 0.5 ? 0.10 : 0);
           jumpHeave = Math.sin(Math.PI * a) * maxH - (1 - a) * (1 - a) * 0.10;
           jumpPitch = 0.24 * Math.cos(Math.PI * a);
           jumpAir = Math.sin(Math.PI * a);

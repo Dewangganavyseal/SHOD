@@ -136,6 +136,9 @@ class HealthBar3D {
     this.trailRatio = 1;
     this.opacity = 0;
     this.fadeHold = 0;
+    // Bar postur ("celah"): tipis, muncul di bawah HP selama bertarung.
+    this.posture = 0;
+    this.postureOn = false;
     this.shakeT = 0;
     this.popT = 0;
     this.flashT = 0;
@@ -148,6 +151,16 @@ class HealthBar3D {
     this.popT = 0.28;
     this.flashT = 0.16;
     this.fadeHold = 4.2;
+  }
+
+  /** Bar postur: 0 = tenang, 1 = guard pecah / celah terbuka lebar. */
+  setPosture(ratio, on) {
+    const next = clamp(ratio || 0, 0, 1);
+    const nextOn = !!on;
+    if (Math.abs(next - this.posture) < 0.006 && nextOn === this.postureOn) return;
+    this.posture = next;
+    this.postureOn = nextOn;
+    this._lastSig = '';
   }
 
   setHp(hp, maxHp, inCombat, dt) {
@@ -185,7 +198,8 @@ class HealthBar3D {
       const rQ = Math.round(this.ratio * 200);
       const tQ = Math.round(this.trailRatio * 200);
       const fQ = this.flashT > 0.01 ? 1 : 0;
-      const sig = `${rQ}|${tQ}|${fQ}`;
+      const pQ = Math.round(this.posture * 40) + (this.postureOn ? 1000 : 0);
+      const sig = `${rQ}|${tQ}|${fQ}|${pQ}`;
       if (sig !== this._lastSig) {
         this._lastSig = sig;
         this._redraw();
@@ -198,9 +212,11 @@ class HealthBar3D {
     const W = 128, H = 30;
     ctx.clearRect(0, 0, W, H);
 
+    const showPosture = this.postureOn || this.posture > 0.01;
+
     // Outer shadow pill
     ctx.fillStyle = 'rgba(24, 16, 14, 0.72)';
-    drawRoundedRect(ctx, 4, 5, W - 8, H - 10, 9);
+    drawRoundedRect(ctx, 4, 4, W - 8, H - 8, 9);
     ctx.fill();
 
     // Rim stroke (brighter during hit flash)
@@ -208,8 +224,8 @@ class HealthBar3D {
     ctx.strokeStyle = this.flashT > 0.01 ? 'rgba(255, 245, 220, 0.96)' : 'rgba(255, 246, 232, 0.42)';
     ctx.stroke();
 
-    // Inner track
-    const px = 8, py = 9, pw = W - 16, ph = H - 18;
+    // Inner track (HP), menyisakan satu lajur tipis untuk postur
+    const px = 8, py = 8, pw = W - 16, ph = showPosture ? 9 : 11;
     ctx.fillStyle = 'rgba(15, 11, 14, 0.82)';
     drawRoundedRect(ctx, px, py, pw, ph, 5);
     ctx.fill();
@@ -248,6 +264,23 @@ class HealthBar3D {
       ctx.fillStyle = this.flashT > 0.01 ? 'rgba(255,255,255,0.68)' : 'rgba(255,255,255,0.28)';
       drawRoundedRect(ctx, px + 1, py + 1, Math.max(3, hw - 2), Math.max(2, ph * 0.36), 3);
       ctx.fill();
+    }
+
+    // Lajur postur: makin penuh, makin dekat ke guard pecah
+    if (showPosture) {
+      const sy2 = py + ph + 2;
+      const sh2 = 4.5;
+      ctx.fillStyle = 'rgba(12, 10, 16, 0.86)';
+      drawRoundedRect(ctx, px, sy2, pw, sh2, 2.2);
+      ctx.fill();
+      if (this.posture > 0.004) {
+        const pgr = ctx.createLinearGradient(px, sy2, px + pw, sy2);
+        pgr.addColorStop(0, '#d8c37a');
+        pgr.addColorStop(1, '#fffdf4');
+        ctx.fillStyle = pgr;
+        drawRoundedRect(ctx, px, sy2, Math.max(2, pw * clamp(this.posture, 0, 1)), sh2, 2.2);
+        ctx.fill();
+      }
     }
 
     this.tex.needsUpdate = true;
@@ -580,6 +613,40 @@ class CombatVFX {
     }
   }
 
+  /**
+   * Kilauan tangkisan (deflect) ala Sekiro: kilat putih-gold di titik kontak,
+   * cincin tajam yang mengecil cepat, lalu bintang kecil berhamburan.
+   * Sengaja lebih "bersih" dan lebih singkat daripada hit impact biasa.
+   */
+  spawnDeflectSpark(pos, colorHex = 0xfff2c4) {
+    const flashMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 1 });
+    const core = new THREE.Mesh(unitCubeGeo, flashMat);
+    core.position.copy(pos);
+    core.rotation.set(Math.random() * 2, Math.random() * 2, 0);
+    const maxS = 0.30;
+    core.scale.setScalar(maxS);
+    this.group.add(core);
+    this.particles.push({
+      type: 'flash',
+      mesh: core, mat: flashMat,
+      vel: new THREE.Vector3(),
+      rot: new THREE.Vector3(10, 14, 8),
+      age: 0, life: 0.12, maxSize: maxS,
+    });
+
+    this.spawnRing(pos, colorHex, 0.55, 2.6, 0.22, false);
+    for (let i = 0; i < 9; i++) {
+      const a = (i / 9) * Math.PI * 2 + randRange(-0.2, 0.2);
+      this.spawnSparkStar(
+        pos.clone().add(new THREE.Vector3(randRange(-0.08, 0.08), randRange(-0.08, 0.08), randRange(-0.08, 0.08))),
+        new THREE.Vector3(Math.cos(a) * randRange(1.6, 2.8), randRange(0.6, 1.8), Math.sin(a) * randRange(1.6, 2.8)),
+        randRange(0.05, 0.085),
+        randRange(0.22, 0.34),
+        i % 2 === 0 ? 0xffffff : colorHex
+      );
+    }
+  }
+
   /** Juicy floating damage / callout text sprite */
   spawnDamageText(pos, text, style = 'normal') {
     if (this.popups.length > 28) return;
@@ -750,6 +817,13 @@ class CombatVFX {
         osc.frequency.exponentialRampToValueAtTime(95, now + 0.12);
         g.gain.setValueAtTime(0.08, now);
         g.gain.exponentialRampToValueAtTime(0.0001, now + 0.14);
+      } else if (kind === 'parry') {
+        // "TING" bersih: dua nada pendek naik, tanpa desis — beda jelas dari hit
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, now);
+        osc.frequency.exponentialRampToValueAtTime(1320, now + 0.05);
+        g.gain.setValueAtTime(0.05, now);
+        g.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
       } else if (kind === 'dodge') {
         osc.type = 'sine';
         osc.frequency.setValueAtTime(340, now);
@@ -2067,6 +2141,9 @@ class BoarMob {
     this.isTelegraphing = false;
     this.telegraphType = null;
     this.isVulnerable = false;
+    // Postur boar: ditangkis berulang -> penuh -> CELAH (state 'stagger')
+    this.posture = 0;
+    this.postureHold = 0;
     this.atkCd = 0;
     this.chargeCd = 0;
     this.attackDir = 1;
@@ -2103,7 +2180,7 @@ class BoarMob {
     this.stateDur = dur;
     this.isTelegraphing = next === 'charge_windup' || next === 'attack_windup' || next === 'charge_dash';
     this.telegraphType = next.startsWith('charge') ? 'charge' : next.startsWith('attack') ? 'tusk' : null;
-    this.isVulnerable = next === 'charge_skid' || next === 'attack_recover' || next === 'hitstun';
+    this.isVulnerable = next === 'charge_skid' || next === 'attack_recover' || next === 'hitstun' || next === 'stagger';
     if (next === 'charge_windup') {
       this.paw1Done = false;
       this.paw2Done = false;
@@ -2170,6 +2247,24 @@ class BoarMob {
     return dmg;
   }
 
+  /** Tangkisan menumpuk postur. Penuh = boar terhuyung ('stagger') dan terbuka. */
+  addPosture(amount) {
+    if (this.dead || !(amount > 0)) return;
+    this.posture = clamp(this.posture + amount, 0, 1);
+    this.postureHold = 1.8;
+    if (this.posture >= 1) {
+      this.posture = 0;
+      this.postureHold = 0;
+      this._setState('stagger', 1.30);
+      if (this.vfx) {
+        this.vfx.triggerHitStop(0.07);
+        this.vfx.spawnRing(new THREE.Vector3(this.x, this.y + 0.35, this.z), 0xfff2c4, 0.9, 4.2, 0.40, true);
+        this.vfx.spawnDamageText(new THREE.Vector3(this.x, this.y + 1.5, this.z), 'CELAH!', 'crit');
+        this.vfx.playSfx('parry');
+      }
+    }
+  }
+
   _respawn() {
     this.x = this.homeX;
     this.z = this.homeZ;
@@ -2178,6 +2273,8 @@ class BoarMob {
     this.dead = false;
     this.inCombat = false;
     this.target = null;
+    this.posture = 0;
+    this.postureHold = 0;
     this.knockVx = 0; this.knockVz = 0;
     this.rig.dizzyHalo.visible = false;
     this.rig.dizzyHalo.scale.setScalar(0.001);
@@ -2221,6 +2318,7 @@ class BoarMob {
       }
       const p = this._evalDiePose(dt);
       this._blendAndApply(dt, globalTime, p);
+      this.hpBar.setPosture(0, false);
       this.hpBar.setHp(0, this.maxHp, true, dt);
       this.hpBar.updateTransform(this.x, this.y + 1.35, this.z, dt);
       return;
@@ -2230,6 +2328,9 @@ class BoarMob {
     if (this.atkCd > 0) this.atkCd = Math.max(0, this.atkCd - dt);
     if (this.chargeCd > 0) this.chargeCd = Math.max(0, this.chargeCd - dt);
     if (this.hitstunTimer > 0) this.hitstunTimer = Math.max(0, this.hitstunTimer - dt);
+    // Postur pulih sendiri kalau sebentar tidak ada tangkisan (jeda tenang)
+    if (this.postureHold > 0) this.postureHold = Math.max(0, this.postureHold - dt);
+    else if (this.posture > 0) this.posture = Math.max(0, this.posture - 0.26 * dt);
     if (this.recoilPop > 0) this.recoilPop = Math.max(0, this.recoilPop - dt * 5.0);
 
     // Validate current target & leash
@@ -2249,6 +2350,11 @@ class BoarMob {
     if (this.state === 'hitstun') {
       if (this.stateTime >= this.stateDur) {
         this._setState(this.target ? 'stalk' : 'walk', 1.8);
+      }
+    } else if (this.state === 'stagger') {
+      // Postur pecah: terhuyung tanpa bisa menyerang, celah jelas untuk dibalas
+      if (this.stateTime >= this.stateDur) {
+        this._setState(this.target ? 'stalk' : 'idle', randRange(1.0, 1.6));
       }
     } else if (this.state === 'charge_windup') {
       if (this.target) {
@@ -2273,8 +2379,8 @@ class BoarMob {
         }
       }
       if (this.stateTime >= 0.85) {
-        this.chargeCd = 4.6;
-        this.atkCd = 1.6;
+        this.chargeCd = 5.2;
+        this.atkCd = 2.1;
         this._setState('charge_skid', 0.65);
       }
     } else if (this.state === 'charge_skid') {
@@ -2288,7 +2394,7 @@ class BoarMob {
         this.targetHeading = Math.atan2(tp.x - this.x, tp.z - this.z);
         this.heading = turnToward(this.heading, this.targetHeading, 11.0, dt);
       }
-      if (this.stateTime >= 0.42) {
+      if (this.stateTime >= 0.55) {
         this._setState('attack_strike', 0.34);
       }
     } else if (this.state === 'attack_strike') {
@@ -2313,11 +2419,11 @@ class BoarMob {
         this.attackDir *= -1;
       }
       if (this.stateTime >= 0.34) {
-        this.atkCd = 1.55;
-        this._setState('attack_recover', 0.55);
+        this.atkCd = 2.0;
+        this._setState('attack_recover', 0.70);
       }
     } else if (this.state === 'attack_recover') {
-      if (this.stateTime >= 0.55) {
+      if (this.stateTime >= 0.70) {
         this._setState(this.target ? 'stalk' : 'idle', 1.2);
       }
     } else if (this.target) {
@@ -2329,7 +2435,7 @@ class BoarMob {
       this.heading = turnToward(this.heading, this.targetHeading, 6.5, dt);
 
       if (this.atkCd <= 0 && d <= 2.15) {
-        this._setState('attack_windup', 0.42);
+        this._setState('attack_windup', 0.55);
       } else if (this.chargeCd <= 0 && d >= 3.8 && d <= 8.2) {
         this._setState('charge_windup', 0.95);
       } else if (d > 2.0) {
@@ -2390,8 +2496,9 @@ class BoarMob {
     }
     this._blendAndApply(dt, globalTime, p);
 
+    this.hpBar.setPosture(this.posture, this.inCombat);
     this.hpBar.setHp(this.hp, this.maxHp, this.inCombat, dt);
-    this.hpBar.updateTransform(this.x, this.y + 1.55, this.z, dt);
+    this.hpBar.updateTransform(this.x, this.y + 1.40, this.z, dt);
   }
 
   _evalLivePose(dt, gt, speed) {
@@ -2406,6 +2513,21 @@ class BoarMob {
       p.squashY = 0.86; p.squashX = 1.12;
       p.browTilt = -0.35; p.headRotX = -0.25 * (1 - u);
       p.lambda = 26;
+      return p;
+    }
+
+    if (this.state === 'stagger') {
+      // Terhuyung: badan oleng, kepala menggantung, kaki lemas — jeda yang jelas
+      const u = clamp(st / Math.max(0.2, this.stateDur), 0, 1);
+      const wob = Math.sin(st * 9.5) * (1 - u);
+      p.bodyY = BBODY_BASE_Y - 0.10 + Math.sin(u * Math.PI) * 0.05;
+      p.bodyRotX = -0.16 - Math.sin(u * Math.PI) * 0.12;
+      p.bodyRotZ = wob * 0.20;
+      p.headRotX = -0.34 * (1 - u * 0.6);
+      p.headRotZ = wob * 0.26;
+      p.earLRotX = -0.20; p.earRRotX = -0.20;
+      p.browTilt = -0.42; p.squashY = 0.94; p.squashX = 1.05;
+      p.lambda = 13;
       return p;
     }
 
@@ -2485,7 +2607,7 @@ class BoarMob {
     }
 
     if (this.state === 'attack_windup') {
-      const u = easeInOutCubic(st / 0.42);
+      const u = easeInOutCubic(st / 0.55);
       const dir = this.attackDir;
       p.localZ = -0.22 * u; p.bodyY = BBODY_BASE_Y - 0.14 * u;
       p.bodyRotX = 0.18 * u; p.bodyRotY = -dir * 0.34 * u; p.bodyRotZ = dir * 0.10 * u;
@@ -2513,7 +2635,7 @@ class BoarMob {
     }
 
     if (this.state === 'attack_recover') {
-      const u = clamp(st / 0.55, 0, 1);
+      const u = clamp(st / 0.70, 0, 1);
       const settle = easeInOutCubic(u);
       p.localZ = THREE.MathUtils.lerp(0.30, 0, settle);
       p.headRotX = THREE.MathUtils.lerp(-0.48, 0.04, settle);
@@ -2692,31 +2814,65 @@ class BoarMob {
 /* ============================================================================
    5. TACTICAL NON-RECKLESS NPC COMBAT AI (OBSERVE, CIRCLE, DODGE, STRIKE)
    ============================================================================ */
+/* `parry` = peluang warga memilih MENAHAN & MENANGKIS (deflect) saat boar
+   menyerang, bukan menggeser. Penjaga berperisai tinggi, penyihir/petani rendah:
+   mereka lebih suka menghindar daripada mengadu besi. */
 const ROLE_PROFILES = {
   merchant:      { canFight: false },
   dungeonmaster: { canFight: false },
   petmerchant:   { canFight: false },
-  farmer:        { canFight: true, selfDefense: true, prefMin: 2.8, prefMax: 4.0, strikeRange: 2.1, orbitSpd: 2.3, dodgeSpd: 7.0, atkCd: 1.65, outer: 0xd6b868, inner: 0xfff3b0 },
-  miner:         { canFight: true, selfDefense: true, prefMin: 2.7, prefMax: 3.9, strikeRange: 2.1, orbitSpd: 2.2, dodgeSpd: 6.8, atkCd: 1.65, outer: 0x9fb3c8, inner: 0xfff0b5 },
-  herbal:        { canFight: true, selfDefense: true, prefMin: 3.0, prefMax: 4.2, strikeRange: 2.2, orbitSpd: 2.5, dodgeSpd: 7.2, atkCd: 1.65, outer: 0xa7f3d0, inner: 0xffffff },
-  hunter:        { canFight: true, ranged: true, projKind: 'arrow', prefMin: 5.6, prefMax: 8.6, strikeRange: 9.0, orbitSpd: 2.7, dodgeSpd: 8.0, atkCd: 1.45, outer: 0x9bd7c7, inner: 0xffe48f },
-  elfmage:       { canFight: true, ranged: true, projKind: 'orb', prefMin: 5.8, prefMax: 8.8, strikeRange: 9.4, orbitSpd: 2.5, dodgeSpd: 7.6, atkCd: 1.40, outer: 0x74b9ff, inner: 0xdff9fb },
-  magesupport:   { canFight: true, ranged: true, projKind: 'orb', prefMin: 5.6, prefMax: 8.4, strikeRange: 9.0, orbitSpd: 2.4, dodgeSpd: 7.4, atkCd: 1.50, outer: 0xa29bfe, inner: 0xffeaa7 },
-  lich:          { canFight: true, ranged: true, projKind: 'orb', prefMin: 5.4, prefMax: 8.2, strikeRange: 9.2, orbitSpd: 2.2, dodgeSpd: 7.2, atkCd: 1.35, outer: 0x9b5de5, inner: 0x72efdd },
-  rabbitwarrior: { canFight: true, prefMin: 2.9, prefMax: 4.3, strikeRange: 2.3, orbitSpd: 3.4, dodgeSpd: 9.0, atkCd: 1.05, comboMax: 2, outer: 0x5eead4, inner: 0xffffff },
-  goblin:        { canFight: true, prefMin: 2.8, prefMax: 4.2, strikeRange: 2.2, orbitSpd: 3.3, dodgeSpd: 8.8, atkCd: 1.10, comboMax: 2, outer: 0xfacc15, inner: 0xffffff },
-  guardian:      { canFight: true, prefMin: 2.4, prefMax: 3.5, strikeRange: 2.4, orbitSpd: 2.1, dodgeSpd: 6.8, atkCd: 1.50, defMul: 0.72, outer: 0x60a5fa, inner: 0xe0f2fe },
-  royalguard:    { canFight: true, prefMin: 2.5, prefMax: 3.6, strikeRange: 2.45, orbitSpd: 2.3, dodgeSpd: 7.0, atkCd: 1.35, defMul: 0.68, outer: 0xf59e0b, inner: 0xfff7ed },
-  stonegiant:    { canFight: true, prefMin: 2.5, prefMax: 3.6, strikeRange: 2.65, orbitSpd: 1.9, dodgeSpd: 6.2, atkCd: 1.70, defMul: 0.65, outer: 0xd97706, inner: 0xfde68a },
-  lionknight:    { canFight: true, prefMin: 2.7, prefMax: 4.0, strikeRange: 2.55, orbitSpd: 2.8, dodgeSpd: 7.8, atkCd: 1.25, defMul: 0.80, outer: 0xfbbf24, inner: 0xffffff },
-  warrior:       { canFight: true, prefMin: 2.7, prefMax: 4.0, strikeRange: 2.35, orbitSpd: 2.7, dodgeSpd: 7.6, atkCd: 1.30, defMul: 0.85, outer: 0xf43f5e, inner: 0xffe48f },
-  guard:         { canFight: true, prefMin: 2.7, prefMax: 3.9, strikeRange: 2.35, orbitSpd: 2.5, dodgeSpd: 7.4, atkCd: 1.35, defMul: 0.80, outer: 0x94a3b8, inner: 0xfef08a },
+  farmer:        { canFight: true, selfDefense: true, prefMin: 2.8, prefMax: 4.0, strikeRange: 2.1, orbitSpd: 2.3, dodgeSpd: 7.0, atkCd: 1.65, parry: 0.30, outer: 0xd6b868, inner: 0xfff3b0 },
+  miner:         { canFight: true, selfDefense: true, prefMin: 2.7, prefMax: 3.9, strikeRange: 2.1, orbitSpd: 2.2, dodgeSpd: 6.8, atkCd: 1.65, parry: 0.42, outer: 0x9fb3c8, inner: 0xfff0b5 },
+  herbal:        { canFight: true, selfDefense: true, prefMin: 3.0, prefMax: 4.2, strikeRange: 2.2, orbitSpd: 2.5, dodgeSpd: 7.2, atkCd: 1.65, parry: 0.32, outer: 0xa7f3d0, inner: 0xffffff },
+  hunter:        { canFight: true, ranged: true, projKind: 'arrow', prefMin: 5.6, prefMax: 8.6, strikeRange: 9.0, orbitSpd: 2.7, dodgeSpd: 8.0, atkCd: 1.45, parry: 0.34, outer: 0x9bd7c7, inner: 0xffe48f },
+  elfmage:       { canFight: true, ranged: true, projKind: 'orb', prefMin: 5.8, prefMax: 8.8, strikeRange: 9.4, orbitSpd: 2.5, dodgeSpd: 7.6, atkCd: 1.40, parry: 0.26, outer: 0x74b9ff, inner: 0xdff9fb },
+  magesupport:   { canFight: true, ranged: true, projKind: 'orb', prefMin: 5.6, prefMax: 8.4, strikeRange: 9.0, orbitSpd: 2.4, dodgeSpd: 7.4, atkCd: 1.50, parry: 0.24, outer: 0xa29bfe, inner: 0xffeaa7 },
+  lich:          { canFight: true, ranged: true, projKind: 'orb', prefMin: 5.4, prefMax: 8.2, strikeRange: 9.2, orbitSpd: 2.2, dodgeSpd: 7.2, atkCd: 1.35, parry: 0.40, outer: 0x9b5de5, inner: 0x72efdd },
+  rabbitwarrior: { canFight: true, prefMin: 2.9, prefMax: 4.3, strikeRange: 2.3, orbitSpd: 3.4, dodgeSpd: 9.0, atkCd: 1.05, parry: 0.48, comboMax: 2, outer: 0x5eead4, inner: 0xffffff },
+  goblin:        { canFight: true, prefMin: 2.8, prefMax: 4.2, strikeRange: 2.2, orbitSpd: 3.3, dodgeSpd: 8.8, atkCd: 1.10, parry: 0.50, comboMax: 2, outer: 0xfacc15, inner: 0xffffff },
+  guardian:      { canFight: true, prefMin: 2.4, prefMax: 3.5, strikeRange: 2.4, orbitSpd: 2.1, dodgeSpd: 6.8, atkCd: 1.50, parry: 0.76, defMul: 0.72, outer: 0x60a5fa, inner: 0xe0f2fe },
+  royalguard:    { canFight: true, prefMin: 2.5, prefMax: 3.6, strikeRange: 2.45, orbitSpd: 2.3, dodgeSpd: 7.0, atkCd: 1.35, parry: 0.90, defMul: 0.68, outer: 0xf59e0b, inner: 0xfff7ed },
+  stonegiant:    { canFight: true, prefMin: 2.5, prefMax: 3.6, strikeRange: 2.65, orbitSpd: 1.9, dodgeSpd: 6.2, atkCd: 1.70, parry: 0.82, defMul: 0.65, outer: 0xd97706, inner: 0xfde68a },
+  lionknight:    { canFight: true, prefMin: 2.7, prefMax: 4.0, strikeRange: 2.55, orbitSpd: 2.8, dodgeSpd: 7.8, atkCd: 1.25, parry: 0.72, defMul: 0.80, outer: 0xfbbf24, inner: 0xffffff },
+  warrior:       { canFight: true, prefMin: 2.7, prefMax: 4.0, strikeRange: 2.35, orbitSpd: 2.7, dodgeSpd: 7.6, atkCd: 1.30, parry: 0.64, defMul: 0.85, outer: 0xf43f5e, inner: 0xffe48f },
+  guard:         { canFight: true, prefMin: 2.7, prefMax: 3.9, strikeRange: 2.35, orbitSpd: 2.5, dodgeSpd: 7.4, atkCd: 1.35, parry: 0.80, defMul: 0.80, outer: 0x94a3b8, inner: 0xfef08a },
 };
 
 const SELF_FIX_Y_ROLES = new Set(['elfmage', 'magesupport', 'rabbitwarrior', 'stonegiant']);
 
 function combatProfile(role) {
-  return (role && ROLE_PROFILES[role.id]) || { canFight: true, prefMin: 2.7, prefMax: 4.0, strikeRange: 2.3, orbitSpd: 2.5, dodgeSpd: 7.4, atkCd: 1.4, outer: 0x93c5fd, inner: 0xffe48f };
+  return (role && ROLE_PROFILES[role.id]) || { canFight: true, prefMin: 2.7, prefMax: 4.0, strikeRange: 2.3, orbitSpd: 2.5, dodgeSpd: 7.4, atkCd: 1.4, parry: 0.5, outer: 0x93c5fd, inner: 0xffe48f };
+}
+
+/* ----------------------------------------------------------------------------
+   ATURAN TANGKISAN (murni angka, tanpa THREE) — dipakai AI dan bisa diuji
+   headless. `rnd` disuntik supaya kelakuannya deterministik di test.
+   ---------------------------------------------------------------------------- */
+function guardChoice(prof, rnd = Math.random) {
+  const bias = prof && prof.parry != null ? prof.parry : 0.5;
+  return rnd() < bias ? 'guard' : 'dodge';
+}
+
+/** Hasil satu serangan boar yang jatuh saat warga menahan diri. */
+function resolveGuardHit(prof, posture, rawAmount, rnd = Math.random) {
+  const raw = Math.max(1, rawAmount || 1);
+  const bias = prof && prof.parry != null ? prof.parry : 0.5;
+  const cur = clamp(posture || 0, 0, 1);
+  if (rnd() < bias) {
+    // TANGKIS: nol damage, postur boar naik, warga dapat jendela balas
+    return {
+      kind: 'deflect', dmg: 0,
+      npcPosture: Math.max(0, cur - 0.12),
+      boarPosture: 0.34, counter: true, stun: 0,
+    };
+  }
+  const dmg = Math.max(1, Math.round(raw * 0.28));
+  const next = cur + 0.34;
+  if (next >= 1) {
+    // Guard pecah: warga terbuka sebentar, posturnya kembali nol
+    return { kind: 'break', dmg, npcPosture: 0, boarPosture: 0.12, counter: false, stun: 0.9 };
+  }
+  return { kind: 'block', dmg, npcPosture: next, boarPosture: 0.06, counter: false, stun: 0 };
 }
 
 class TacticalCombatAI {
@@ -2752,6 +2908,13 @@ class TacticalCombatAI {
         targetBoar: null,
         returningHome: false,
         aggroUntil: 0,
+        // tempo tenang: amati -> melingkar sebentar -> serang saat ada celah
+        posture: 0,
+        stanceCool: 0,
+        watchT: randRange(0.9, 1.8),
+        circleT: 0,
+        deflectFlash: 0,
+        guardT: 0,
       };
     }
     if (!entity._hpBar && this.mobs.scene) {
@@ -2808,7 +2971,9 @@ class TacticalCombatAI {
 
     if (entity._hpBar) {
       const topY = entity.y + (HC.NPC_HEIGHT[entity.role.id] || 1.75) + 0.35;
-      entity._hpBar.setHp(entity.hp, entity.maxHp, !!cb.targetBoar && !cb.targetBoar.dead, dt);
+      const fighting = !!cb.targetBoar && !cb.targetBoar.dead;
+      entity._hpBar.setPosture(cb.posture, fighting);
+      entity._hpBar.setHp(entity.hp, entity.maxHp, fighting, dt);
       entity._hpBar.updateTransform(entity.x, topY, entity.z, dt);
     }
   }
@@ -2826,11 +2991,92 @@ class TacticalCombatAI {
     };
   }
 
+  /** Pingsan: dipakai jalur damage biasa maupun jalur guard. */
+  _koNpc(entity) {
+    const cb = entity.cBrain;
+    if (!cb) return;
+    entity.hp = 0;
+    cb.phase = 'ko';
+    cb.koT = 5.0;
+    cb.targetBoar = null;
+    cb.posture = 0;
+    cb.iFrames = 0;
+    if (this.mobs.vfx) {
+      this.mobs.vfx.spawnDamageText(new THREE.Vector3(entity.x, entity.y + 1.8, entity.z), 'PINGSAN!', 'npcHit');
+    }
+  }
+
   onNpcTakeDamage(entity, root, rawAmount, fromX, fromZ, isHeavy) {
     const role = entity.role;
     const prof = combatProfile(role);
     const cb = this._ensureState(entity, role);
     if (cb.phase === 'ko') return 0;
+
+    /* ---- Warga sedang MENAHAN (guard): tangkis / tahan / guard pecah ----
+       Ini inti rasa Sekiro-nya: serangan boar yang dibaca dengan benar tidak
+       menghabiskan HP, tapi menambah postur boar sampai ia terbuka. */
+    if (cb.phase === 'guard') {
+      const outcome = resolveGuardHit(prof, cb.posture, rawAmount);
+      const boar = cb.targetBoar;
+      const cx = entity.x + (fromX - entity.x) * 0.38;
+      const cz = entity.z + (fromZ - entity.z) * 0.38;
+      const contact = new THREE.Vector3(cx, entity.y + 1.05, cz);
+      cb.posture = outcome.npcPosture;
+      cb.aggroUntil = this.mobs.clock + 8.0;
+
+      if (outcome.kind === 'deflect') {
+        cb.counterWindow = 1.15;
+        cb.atkCd = 0;
+        cb.deflectFlash = 0.28;
+        cb.recoilPop = 0.55;
+        cb.stanceCool = 0.6;
+        cb.phase = 'observe';
+        cb.t = 0.30;
+        cb.watchT = 0.30;
+        const st0 = root && root.userData && root.userData.npc;
+        if (st0) { st0.flash = 0.12; st0.swing = 0.12; }
+        if (boar && boar.addPosture) boar.addPosture(outcome.boarPosture);
+        if (this.mobs.vfx) {
+          this.mobs.vfx.spawnDeflectSpark(contact, 0xfff2c4);
+          this.mobs.vfx.spawnDamageText(new THREE.Vector3(entity.x, entity.y + 1.62, entity.z), 'TANGKIS!', 'counter');
+          this.mobs.vfx.playSfx('parry');
+          this.mobs.vfx.triggerHitStop(0.045);
+        }
+        return 0;
+      }
+
+      // Tidak sempat menangkis: tahan sebagian, postur naik — atau guard pecah.
+      entity.hp = Math.max(0, entity.hp - outcome.dmg);
+      cb.hitFlashT = 0.20;
+      cb.recoilPop = 0.8;
+      const dx2 = entity.x - fromX, dz2 = entity.z - fromZ;
+      const d2 = Math.hypot(dx2, dz2) || 1;
+      cb.knockVx = (dx2 / d2) * (isHeavy ? 4.2 : 2.6);
+      cb.knockVz = (dz2 / d2) * (isHeavy ? 4.2 : 2.6);
+      if (boar && boar.addPosture) boar.addPosture(outcome.boarPosture);
+      if (entity._hpBar) entity._hpBar.onHit();
+      const st1 = root && root.userData && root.userData.npc;
+      if (st1) st1.flash = 0.20;
+      if (this.mobs.vfx) {
+        this.mobs.vfx.spawnHitImpact(contact, 0xffd9a0, outcome.kind === 'break');
+        this.mobs.vfx.spawnDamageText(
+          new THREE.Vector3(entity.x, entity.y + 1.58, entity.z),
+          outcome.kind === 'break' ? 'GUARD PECAH!' : `-${outcome.dmg}`,
+          outcome.kind === 'break' ? 'crit' : 'npcHit'
+        );
+        this.mobs.vfx.playSfx(outcome.kind === 'break' ? 'crit' : 'hit');
+      }
+      if (entity.hp <= 0) {
+        this._koNpc(entity);
+      } else if (outcome.kind === 'break') {
+        cb.phase = 'hitstun';
+        cb.t = outcome.stun;
+      } else {
+        cb.phase = 'guard';
+        cb.guardT = 0;
+      }
+      return outcome.dmg;
+    }
 
     // Reactive iFrame dodge success!
     if (cb.iFrames > 0) {
@@ -2872,12 +3118,7 @@ class TacticalCombatAI {
     }
 
     if (entity.hp <= 0) {
-      cb.phase = 'ko';
-      cb.koT = 5.0;
-      cb.targetBoar = null;
-      if (this.mobs.vfx) {
-        this.mobs.vfx.spawnDamageText(new THREE.Vector3(entity.x, entity.y + 1.8, entity.z), 'PINGSAN!', 'npcHit');
-      }
+      this._koNpc(entity);
     } else {
       cb.phase = 'hitstun';
       cb.t = isHeavy ? 0.30 : 0.20;
@@ -3000,6 +3241,10 @@ class TacticalCombatAI {
     if (cb.dodgeCool > 0) cb.dodgeCool = Math.max(0, cb.dodgeCool - dt);
     if (cb.counterWindow > 0) cb.counterWindow = Math.max(0, cb.counterWindow - dt);
     if (cb.hitFlashT > 0) cb.hitFlashT = Math.max(0, cb.hitFlashT - dt);
+    if (cb.stanceCool > 0) cb.stanceCool = Math.max(0, cb.stanceCool - dt);
+    if (cb.deflectFlash > 0) cb.deflectFlash = Math.max(0, cb.deflectFlash - dt);
+    // Postur warga pulih pelan selama tidak menahan — bukan meter permanen
+    if (cb.phase !== 'guard' && cb.posture > 0) cb.posture = Math.max(0, cb.posture - 0.42 * dt);
     if (st) {
       st.flash = cb.hitFlashT;
       if (st.swing > 0) st.swing = Math.max(0, st.swing - dt);
@@ -3060,7 +3305,9 @@ class TacticalCombatAI {
       cb.targetBoar = this._pickBoarTarget(entity, role, prof, anchorX, anchorZ, detectR, maxLeashR, this.mobs.clock);
       if (cb.targetBoar) {
         cb.phase = 'observe';
-        cb.t = randRange(0.45, 0.95);
+        cb.t = randRange(0.9, 1.6);
+        cb.watchT = randRange(0.9, 1.6);
+        cb.circleT = 0;
       }
     }
 
@@ -3118,65 +3365,126 @@ class TacticalCombatAI {
       entity.dir = turnToward(entity.dir || 0, yawToBoar, 10, dt);
       if (cb.t <= 0) {
         cb.phase = 'observe';
-        cb.t = randRange(0.45, 0.90);
+        cb.t = randRange(0.8, 1.4);
+        cb.watchT = randRange(0.8, 1.4);
+        cb.circleT = 0;
       }
     } else if (cb.phase === 'dodge') {
       cb.t -= dt;
-      moveSpd = prof.dodgeSpd || 7.4;
+      // Geser pendek (bukan sprint): satu langkah samping yang terbaca jelas.
+      moveSpd = (prof.dodgeSpd || 7.4) * 0.5;
       moveX = Math.sin(cb.dodgeYaw) * moveSpd;
       moveZ = Math.cos(cb.dodgeYaw) * moveSpd;
       walkingNow = true;
-      entity.dir = turnToward(entity.dir || 0, yawToBoar, 14, dt);
+      entity.dir = turnToward(entity.dir || 0, yawToBoar, 12, dt);
       if (cb.t <= 0) {
-        // After clean dodge, if boar is open or counterWindow is hot, consider swift counter!
+        // Setelah menggeser bersih: balas hanya kalau boar benar-benar terbuka.
         if ((cb.counterWindow > 0 || boar.isVulnerable) && cb.atkCd <= 0.35) {
           cb.atkCd = 0;
           cb.phase = 'approach_strike';
-          cb.t = 1.1;
+          cb.t = 1.2;
         } else {
           cb.phase = 'observe';
-          cb.t = randRange(0.50, 1.05);
+          cb.t = randRange(0.8, 1.5);
+          cb.watchT = randRange(0.8, 1.5);
+          cb.circleT = 0;
         }
       }
-    } else if (inDanger && cb.dodgeCool <= 0 && cb.phase !== 'strike') {
-      // Tactical reactive evade!
-      cb.phase = 'dodge';
-      cb.t = 0.34;
-      cb.iFrames = 0.42;
-      cb.dodgeCool = 1.45;
-      cb.dodgedHitShown = false;
-      cb.recoilPop = 0.85;
-      cb.dodgeYaw = this._chooseDodgeAngle(entity, boar, world);
-      if (this.mobs.vfx) {
-        this.mobs.vfx.spawnDodgePuff(new THREE.Vector3(entity.x, entity.y, entity.z), cb.dodgeYaw);
+    } else if (cb.phase === 'guard') {
+      // ---- MENAHAN: badan merunduk, kaki menapak, tidak mundur tergesa ----
+      cb.guardT += dt;
+      entity.dir = turnToward(entity.dir || 0, yawToBoar, 10, dt);
+      // terlalu dekat -> mundur satu langkah kecil; kalau tidak, tahan di tempat
+      const brace = dist < 1.5 ? -0.55 : 0.35;
+      moveSpd = Math.abs(brace);
+      moveX = rx * brace;
+      moveZ = rz * brace;
+      walkingNow = moveSpd > 0.2;
+      if (cb.guardT > 1.7 || (!boar.isTelegraphing && cb.guardT > 0.4)) {
+        cb.phase = 'observe';
+        cb.t = randRange(0.7, 1.3);
+        cb.watchT = randRange(0.7, 1.3);
+        cb.circleT = 0;
+        cb.stanceCool = 0.5;
+      }
+    } else if (inDanger && cb.dodgeCool <= 0 && cb.stanceCool <= 0 && cb.phase !== 'strike') {
+      // ---- Dibaca dulu, baru dijawab: tahan & tangkis, atau menggeser ----
+      const choice = guardChoice(prof);
+      cb.stanceCool = 0.9;
+      if (choice === 'guard') {
+        cb.phase = 'guard';
+        cb.guardT = 0;
+        cb.iFrames = 0;
+        if (this.mobs.vfx) {
+          // kilau tipis: warga siap menahan, bukan panik menggeser
+          this.mobs.vfx.spawnRing(
+            new THREE.Vector3(entity.x, entity.y + 0.95, entity.z),
+            prof.inner, 0.40, 1.7, 0.24, false
+          );
+        }
+      } else {
+        cb.phase = 'dodge';
+        cb.t = 0.30;
+        cb.iFrames = 0.38;
+        cb.dodgeCool = 1.60;
+        cb.dodgedHitShown = false;
+        cb.recoilPop = 0.75;
+        cb.dodgeYaw = this._chooseDodgeAngle(entity, boar, world);
+        if (this.mobs.vfx) {
+          this.mobs.vfx.spawnDodgePuff(new THREE.Vector3(entity.x, entity.y, entity.z), cb.dodgeYaw);
+        }
       }
     } else if (cb.phase === 'observe') {
       cb.t -= dt;
       cb.orbitFlipT -= dt;
       if (cb.orbitFlipT <= 0) {
         cb.orbitDir *= -1;
-        cb.orbitFlipT = randRange(1.3, 2.5);
+        cb.orbitFlipT = randRange(1.6, 3.1);
       }
 
       const midR = (prof.prefMin + prof.prefMax) * 0.5;
       const radErr = dist - midR;
-      const radComp = clamp(radErr * 1.15, -1.0, 1.0);
-      const orbitSpd = prof.orbitSpd || 2.6;
-      const vx = tx * orbitSpd + rx * radComp * 1.9;
-      const vz = tz * orbitSpd + rz * radComp * 1.9;
-      moveSpd = Math.hypot(vx, vz);
-      moveX = vx; moveZ = vz;
-      walkingNow = moveSpd > 0.2;
-      entity.dir = turnToward(entity.dir || 0, yawToBoar, 11, dt);
+      const orbitSpd = (prof.orbitSpd || 2.6) * 0.62;
 
-      // Look for an opening to strike — NEVER rush blindly if boar is mid-charge/windup!
+      /* Tempo tenang: sebagian besar waktu dipakai MENGAMATI dengan kaki
+         menapak (napas + geser kecil), lalu satu langkah melingkar pendek. */
+      cb.watchT -= dt;
+      if (cb.watchT <= 0) {
+        cb.watchT = randRange(1.1, 2.0);
+        cb.circleT = randRange(0.55, 0.95);
+        if (Math.random() > 0.7) cb.orbitDir *= -1;
+      }
+      const circling = cb.circleT > 0;
+      if (circling) cb.circleT -= dt;
+
+      if (circling) {
+        const radComp = clamp(radErr * 1.15, -1.0, 1.0);
+        const vx = tx * orbitSpd + rx * radComp * 1.4;
+        const vz = tz * orbitSpd + rz * radComp * 1.4;
+        moveSpd = Math.hypot(vx, vz);
+        moveX = vx; moveZ = vz;
+        walkingNow = moveSpd > 0.2;
+      } else if (dist > prof.prefMax + 0.6) {
+        moveSpd = 1.15;                       // merapat secukupnya
+        moveX = rx * moveSpd;
+        moveZ = rz * moveSpd;
+        walkingNow = true;
+      } else if (dist < 1.55) {
+        moveSpd = 1.0;                        // jaga jarak, bukan menempel
+        moveX = -rx * moveSpd;
+        moveZ = -rz * moveSpd;
+        walkingNow = true;
+      }
+      entity.dir = turnToward(entity.dir || 0, yawToBoar, 9, dt);
+
+      // Celah: menyerang kalau boar terbuka, atau setelah jeda amati selesai.
       const boarSafe = !boar.isTelegraphing;
       const goodOpening = boar.isVulnerable && cb.atkCd <= 0;
-      if (boarSafe && (goodOpening || (cb.t <= 0 && cb.atkCd <= 0))) {
+      if (boarSafe && (goodOpening || (cb.t <= 0 && cb.atkCd <= 0 && !circling))) {
         cb.phase = 'approach_strike';
         cb.t = 1.4;
-      } else if (cb.t < -1.5) {
-        cb.t = randRange(0.4, 0.9);
+      } else if (cb.t < -2.4) {
+        cb.t = randRange(0.8, 1.4);
       }
     } else if (cb.phase === 'approach_strike') {
       cb.t -= dt;
@@ -3202,7 +3510,9 @@ class TacticalCombatAI {
         cb.comboStep = 0;
       } else if (cb.t <= 0) {
         cb.phase = 'observe';
-        cb.t = randRange(0.45, 0.9);
+        cb.t = randRange(0.7, 1.2);
+        cb.watchT = randRange(0.7, 1.2);
+        cb.circleT = 0;
       }
     } else if (cb.phase === 'strike') {
       cb.t -= dt;
@@ -3224,9 +3534,9 @@ class TacticalCombatAI {
           cb.t = 0.14;
           cb.strikeDealt = false;
         } else {
-          cb.atkCd = prof.atkCd || 1.35;
+          cb.atkCd = (prof.atkCd || 1.35) * 1.5;
           cb.phase = 'disengage';
-          cb.t = randRange(0.42, 0.62);
+          cb.t = randRange(0.60, 0.90);
           cb.orbitDir *= -1;
         }
       }
@@ -3240,7 +3550,9 @@ class TacticalCombatAI {
       entity.dir = turnToward(entity.dir || 0, yawToBoar, 10, dt);
       if (cb.t <= 0 || dist >= prof.prefMax) {
         cb.phase = 'observe';
-        cb.t = randRange(0.55, 1.15);
+        cb.t = randRange(0.9, 1.6);
+        cb.watchT = randRange(0.9, 1.6);
+        cb.circleT = 0;
       }
     }
 
@@ -3270,9 +3582,12 @@ class TacticalCombatAI {
     keepOutOfPondAndBounds(entity, world, 0.34);
     entity.y = groundY(world, entity.x, entity.z);
 
-    const leanFwd = cb.phase === 'dodge' ? 0.18 : cb.phase === 'strike' ? 0.14 : 0;
+    const leanFwd = cb.phase === 'dodge' ? 0.16 : cb.phase === 'strike' ? 0.14 : cb.phase === 'guard' ? -0.12 : 0;
+    const deflectNod = cb.deflectFlash > 0
+      ? -Math.sin((cb.deflectFlash / 0.28) * Math.PI) * 0.17
+      : 0;
     root.position.set(entity.x, entity.y, entity.z);
-    root.rotation.set(leanFwd, entity.dir || 0, 0);
+    root.rotation.set(leanFwd + deflectNod, entity.dir || 0, 0);
 
     if (st) {
       st.pos.copy(root.position);
