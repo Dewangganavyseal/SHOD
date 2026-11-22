@@ -38,9 +38,8 @@ export function initUpgradeUI({ store, onSelect, onPreset }) {
   const minBtn = document.getElementById('btn-ug-min');
   const maxBtn = document.getElementById('btn-ug-max');
   const toggle = document.getElementById('btn-ug-toggle');
+  const toggleTop = document.getElementById('btn-ug-toggle-top');
   const panel = document.getElementById('upgrade-panel');
-  const hud = document.getElementById('hud');
-  const hudToggle = document.getElementById('btn-hud-toggle');
   const cards = new Map();
 
   for (const line of UPGRADE_LINES) {
@@ -50,48 +49,27 @@ export function initUpgradeUI({ store, onSelect, onPreset }) {
   }
 
   function syncToggleText() {
-    if (!toggle || !panel) return;
+    if (!panel) return;
     const isCollapsed = panel.classList.contains('collapsed');
-    toggle.textContent = isCollapsed ? 'Buka' : 'Lipat';
+    if (toggle) toggle.textContent = isCollapsed ? 'Buka' : 'Tutup';
+    if (toggleTop) toggleTop.classList.toggle('active', !isCollapsed);
   }
 
-  function syncHudToggle() {
-    if (!hud || !hudToggle) return;
-    const isCompact = hud.classList.contains('compact');
-    hudToggle.textContent = isCompact ? 'Detail' : 'Ringkas';
+  // Bengkel selalu dimulai terlipat supaya layar lega baik di PC maupun Mobile
+  if (panel && !panel.dataset.userToggled) {
+    panel.classList.add('collapsed');
   }
+  syncToggleText();
 
-  // On smaller/split screens, collapse workshop & compact HUD by default so 3D gameplay stays unobstructed
-  function syncResponsiveLayout() {
-    if (panel && window.innerWidth <= 1024 && !panel.dataset.userToggled) {
-      panel.classList.add('collapsed');
-    }
-    if (hud && (window.innerWidth <= 768 || window.innerHeight <= 600) && !hud.dataset.userToggled) {
-      hud.classList.add('compact');
-    }
+  const onToggleClick = (e) => {
+    e.preventDefault();
+    if (!panel) return;
+    panel.dataset.userToggled = '1';
+    panel.classList.toggle('collapsed');
     syncToggleText();
-    syncHudToggle();
-  }
-  syncResponsiveLayout();
-  window.addEventListener('resize', syncResponsiveLayout);
-
-  if (hud && hudToggle) {
-    hudToggle.addEventListener('click', (e) => {
-      e.preventDefault();
-      hud.dataset.userToggled = '1';
-      hud.classList.toggle('compact');
-      syncHudToggle();
-    });
-  }
-
-  if (toggle && panel) {
-    toggle.addEventListener('click', (e) => {
-      e.preventDefault();
-      panel.dataset.userToggled = '1';
-      panel.classList.toggle('collapsed');
-      syncToggleText();
-    });
-  }
+  };
+  if (toggle && panel) toggle.addEventListener('click', onToggleClick);
+  if (toggleTop && panel) toggleTop.addEventListener('click', onToggleClick);
   if (resetBtn) resetBtn.addEventListener('click', (e) => { e.preventDefault(); onPreset('default'); });
   if (minBtn) minBtn.addEventListener('click', (e) => { e.preventDefault(); onPreset('min'); });
   if (maxBtn) maxBtn.addEventListener('click', (e) => { e.preventDefault(); onPreset('max'); });

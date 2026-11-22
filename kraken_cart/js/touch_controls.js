@@ -9,15 +9,9 @@
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
-export function initTouchControls({ animator, survival, onJump, onEat, onDrink, onRunToggle, onHitch, isTouchDevice }) {
+export function initTouchControls({ animator, survival, onJump, onEat, onDrink, onSleep, onRunToggle, onHitch, onInspect, isTouchDevice }) {
   const touch = isTouchDevice || matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
   document.body.classList.toggle('is-touch', !!touch);
-  if (touch) {
-    const hudEl = document.getElementById('hud');
-    const tog = document.getElementById('btn-hud-toggle');
-    if (hudEl) hudEl.classList.add('compact');
-    if (tog) tog.textContent = 'Detail';
-  }
 
   // ---------- overlay portrait / layar penuh ----------
   const rotate = document.createElement('div');
@@ -144,8 +138,10 @@ export function initTouchControls({ animator, survival, onJump, onEat, onDrink, 
     { id: 'act-jump', icon: '⤴', label: 'LOMPAT', cls: 'jump hero' },
     { id: 'act-run', icon: '⚡', label: 'LARI', sub: 'toggle', cls: 'run' },
     { id: 'act-hitch', icon: '🔗', label: 'TALI', sub: 'lepas', cls: 'hitch' },
+    { id: 'act-inspect', icon: '👁️', label: 'CEK', cls: 'inspect' },
     { id: 'act-eat', icon: '🌿', label: 'MAKAN', cls: 'eat' },
     { id: 'act-drink', icon: '💧', label: 'MINUM', cls: 'drink' },
+    { id: 'act-sleep', icon: '😴', label: 'TIDUR', cls: 'sleep' },
   ];
   for (const d of defs) {
     const b = document.createElement('button');
@@ -161,6 +157,8 @@ export function initTouchControls({ animator, survival, onJump, onEat, onDrink, 
 
   const runBtn = padBtns.querySelector('#act-run');
   const hitchBtn = padBtns.querySelector('#act-hitch');
+  const inspectBtn = padBtns.querySelector('#act-inspect');
+  const sleepBtn = padBtns.querySelector('#act-sleep');
   const press = (el, fn) => {
     // HP asli mengirim touchstart LALU click -> tanpa penjaga ini aksi jalan 2x
     // (toggle lari jadi nyala-mati seketika). Catat waktu sentuh terakhir.
@@ -187,11 +185,33 @@ export function initTouchControls({ animator, survival, onJump, onEat, onDrink, 
   press(padBtns.querySelector('#act-eat'), () => onEat && onEat());
   press(padBtns.querySelector('#act-drink'), () => onDrink && onDrink());
   press(hitchBtn, () => onHitch && onHitch());
+  if (inspectBtn) {
+    const startInsp = (e) => {
+      e.preventDefault();
+      if (inspectBtn.disabled) return;
+      onInspect && onInspect(true);
+    };
+    const endInsp = (e) => { if (e) e.preventDefault(); onInspect && onInspect(false); };
+    inspectBtn.addEventListener('touchstart', startInsp, { passive: false });
+    inspectBtn.addEventListener('touchend', endInsp, { passive: false });
+    inspectBtn.addEventListener('touchcancel', endInsp, { passive: false });
+    inspectBtn.addEventListener('mousedown', startInsp);
+    inspectBtn.addEventListener('mouseup', endInsp);
+    inspectBtn.addEventListener('mouseleave', endInsp);
+  }
+  if (sleepBtn) press(sleepBtn, () => onSleep && onSleep());
 
   return {
     active: true,
     joystick: { vec, pad, applyStick },
     setRunLatched(on) { runBtn.classList.toggle('on', !!on); },
+    setInspectState(on) { if (inspectBtn) inspectBtn.classList.toggle('on', !!on); },
+    setInspectDisabled(disabled) {
+      if (!inspectBtn) return;
+      inspectBtn.disabled = !!disabled;
+      if (disabled) inspectBtn.classList.remove('on');
+    },
+    setSleepState(on) { if (sleepBtn) sleepBtn.classList.toggle('on', !!on); },
     setHitchState({ free = false, disabled = false, sub = '' } = {}) {
       if (!hitchBtn) return;
       hitchBtn.classList.toggle('free', !!free);

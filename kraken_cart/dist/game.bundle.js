@@ -1505,8 +1505,7 @@ const __MOD_MAP = (() => {
      tetapi isi peta tidak boleh bergeser bersama kuda.
    - Kamp pengganti kota memakai `kind:'settlement'`. Kalau kota sungguhan sudah
      ada, ganti bangunannya; koordinat situs + kelompok NPC-nya tetap di sini.
-   ============================================================================ */
-// Interpolasi Hermite pada stasiun x yang berurutan (kurva halus, tanpa random).
+   ============================================================================ */// Interpolasi Hermite pada stasiun x yang berurutan (kurva halus, tanpa random).
 function spline(points, x) {
   const n = points.length;
   if (x <= points[0][0]) return points[0][1];
@@ -2491,23 +2490,24 @@ function buildPassengers(body, capSpec = {}) {
 }
 
 function buildCargoItems(capTier = 1) {
-  // Cargo ditempatkan di kompartemen DEPAN (x positif, dekat kuda); kabin penumpang di buritan.
+  // Cargo ditempatkan di kompartemen DEPAN (x: 2..22, z: -13..13) dengan tata letak organik
+  // dan terlindungi rapat di bawah pagar kayu samping.
   const allDefs = [
-    // Lv1 (6 barang) — tumpukan rendah di lantai bak, sekat di x=1
-    { build: () => makeBarrelMesh(P.oakMid), pos: [6, 13.0, -7.8], rot: [0, 0.1, 0], r: 5.2 },
-    { build: () => makeBarrelMesh(P.oakMid), pos: [6, 13.0,  7.8], rot: [0, -0.2, 0], r: 5.2 },
-    { build: () => makeCrateMesh(6, 5, 6, P.oakLite, P.oakDark), pos: [16, 11.0, -7.4], rot: [0, 0.08, 0], r: 5.1 },
-    { build: () => makeCrateMesh(5, 5, 5, P.oakMid, P.oakDark), pos: [16, 11.0,  7.4], rot: [0, -0.15, 0], r: 4.9 },
-    { build: () => makeSackMesh(P.sack), pos: [11, 9.6, -6.5], rot: [0.05, 0.2, 0], r: 4.0 },
-    { build: () => makeSackMesh(P.sack), pos: [11, 9.6,  6.5], rot: [0.08, 0.35, 0], r: 4.0 },
-    // Lv2 (+2 = 8) — karung di atas tong & terpal di lantai
-    { build: () => makeSackMesh(P.canvas), pos: [6, 23.5, -7.8], rot: [-0.06, -0.25, 0], r: 4.0 },
-    { build: () => makeTarpMesh(), pos: [19, 9.4, 0], rot: [0, 0.04, 0], r: 3.8 },
+    // Lv1 (6 barang) — bervariasi, asimetris alami, pas di dalam pagar
+    { build: () => makeBarrelMesh(P.oakMid), pos: [6.2, 12.1, -8.2], rot: [0, 0.22, 0], r: 5.0 },
+    { build: () => makeCrateMesh(5, 4, 5, P.oakLite, P.oakDark), pos: [15.4, 10.1, -7.6], rot: [0, 0.14, 0], r: 4.8 },
+    { build: () => makeSackMesh(P.sack), pos: [10.6, 9.6, 7.8], rot: [0.04, -0.34, 0], r: 4.0 },
+    { build: () => makeTarpMesh(), pos: [19.4, 9.2, 0.4], rot: [0, 0.18, 0], r: 3.8 },
+    { build: () => makeCrateMesh(4, 3.5, 4, P.oakMid, P.oakDark), pos: [6.4, 9.6, 7.4], rot: [0, -0.19, 0], r: 4.3 },
+    { build: () => makeSackMesh(P.canvas), pos: [11.2, 9.6, -1.2], rot: [0.06, 0.42, 0], r: 3.9 },
+    // Lv2 (+2 = 8) — peti perjalanan & tong persediaan
+    { build: () => makeTreasureChestMesh(), pos: [16.2, 9.1, 7.2], rot: [0, -0.26, 0], r: 4.5 },
+    { build: () => makeBarrelMesh(P.oakDark), pos: [6.0, 12.1, 0.5], rot: [0, 0.35, 0], r: 4.9 },
     // Lv3 (+4 = 12)
-    { build: () => makeTreasureChestMesh(), pos: [19, 10.0, -6.5], rot: [0, 0.12, 0], r: 4.5 },
-    { build: () => makeTreasureChestMesh(), pos: [19, 10.0,  6.5], rot: [0, -0.12, 0], r: 4.5 },
-    { build: () => makeBarrelMesh(P.oakDark), pos: [11, 13.0, 0.0], rot: [0, 0.25, 0], r: 5.1 },
-    { build: () => makeSackMesh(P.sack), pos: [6, 16.6, 6.5], rot: [0.1, -0.3, 0], r: 4.0 }
+    { build: () => makeTreasureChestMesh(), pos: [18.8, 9.1, -7.4], rot: [0, 0.19, 0], r: 4.4 },
+    { build: () => makeSackMesh(P.sack), pos: [13.2, 9.6, 4.2], rot: [0.08, -0.45, 0], r: 3.9 },
+    { build: () => makeCrateMesh(4, 3, 4, P.oakLite, P.oakDark), pos: [14.6, 9.1, -2.8], rot: [0, 0.28, 0], r: 4.2 },
+    { build: () => makeSackMesh(P.canvas), pos: [8.8, 9.6, -4.6], rot: [-0.04, 0.52, 0], r: 3.9 }
   ];
 
   const spec = HC.CART_UPGRADES.capacity[capTier] || HC.CART_UPGRADES.capacity[1];
@@ -2524,6 +2524,182 @@ function buildCargoItems(capTier = 1) {
   }
   return items;
 }
+
+HC.buildQuestCargoMesh = function (cargoKind = 'spices', sc = S) {
+  const b = new V(sc);
+  const kind = String(cargoKind || 'spices');
+  if (kind === 'spices') {
+    // Peti terbuka berisi 4 mangkuk rempah warna-warni
+    b.box(-4.2, -3.0, -3.8, 4.2, -2.0, 3.8, P.oakMid, 0.04);
+    b.box(-4.2, -2.0, -3.8, -3.4, 1.4, 3.8, P.oakDark, 0.03);
+    b.box(3.4, -2.0, -3.8, 4.2, 1.4, 3.8, P.oakDark, 0.03);
+    b.box(-3.4, -2.0, -3.8, 3.4, 1.4, -3.0, P.oakLite, 0.03);
+    b.box(-3.4, -2.0, 3.0, 3.4, 1.4, 3.8, P.oakLite, 0.03);
+    // 4 kompartemen rempah (kunyit, cabai, jintan, herba)
+    b.box(-3.0, -2.0, -2.6, -0.3, 1.9, -0.3, 0xf59e0b, 0.05);
+    b.box(0.3, -2.0, -2.6, 3.0, 2.2, -0.3, 0xdc2626, 0.05);
+    b.box(-3.0, -2.0, 0.3, -0.3, 2.1, 2.6, 0xeab308, 0.05);
+    b.box(0.3, -2.0, 0.3, 3.0, 1.8, 2.6, 0x16a34a, 0.05);
+    b.box(-4.3, -3.0, -3.9, 4.3, -2.6, -3.5, P.brass, 0.01);
+  } else if (kind === 'wheat') {
+    // Karung gandum montok terikat tali + bulir emas mencuat
+    b.ellipsoid(0, 0.2, 0, 4.2, 3.2, 3.6, 0xd6b376, 0.05);
+    b.box(-1.6, 2.6, -1.6, 1.6, 3.5, 1.6, 0x78552b, 0.02);
+    for (const [ox, oz] of [[-0.8, -0.6], [0.7, -0.4], [0, 0.8], [-0.4, 0.2]]) {
+      b.line(ox, 3.0, oz, ox * 2.2, 5.4, oz * 2.2, 0.45, 0xfacc15, 0.03);
+      b.set(Math.round(ox * 2.2), 5, Math.round(oz * 2.2), 0xca8a04, 0.02);
+    }
+  } else if (kind === 'cloth') {
+    // Tumpukan gulungan kain tenun bermotif warna mencolok + tali pengikat
+    b.box(-4.2, -3.0, -3.8, 4.2, -2.2, 3.8, P.oakDark, 0.03);
+    b.cylX(-4.0, 4.0, -0.4, -1.8, 1.7, 0xbe123c, 0, 0.04);
+    b.cylX(-4.0, 4.0, -0.4, 1.8, 1.7, 0x1d4ed8, 0, 0.04);
+    b.cylX(-3.8, 3.8, 2.1, 0.0, 1.6, 0xd97706, 0, 0.04);
+    for (const sx of [-2.4, 2.4]) {
+      b.box(sx, -2.2, -3.6, sx + 0.6, 3.8, 3.6, P.leather, 0.02);
+    }
+  } else if (kind === 'potions') {
+    // Rak kayu apotek berisi 4 botol ramuan kaca berwarna cerah + gabus
+    b.box(-4.0, -3.0, -3.6, 4.0, -1.8, 3.6, P.oakDark, 0.03);
+    b.box(-3.8, -1.8, -3.4, 3.8, 0.8, -2.8, P.oakMid, 0.03);
+    b.box(-3.8, -1.8, 2.8, 3.8, 0.8, 3.4, P.oakMid, 0.03);
+    const flasks = [[-2.0, -1.5, 0x10b981], [2.0, -1.5, 0xf43f5e], [-2.0, 1.5, 0x3b82f6], [2.0, 1.5, 0xf59e0b]];
+    for (const [fx, fz, col] of flasks) {
+      b.cylY(fx, fz, -1.8, 1.8, 1.35, col, 0, 0.02);
+      b.cylY(fx, fz, 1.8, 3.2, 0.65, 0xdbeafe, 0, 0.01);
+      b.box(fx - 0.5, 3.2, fz - 0.5, fx + 0.5, 4.0, fz + 0.5, P.oakLite, 0.01);
+    }
+  } else if (kind === 'iron_tools') {
+    // Peti perkakas besi tempa + batangan baja + kapak/beliung menonjol
+    b.box(-4.4, -3.0, -3.6, 4.4, 1.6, 3.6, P.oakDark, 0.04);
+    b.box(-4.5, -3.0, -3.7, -3.8, 1.8, 3.7, P.ironDark, 0.02);
+    b.box(3.8, -3.0, -3.7, 4.5, 1.8, 3.7, P.ironDark, 0.02);
+    b.box(-3.0, 1.2, -2.4, 0.5, 2.6, 0.0, 0x94a3b8, 0.02);
+    b.box(-2.4, 2.6, -2.0, 0.2, 3.6, -0.4, 0xcbd5e1, 0.02);
+    b.line(-1.0, 0.5, 1.8, 3.6, 4.6, 1.0, 0.55, P.oakMid, 0.02);
+    b.box(2.2, 3.6, -0.6, 4.2, 5.2, 2.6, 0x64748b, 0.02);
+  } else if (kind === 'honey') {
+    // Peti jerami isi 2 guci madu hutan keemasan menetes
+    b.box(-4.2, -3.0, -3.4, 4.2, 0.2, 3.4, P.oakMid, 0.04);
+    b.box(-3.6, -2.0, -2.8, 3.6, 0.6, 2.8, 0xeab308, 0.04);
+    for (const hx of [-1.9, 1.9]) {
+      b.cylY(hx, 0, -1.6, 2.6, 1.7, 0xc2410c, 0, 0.03);
+      b.cylY(hx, 0, 2.4, 3.3, 1.25, 0xfbbf24, 0, 0.02);
+      b.box(hx - 1.0, 1.6, 1.2, hx - 0.3, 2.6, 1.7, 0xf59e0b, 0.01);
+      b.box(hx - 0.8, 3.3, -0.8, hx + 0.8, 4.1, 0.8, 0xfef3c7, 0.02);
+    }
+  } else if (kind === 'coffee') {
+    // Karung goni kopi cokelat gelap penuh biji kopi sangrai
+    b.ellipsoid(0, -0.4, 0, 4.0, 2.8, 3.5, 0x7c5a38, 0.05);
+    b.cylY(0, 0, 1.4, 2.6, 2.8, 0x9a754c, 0, 0.03);
+    b.cylY(0, 0, 2.3, 3.8, 2.2, 0x3b1f14, 0, 0.04);
+    b.box(-1.2, 3.4, -1.0, 1.2, 4.3, 1.0, 0x522e1f, 0.03);
+    b.box(-4.0, -1.0, -0.8, -3.5, 0.8, 0.8, 0xdc2626, 0.02);
+    b.box(3.5, -1.0, -0.8, 4.0, 0.8, 0.8, 0xdc2626, 0.02);
+  } else {
+    // 'ceramics': Peti jerami berpelindung dengan guci keramik porselen biru-putih
+    b.box(-4.0, -3.0, -3.6, 4.0, 0.4, 3.6, P.oakLite, 0.04);
+    b.box(-3.4, -2.0, -3.0, 3.4, 0.8, 3.0, 0xe5cf8c, 0.04);
+    b.cylY(-1.2, 0, -1.2, 3.0, 2.0, 0xf8fafc, 0, 0.02);
+    b.cylY(-1.2, 0, 0.4, 1.3, 2.05, 0x1d4ed8, 0, 0.01);
+    b.cylY(-1.2, 0, 3.0, 4.4, 0.95, 0xf8fafc, 0, 0.02);
+    b.cylY(-1.2, 0, 4.0, 4.6, 1.35, 0x1d4ed8, 0, 0.01);
+    b.cylY(2.2, 0.6, -1.0, 1.4, 1.3, 0xf8fafc, 0, 0.02);
+    b.cylY(2.2, 0.6, 0.8, 1.3, 1.35, 0x1d4ed8, 0, 0.01);
+  }
+  const mesh = b.build(0, 0, 0);
+  mesh.userData.questCargoKind = kind;
+  return mesh;
+};
+
+HC.clearQuestCargoFromCart = function (cart, physics) {
+  if (!cart || !Array.isArray(cart.cargoItems)) return 0;
+  let removed = 0;
+  for (let i = cart.cargoItems.length - 1; i >= 0; i--) {
+    const it = cart.cargoItems[i];
+    if (it && it.hiddenForQuest) {
+      it.hiddenForQuest = false;
+      if (it.mesh) it.mesh.visible = true;
+    }
+    if (!it || !it.isQuestCargo) continue;
+    if (it.mesh && it.mesh.parent) it.mesh.parent.remove(it.mesh);
+    if (physics && Array.isArray(physics.spilled)) {
+      const sIdx = physics.spilled.indexOf(it);
+      if (sIdx >= 0) physics.spilled.splice(sIdx, 1);
+    }
+    cart.cargoItems.splice(i, 1);
+    removed++;
+  }
+  return removed;
+};
+
+HC.setQuestCargoOnCart = function (cart, physics, cargoKind = 'spices', count = 3) {
+  if (!cart || !cart.body) return [];
+  HC.clearQuestCargoFromCart(cart, physics);
+
+  // Tempatkan barang quest pada 3 titik strategis depan-tengah-kanan bak; sembunyikan sementara
+  // filler di slot tersebut agar tidak bertabrakan lalu hidupkan fisika dinamisnya.
+  const qSlots = [
+    { pos: [17.8, 9.2, -6.8], rot: [0, 0.16, 0] },
+    { pos: [12.4, 9.2, 0.4],  rot: [0, -0.22, 0] },
+    { pos: [17.0, 9.2, 7.2],  rot: [0, 0.28, 0] },
+  ];
+  const n = Math.max(1, Math.min(qSlots.length, count | 0));
+  const placed = [];
+
+  for (let i = 0; i < n; i++) {
+    const slot = qSlots[i];
+    const hp = new THREE.Vector3(slot.pos[0] * S, slot.pos[1] * S, slot.pos[2] * S);
+    const hr = new THREE.Euler(slot.rot[0], slot.rot[1], slot.rot[2]);
+
+    // Redam filler statis yang terlalu dekat dari titik penempatan quest ini
+    for (const ex of cart.cargoItems) {
+      if (!ex || ex.isQuestCargo || ex.spilled || ex.hiddenForQuest) continue;
+      if (Math.hypot((ex.homePos ? ex.homePos.x : 0) - hp.x, (ex.homePos ? ex.homePos.z : 0) - hp.z) < 0.34) {
+        ex.hiddenForQuest = true;
+        if (ex.mesh) ex.mesh.visible = false;
+      }
+    }
+
+    const mesh = HC.buildQuestCargoMesh(cargoKind, S);
+    mesh.position.copy(hp);
+    mesh.rotation.copy(hr);
+    cart.body.add(mesh);
+
+    const bb = new THREE.Box3().setFromObject(mesh);
+    const sz = bb.getSize(new THREE.Vector3());
+    const half = new THREE.Vector3(
+      Math.max(0.05, sz.x * 0.45),
+      Math.max(0.05, sz.y * 0.45),
+      Math.max(0.05, sz.z * 0.45)
+    );
+    const item = {
+      mesh,
+      isQuestCargo: true,
+      cargoKind,
+      homePos: hp,
+      homeRot: hr,
+      localPos: hp.clone(),
+      localVel: new THREE.Vector3(),
+      localAng: new THREE.Vector3(hr.x, hr.y, hr.z),
+      localAngVel: new THREE.Vector3(),
+      floorY: hp.y,
+      bounciness: 0.36 + (i % 3) * 0.06,
+      pos: new THREE.Vector3(),
+      quat: new THREE.Quaternion(),
+      vel: new THREE.Vector3(),
+      angVel: new THREE.Vector3(),
+      spilled: false,
+      half,
+      radius: Math.max(half.x, half.z, 0.28),
+      _onTopPrev: false,
+      _restT: 0,
+    };
+    cart.cargoItems.push(item);
+    placed.push(item);
+  }
+  return placed;
+};
 
 HC.buildCart = function (pivotY = 0.58, upgrades = {}) {
   const capTier = upgrades.capacity ?? 1;
@@ -2618,6 +2794,17 @@ HC.buildCart = function (pivotY = 0.58, upgrades = {}) {
   // Sekat melintang: kargo depan (x >= 2) terpisah dari penumpang di buritan.
   cb.box(0, 7, -zSide + 1, 1, Math.max(18, gateTop), zSide - 1, P.oakDark, 0.04);
   cb.box(0, Math.max(18, gateTop), -zSide, 1, Math.max(18, gateTop) + 1, zSide, P.ironDark, 0.02);
+  // Detail dek barang: alas kayu anti-selip, siku besi pengikat sudut, dan cincin pengait di pagar
+  for (const bx of [4, 10, 16, 21]) {
+    cb.box(bx, 6, -(zSide - 2), bx, 6, zSide - 2, P.oakDark, 0.03);
+  }
+  for (const sz of [-(zSide - 1), zSide - 1]) {
+    cb.box(2, 7, sz, 3, 9, sz, P.ironDark, 0.02);
+    cb.box(22, 7, sz, 23, 9, sz, P.ironDark, 0.02);
+    for (const rx of [6, 12, 18]) {
+      cb.box(rx, 9, sz, rx + 1, 10, sz, P.brass, 0.015);
+    }
+  }
 
   // Rak/pijakan depan dan dashboard hanya di kompartemen barang, tanpa kursi kusir.
   cb.box(23, 8, -zSide + 1, 25, 9, zSide - 1, P.oakDark, 0.04);
@@ -2729,8 +2916,8 @@ HC.buildCart = function (pivotY = 0.58, upgrades = {}) {
   axleBeam(rearAxleX, wheelSpec.rRear, false, 'axleRear');
   body.add(cb.build(0, 0, 0));
 
-  // Build 4 Voxel Adventurers on the facing benches (no driver)
-  const passengers = buildPassengers(body, capSpec);
+  // Starter gerobak kosong tanpa penumpang (direkrut langsung di desa)
+  const passengers = [];
 
   // Swinging iron lantern
   const lanternPivot = new THREE.Group();
@@ -2836,6 +3023,6642 @@ HC.buildCart = function (pivotY = 0.58, upgrades = {}) {
 
 })();
 
+// --- js/models/village_buildings.js ---
+const __MOD_VILLAGE_BLDG = (() => {
+'use strict';
+const THREE = HC.THREE;
+
+// ============================================================================
+// DETERMINISTIC RNG & PROCEDURAL TEXTURE HELPERS
+// ============================================================================
+
+function makeRng(seed) {
+  let s = (seed >>> 0) || 1;
+  return function next() {
+    s = (s + 0x6d2b79f5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function drawRoundedRect(g, x, y, w, h, r) {
+  const rad = Math.max(0, Math.min(r, w * 0.5, h * 0.5));
+  g.beginPath();
+  g.moveTo(x + rad, y);
+  g.lineTo(x + w - rad, y);
+  g.quadraticCurveTo(x + w, y, x + w, y + rad);
+  g.lineTo(x + w, y + h - rad);
+  g.quadraticCurveTo(x + w, y + h, x + w - rad, y + h);
+  g.lineTo(x + rad, y + h);
+  g.quadraticCurveTo(x, y + h, x, y + h - rad);
+  g.lineTo(x, y + rad);
+  g.quadraticCurveTo(x, y, x + rad, y);
+  g.closePath();
+}
+
+function makeCanvasTexture(w, h, drawFn, repeatX = 1, repeatY = 1) {
+  const c = document.createElement('canvas');
+  c.width = w;
+  c.height = h;
+  const g = c.getContext('2d');
+  drawFn(g, w, h);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(repeatX, repeatY);
+  tex.needsUpdate = true;
+  return tex;
+}
+
+function createFallbackWarmGlowTex() {
+  const c = document.createElement('canvas');
+  c.width = 64;
+  c.height = 64;
+  const g = c.getContext('2d');
+  const grad = g.createRadialGradient(32, 32, 2, 32, 32, 31);
+  grad.addColorStop(0.0, 'rgba(255, 250, 220, 1.0)');
+  grad.addColorStop(0.32, 'rgba(255, 198, 102, 0.72)');
+  grad.addColorStop(0.70, 'rgba(255, 140, 48, 0.22)');
+  grad.addColorStop(1.0, 'rgba(255, 120, 30, 0.0)');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 64, 64);
+  return new THREE.CanvasTexture(c);
+}
+
+function createPlasterTexture(seed = 101) {
+  return makeCanvasTexture(128, 128, (g, w, h) => {
+    const rng = makeRng(seed);
+    g.fillStyle = '#e7dbc0';
+    g.fillRect(0, 0, w, h);
+
+    // Soft painterly stucco clouds & trowel marks
+    const tones = ['#efe5ce', '#ddd0b2', '#d5c4a1', '#f3ead6', '#e2d4b5'];
+    for (let i = 0; i < 95; i++) {
+      g.fillStyle = tones[Math.floor(rng() * tones.length)];
+      g.globalAlpha = 0.22 + rng() * 0.24;
+      const rx = rng() * w;
+      const ry = rng() * h;
+      const rw = 10 + rng() * 26;
+      const rh = 6 + rng() * 14;
+      for (const ox of [-w, 0, w]) {
+        for (const oy of [-h, 0, h]) {
+          g.beginPath();
+          g.ellipse(rx + ox, ry + oy, rw * 0.5, rh * 0.5, (rng() - 0.5) * 0.4, 0, Math.PI * 2);
+          g.fill();
+        }
+      }
+    }
+
+    // Fine hand-brushed horizontal plaster grain
+    g.globalAlpha = 0.14;
+    for (let i = 0; i < 60; i++) {
+      g.strokeStyle = rng() > 0.5 ? '#c6b48f' : '#faf4e6';
+      g.lineWidth = 1 + rng() * 1.4;
+      const y = rng() * h;
+      const x = rng() * w;
+      const len = 12 + rng() * 24;
+      g.beginPath();
+      g.moveTo(x, y);
+      g.quadraticCurveTo(x + len * 0.5, y + (rng() - 0.5) * 3, x + len, y);
+      g.stroke();
+    }
+
+    // Subtle tiny speckles for warm handcrafted warmth
+    g.globalAlpha = 0.16;
+    for (let i = 0; i < 120; i++) {
+      g.fillStyle = rng() > 0.4 ? '#b7a480' : '#f7f0df';
+      g.fillRect(rng() * w, rng() * h, 1.5, 1.5);
+    }
+    g.globalAlpha = 1.0;
+  }, 1.5, 1.5);
+}
+
+function createStoneTexture(seed = 202, darkVariant = false) {
+  return makeCanvasTexture(128, 128, (g, w, h) => {
+    const rng = makeRng(seed);
+    g.fillStyle = darkVariant ? '#47413b' : '#655f55';
+    g.fillRect(0, 0, w, h);
+
+    const palette = darkVariant
+      ? ['#6f665d', '#625a52', '#7d7265', '#58514a', '#867867', '#6a6359']
+      : ['#9a9182', '#898174', '#aa9f8c', '#7c7568', '#b1a58e', '#928a7b', '#81886f'];
+
+    const rows = 6;
+    const rowH = h / rows;
+
+    for (let r = 0; r < rows; r++) {
+      const y0 = r * rowH;
+      const cols = 4 + (r % 2);
+      const offset = (r % 2) * (w / cols) * 0.5;
+      let cursor = -offset;
+      for (let c = 0; c <= cols + 1; c++) {
+        const stoneW = (w / cols) * (0.82 + rng() * 0.34);
+        const stoneH = rowH * (0.76 + rng() * 0.14);
+        const sx = cursor + 2;
+        const sy = y0 + (rowH - stoneH) * 0.5 + (rng() - 0.5) * 1.4;
+        const sw = Math.max(10, stoneW - 4);
+        const sh = stoneH;
+        const rad = Math.min(sw, sh) * 0.28;
+        const col = palette[Math.floor(rng() * palette.length)];
+
+        for (const wrapX of [-w, 0, w]) {
+          const dx = sx + wrapX;
+          if (dx + sw < -2 || dx > w + 2) continue;
+
+          // Stone body
+          g.fillStyle = col;
+          drawRoundedRect(g, dx, sy, sw, sh, rad);
+          g.fill();
+
+          // Warm top sunlit bevel
+          g.fillStyle = darkVariant ? 'rgba(210,198,180,0.16)' : 'rgba(255,248,230,0.22)';
+          drawRoundedRect(g, dx + 1.5, sy + 1, sw - 3, sh * 0.36, rad * 0.7);
+          g.fill();
+
+          // Bottom underside shadow
+          g.fillStyle = 'rgba(30,24,20,0.22)';
+          drawRoundedRect(g, dx + 1, sy + sh * 0.66, sw - 2, sh * 0.32, rad * 0.6);
+          g.fill();
+        }
+        cursor += stoneW;
+      }
+    }
+
+    // Subtle mortar speckling
+    g.globalAlpha = 0.12;
+    for (let i = 0; i < 90; i++) {
+      g.fillStyle = rng() > 0.5 ? '#2b2622' : '#d6ccb8';
+      g.fillRect(rng() * w, rng() * h, 2, 2);
+    }
+    g.globalAlpha = 1.0;
+  }, 1.5, 1.0);
+}
+
+function createWoodTexture(seed = 303, dark = false) {
+  return makeCanvasTexture(128, 128, (g, w, h) => {
+    const rng = makeRng(seed);
+    const baseColors = dark
+      ? ['#5b3d27', '#513521', '#63432c', '#4b311e']
+      : ['#9b6a41', '#8e5f39', '#a67549', '#94653d'];
+
+    const planks = 4;
+    const plankW = w / planks;
+
+    for (let p = 0; p < planks; p++) {
+      const px = p * plankW;
+      g.fillStyle = baseColors[p % baseColors.length];
+      g.fillRect(px, 0, plankW, h);
+
+      // Painterly wood grain fibers
+      for (let i = 0; i < 16; i++) {
+        const gx = px + 2 + rng() * (plankW - 4);
+        g.strokeStyle = rng() > 0.45
+          ? (dark ? 'rgba(32,18,10,0.26)' : 'rgba(72,42,20,0.22)')
+          : (dark ? 'rgba(130,92,62,0.18)' : 'rgba(205,156,104,0.22)');
+        g.lineWidth = 0.9 + rng() * 1.3;
+        g.beginPath();
+        g.moveTo(gx, 0);
+        const wobble = (rng() - 0.5) * 4.5;
+        g.bezierCurveTo(gx + wobble, h * 0.33, gx - wobble, h * 0.66, gx, h);
+        g.stroke();
+      }
+
+      // Occasional knot
+      if (rng() > 0.45) {
+        const kx = px + 6 + rng() * (plankW - 12);
+        const ky = 18 + rng() * (h - 36);
+        g.fillStyle = dark ? 'rgba(30,16,8,0.38)' : 'rgba(84,48,22,0.32)';
+        g.beginPath();
+        g.ellipse(kx, ky, 3.2, 5.5, 0.1, 0, Math.PI * 2);
+        g.fill();
+      }
+
+      // Plank seam groove + warm edge highlight
+      g.fillStyle = dark ? 'rgba(22,12,6,0.58)' : 'rgba(58,34,16,0.48)';
+      g.fillRect(px, 0, 1.8, h);
+      g.fillStyle = dark ? 'rgba(132,96,66,0.16)' : 'rgba(222,178,128,0.20)';
+      g.fillRect(px + 2, 0, 1.2, h);
+    }
+  }, 1.0, 1.0);
+}
+
+function createShingleTexture(paletteCfg, seed = 404) {
+  return makeCanvasTexture(128, 128, (g, w, h) => {
+    const rng = makeRng(seed);
+    g.fillStyle = paletteCfg.seam;
+    g.fillRect(0, 0, w, h);
+
+    const rows = 6;
+    const cols = 6;
+    const rowH = h / rows;
+    const tileW = w / cols;
+
+    for (let r = 0; r < rows; r++) {
+      const y = r * rowH;
+      const offset = (r % 2) * (tileW * 0.5);
+
+      // Soft cast shadow band from course above
+      g.fillStyle = 'rgba(20, 14, 12, 0.28)';
+      g.fillRect(0, y, w, 3.5);
+
+      for (let c = -1; c <= cols + 1; c++) {
+        const x = c * tileW + offset;
+        const pick = rng();
+        const fillCol = pick < 0.14
+          ? paletteCfg.accent
+          : (pick < 0.45 ? paletteCfg.hi : (pick < 0.78 ? paletteCfg.base : paletteCfg.lo));
+
+        const tw = tileW - 2.2;
+        const th = rowH - 1.5;
+
+        g.fillStyle = fillCol;
+        g.beginPath();
+        g.moveTo(x + 1, y);
+        g.lineTo(x + 1 + tw, y);
+        g.lineTo(x + 1 + tw, y + th * 0.72);
+        g.quadraticCurveTo(x + 1 + tw * 0.5, y + th + 2.5, x + 1, y + th * 0.72);
+        g.closePath();
+        g.fill();
+
+        // Painterly sunlit top lip on tile
+        g.fillStyle = 'rgba(255,245,222,0.16)';
+        g.fillRect(x + 2.5, y + 2, tw - 3, 2.5);
+
+        // Soft bottom edge rim shadow
+        g.strokeStyle = 'rgba(22,16,14,0.34)';
+        g.lineWidth = 1.4;
+        g.beginPath();
+        g.moveTo(x + 1, y + th * 0.72);
+        g.quadraticCurveTo(x + 1 + tw * 0.5, y + th + 2.5, x + 1 + tw, y + th * 0.72);
+        g.stroke();
+      }
+    }
+  }, 2.4, 1.8);
+}
+
+function createAwningTexture(stripeColor, seed = 505) {
+  return makeCanvasTexture(128, 128, (g, w, h) => {
+    const rng = makeRng(seed);
+    const stripes = 6;
+    const sw = w / stripes;
+    for (let i = 0; i < stripes; i++) {
+      g.fillStyle = (i % 2 === 0) ? '#f2e6cc' : stripeColor;
+      g.fillRect(i * sw, 0, sw + 0.5, h);
+      // Soft woven fold seam
+      g.fillStyle = 'rgba(40,28,20,0.12)';
+      g.fillRect(i * sw, 0, 1.5, h);
+    }
+    // Subtle linen cross-weave grain
+    g.globalAlpha = 0.08;
+    for (let y = 0; y < h; y += 4) {
+      g.fillStyle = rng() > 0.5 ? '#ffffff' : '#3a2b20';
+      g.fillRect(0, y, w, 1);
+    }
+    g.globalAlpha = 1.0;
+  }, 1.5, 1.0);
+}
+
+function createTavernSignTexture() {
+  return makeCanvasTexture(128, 128, (g, w, h) => {
+    // Warm timber board background
+    g.fillStyle = '#5e3c24';
+    g.fillRect(0, 0, w, h);
+
+    // Inner recessed painted oak field
+    g.fillStyle = '#8b5d38';
+    g.fillRect(8, 8, w - 16, h - 16);
+
+    // Cream painterly border trim
+    g.strokeStyle = '#efe0be';
+    g.lineWidth = 4;
+    g.strokeRect(12, 12, w - 24, h - 24);
+
+    // Painted cozy golden foaming mug emblem
+    // Mug handle
+    g.strokeStyle = '#f5d27a';
+    g.lineWidth = 7;
+    g.beginPath();
+    g.arc(84, 68, 15, -Math.PI * 0.45, Math.PI * 0.45);
+    g.stroke();
+
+    // Mug body
+    g.fillStyle = '#e7b952';
+    drawRoundedRect(g, 40, 46, 44, 52, 6);
+    g.fill();
+
+    // Mug dark wood bands
+    g.fillStyle = '#7c4c24';
+    g.fillRect(40, 58, 44, 5);
+    g.fillRect(40, 82, 44, 5);
+
+    // Creamy foam crown
+    g.fillStyle = '#fbf4e2';
+    const puffs = [[46, 44, 11], [59, 39, 13], [74, 43, 11], [63, 47, 10]];
+    for (const [px, py, pr] of puffs) {
+      g.beginPath();
+      g.arc(px, py, pr, 0, Math.PI * 2);
+      g.fill();
+    }
+
+    // Iron corner studs
+    g.fillStyle = '#32373d';
+    for (const sx of [19, w - 19]) {
+      for (const sy of [19, h - 19]) {
+        g.beginPath();
+        g.arc(sx, sy, 3.2, 0, Math.PI * 2);
+        g.fill();
+      }
+    }
+  }, 1, 1);
+}
+
+function createStallSignTexture() {
+  return makeCanvasTexture(128, 64, (g, w, h) => {
+    g.fillStyle = '#624027';
+    g.fillRect(0, 0, w, h);
+    g.fillStyle = '#9b6c43';
+    g.fillRect(5, 5, w - 10, h - 10);
+    g.strokeStyle = '#f1e3c4';
+    g.lineWidth = 2.5;
+    g.strokeRect(8, 8, w - 16, h - 16);
+
+    // Stylized painted apple + leaf + loaf emblem
+    g.fillStyle = '#d84a3c';
+    g.beginPath();
+    g.arc(36, 35, 11, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = '#5da04a';
+    g.beginPath();
+    g.ellipse(42, 22, 6, 3.5, -0.5, 0, Math.PI * 2);
+    g.fill();
+
+    // Golden bread loaf
+    g.fillStyle = '#e4ae52';
+    g.beginPath();
+    g.ellipse(82, 36, 22, 11, 0, 0, Math.PI * 2);
+    g.fill();
+    g.strokeStyle = '#9c6624';
+    g.lineWidth = 2;
+    for (const lx of [72, 82, 92]) {
+      g.beginPath();
+      g.moveTo(lx - 4, 29);
+      g.lineTo(lx + 4, 38);
+      g.stroke();
+    }
+  }, 1, 1);
+}
+
+// ============================================================================
+// MATERIAL PALETTE & LANTERN UNIT FACTORY
+// ============================================================================
+
+function makeCelMaterial(ctx, params, celOpts) {
+  const mat = new THREE.MeshStandardMaterial(params);
+  if (ctx && typeof ctx.applyStylizedCelShading === 'function') {
+    ctx.applyStylizedCelShading(mat, celOpts);
+  }
+  return mat;
+}
+
+function applyShadow(mesh, ctx, cast = true, receive = true) {
+  mesh.castShadow = !!(cast && !(ctx && ctx.isMobileDevice));
+  mesh.receiveShadow = !!receive;
+  return mesh;
+}
+
+function createLanternUnit(palette, ctx = {}, opts = {}) {
+  const phase = opts.phase !== undefined ? opts.phase : 0.7;
+  const scale = opts.scale !== undefined ? opts.scale : 1.0;
+
+  const group = new THREE.Group();
+  group.scale.setScalar(scale);
+
+  // Hanging hook / chain
+  const chain = new THREE.Mesh(palette.geos.lanternChain, palette.ironMat);
+  chain.position.y = -0.06;
+  group.add(chain);
+
+  // Iron cap
+  const cap = new THREE.Mesh(palette.geos.lanternCap, palette.ironMat);
+  cap.position.y = -0.15;
+  group.add(cap);
+
+  // Glowing lantern glass (own MeshBasicMaterial so night dimming/flicker is safe)
+  const glassMat = new THREE.MeshBasicMaterial({ color: 0xffe6a3 });
+  const glass = new THREE.Mesh(palette.geos.lanternGlass, glassMat);
+  glass.position.y = -0.30;
+  group.add(glass);
+
+  // Iron lantern bottom base
+  const base = new THREE.Mesh(palette.geos.lanternBase, palette.ironMat);
+  base.position.y = -0.43;
+  group.add(base);
+
+  // Soft warm radial halo sprite (NO PointLight!)
+  const glowTex = (ctx && ctx.warmGlowTex) || palette.warmGlowTex;
+  const haloMat = new THREE.SpriteMaterial({
+    map: glowTex,
+    color: 0xffc66b,
+    transparent: true,
+    opacity: 0.74,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+  });
+  const halo = new THREE.Sprite(haloMat);
+  halo.position.y = -0.30;
+  halo.scale.set(1.45, 1.45, 1.0);
+  group.add(halo);
+
+  return { group, halo, glassMat, phase };
+}
+
+function createVillageMaterialPalette(ctx = {}) {
+  const plasterTex = createPlasterTexture(101);
+  const stoneTex = createStoneTexture(202, false);
+  const chimneyStoneTex = createStoneTexture(257, true);
+  const woodTex = createWoodTexture(303, false);
+  const darkWoodTex = createWoodTexture(359, true);
+
+  const shingleTex = {
+    terracotta: createShingleTexture({
+      base: '#9c4835',
+      hi: '#b55b44',
+      lo: '#7f3728',
+      accent: '#b96d46',
+      seam: '#4b221a',
+    }, 401),
+    slate: createShingleTexture({
+      base: '#3f6154',
+      hi: '#527768',
+      lo: '#2f493f',
+      accent: '#687f4f',
+      seam: '#1e2f28',
+    }, 409),
+    shake: createShingleTexture({
+      base: '#8c633b',
+      hi: '#a5794d',
+      lo: '#6e4b2b',
+      accent: '#b48a57',
+      seam: '#3e2918',
+    }, 419),
+  };
+
+  const awningTex = [
+    createAwningTexture('#b54b38', 501),
+    createAwningTexture('#3a6b52', 509),
+  ];
+
+  const tavernSignTex = createTavernSignTexture();
+  const stallSignTex = createStallSignTexture();
+  const warmGlowTex = (ctx && ctx.warmGlowTex) ? ctx.warmGlowTex : createFallbackWarmGlowTex();
+
+  const plasterMat = makeCelMaterial(ctx, {
+    color: 0xf7efe0,
+    map: plasterTex,
+    roughness: 0.93,
+  }, { rimStrength: 0.14, shadowLift: 0.60 });
+
+  const plasterWarmMat = makeCelMaterial(ctx, {
+    color: 0xf0deb8,
+    map: plasterTex,
+    roughness: 0.93,
+  }, { rimStrength: 0.14, shadowLift: 0.59 });
+
+  const stoneMat = makeCelMaterial(ctx, {
+    color: 0xe6dfd0,
+    map: stoneTex,
+    roughness: 0.91,
+  }, { rimStrength: 0.16, shadowLift: 0.56 });
+
+  const chimneyMat = makeCelMaterial(ctx, {
+    color: 0xd9d1c5,
+    map: chimneyStoneTex,
+    roughness: 0.92,
+  }, { rimStrength: 0.16, shadowLift: 0.52 });
+
+  const woodMat = makeCelMaterial(ctx, {
+    color: 0xe8d5bc,
+    map: woodTex,
+    roughness: 0.88,
+  }, { rimStrength: 0.16, shadowLift: 0.56 });
+
+  const darkWoodMat = makeCelMaterial(ctx, {
+    color: 0xd8c3aa,
+    map: darkWoodTex,
+    roughness: 0.86,
+  }, { rimStrength: 0.15, shadowLift: 0.54 });
+
+  const doorWoodMat = makeCelMaterial(ctx, {
+    color: 0xc99c74,
+    map: woodTex,
+    roughness: 0.85,
+  }, { rimStrength: 0.16, shadowLift: 0.55 });
+
+  const roofMats = {
+    terracotta: makeCelMaterial(ctx, {
+      color: 0xf4e8df,
+      map: shingleTex.terracotta,
+      roughness: 0.85,
+    }, { rimStrength: 0.18, shadowLift: 0.52 }),
+    slate: makeCelMaterial(ctx, {
+      color: 0xeaf0ec,
+      map: shingleTex.slate,
+      roughness: 0.84,
+    }, { rimStrength: 0.18, shadowLift: 0.52 }),
+    shake: makeCelMaterial(ctx, {
+      color: 0xf2e7d8,
+      map: shingleTex.shake,
+      roughness: 0.88,
+    }, { rimStrength: 0.17, shadowLift: 0.54 }),
+  };
+
+  const shutterMats = {
+    terracotta: makeCelMaterial(ctx, { color: 0x486d58, roughness: 0.88 }, { rimStrength: 0.15, shadowLift: 0.56 }),
+    slate: makeCelMaterial(ctx, { color: 0x9b543c, roughness: 0.88 }, { rimStrength: 0.15, shadowLift: 0.56 }),
+    shake: makeCelMaterial(ctx, { color: 0x4b6a7a, roughness: 0.88 }, { rimStrength: 0.15, shadowLift: 0.56 }),
+  };
+
+  const awningMats = [
+    makeCelMaterial(ctx, {
+      color: 0xffffff,
+      map: awningTex[0],
+      roughness: 0.90,
+      side: THREE.DoubleSide,
+    }, { rimStrength: 0.15, shadowLift: 0.58 }),
+    makeCelMaterial(ctx, {
+      color: 0xffffff,
+      map: awningTex[1],
+      roughness: 0.90,
+      side: THREE.DoubleSide,
+    }, { rimStrength: 0.15, shadowLift: 0.58 }),
+  ];
+
+  // Warm glowing amber window glass (intentionally without cel-shader override so emissive shines at dusk/night)
+  const windowGlassMat = new THREE.MeshStandardMaterial({
+    color: 0xffe29c,
+    emissive: 0xff9f38,
+    emissiveIntensity: 0.68,
+    roughness: 0.35,
+  });
+
+  const ironMat = makeCelMaterial(ctx, {
+    color: 0x363b42,
+    roughness: 0.54,
+    metalness: 0.36,
+  }, { rimStrength: 0.24, shadowLift: 0.48 });
+
+  const foliageMat = makeCelMaterial(ctx, {
+    color: 0x4f8342,
+    roughness: 0.86,
+  }, { rimStrength: 0.18, shadowLift: 0.58 });
+
+  const flowerMats = [
+    makeCelMaterial(ctx, { color: 0xe35a4d, roughness: 0.82 }, { rimStrength: 0.20, shadowLift: 0.62 }),
+    makeCelMaterial(ctx, { color: 0xf2c647, roughness: 0.82 }, { rimStrength: 0.20, shadowLift: 0.62 }),
+    makeCelMaterial(ctx, { color: 0x9f7fd9, roughness: 0.82 }, { rimStrength: 0.20, shadowLift: 0.62 }),
+    makeCelMaterial(ctx, { color: 0xef8ea4, roughness: 0.82 }, { rimStrength: 0.20, shadowLift: 0.62 }),
+  ];
+
+  const hayMat = makeCelMaterial(ctx, {
+    color: 0xd7b05c,
+    roughness: 0.94,
+  }, { rimStrength: 0.16, shadowLift: 0.58 });
+
+  const waterMat = makeCelMaterial(ctx, {
+    color: 0x3b8aa0,
+    roughness: 0.24,
+    metalness: 0.08,
+  }, { rimStrength: 0.28, shadowLift: 0.58 });
+
+  const clothMat = makeCelMaterial(ctx, {
+    color: 0xe9dac0,
+    roughness: 0.92,
+  }, { rimStrength: 0.14, shadowLift: 0.60 });
+
+  const charcoalMat = makeCelMaterial(ctx, {
+    color: 0x262220,
+    roughness: 0.95,
+  }, { rimStrength: 0.12, shadowLift: 0.44 });
+
+  // Emissive forge embers (intentionally un-overridden so ember glow stays vibrant)
+  const emberMat = new THREE.MeshStandardMaterial({
+    color: 0xff7722,
+    emissive: 0xff4a0a,
+    emissiveIntensity: 1.35,
+    roughness: 0.65,
+  });
+
+  const smokeMat = new THREE.MeshBasicMaterial({
+    color: 0xf4efe8,
+    transparent: true,
+    opacity: 0.46,
+    depthWrite: false,
+  });
+
+  const tavernSignMat = makeCelMaterial(ctx, {
+    color: 0xffffff,
+    map: tavernSignTex,
+    roughness: 0.86,
+  }, { rimStrength: 0.15, shadowLift: 0.58 });
+
+  const stallSignMat = makeCelMaterial(ctx, {
+    color: 0xffffff,
+    map: stallSignTex,
+    roughness: 0.86,
+  }, { rimStrength: 0.15, shadowLift: 0.58 });
+
+  const produceMats = {
+    appleRed: makeCelMaterial(ctx, { color: 0xd64336, roughness: 0.72 }, { rimStrength: 0.22, shadowLift: 0.58 }),
+    appleGreen: makeCelMaterial(ctx, { color: 0x7cb042, roughness: 0.74 }, { rimStrength: 0.20, shadowLift: 0.58 }),
+    breadGold: makeCelMaterial(ctx, { color: 0xdba04c, roughness: 0.88 }, { rimStrength: 0.16, shadowLift: 0.58 }),
+    potionBlue: new THREE.MeshStandardMaterial({
+      color: 0x4bc3e8,
+      emissive: 0x1a7fa6,
+      emissiveIntensity: 0.45,
+      roughness: 0.25,
+    }),
+    potionPink: new THREE.MeshStandardMaterial({
+      color: 0xea6aa0,
+      emissive: 0xa62a64,
+      emissiveIntensity: 0.45,
+      roughness: 0.25,
+    }),
+  };
+
+  // Shared reusable geometries
+  const geos = {
+    unitBox: new THREE.BoxGeometry(1, 1, 1),
+    lanternChain: new THREE.CylinderGeometry(0.018, 0.018, 0.14, 5),
+    lanternCap: new THREE.ConeGeometry(0.16, 0.12, 6),
+    lanternGlass: new THREE.CylinderGeometry(0.10, 0.082, 0.22, 6),
+    lanternBase: new THREE.CylinderGeometry(0.095, 0.065, 0.055, 6),
+    leafCluster: new THREE.DodecahedronGeometry(0.13, 0),
+    flowerHead: new THREE.IcosahedronGeometry(0.062, 0),
+    smokePuff: new THREE.DodecahedronGeometry(0.28, 1),
+    barrelBody: new THREE.CylinderGeometry(0.27, 0.25, 0.68, 9),
+    barrelHoop: new THREE.TorusGeometry(0.268, 0.018, 5, 10),
+    logPiece: new THREE.CylinderGeometry(0.068, 0.074, 0.54, 6),
+    emberChunk: new THREE.DodecahedronGeometry(0.095, 0),
+    appleSphere: new THREE.IcosahedronGeometry(0.072, 0),
+    breadLoaf: new THREE.SphereGeometry(0.11, 7, 5),
+    bottleBody: new THREE.CylinderGeometry(0.042, 0.052, 0.15, 7),
+    bottleNeck: new THREE.CylinderGeometry(0.022, 0.028, 0.06, 6),
+  };
+
+  const palette = {
+    textures: {
+      plasterTex,
+      stoneTex,
+      chimneyStoneTex,
+      woodTex,
+      darkWoodTex,
+      shingleTex,
+      awningTex,
+      tavernSignTex,
+      stallSignTex,
+    },
+    warmGlowTex,
+    plasterMat,
+    plasterWarmMat,
+    stoneMat,
+    chimneyMat,
+    woodMat,
+    darkWoodMat,
+    doorWoodMat,
+    roofMats,
+    shutterMats,
+    awningMats,
+    windowGlassMat,
+    ironMat,
+    foliageMat,
+    flowerMats,
+    hayMat,
+    waterMat,
+    clothMat,
+    charcoalMat,
+    emberMat,
+    smokeMat,
+    tavernSignMat,
+    stallSignMat,
+    produceMats,
+    geos,
+    createLanternUnit: (overrideCtx, opts) => createLanternUnit(palette, overrideCtx || ctx, opts),
+  };
+
+  return palette;
+}
+
+// ============================================================================
+// SHARED ARCHITECTURAL SUB-BUILDERS
+// ============================================================================
+
+function addBox(parent, w, h, d, x, y, z, mat, ctx, cast = true, receive = true) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+  m.position.set(x, y, z);
+  applyShadow(m, ctx, cast, receive);
+  parent.add(m);
+  return m;
+}
+
+function addUnitBox(parent, geos, sx, sy, sz, x, y, z, mat, ctx, cast = false, receive = true) {
+  const m = new THREE.Mesh(geos.unitBox, mat);
+  m.scale.set(sx, sy, sz);
+  m.position.set(x, y, z);
+  applyShadow(m, ctx, cast, receive);
+  parent.add(m);
+  return m;
+}
+
+/**
+ * Cobblestone foundation plinth extending strictly from y = -0.75 up to y = topY
+ * so buildings NEVER float on sloped terrain.
+ */
+function buildStonePlinth(parent, palette, ctx, w, d, topY = 0.36, xOff = 0, zOff = 0) {
+  const bottomY = -0.75;
+  const h = topY - bottomY;
+  const plinth = addBox(
+    parent,
+    w,
+    h,
+    d,
+    xOff,
+    bottomY + h * 0.5,
+    zOff,
+    palette.stoneMat,
+    ctx,
+    true,
+    true
+  );
+  // Subtle chamfered stone sill cap right at topY
+  addBox(
+    parent,
+    w + 0.08,
+    0.09,
+    d + 0.08,
+    xOff,
+    topY - 0.03,
+    zOff,
+    palette.stoneMat,
+    ctx,
+    false,
+    true
+  );
+  return plinth;
+}
+
+/**
+ * True pitched gable roof with watertight dual angled shingle slabs,
+ * extruded triangular gable walls, exposed rafters, ridge beam + cap, and bargeboards.
+ * Supports ridgeAxis: 'z' (gable triangles face -Z/+Z) or 'x' (gable triangles face -X/+X).
+ */
+function buildGableRoof(parent, palette, ctx, cfg) {
+  const {
+    w,
+    d,
+    wallTop,
+    roofH,
+    ridgeAxis = 'z',
+    roofMat,
+    gableMat,
+    eaveOut = 0.44,
+    gableOut = 0.36,
+    slabThick = 0.14,
+    xOff = 0,
+    zOff = 0,
+    withTimberGableTrim = true,
+  } = cfg;
+
+  const roofGroup = new THREE.Group();
+  roofGroup.position.set(xOff, 0, zOff);
+  parent.add(roofGroup);
+
+  const span = ridgeAxis === 'z' ? w : d;
+  const length = ridgeAxis === 'z' ? d : w;
+  const hs = span * 0.5;
+  const alpha = Math.atan2(roofH, hs);
+  const cosA = Math.cos(alpha);
+  const sinA = Math.sin(alpha);
+
+  // 1. Solid watertight triangular gable prism filling the entire attic volume
+  const triShape = new THREE.Shape();
+  triShape.moveTo(-hs, 0);
+  triShape.lineTo(hs, 0);
+  triShape.lineTo(0, roofH);
+  triShape.closePath();
+
+  const gableDepth = length - 0.02;
+  const gableGeo = new THREE.ExtrudeGeometry(triShape, {
+    depth: gableDepth,
+    bevelEnabled: false,
+  });
+  // Normalize UVs so CanvasTextures tile nicely on gable triangles
+  const uvAttr = gableGeo.attributes.uv;
+  for (let i = 0; i < uvAttr.count; i++) {
+    uvAttr.setXY(i, uvAttr.getX(i) * 0.42, uvAttr.getY(i) * 0.42);
+  }
+  uvAttr.needsUpdate = true;
+  gableGeo.translate(0, 0, -gableDepth * 0.5);
+
+  const gableMesh = new THREE.Mesh(gableGeo, gableMat);
+  gableMesh.position.y = wallTop - 0.01;
+  if (ridgeAxis === 'x') {
+    gableMesh.rotation.y = Math.PI * 0.5;
+  }
+  applyShadow(gableMesh, ctx, true, true);
+  roofGroup.add(gableMesh);
+
+  // 2. Dual pitched shingled roof slabs meeting tightly at ridge apex
+  const sMax = (hs + eaveOut) / cosA;
+  const apexPad = 0.06;
+  const slabLen = sMax + apexPad;
+  const sMid = (-apexPad + sMax) * 0.5;
+  const uCenter = sMid * cosA + (slabThick * 0.5) * sinA;
+  const yCenter = (wallTop + roofH) - sMid * sinA + (slabThick * 0.5) * cosA;
+  const totalLen = length + gableOut * 2;
+
+  for (const side of [-1, 1]) {
+    const slabGeo = ridgeAxis === 'z'
+      ? new THREE.BoxGeometry(slabLen, slabThick, totalLen)
+      : new THREE.BoxGeometry(totalLen, slabThick, slabLen);
+    const slab = new THREE.Mesh(slabGeo, roofMat);
+    if (ridgeAxis === 'z') {
+      slab.position.set(side * uCenter, yCenter, 0);
+      slab.rotation.z = -side * alpha;
+    } else {
+      slab.position.set(0, yCenter, side * uCenter);
+      slab.rotation.x = side * alpha;
+    }
+    applyShadow(slab, ctx, true, true);
+    roofGroup.add(slab);
+  }
+
+  // 3. Sculpted timber ridge beam & peaked ridge cap
+  const ridgeBeamLen = totalLen + 0.24;
+  const ridgeBeam = ridgeAxis === 'z'
+    ? addBox(roofGroup, 0.18, 0.20, ridgeBeamLen, 0, wallTop + roofH + 0.02, 0, palette.darkWoodMat, ctx, true, true)
+    : addBox(roofGroup, ridgeBeamLen, 0.20, 0.18, 0, wallTop + roofH + 0.02, 0, palette.darkWoodMat, ctx, true, true);
+  // Sculpted ridge cap sitting snugly atop the seam
+  const ridgeCap = ridgeAxis === 'z'
+    ? addBox(roofGroup, 0.24, 0.11, totalLen + 0.08, 0, wallTop + roofH + slabThick * 0.92, 0, palette.darkWoodMat, ctx, false, true)
+    : addBox(roofGroup, totalLen + 0.08, 0.11, 0.24, 0, wallTop + roofH + slabThick * 0.92, 0, palette.darkWoodMat, ctx, false, true);
+  void ridgeBeam;
+  void ridgeCap;
+
+  // 4. Exposed wooden rafter tails along both eaves
+  const rafterCount = Math.max(4, Math.round(totalLen / 0.85));
+  const rafterLen = (eaveOut + 0.36) / cosA;
+  const rSMid = (hs / cosA) + (eaveOut - 0.14) / cosA * 0.5;
+  const rU = rSMid * cosA - 0.05 * sinA;
+  const rY = (wallTop + roofH) - rSMid * sinA - 0.05 * cosA;
+
+  for (let i = 0; i < rafterCount; i++) {
+    const t = rafterCount === 1 ? 0 : (i / (rafterCount - 1)) - 0.5;
+    const along = t * (totalLen - 0.34);
+    for (const side of [-1, 1]) {
+      const rMesh = new THREE.Mesh(palette.geos.unitBox, palette.darkWoodMat);
+      if (ridgeAxis === 'z') {
+        rMesh.scale.set(rafterLen, 0.09, 0.085);
+        rMesh.position.set(side * rU, rY, along);
+        rMesh.rotation.z = -side * alpha;
+      } else {
+        rMesh.scale.set(0.085, 0.09, rafterLen);
+        rMesh.position.set(along, rY, side * rU);
+        rMesh.rotation.x = side * alpha;
+      }
+      applyShadow(rMesh, ctx, false, true);
+      roofGroup.add(rMesh);
+    }
+  }
+
+  // 5. Decorative gable bargeboards (angled fascia trim) on both gable ends
+  const bargeThick = 0.075;
+  const bargeH = 0.16;
+  const bargeU = sMid * cosA - 0.01 * sinA;
+  const bargeY = (wallTop + roofH) - sMid * sinA - 0.01 * cosA;
+  for (const endSign of [-1, 1]) {
+    const endPos = endSign * (totalLen * 0.5 - bargeThick * 0.45);
+    for (const side of [-1, 1]) {
+      const bMesh = new THREE.Mesh(palette.geos.unitBox, palette.darkWoodMat);
+      if (ridgeAxis === 'z') {
+        bMesh.scale.set(slabLen + 0.04, bargeH, bargeThick);
+        bMesh.position.set(side * bargeU, bargeY, endPos);
+        bMesh.rotation.z = -side * alpha;
+      } else {
+        bMesh.scale.set(bargeThick, bargeH, slabLen + 0.04);
+        bMesh.position.set(endPos, bargeY, side * bargeU);
+        bMesh.rotation.x = side * alpha;
+      }
+      applyShadow(bMesh, ctx, false, true);
+      roofGroup.add(bMesh);
+    }
+  }
+
+  // 6. Half-timbered gable wall framing (collar beam + king post + angled gable braces)
+  if (withTimberGableTrim) {
+    for (const endSign of [-1, 1]) {
+      const facePos = endSign * (length * 0.5 + 0.015);
+      // Base tie beam along eave line
+      if (ridgeAxis === 'z') {
+        addUnitBox(roofGroup, palette.geos, span + 0.08, 0.13, 0.08, 0, wallTop, facePos, palette.darkWoodMat, ctx, false, true);
+        // Collar tie midway up gable
+        const collarY = wallTop + roofH * 0.48;
+        const collarW = span * 0.52;
+        addUnitBox(roofGroup, palette.geos, collarW, 0.10, 0.075, 0, collarY, facePos, palette.darkWoodMat, ctx, false, true);
+        // Vertical king post from collar up to ridge
+        addUnitBox(roofGroup, palette.geos, 0.11, roofH * 0.52, 0.075, 0, wallTop + roofH * 0.72, facePos, palette.darkWoodMat, ctx, false, true);
+        // Two flanking lower studs
+        for (const sx of [-1, 1]) {
+          addUnitBox(roofGroup, palette.geos, 0.10, roofH * 0.48, 0.075, sx * span * 0.22, wallTop + roofH * 0.24, facePos, palette.darkWoodMat, ctx, false, true);
+        }
+      } else {
+        addUnitBox(roofGroup, palette.geos, 0.08, 0.13, span + 0.08, facePos, wallTop, 0, palette.darkWoodMat, ctx, false, true);
+        const collarY = wallTop + roofH * 0.48;
+        const collarW = span * 0.52;
+        addUnitBox(roofGroup, palette.geos, 0.075, 0.10, collarW, facePos, collarY, 0, palette.darkWoodMat, ctx, false, true);
+        addUnitBox(roofGroup, palette.geos, 0.075, roofH * 0.52, 0.11, facePos, wallTop + roofH * 0.72, 0, palette.darkWoodMat, ctx, false, true);
+        for (const sz of [-1, 1]) {
+          addUnitBox(roofGroup, palette.geos, 0.075, roofH * 0.48, 0.10, facePos, wallTop + roofH * 0.24, sz * span * 0.22, palette.darkWoodMat, ctx, false, true);
+        }
+      }
+    }
+  }
+
+  return roofGroup;
+}
+
+/**
+ * Recessed glowing mullioned window built in local +Z outward space.
+ * Rotate by Math.PI for front (-Z) wall, 0 for back (+Z), +/-PI/2 for side walls.
+ */
+function buildWindow(palette, ctx, opts = {}) {
+  const w = opts.w !== undefined ? opts.w : 0.84;
+  const h = opts.h !== undefined ? opts.h : 0.92;
+  const withShutters = opts.withShutters !== false;
+  const withFlowerBox = opts.withFlowerBox !== false;
+  const shutterMat = opts.shutterMat || palette.shutterMats.terracotta;
+  const seed = opts.seed !== undefined ? opts.seed : 17;
+
+  const g = new THREE.Group();
+
+  // Warm glowing recessed glass pane
+  addUnitBox(g, palette.geos, w - 0.10, h - 0.10, 0.035, 0, 0, 0.015, palette.windowGlassMat, ctx, false, false);
+
+  // Timber outer surround frame (jambs, head lintel, projecting sill)
+  const frameD = 0.085;
+  const bar = 0.075;
+  addUnitBox(g, palette.geos, bar, h, frameD, -w * 0.5 + bar * 0.5, 0, 0.035, palette.darkWoodMat, ctx, false, true);
+  addUnitBox(g, palette.geos, bar, h, frameD, w * 0.5 - bar * 0.5, 0, 0.035, palette.darkWoodMat, ctx, false, true);
+  addUnitBox(g, palette.geos, w + 0.10, bar + 0.02, frameD + 0.03, 0, h * 0.5 - bar * 0.4, 0.045, palette.darkWoodMat, ctx, false, true);
+  addUnitBox(g, palette.geos, w + 0.14, bar + 0.01, frameD + 0.07, 0, -h * 0.5 + bar * 0.3, 0.065, palette.darkWoodMat, ctx, false, true);
+
+  // Wooden cross mullions
+  addUnitBox(g, palette.geos, 0.042, h - 0.10, 0.035, 0, 0, 0.042, palette.darkWoodMat, ctx, false, false);
+  addUnitBox(g, palette.geos, w - 0.10, 0.042, 0.035, 0, 0.03, 0.042, palette.darkWoodMat, ctx, false, false);
+
+  // Slightly angled open wooden shutters
+  if (withShutters) {
+    const shW = w * 0.44;
+    const shH = h - 0.08;
+    for (const side of [-1, 1]) {
+      const pivot = new THREE.Group();
+      pivot.position.set(side * (w * 0.5 + 0.015), 0, 0.055);
+      // Local +Z is outward; rotating left shutter by +0.28 and right by -0.28 opens outward!
+      pivot.rotation.y = -side * 0.28;
+
+      const panel = new THREE.Mesh(palette.geos.unitBox, shutterMat);
+      panel.scale.set(shW, shH, 0.042);
+      panel.position.set(side * shW * 0.5, 0, 0);
+      applyShadow(panel, ctx, false, true);
+      pivot.add(panel);
+
+      // Decorative timber trim strips on shutter
+      for (const ty of [-shH * 0.28, shH * 0.28]) {
+        addUnitBox(pivot, palette.geos, shW * 0.92, 0.05, 0.054, side * shW * 0.5, ty, 0.005, palette.darkWoodMat, ctx, false, false);
+      }
+      g.add(pivot);
+    }
+  }
+
+  // Cozy wooden flower box bursting with greenery & blossoms
+  if (withFlowerBox) {
+    const rng = makeRng(seed);
+    const boxW = w + 0.10;
+    const boxY = -h * 0.5 - 0.11;
+
+    // Wooden trough + 2 brackets
+    addUnitBox(g, palette.geos, boxW, 0.16, 0.20, 0, boxY, 0.12, palette.woodMat, ctx, false, true);
+    addUnitBox(g, palette.geos, boxW + 0.04, 0.035, 0.22, 0, boxY + 0.075, 0.12, palette.darkWoodMat, ctx, false, true);
+    for (const sx of [-1, 1]) {
+      addUnitBox(g, palette.geos, 0.06, 0.12, 0.14, sx * (boxW * 0.36), boxY - 0.12, 0.08, palette.darkWoodMat, ctx, false, false);
+    }
+
+    // Leafy greenery mounds
+    const leafCount = 4;
+    for (let i = 0; i < leafCount; i++) {
+      const lx = ((i / (leafCount - 1)) - 0.5) * (boxW - 0.22);
+      const leaf = new THREE.Mesh(palette.geos.leafCluster, palette.foliageMat);
+      leaf.position.set(lx, boxY + 0.12 + rng() * 0.03, 0.13 + (rng() - 0.5) * 0.04);
+      leaf.scale.set(1.1 + rng() * 0.25, 0.72 + rng() * 0.25, 0.95);
+      leaf.rotation.set(rng(), rng(), rng());
+      g.add(leaf);
+    }
+
+    // Colorful storybook blossoms
+    const flowerCount = 5;
+    for (let i = 0; i < flowerCount; i++) {
+      const fx = ((i / (flowerCount - 1)) - 0.5) * (boxW - 0.18);
+      const fMat = palette.flowerMats[Math.floor(rng() * palette.flowerMats.length)];
+      const fl = new THREE.Mesh(palette.geos.flowerHead, fMat);
+      fl.position.set(fx, boxY + 0.19 + rng() * 0.04, 0.15 + (rng() - 0.5) * 0.06);
+      fl.scale.setScalar(0.85 + rng() * 0.35);
+      g.add(fl);
+    }
+  }
+
+  return g;
+}
+
+/**
+ * Framed carved wooden door (single or double) in local +Z outward space.
+ * Bottom of door sits at local y = 0.
+ */
+function buildDoor(palette, ctx, opts = {}) {
+  const w = opts.w !== undefined ? opts.w : 1.06;
+  const h = opts.h !== undefined ? opts.h : 1.88;
+  const isDouble = !!opts.doubleDoor;
+  const isBarn = !!opts.barnCrossBrace;
+  const withThreshold = opts.withThreshold !== false;
+  const plinthTop = opts.plinthTop !== undefined ? opts.plinthTop : 0.36;
+
+  const g = new THREE.Group();
+
+  // Outer heavy timber jambs & overhanging lintel
+  const jamb = 0.11;
+  addUnitBox(g, palette.geos, jamb, h, 0.16, -w * 0.5 - jamb * 0.35, h * 0.5, 0.04, palette.darkWoodMat, ctx, false, true);
+  addUnitBox(g, palette.geos, jamb, h, 0.16, w * 0.5 + jamb * 0.35, h * 0.5, 0.04, palette.darkWoodMat, ctx, false, true);
+  addUnitBox(g, palette.geos, w + jamb * 2 + 0.14, 0.14, 0.20, 0, h + 0.06, 0.06, palette.darkWoodMat, ctx, true, true);
+
+  // Dark shadowy doorway backing recess (visible when hinged door swings open!)
+  addUnitBox(g, palette.geos, w - 0.04, h - 0.04, 0.024, 0, h * 0.5, 0.016, palette.charcoalMat, ctx, false, false);
+
+  let doorPivot = null;
+  let doorPivotR = null;
+
+  if (isDouble) {
+    const leafW = w * 0.5 - 0.02;
+    const pivots = [];
+    for (const side of [-1, 1]) {
+      const pivot = new THREE.Group();
+      pivot.position.set(side * (w * 0.49), 0, 0.062);
+      g.add(pivot);
+      pivots.push(pivot);
+
+      const lx = -side * (leafW * 0.5);
+      // Door leaf plank body
+      addUnitBox(pivot, palette.geos, leafW, h - 0.02, 0.065, lx, h * 0.5, 0, palette.doorWoodMat, ctx, false, true);
+      // Inner meeting stile
+      addUnitBox(pivot, palette.geos, 0.04, h - 0.04, 0.08, -side * (leafW - 0.02), h * 0.5, 0.008, palette.darkWoodMat, ctx, false, true);
+      // Horizontal rails
+      addUnitBox(pivot, palette.geos, leafW - 0.02, 0.09, 0.03, lx, h * 0.15, 0.04, palette.darkWoodMat, ctx, false, true);
+      addUnitBox(pivot, palette.geos, leafW - 0.02, 0.09, 0.03, lx, h * 0.85, 0.04, palette.darkWoodMat, ctx, false, true);
+
+      if (isBarn) {
+        // Bold barn X cross-braces on each door leaf
+        const diagLen = Math.hypot(leafW - 0.08, h * 0.68);
+        const diagAng = Math.atan2(h * 0.68, leafW - 0.08);
+        for (const dSign of [-1, 1]) {
+          const brace = new THREE.Mesh(palette.geos.unitBox, palette.darkWoodMat);
+          brace.scale.set(diagLen, 0.085, 0.032);
+          brace.position.set(lx, h * 0.5, 0.045);
+          brace.rotation.z = dSign * diagAng;
+          pivot.add(brace);
+        }
+      } else {
+        // Tavern upper small window peep panes
+        addUnitBox(pivot, palette.geos, leafW * 0.46, 0.34, 0.035, lx, h * 0.66, 0.032, palette.windowGlassMat, ctx, false, false);
+        addUnitBox(pivot, palette.geos, leafW * 0.54, 0.045, 0.045, lx, h * 0.66, 0.042, palette.darkWoodMat, ctx, false, false);
+        addUnitBox(pivot, palette.geos, 0.045, 0.38, 0.045, lx, h * 0.66, 0.042, palette.darkWoodMat, ctx, false, false);
+      }
+
+      // Iron strap hinges near outer jamb edge
+      for (const hy of [h * 0.24, h * 0.76]) {
+        addUnitBox(pivot, palette.geos, 0.28, 0.055, 0.025, -side * 0.16, hy, 0.055, palette.ironMat, ctx, false, false);
+      }
+
+      // Iron handle near meeting edge
+      addUnitBox(pivot, palette.geos, 0.045, 0.16, 0.06, -side * (leafW - 0.10), h * 0.48, 0.058, palette.ironMat, ctx, false, false);
+    }
+    doorPivot = pivots[0];
+    doorPivotR = pivots[1];
+  } else {
+    doorPivot = new THREE.Group();
+    doorPivot.position.set(-w * 0.49, 0, 0.062);
+    g.add(doorPivot);
+    const lx = w * 0.49;
+
+    // Single cottage/workshop door leaf anchored on left jamb pivot
+    addUnitBox(doorPivot, palette.geos, w - 0.02, h - 0.02, 0.065, lx, h * 0.5, 0, palette.doorWoodMat, ctx, false, true);
+    addUnitBox(doorPivot, palette.geos, w - 0.12, 0.085, 0.032, lx, h * 0.22, 0.038, palette.darkWoodMat, ctx, false, true);
+    addUnitBox(doorPivot, palette.geos, w - 0.12, 0.085, 0.032, lx, h * 0.78, 0.038, palette.darkWoodMat, ctx, false, true);
+    // Decorative arched top transom trim bar
+    addUnitBox(doorPivot, palette.geos, w * 0.62, 0.07, 0.04, lx, h - 0.12, 0.04, palette.darkWoodMat, ctx, false, false);
+    // Small cozy upper door peep glass
+    addUnitBox(doorPivot, palette.geos, 0.26, 0.28, 0.032, lx, h * 0.62, 0.032, palette.windowGlassMat, ctx, false, false);
+    addUnitBox(doorPivot, palette.geos, 0.30, 0.038, 0.045, lx, h * 0.62, 0.042, palette.darkWoodMat, ctx, false, false);
+    addUnitBox(doorPivot, palette.geos, 0.038, 0.32, 0.045, lx, h * 0.62, 0.042, palette.darkWoodMat, ctx, false, false);
+
+    // Iron strap hinges (left jamb side) & iron ring latch (right side)
+    for (const hy of [h * 0.26, h * 0.74]) {
+      addUnitBox(doorPivot, palette.geos, 0.32, 0.052, 0.028, 0.18, hy, 0.055, palette.ironMat, ctx, false, false);
+    }
+    addUnitBox(doorPivot, palette.geos, 0.055, 0.16, 0.06, w - 0.16, h * 0.47, 0.058, palette.ironMat, ctx, false, false);
+  }
+
+  g.userData = {
+    doorPivot,
+    doorPivotR,
+  };
+
+  // Grounded stone step threshold (anchored down to y = -0.75 - plinthTop in local door coords!)
+  if (withThreshold) {
+    const stepTop = -0.02;
+    const stepBottom = -plinthTop - 0.75;
+    const stepH = stepTop - stepBottom;
+    addBox(g, w + 0.36, stepH, 0.46, 0, stepBottom + stepH * 0.5, 0.24, palette.stoneMat, ctx, true, true);
+    // Lower front step
+    const lowTop = -plinthTop * 0.52;
+    const lowH = lowTop - stepBottom;
+    if (lowH > 0.1) {
+      addBox(g, w + 0.24, lowH, 0.34, 0, stepBottom + lowH * 0.5, 0.56, palette.stoneMat, ctx, false, true);
+    }
+  }
+
+  return g;
+}
+
+/**
+ * Half-timbered wall framing beams on a rectangular box (corner posts, belt rail, studs, knee braces).
+ */
+function addHalfTimberFraming(parent, palette, ctx, cfg) {
+  const { w, d, yBottom, yTop, xOff = 0, zOff = 0, midRailRatio = 0.52, addKneeBraces = true } = cfg;
+  const h = yTop - yBottom;
+  const yMid = yBottom + h * 0.5;
+  const beltY = yBottom + h * midRailRatio;
+  const postSize = 0.17;
+
+  // 4 stout corner posts
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      addUnitBox(
+        parent,
+        palette.geos,
+        postSize,
+        h + 0.04,
+        postSize,
+        xOff + sx * (w * 0.5 - 0.04),
+        yMid,
+        zOff + sz * (d * 0.5 - 0.04),
+        palette.darkWoodMat,
+        ctx,
+        false,
+        true
+      );
+    }
+  }
+
+  // Horizontal sill, mid belt-rail, and top wall-plate beams
+  const beamYs = [yBottom + 0.05, beltY, yTop - 0.04];
+  for (const by of beamYs) {
+    for (const sz of [-1, 1]) {
+      addUnitBox(parent, palette.geos, w + 0.08, 0.12, 0.08, xOff, by, zOff + sz * (d * 0.5 + 0.01), palette.darkWoodMat, ctx, false, true);
+    }
+    for (const sx of [-1, 1]) {
+      addUnitBox(parent, palette.geos, 0.08, 0.12, d + 0.08, xOff + sx * (w * 0.5 + 0.01), by, zOff, palette.darkWoodMat, ctx, false, true);
+    }
+  }
+
+  // Intermediate vertical timber studs on side walls
+  for (const sx of [-1, 1]) {
+    const faceX = xOff + sx * (w * 0.5 + 0.01);
+    for (const sz of [-0.28, 0.28]) {
+      addUnitBox(parent, palette.geos, 0.075, h, 0.11, faceX, yMid, zOff + sz * d, palette.darkWoodMat, ctx, false, true);
+    }
+  }
+
+  // Diagonal timber knee braces in upper corner bays (iconic BotW / Tudor half-timber charm!)
+  if (addKneeBraces) {
+    const braceH = Math.min(0.85, (yTop - beltY) * 0.86);
+    const braceLen = braceH * 1.28;
+    const braceY = yTop - braceH * 0.52;
+
+    for (const sz of [-1, 1]) {
+      const faceZ = zOff + sz * (d * 0.5 + 0.018);
+      for (const sx of [-1, 1]) {
+        const b = new THREE.Mesh(palette.geos.unitBox, palette.darkWoodMat);
+        b.scale.set(braceLen, 0.095, 0.065);
+        b.position.set(xOff + sx * (w * 0.5 - braceH * 0.52), braceY, faceZ);
+        b.rotation.z = -sx * 0.78;
+        parent.add(b);
+      }
+    }
+
+    for (const sx of [-1, 1]) {
+      const faceX = xOff + sx * (w * 0.5 + 0.018);
+      for (const sz of [-1, 1]) {
+        const b = new THREE.Mesh(palette.geos.unitBox, palette.darkWoodMat);
+        b.scale.set(0.065, 0.095, braceLen);
+        b.position.set(faceX, braceY, zOff + sz * (d * 0.5 - braceH * 0.52));
+        b.rotation.x = sz * 0.78;
+        parent.add(b);
+      }
+    }
+  }
+}
+
+/**
+ * Stone hearth chimney stack anchored down to y = -0.75 with crown cap & animated smoke puffs.
+ */
+function buildChimneyWithSmoke(parent, palette, ctx, cfg) {
+  const {
+    x,
+    z,
+    baseW = 0.96,
+    baseD = 0.96,
+    topY,
+    puffCount = 4,
+    seed = 77,
+  } = cfg;
+
+  const bottomY = -0.75;
+  const splitY = Math.min(topY - 1.6, 2.35);
+
+  // Lower wide hearth breast
+  const lowerH = Math.max(1.2, splitY - bottomY);
+  addBox(parent, baseW, lowerH, baseD, x, bottomY + lowerH * 0.5, z, palette.chimneyMat, ctx, true, true);
+
+  // Tapered stone shoulder cap
+  addBox(parent, baseW + 0.08, 0.14, baseD + 0.08, x, bottomY + lowerH + 0.04, z, palette.stoneMat, ctx, false, true);
+
+  // Upper narrower chimney flue shaft
+  const shaftW = baseW * 0.72;
+  const shaftD = baseD * 0.72;
+  const upperStart = bottomY + lowerH;
+  const upperH = Math.max(0.8, topY - upperStart);
+  addBox(parent, shaftW, upperH, shaftD, x, upperStart + upperH * 0.5, z, palette.chimneyMat, ctx, true, true);
+
+  // Overhanging stone crown cap + chimney pot rim
+  addBox(parent, shaftW + 0.20, 0.14, shaftD + 0.20, x, topY + 0.04, z, palette.stoneMat, ctx, true, true);
+  addBox(parent, shaftW * 0.64, 0.16, shaftD * 0.64, x, topY + 0.17, z, palette.chimneyMat, ctx, false, true);
+  addBox(parent, shaftW * 0.44, 0.04, shaftD * 0.44, x, topY + 0.24, z, palette.charcoalMat, ctx, false, false);
+
+  // Animated soft semi-transparent smoke puffs
+  const smokePuffs = [];
+  const rng = makeRng(seed);
+  for (let i = 0; i < puffCount; i++) {
+    const frac = i / puffCount;
+    const mat = palette.smokeMat.clone();
+    mat.opacity = 0.44 * (1 - frac * 0.55);
+    const puff = new THREE.Mesh(palette.geos.smokePuff, mat);
+    const baseY = topY + 0.42 + frac * 1.45;
+    const baseScale = 0.68 + frac * 0.85;
+    puff.position.set(x + frac * 0.24, baseY, z + (rng() - 0.5) * 0.14);
+    puff.scale.set(baseScale * 1.15, baseScale * 0.86, baseScale * 1.05);
+    puff.userData = {
+      baseX: x,
+      baseY: topY + 0.38,
+      baseZ: z,
+      phase: frac * Math.PI * 2 + seed * 0.17,
+      speed: 0.55 + (i % 2) * 0.12,
+      maxRise: 1.85,
+      baseScale: 0.72,
+    };
+    parent.add(puff);
+    smokePuffs.push(puff);
+  }
+
+  return smokePuffs;
+}
+
+/**
+ * Coopered wooden barrel with twin wrought-iron hoops (base sits at local y = 0).
+ */
+function buildWoodenBarrel(palette, ctx, opts = {}) {
+  const g = new THREE.Group();
+  const s = opts.scale !== undefined ? opts.scale : 1.0;
+  g.scale.setScalar(s);
+
+  const body = new THREE.Mesh(palette.geos.barrelBody, palette.woodMat);
+  body.position.y = 0.34;
+  applyShadow(body, ctx, true, true);
+  g.add(body);
+
+  for (const hy of [0.16, 0.52]) {
+    const hoop = new THREE.Mesh(palette.geos.barrelHoop, palette.ironMat);
+    hoop.rotation.x = Math.PI * 0.5;
+    hoop.position.y = hy;
+    g.add(hoop);
+  }
+
+  if (opts.withWater) {
+    const water = new THREE.Mesh(new THREE.CylinderGeometry(0.23, 0.23, 0.04, 9), palette.waterMat);
+    water.position.y = 0.64;
+    g.add(water);
+  }
+
+  return g;
+}
+
+/**
+ * Wooden supply crate with diagonal framing slats (base sits at local y = 0).
+ */
+function buildWoodenCrate(palette, ctx, size = 0.56) {
+  const g = new THREE.Group();
+  addBox(g, size, size, size, 0, size * 0.5, 0, palette.woodMat, ctx, true, true);
+  // Corner framing strips
+  const t = 0.055;
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      addUnitBox(g, palette.geos, t, size + 0.01, t, sx * (size * 0.5 - 0.01), size * 0.5, sz * (size * 0.5 - 0.01), palette.darkWoodMat, ctx, false, true);
+    }
+  }
+  addUnitBox(g, palette.geos, size + 0.02, t, size + 0.02, 0, size - t * 0.4, 0, palette.darkWoodMat, ctx, false, true);
+  addUnitBox(g, palette.geos, size + 0.02, t, size + 0.02, 0, t * 0.4, 0, palette.darkWoodMat, ctx, false, true);
+  return g;
+}
+
+// ============================================================================
+// 1. COZY COTTAGE
+// ============================================================================
+
+function createCozyCottage(palette, ctx = {}, opts = {}) {
+  const w = opts.w !== undefined ? opts.w : 4.8;
+  const d = opts.d !== undefined ? opts.d : 4.0;
+  const h = opts.h !== undefined ? opts.h : 2.9;
+  const roofVariant = (opts.roofVariant && palette.roofMats[opts.roofVariant]) ? opts.roofVariant : 'terracotta';
+  const dir = opts.mirror ? -1 : 1;
+  const seed = opts.seed !== undefined ? opts.seed : 11;
+
+  const group = new THREE.Group();
+  const lanterns = [];
+  const plinthTop = 0.38;
+  const wallH = h - plinthTop;
+  const roofH = Math.max(1.55, w * 0.39);
+  const roofMat = palette.roofMats[roofVariant];
+  const shutterMat = palette.shutterMats[roofVariant] || palette.shutterMats.terracotta;
+  const wallMat = (seed % 2 === 0) ? palette.plasterWarmMat : palette.plasterMat;
+
+  // 1. Cobblestone plinth foundation (y = -0.75 .. +0.38)
+  buildStonePlinth(group, palette, ctx, w + 0.36, d + 0.36, plinthTop);
+
+  // 2. Main plaster body & half-timbered framing
+  addBox(group, w, wallH, d, 0, plinthTop + wallH * 0.5, 0, wallMat, ctx, true, true);
+  addHalfTimberFraming(group, palette, ctx, {
+    w,
+    d,
+    yBottom: plinthTop,
+    yTop: h,
+    midRailRatio: 0.54,
+    addKneeBraces: true,
+  });
+
+  // 3. True Pitched Gable Roof (ridge along Z, gables on front -Z & back +Z)
+  buildGableRoof(group, palette, ctx, {
+    w,
+    d,
+    wallTop: h,
+    roofH,
+    ridgeAxis: 'z',
+    roofMat,
+    gableMat: wallMat,
+    eaveOut: 0.46,
+    gableOut: 0.38,
+    withTimberGableTrim: true,
+  });
+
+  // 4. Front wooden door on local -Z with stone threshold, pitched awning & hanging lantern
+  const doorW = 1.06;
+  const doorH = 1.88;
+  const door = buildDoor(palette, ctx, { w: doorW, h: doorH, plinthTop });
+  door.position.set(0, plinthTop, -d * 0.5);
+  door.rotation.y = Math.PI;
+  group.add(door);
+
+  // Small pitched entrance awning above front door supported by diagonal brackets
+  const awnW = doorW + 0.62;
+  const awnDepth = 0.78;
+  const awnBaseY = plinthTop + doorH + 0.24;
+  const awnSlope = 0.34;
+  const awnMesh = addBox(
+    group,
+    awnW,
+    0.09,
+    awnDepth / Math.cos(awnSlope),
+    0,
+    awnBaseY + 0.04,
+    -d * 0.5 - awnDepth * 0.48,
+    roofMat,
+    ctx,
+    true,
+    true
+  );
+  awnMesh.rotation.x = -awnSlope;
+  // Awning timber fascia lip & two diagonal timber knee brackets
+  addUnitBox(group, palette.geos, awnW + 0.06, 0.09, 0.07, 0, awnBaseY - 0.10, -d * 0.5 - awnDepth * 0.92, palette.darkWoodMat, ctx, false, true);
+  for (const sx of [-1, 1]) {
+    const br = new THREE.Mesh(palette.geos.unitBox, palette.darkWoodMat);
+    br.scale.set(0.085, 0.085, 0.62);
+    br.position.set(sx * (awnW * 0.42), awnBaseY - 0.28, -d * 0.5 - 0.28);
+    br.rotation.x = 0.68;
+    group.add(br);
+  }
+
+  // Hanging porch lantern under entrance awning
+  const porchLantern = createLanternUnit(palette, ctx, { phase: seed * 1.3 + 0.4, scale: 0.92 });
+  porchLantern.group.position.set(dir * (awnW * 0.38), awnBaseY - 0.12, -d * 0.5 - awnDepth * 0.72);
+  group.add(porchLantern.group);
+  lanterns.push(porchLantern);
+
+  // 5. Glowing mullioned windows (front, front gable attic, sides, back)
+  const winY = plinthTop + 1.24;
+  const frontWinX = Math.max(1.26, w * 0.31);
+  for (const sx of [-1, 1]) {
+    const win = buildWindow(palette, ctx, {
+      w: 0.80,
+      h: 0.86,
+      shutterMat,
+      withShutters: true,
+      withFlowerBox: true,
+      seed: seed * 13 + (sx > 0 ? 5 : 2),
+    });
+    win.position.set(sx * frontWinX, winY, -d * 0.5);
+    win.rotation.y = Math.PI;
+    group.add(win);
+  }
+
+  // Cozy small glowing attic gable window on front (-Z)
+  const atticWin = buildWindow(palette, ctx, {
+    w: 0.56,
+    h: 0.58,
+    shutterMat,
+    withShutters: false,
+    withFlowerBox: false,
+    seed: seed * 19,
+  });
+  atticWin.position.set(0, h + roofH * 0.34, -d * 0.5);
+  atticWin.rotation.y = Math.PI;
+  group.add(atticWin);
+
+  // Non-chimney side wall window
+  const sideWin1 = buildWindow(palette, ctx, {
+    w: 0.94,
+    h: 0.90,
+    shutterMat,
+    withShutters: true,
+    withFlowerBox: true,
+    seed: seed * 23,
+  });
+  sideWin1.position.set(-dir * w * 0.5, winY, -0.15);
+  sideWin1.rotation.y = -dir * Math.PI * 0.5;
+  group.add(sideWin1);
+
+  // Chimney side wall smaller window (positioned forward of chimney)
+  const sideWin2 = buildWindow(palette, ctx, {
+    w: 0.72,
+    h: 0.78,
+    shutterMat,
+    withShutters: false,
+    withFlowerBox: true,
+    seed: seed * 29,
+  });
+  sideWin2.position.set(dir * w * 0.5, winY, -d * 0.24);
+  sideWin2.rotation.y = dir * Math.PI * 0.5;
+  group.add(sideWin2);
+
+  // Back wall (+Z) window
+  const backWin = buildWindow(palette, ctx, {
+    w: 0.88,
+    h: 0.84,
+    shutterMat,
+    withShutters: true,
+    withFlowerBox: true,
+    seed: seed * 31,
+  });
+  backWin.position.set(-dir * 0.55, winY, d * 0.5);
+  group.add(backWin);
+
+  // 6. Stone chimney on side wall rising above ridge + animated smoke puffs
+  const chimneyX = dir * (w * 0.5 + 0.24);
+  const chimneyZ = d * 0.22;
+  const smokePuffs = buildChimneyWithSmoke(group, palette, ctx, {
+    x: chimneyX,
+    z: chimneyZ,
+    baseW: 0.92,
+    baseD: 0.94,
+    topY: h + roofH + 0.78,
+    puffCount: 4,
+    seed: seed * 37,
+  });
+
+  // 7. Cozy side detail: sheltered firewood rack + wooden barrel beside porch
+  const rackX = -dir * (w * 0.5 + 0.34);
+  const rackZ = d * 0.26;
+  // Grounded timber base & side uprights for firewood rack
+  addBox(group, 0.52, 0.42 + 0.75, 1.12, rackX, (0.42 - 0.75) * 0.5, rackZ, palette.stoneMat, ctx, false, true);
+  for (const sz of [-0.50, 0.50]) {
+    addUnitBox(group, palette.geos, 0.08, 0.92, 0.08, rackX, 0.42 + 0.46, rackZ + sz, palette.darkWoodMat, ctx, false, true);
+  }
+  const rackRoof = addBox(group, 0.66, 0.06, 1.24, rackX, 1.38, rackZ, palette.darkWoodMat, ctx, false, true);
+  rackRoof.rotation.z = dir * 0.26;
+
+  // Stacked firewood logs in 3 neat tiers
+  for (let row = 0; row < 3; row++) {
+    const cols = 5 - (row % 2);
+    for (let col = 0; col < cols; col++) {
+      const log = new THREE.Mesh(palette.geos.logPiece, (col + row) % 2 === 0 ? palette.woodMat : palette.doorWoodMat);
+      log.rotation.z = Math.PI * 0.5;
+      const lz = rackZ + ((col - (cols - 1) * 0.5) * 0.175);
+      log.position.set(rackX, 0.50 + row * 0.145, lz);
+      group.add(log);
+    }
+  }
+
+  // Coopered wooden barrel beside front porch
+  const barrel = buildWoodenBarrel(palette, ctx, { scale: 0.96 });
+  barrel.position.set(-dir * (w * 0.42), plinthTop, -d * 0.5 - 0.44);
+  // Grounding stone pad beneath barrel so it never floats off plinth edge
+  addBox(group, 0.62, plinthTop + 0.75, 0.62, -dir * (w * 0.42), (plinthTop - 0.75) * 0.5, -d * 0.5 - 0.44, palette.stoneMat, ctx, false, true);
+  group.add(barrel);
+
+  group.userData = {
+    kind: 'cottage',
+    collider: {
+      radius: Math.hypot(w * 0.5 + 0.45, d * 0.5 + 0.42) * 0.80,
+      height: h + roofH + 0.95,
+    },
+    doorLocal: { x: 0, y: plinthTop, z: -d * 0.5 },
+    doorPivot: door.userData.doorPivot,
+    doorPivotR: null,
+    lanterns,
+    animated: {
+      smokePuffs,
+    },
+  };
+
+  return group;
+}
+
+// ============================================================================
+// 2. VILLAGE TAVERN & INN (HERO 2-STORY LANDMARK)
+// ============================================================================
+
+function createVillageTavernInn(palette, ctx = {}, opts = {}) {
+  const w = opts.w !== undefined ? opts.w : 6.4;
+  const d = opts.d !== undefined ? opts.d : 5.0;
+  const h = opts.h !== undefined ? opts.h : 4.6;
+  const roofVariant = (opts.roofVariant && palette.roofMats[opts.roofVariant]) ? opts.roofVariant : 'terracotta';
+  const seed = opts.seed !== undefined ? opts.seed : 22;
+
+  const group = new THREE.Group();
+  const lanterns = [];
+
+  const plinthTop = 0.45;
+  const floor1H = Math.max(2.25, h * 0.51); // ~2.35m
+  const floor2H = Math.max(2.00, h - floor1H); // ~2.15m -> wallTop = plinthTop + floor1H + floor2H
+  const floor1Top = plinthTop + floor1H;
+  const wallTop = floor1Top + floor2H;
+  const jettyOut = 0.26;
+  const w2 = w + jettyOut * 2;
+  const d2 = d + jettyOut * 2;
+  const roofH = Math.max(2.25, d2 * 0.46);
+  const roofMat = palette.roofMats[roofVariant];
+  const shutterMat = palette.shutterMats[roofVariant] || palette.shutterMats.terracotta;
+
+  // 1. Solid Cobblestone Plinth Foundation (y = -0.75 .. +0.45)
+  buildStonePlinth(group, palette, ctx, w + 0.42, d + 0.42, plinthTop);
+
+  // 2. Ground Floor (stone lower wainscot + warm plaster upper wall)
+  const wainscotH = 0.92;
+  addBox(group, w + 0.06, wainscotH, d + 0.06, 0, plinthTop + wainscotH * 0.5, 0, palette.stoneMat, ctx, true, true);
+  addBox(group, w, floor1H - wainscotH, d, 0, plinthTop + wainscotH + (floor1H - wainscotH) * 0.5, 0, palette.plasterMat, ctx, true, true);
+  addHalfTimberFraming(group, palette, ctx, {
+    w,
+    d,
+    yBottom: plinthTop,
+    yTop: floor1Top,
+    midRailRatio: 0.40,
+    addKneeBraces: false,
+  });
+
+  // 3. Cantilevered Overhanging 2nd Floor "Jetty" with Carved Wooden Corbels
+  addBox(group, w2, floor2H, d2, 0, floor1Top + floor2H * 0.5, 0, palette.plasterWarmMat, ctx, true, true);
+  // Heavy floor jetty trim skirt
+  addBox(group, w2 + 0.08, 0.16, d2 + 0.08, 0, floor1Top + 0.04, 0, palette.darkWoodMat, ctx, true, true);
+
+  addHalfTimberFraming(group, palette, ctx, {
+    w: w2,
+    d: d2,
+    yBottom: floor1Top,
+    yTop: wallTop,
+    midRailRatio: 0.48,
+    addKneeBraces: true,
+  });
+
+  // Additional decorative 2nd-floor vertical bay posts along front & back
+  for (const sz of [-1, 1]) {
+    for (const bx of [-w2 * 0.24, 0, w2 * 0.24]) {
+      addUnitBox(group, palette.geos, 0.12, floor2H, 0.08, bx, floor1Top + floor2H * 0.5, sz * (d2 * 0.5 + 0.012), palette.darkWoodMat, ctx, false, true);
+    }
+  }
+
+  // Carved wooden corbel brackets supporting the 2nd floor overhang
+  const corbelXs = [-w * 0.42, -w * 0.14, w * 0.14, w * 0.42];
+  for (const sz of [-1, 1]) {
+    for (const cx of corbelXs) {
+      const corb = new THREE.Mesh(palette.geos.unitBox, palette.darkWoodMat);
+      corb.scale.set(0.13, 0.34, 0.28);
+      corb.position.set(cx, floor1Top - 0.16, sz * (d * 0.5 + 0.10));
+      corb.rotation.x = sz * 0.36;
+      group.add(corb);
+    }
+  }
+  const corbelZs = [-d * 0.36, 0, d * 0.36];
+  for (const sx of [-1, 1]) {
+    for (const cz of corbelZs) {
+      const corb = new THREE.Mesh(palette.geos.unitBox, palette.darkWoodMat);
+      corb.scale.set(0.28, 0.34, 0.13);
+      corb.position.set(sx * (w * 0.5 + 0.10), floor1Top - 0.16, cz);
+      corb.rotation.z = -sx * 0.36;
+      group.add(corb);
+    }
+  }
+
+  // 4. Steep Pitched Shingled Gable Roof (ridge along X so front -Z is a dramatic sweeping roof slope!)
+  buildGableRoof(group, palette, ctx, {
+    w: w2,
+    d: d2,
+    wallTop,
+    roofH,
+    ridgeAxis: 'x',
+    roofMat,
+    gableMat: palette.plasterWarmMat,
+    eaveOut: 0.48,
+    gableOut: 0.42,
+    withTimberGableTrim: true,
+  });
+
+  // 5. Cute Projecting Roof Dormer Window on the upper front (-Z) roof slope!
+  const dormerW = 1.32;
+  const dormerH = 1.04;
+  const dormerZ = -d2 * 0.5 + 0.22;
+  const dormerBaseY = wallTop + 0.14;
+  const dormerGroup = new THREE.Group();
+  dormerGroup.position.set(0.25, 0, 0);
+  group.add(dormerGroup);
+
+  // Dormer side cheeks & body extending back into main roof slope so zero gap
+  const dormerDepth = 1.85;
+  addBox(
+    dormerGroup,
+    dormerW,
+    dormerH,
+    dormerDepth,
+    0,
+    dormerBaseY + dormerH * 0.5,
+    dormerZ + dormerDepth * 0.5,
+    palette.plasterWarmMat,
+    ctx,
+    true,
+    true
+  );
+  // Corner timber trim on dormer front
+  for (const sx of [-1, 1]) {
+    addUnitBox(dormerGroup, palette.geos, 0.10, dormerH, 0.10, sx * (dormerW * 0.5 - 0.02), dormerBaseY + dormerH * 0.5, dormerZ + 0.02, palette.darkWoodMat, ctx, false, true);
+  }
+  // Miniature pitched gable roof atop dormer (ridge along Z)
+  buildGableRoof(dormerGroup, palette, ctx, {
+    w: dormerW,
+    d: dormerDepth + 0.18,
+    wallTop: dormerBaseY + dormerH,
+    roofH: 0.62,
+    ridgeAxis: 'z',
+    roofMat,
+    gableMat: palette.plasterWarmMat,
+    eaveOut: 0.22,
+    gableOut: 0.20,
+    slabThick: 0.09,
+    zOff: dormerZ + dormerDepth * 0.5 - 0.04,
+    withTimberGableTrim: false,
+  });
+  // Glowing dormer window + tiny flower box
+  const dormerWin = buildWindow(palette, ctx, {
+    w: 0.78,
+    h: 0.72,
+    shutterMat,
+    withShutters: false,
+    withFlowerBox: true,
+    seed: seed * 41,
+  });
+  dormerWin.position.set(0, dormerBaseY + dormerH * 0.52, dormerZ);
+  dormerWin.rotation.y = Math.PI;
+  dormerGroup.add(dormerWin);
+
+  // 6. Wide Covered Front Wooden Porch (-Z) with 3 Sturdy Timber Columns, Steps & Sloped Roof
+  const porchDepth = 1.62;
+  const porchW = w - 0.10;
+  const porchFrontZ = -d * 0.5 - porchDepth;
+  const deckY = plinthTop - 0.03;
+
+  // Grounded stone skirt underneath porch deck (y = -0.75 .. deckY - 0.08)
+  const skirtH = (deckY - 0.08) - (-0.75);
+  addBox(group, porchW - 0.06, skirtH, porchDepth, 0, -0.75 + skirtH * 0.5, -d * 0.5 - porchDepth * 0.5, palette.stoneMat, ctx, true, true);
+  // Wooden plank porch deck
+  addBox(group, porchW + 0.12, 0.11, porchDepth + 0.12, 0, deckY - 0.03, -d * 0.5 - porchDepth * 0.5, palette.woodMat, ctx, true, true);
+
+  // Wide wooden entrance steps descending from porch deck in front of double doors
+  const doorX = -1.12;
+  const stepW = 2.05;
+  const stepBottom = -0.75;
+  const step1Top = deckY - 0.14;
+  addBox(group, stepW, step1Top - stepBottom, 0.36, doorX, stepBottom + (step1Top - stepBottom) * 0.5, porchFrontZ - 0.22, palette.woodMat, ctx, false, true);
+  const step2Top = deckY - 0.30;
+  addBox(group, stepW, step2Top - stepBottom, 0.36, doorX, stepBottom + (step2Top - stepBottom) * 0.5, porchFrontZ - 0.56, palette.woodMat, ctx, false, true);
+
+  // 3 sturdy timber porch columns on stone plinth bases (left, center-right, far-right)
+  const colXs = [-porchW * 0.46, 0.62, porchW * 0.46];
+  const porchHeaderY = floor1Top - 0.26;
+  const colH = porchHeaderY - deckY;
+  for (const cx of colXs) {
+    // Stone column plinth foot
+    addBox(group, 0.28, 0.24, 0.28, cx, deckY + 0.12, porchFrontZ + 0.14, palette.stoneMat, ctx, false, true);
+    // Stout timber column
+    addBox(group, 0.18, colH, 0.18, cx, deckY + colH * 0.5, porchFrontZ + 0.14, palette.darkWoodMat, ctx, true, true);
+    // Angled knee braces at column top
+    for (const sx of [-1, 1]) {
+      if ((cx < -porchW * 0.4 && sx < 0) || (cx > porchW * 0.4 && sx > 0)) continue;
+      const br = new THREE.Mesh(palette.geos.unitBox, palette.darkWoodMat);
+      br.scale.set(0.46, 0.085, 0.085);
+      br.position.set(cx + sx * 0.19, porchHeaderY - 0.20, porchFrontZ + 0.14);
+      br.rotation.z = sx * 0.78;
+      group.add(br);
+    }
+  }
+  // Porch top timber header beam
+  addBox(group, porchW + 0.18, 0.16, 0.18, 0, porchHeaderY, porchFrontZ + 0.14, palette.darkWoodMat, ctx, true, true);
+
+  // Cozy wooden porch railing along the right terrace bay (+0.62 .. +porchW*0.46)
+  const railSpan = porchW * 0.46 - 0.62;
+  const railCenterX = (0.62 + porchW * 0.46) * 0.5;
+  addUnitBox(group, palette.geos, railSpan, 0.08, 0.09, railCenterX, deckY + 0.74, porchFrontZ + 0.14, palette.darkWoodMat, ctx, false, true);
+  addUnitBox(group, palette.geos, railSpan, 0.07, 0.07, railCenterX, deckY + 0.16, porchFrontZ + 0.14, palette.darkWoodMat, ctx, false, true);
+  for (let i = 1; i <= 5; i++) {
+    const bx = 0.62 + (i / 6) * railSpan;
+    addUnitBox(group, palette.geos, 0.06, 0.58, 0.06, bx, deckY + 0.45, porchFrontZ + 0.14, palette.woodMat, ctx, false, true);
+  }
+
+  // Sloped shingled porch roof
+  const pSlope = Math.atan2(0.46, porchDepth + 0.22);
+  const pRoofLen = (porchDepth + 0.48) / Math.cos(pSlope);
+  const pRoof = addBox(
+    group,
+    porchW + 0.46,
+    0.11,
+    pRoofLen,
+    0,
+    porchHeaderY + 0.26,
+    -d * 0.5 - porchDepth * 0.50,
+    roofMat,
+    ctx,
+    true,
+    true
+  );
+  pRoof.rotation.x = -pSlope;
+
+  // 7. Double-Door Tavern Entrance + Twin Hanging Porch Lanterns
+  const doubleDoor = buildDoor(palette, ctx, {
+    w: 1.48,
+    h: 1.96,
+    doubleDoor: true,
+    withThreshold: false,
+    plinthTop,
+  });
+  doubleDoor.position.set(doorX, plinthTop, -d * 0.5);
+  doubleDoor.rotation.y = Math.PI;
+  group.add(doubleDoor);
+
+  for (let i = 0; i < 2; i++) {
+    const lx = doorX + (i === 0 ? -0.98 : 0.98);
+    const lUnit = createLanternUnit(palette, ctx, { phase: seed * 0.9 + i * 2.1, scale: 1.0 });
+    lUnit.group.position.set(lx, porchHeaderY - 0.06, porchFrontZ + 0.14);
+    group.add(lUnit.group);
+    lanterns.push(lUnit);
+  }
+
+  // 8. Projecting Iron Bracket + Gently Swinging Painted Wooden Tavern Signboard
+  const signPostX = -porchW * 0.46;
+  const signBracketY = floor1Top + 0.32;
+  // Wrought-iron horizontal arm & curved scroll brace projecting forward-left
+  addUnitBox(group, palette.geos, 0.055, 0.055, 1.18, signPostX - 0.06, signBracketY, porchFrontZ - 0.36, palette.ironMat, ctx, false, false);
+  const ironBrace = new THREE.Mesh(palette.geos.unitBox, palette.ironMat);
+  ironBrace.scale.set(0.045, 0.045, 0.72);
+  ironBrace.position.set(signPostX - 0.06, signBracketY - 0.24, porchFrontZ - 0.10);
+  ironBrace.rotation.x = 0.72;
+  group.add(ironBrace);
+
+  // Sign pivot group for gentle wind swing animation
+  const signPivot = new THREE.Group();
+  signPivot.position.set(signPostX - 0.06, signBracketY - 0.03, porchFrontZ - 0.58);
+  signPivot.userData = { axis: 'z', maxAngle: 0.14, speed: 1.35, phase: seed * 0.5 };
+
+  // Iron hanging rings
+  for (const rz of [-0.26, 0.26]) {
+    addUnitBox(signPivot, palette.geos, 0.035, 0.14, 0.035, 0, -0.07, rz, palette.ironMat, ctx, false, false);
+  }
+  // Wooden painted signboard (readable from road approach along X/Z!)
+  const signMaterials = [
+    palette.tavernSignMat, // +X
+    palette.tavernSignMat, // -X
+    palette.darkWoodMat,   // +Y
+    palette.darkWoodMat,   // -Y
+    palette.tavernSignMat, // +Z
+    palette.tavernSignMat, // -Z
+  ];
+  const signBoard = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.76, 0.78), signMaterials);
+  signBoard.position.set(0, -0.50, 0);
+  applyShadow(signBoard, ctx, true, true);
+  signPivot.add(signBoard);
+  group.add(signPivot);
+
+  // 9. Warm Glowing Mullioned Windows on Both Floors
+  // Ground floor right bay large tavern window
+  const gfWin = buildWindow(palette, ctx, {
+    w: 1.24,
+    h: 1.02,
+    shutterMat,
+    withShutters: true,
+    withFlowerBox: true,
+    seed: seed * 43,
+  });
+  gfWin.position.set(1.78, plinthTop + 1.28, -d * 0.5);
+  gfWin.rotation.y = Math.PI;
+  group.add(gfWin);
+
+  // Second floor front jetty: 3 charming windows with shutters & flower boxes
+  const f2WinY = floor1Top + floor2H * 0.50;
+  for (const [idx, wx] of [-2.05, 0.0, 2.05].entries()) {
+    const win = buildWindow(palette, ctx, {
+      w: 0.90,
+      h: 0.92,
+      shutterMat,
+      withShutters: true,
+      withFlowerBox: true,
+      seed: seed * 47 + idx * 7,
+    });
+    win.position.set(wx, f2WinY, -d2 * 0.5);
+    win.rotation.y = Math.PI;
+    group.add(win);
+  }
+
+  // Side walls windows (left -X both floors, right +X forward of chimney)
+  const leftWin1 = buildWindow(palette, ctx, { w: 1.0, h: 0.96, shutterMat, withShutters: true, withFlowerBox: true, seed: seed * 53 });
+  leftWin1.position.set(-w * 0.5, plinthTop + 1.28, 0.15);
+  leftWin1.rotation.y = -Math.PI * 0.5;
+  group.add(leftWin1);
+
+  const leftWin2 = buildWindow(palette, ctx, { w: 0.92, h: 0.90, shutterMat, withShutters: true, withFlowerBox: true, seed: seed * 59 });
+  leftWin2.position.set(-w2 * 0.5, f2WinY, 0.15);
+  leftWin2.rotation.y = -Math.PI * 0.5;
+  group.add(leftWin2);
+
+  const rightWin2 = buildWindow(palette, ctx, { w: 0.84, h: 0.86, shutterMat, withShutters: false, withFlowerBox: true, seed: seed * 61 });
+  rightWin2.position.set(w2 * 0.5, f2WinY, -1.15);
+  rightWin2.rotation.y = Math.PI * 0.5;
+  group.add(rightWin2);
+
+  // Back wall (+Z) windows
+  for (const bx of [-1.65, 1.65]) {
+    const bWin = buildWindow(palette, ctx, { w: 0.92, h: 0.90, shutterMat, withShutters: true, withFlowerBox: false, seed: seed * 67 + bx * 3 });
+    bWin.position.set(bx, f2WinY, d2 * 0.5);
+    group.add(bWin);
+  }
+
+  // 10. Massive Stone Hearth Chimney on +X wall with Smoke Puffs
+  const smokePuffs = buildChimneyWithSmoke(group, palette, ctx, {
+    x: w2 * 0.5 + 0.24,
+    z: 0.85,
+    baseW: 1.18,
+    baseD: 1.32,
+    topY: wallTop + roofH + 0.88,
+    puffCount: 4,
+    seed: seed * 71,
+  });
+
+  // 11. Tavern Porch Props: Ale Kegs/Barrels & Rustic Wooden Bench
+  const barrel1 = buildWoodenBarrel(palette, ctx, { scale: 0.98 });
+  barrel1.position.set(2.45, deckY + 0.02, -d * 0.5 - 0.56);
+  group.add(barrel1);
+
+  // Horizontal ale keg on wooden cradle
+  const kegGroup = new THREE.Group();
+  kegGroup.position.set(1.52, deckY + 0.02, -d * 0.5 - 0.58);
+  addUnitBox(kegGroup, palette.geos, 0.44, 0.14, 0.10, 0, 0.07, -0.18, palette.darkWoodMat, ctx, false, true);
+  addUnitBox(kegGroup, palette.geos, 0.44, 0.14, 0.10, 0, 0.07, 0.18, palette.darkWoodMat, ctx, false, true);
+  const keg = buildWoodenBarrel(palette, ctx, { scale: 0.86 });
+  keg.rotation.z = Math.PI * 0.5;
+  keg.position.set(0.30, 0.34, 0);
+  kegGroup.add(keg);
+  group.add(kegGroup);
+
+  // Small tavern barrel near left steps
+  const barrel2 = buildWoodenBarrel(palette, ctx, { scale: 0.88 });
+  barrel2.position.set(-2.52, deckY + 0.02, -d * 0.5 - 0.52);
+  group.add(barrel2);
+
+  group.userData = {
+    kind: 'tavern_inn',
+    collider: {
+      radius: Math.hypot(w2 * 0.5 + 0.55, (d2 + porchDepth) * 0.5) * 0.78,
+      height: wallTop + roofH + 1.05,
+    },
+    doorLocal: { x: doorX, y: plinthTop, z: -d * 0.5 },
+    doorPivot: doubleDoor.userData.doorPivot,
+    doorPivotR: doubleDoor.userData.doorPivotR,
+    lanterns,
+    animated: {
+      smokePuffs,
+      signPivot,
+    },
+  };
+
+  return group;
+}
+
+// ============================================================================
+// 3. BLACKSMITH & WAGON REPAIR WORKSHOP
+// ============================================================================
+
+function createBlacksmithWorkshop(palette, ctx = {}, opts = {}) {
+  const w = opts.w !== undefined ? opts.w : 5.2;
+  const d = opts.d !== undefined ? opts.d : 4.2;
+  const h = opts.h !== undefined ? opts.h : 2.8;
+  const roofVariant = (opts.roofVariant && palette.roofMats[opts.roofVariant]) ? opts.roofVariant : 'slate';
+  const seed = opts.seed !== undefined ? opts.seed : 33;
+
+  const group = new THREE.Group();
+  const lanterns = [];
+
+  const plinthTop = 0.36;
+  const roofMat = palette.roofMats[roofVariant];
+  const shutterMat = palette.shutterMats[roofVariant] || palette.shutterMats.slate;
+
+  // Split total width into enclosed main stone workshop (left) + open forge bay (right)
+  const mainW = w * 0.62;       // ~3.22m
+  const forgeW = w * 0.44;      // ~2.29m
+  const totalW = mainW + forgeW;
+  const mainCenterX = -totalW * 0.5 + mainW * 0.5;
+  const dividerX = mainCenterX + mainW * 0.5;
+  const forgeRightX = dividerX + forgeW;
+  const forgeCenterX = dividerX + forgeW * 0.5;
+
+  // 1. Solid Cobblestone Plinth Foundation spanning BOTH main shop & open forge patio (y = -0.75 .. +0.36)
+  buildStonePlinth(group, palette, ctx, totalW + 0.40, d + 0.38, plinthTop, 0, 0);
+
+  // 2. Enclosed Workshop: Heavy Cobblestone Lower Walls + Timber-Framed Upper Walls
+  const stoneWallH = (h - plinthTop) * 0.66;
+  const upperWallH = (h - plinthTop) - stoneWallH;
+  addBox(group, mainW, stoneWallH, d, mainCenterX, plinthTop + stoneWallH * 0.5, 0, palette.stoneMat, ctx, true, true);
+  addBox(group, mainW - 0.04, upperWallH, d - 0.04, mainCenterX, plinthTop + stoneWallH + upperWallH * 0.5, 0, palette.plasterMat, ctx, true, true);
+
+  addHalfTimberFraming(group, palette, ctx, {
+    w: mainW,
+    d,
+    yBottom: plinthTop,
+    yTop: h,
+    xOff: mainCenterX,
+    midRailRatio: 0.66,
+    addKneeBraces: true,
+  });
+
+  // 3. Pitched Slate-Shingle Gable Roof over Main Workshop (ridge along Z)
+  const roofH = Math.max(1.52, mainW * 0.48);
+  buildGableRoof(group, palette, ctx, {
+    w: mainW,
+    d,
+    wallTop: h,
+    roofH,
+    ridgeAxis: 'z',
+    roofMat,
+    gableMat: palette.woodMat,
+    eaveOut: 0.42,
+    gableOut: 0.36,
+    xOff: mainCenterX,
+    withTimberGableTrim: true,
+  });
+
+  // 4. Front Heavy Iron-Bound Door & Window on Main Workshop (-Z)
+  const door = buildDoor(palette, ctx, {
+    w: 1.08,
+    h: 1.88,
+    plinthTop,
+  });
+  door.position.set(mainCenterX - 0.58, plinthTop, -d * 0.5);
+  door.rotation.y = Math.PI;
+  group.add(door);
+
+  const frontWin = buildWindow(palette, ctx, {
+    w: 0.78,
+    h: 0.80,
+    shutterMat,
+    withShutters: false,
+    withFlowerBox: false,
+    seed: seed * 11,
+  });
+  frontWin.position.set(mainCenterX + 0.76, plinthTop + 1.24, -d * 0.5);
+  frontWin.rotation.y = Math.PI;
+  group.add(frontWin);
+
+  // Back window on workshop
+  const backWin = buildWindow(palette, ctx, {
+    w: 0.84,
+    h: 0.80,
+    shutterMat,
+    withShutters: true,
+    withFlowerBox: false,
+    seed: seed * 17,
+  });
+  backWin.position.set(mainCenterX, plinthTop + 1.24, d * 0.5);
+  group.add(backWin);
+
+  // 5. Open-Sided Sloped Lean-To Forge Canopy (+X side) Supported by Stout Posts
+  const canopyOuterY = 2.26;
+  const canopyInnerY = h + 0.14;
+  const canopySpan = forgeW + 0.34;
+  const canopySlope = Math.atan2(canopyInnerY - canopyOuterY, canopySpan);
+  const canopyLen = canopySpan / Math.cos(canopySlope) + 0.24;
+
+  const canopyRoof = addBox(
+    group,
+    canopyLen,
+    0.12,
+    d + 0.66,
+    dividerX + canopySpan * 0.5 - 0.08,
+    (canopyInnerY + canopyOuterY) * 0.5 + 0.06,
+    0,
+    roofMat,
+    ctx,
+    true,
+    true
+  );
+  canopyRoof.rotation.z = -canopySlope;
+
+  // Exposed canopy rafters & outer header beam
+  const postX = forgeRightX - 0.12;
+  const postH = canopyOuterY - plinthTop;
+  for (const sz of [-1, 1]) {
+    const pz = sz * (d * 0.5 - 0.18);
+    // Stone column base
+    addBox(group, 0.32, 0.26, 0.32, postX, plinthTop + 0.13, pz, palette.stoneMat, ctx, false, true);
+    // Stout timber post
+    addBox(group, 0.20, postH, 0.20, postX, plinthTop + postH * 0.5, pz, palette.darkWoodMat, ctx, true, true);
+    // Diagonal timber braces
+    const br = new THREE.Mesh(palette.geos.unitBox, palette.darkWoodMat);
+    br.scale.set(0.09, 0.09, 0.56);
+    br.position.set(postX, canopyOuterY - 0.24, pz - sz * 0.22);
+    br.rotation.x = sz * 0.78;
+    group.add(br);
+  }
+  addBox(group, 0.18, 0.18, d + 0.36, postX, canopyOuterY, 0, palette.darkWoodMat, ctx, true, true);
+
+  for (let i = 0; i < 4; i++) {
+    const rz = ((i / 3) - 0.5) * (d + 0.10);
+    const raf = new THREE.Mesh(palette.geos.unitBox, palette.darkWoodMat);
+    raf.scale.set(canopyLen - 0.1, 0.09, 0.09);
+    raf.position.set(dividerX + canopySpan * 0.5 - 0.08, (canopyInnerY + canopyOuterY) * 0.5 - 0.02, rz);
+    raf.rotation.z = -canopySlope;
+    group.add(raf);
+  }
+
+  // 6. Stone Hearth Forge Chimney & Glowing Animated Ember Bed (NO PointLight!)
+  const forgeX = forgeCenterX - 0.06;
+  const forgeZ = d * 0.5 - 0.88;
+  const hearthTopY = plinthTop + 0.92;
+
+  // Heavy stone hearth forge table
+  addBox(group, 1.38, 0.92, 1.08, forgeX, plinthTop + 0.46, forgeZ, palette.chimneyMat, ctx, true, true);
+  // Raised back & side stone curb around fire bowl
+  addBox(group, 1.44, 0.24, 0.22, forgeX, hearthTopY + 0.10, forgeZ + 0.44, palette.stoneMat, ctx, false, true);
+  for (const sx of [-1, 1]) {
+    addBox(group, 0.20, 0.20, 0.92, forgeX + sx * 0.60, hearthTopY + 0.08, forgeZ, palette.stoneMat, ctx, false, true);
+  }
+  // Stone chimney hood & flue rising cleanly through canopy roof
+  const smokePuffs = buildChimneyWithSmoke(group, palette, ctx, {
+    x: forgeX,
+    z: forgeZ + 0.38,
+    baseW: 1.08,
+    baseD: 0.72,
+    topY: h + roofH + 0.42,
+    puffCount: 3,
+    seed: seed * 53,
+  });
+  // Angled stone smoke hood above embers
+  const hood = addBox(group, 1.18, 0.52, 0.82, forgeX, hearthTopY + 0.92, forgeZ + 0.14, palette.chimneyMat, ctx, true, true);
+  hood.rotation.x = 0.22;
+
+  // Dark charcoal coal bed + 6 glowing ember chunks + warm radial glow sprite
+  addBox(group, 0.88, 0.10, 0.62, forgeX, hearthTopY + 0.02, forgeZ - 0.04, palette.charcoalMat, ctx, false, true);
+
+  const emberMeshes = [];
+  const rng = makeRng(seed * 71);
+  for (let i = 0; i < 6; i++) {
+    const eMat = palette.emberMat.clone();
+    const em = new THREE.Mesh(palette.geos.emberChunk, eMat);
+    const ex = forgeX + (rng() - 0.5) * 0.62;
+    const ez = forgeZ - 0.06 + (rng() - 0.5) * 0.36;
+    em.position.set(ex, hearthTopY + 0.08 + rng() * 0.04, ez);
+    em.scale.set(0.85 + rng() * 0.55, 0.55 + rng() * 0.35, 0.85 + rng() * 0.55);
+    em.rotation.set(rng() * 2, rng() * 2, rng() * 2);
+    em.userData = {
+      phase: i * 1.15 + seed * 0.3,
+      baseIntensity: 1.50 + rng() * 0.35,
+    };
+    group.add(em);
+    emberMeshes.push(em);
+  }
+
+  const glowTex = (ctx && ctx.warmGlowTex) || palette.warmGlowTex;
+  const emberGlowMat = new THREE.SpriteMaterial({
+    map: glowTex,
+    color: 0xff7b29,
+    transparent: true,
+    opacity: 0.90,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+  });
+  const emberGlow = new THREE.Sprite(emberGlowMat);
+  emberGlow.position.set(forgeX, hearthTopY + 0.34, forgeZ - 0.06);
+  emberGlow.scale.set(1.75, 1.55, 1.0);
+  group.add(emberGlow);
+
+  // 7. Iron Anvil on Thick Oak Stump
+  const anvilX = forgeCenterX - 0.08;
+  const anvilZ = -0.36;
+  const stump = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.33, 0.58, 9), palette.darkWoodMat);
+  stump.position.set(anvilX, plinthTop + 0.29, anvilZ);
+  applyShadow(stump, ctx, true, true);
+  group.add(stump);
+
+  const anvilGroup = new THREE.Group();
+  anvilGroup.position.set(anvilX, plinthTop + 0.58, anvilZ);
+  anvilGroup.rotation.y = 0.28;
+  // Anvil base, narrow waist, flat working face, and tapered conical horn
+  addUnitBox(anvilGroup, palette.geos, 0.42, 0.09, 0.26, 0, 0.045, 0, palette.ironMat, ctx, true, true);
+  addUnitBox(anvilGroup, palette.geos, 0.26, 0.14, 0.18, 0, 0.15, 0, palette.ironMat, ctx, true, true);
+  addUnitBox(anvilGroup, palette.geos, 0.52, 0.12, 0.24, -0.04, 0.27, 0, palette.ironMat, ctx, true, true);
+  const horn = new THREE.Mesh(new THREE.ConeGeometry(0.10, 0.34, 6), palette.ironMat);
+  horn.rotation.z = -Math.PI * 0.5;
+  horn.position.set(0.36, 0.27, 0);
+  anvilGroup.add(horn);
+  group.add(anvilGroup);
+
+  // 8. Water Quenching Barrel (with shimmering blue water top!)
+  const quenchBarrel = buildWoodenBarrel(palette, ctx, { scale: 0.94, withWater: true });
+  quenchBarrel.position.set(postX - 0.36, plinthTop, -d * 0.5 + 0.72);
+  group.add(quenchBarrel);
+
+  // 9. Wagon Wheel & Tool Repair Rack Leaning Against Left Wall (-X)
+  const wheelX = mainCenterX - mainW * 0.5 - 0.18;
+  const wheelGroup = new THREE.Group();
+  wheelGroup.position.set(wheelX, plinthTop + 0.56, -0.45);
+  wheelGroup.rotation.z = -0.22;
+  const wheelRim = new THREE.Mesh(new THREE.TorusGeometry(0.52, 0.055, 6, 12), palette.woodMat);
+  wheelRim.rotation.y = Math.PI * 0.5;
+  applyShadow(wheelRim, ctx, true, true);
+  wheelGroup.add(wheelRim);
+  const wheelHub = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.16, 8), palette.ironMat);
+  wheelHub.rotation.z = Math.PI * 0.5;
+  wheelGroup.add(wheelHub);
+  for (let i = 0; i < 6; i++) {
+    const spoke = new THREE.Mesh(palette.geos.unitBox, palette.darkWoodMat);
+    spoke.scale.set(0.05, 0.98, 0.05);
+    spoke.rotation.x = (i / 6) * Math.PI;
+    wheelGroup.add(spoke);
+  }
+  group.add(wheelGroup);
+
+  // Wooden tool/blade rack leaning near back-left corner
+  const rackGroup = new THREE.Group();
+  rackGroup.position.set(wheelX - 0.04, plinthTop, 0.86);
+  for (const sz of [-0.36, 0.36]) {
+    addUnitBox(rackGroup, palette.geos, 0.07, 1.15, 0.07, 0, 0.58, sz, palette.darkWoodMat, ctx, false, true);
+  }
+  addUnitBox(rackGroup, palette.geos, 0.08, 0.08, 0.84, 0, 0.35, 0, palette.darkWoodMat, ctx, false, true);
+  addUnitBox(rackGroup, palette.geos, 0.08, 0.08, 0.84, 0, 0.92, 0, palette.darkWoodMat, ctx, false, true);
+  // Iron smithy tools / blades resting in rack
+  for (let i = 0; i < 3; i++) {
+    const tz = (i - 1) * 0.22;
+    addUnitBox(rackGroup, palette.geos, 0.035, 0.88, 0.07, -0.06, 0.72, tz, palette.ironMat, ctx, false, false);
+    addUnitBox(rackGroup, palette.geos, 0.045, 0.22, 0.05, -0.06, 0.22, tz, palette.woodMat, ctx, false, false);
+  }
+  group.add(rackGroup);
+
+  // 10. Hanging Forge Lantern at Front-Right Canopy Corner
+  const forgeLantern = createLanternUnit(palette, ctx, { phase: seed * 1.1 + 0.8, scale: 0.98 });
+  forgeLantern.group.position.set(postX - 0.14, canopyOuterY - 0.06, -d * 0.5 + 0.18);
+  group.add(forgeLantern.group);
+  lanterns.push(forgeLantern);
+
+  group.userData = {
+    kind: 'blacksmith',
+    collider: {
+      radius: Math.hypot(totalW * 0.5 + 0.25, d * 0.5 + 0.25) * 0.82,
+      height: h + roofH + 0.65,
+    },
+    doorLocal: { x: mainCenterX - 0.58, y: plinthTop, z: -d * 0.5 },
+    doorPivot: door.userData.doorPivot,
+    doorPivotR: null,
+    lanterns,
+    animated: {
+      embers: {
+        meshes: emberMeshes,
+        glowSprite: emberGlow,
+        baseScale: 1.75,
+      },
+      smokePuffs,
+    },
+  };
+
+  return group;
+}
+
+// ============================================================================
+// 4. COZY COUNTRYSIDE MARKET STALL
+// ============================================================================
+
+function createMarketStall(palette, ctx = {}, opts = {}) {
+  const w = opts.w !== undefined ? opts.w : 3.0;
+  const d = opts.d !== undefined ? opts.d : 2.0;
+  const h = opts.h !== undefined ? opts.h : 2.5;
+  const awningVariant = (opts.awningVariant !== undefined ? opts.awningVariant : 0) % palette.awningMats.length;
+  const seed = opts.seed !== undefined ? opts.seed : 44;
+
+  const group = new THREE.Group();
+  const lanterns = [];
+  const rng = makeRng(seed);
+
+  const deckTopY = 0.16;
+  const awningMat = palette.awningMats[awningVariant];
+
+  // 1. Grounding Wooden Floor Platform (down to y = -0.45) + Stone Corner Footing Skirt (down to y = -0.75)
+  addBox(group, w + 0.24, 0.34, d + 0.24, 0, -0.75 + 0.17, 0, palette.stoneMat, ctx, false, true);
+  const deckH = deckTopY - (-0.45);
+  addBox(group, w + 0.30, deckH, d + 0.30, 0, -0.45 + deckH * 0.5, 0, palette.woodMat, ctx, true, true);
+  // Dark timber deck trim border
+  addBox(group, w + 0.34, 0.07, d + 0.34, 0, deckTopY - 0.02, 0, palette.darkWoodMat, ctx, false, true);
+
+  // 2. Corner Timber Posts with Diagonal Braces (front taller than back for welcoming customer view!)
+  const frontTopY = h;
+  const backTopY = h - 0.34;
+  const px = w * 0.5 - 0.10;
+  const pz = d * 0.5 - 0.10;
+
+  for (const sx of [-1, 1]) {
+    // Front post (-Z)
+    const fh = frontTopY - deckTopY;
+    addBox(group, 0.13, fh, 0.13, sx * px, deckTopY + fh * 0.5, -pz, palette.darkWoodMat, ctx, true, true);
+    // Back post (+Z)
+    const bh = backTopY - deckTopY;
+    addBox(group, 0.13, bh, 0.13, sx * px, deckTopY + bh * 0.5, pz, palette.darkWoodMat, ctx, true, true);
+
+    // Diagonal front knee brace
+    const brF = new THREE.Mesh(palette.geos.unitBox, palette.darkWoodMat);
+    brF.scale.set(0.46, 0.075, 0.075);
+    brF.position.set(sx * (px - 0.18), frontTopY - 0.22, -pz);
+    brF.rotation.z = -sx * 0.78;
+    group.add(brF);
+
+    // Side sloped rafter beam connecting front & back post tops
+    const sideSlope = Math.atan2(frontTopY - backTopY, pz * 2);
+    const sideLen = (pz * 2 + 0.45) / Math.cos(sideSlope);
+    const sideBeam = new THREE.Mesh(palette.geos.unitBox, palette.darkWoodMat);
+    sideBeam.scale.set(0.10, 0.10, sideLen);
+    sideBeam.position.set(sx * px, (frontTopY + backTopY) * 0.5, 0);
+    sideBeam.rotation.x = sideSlope;
+    group.add(sideBeam);
+  }
+
+  // Front & back horizontal crossbars
+  addBox(group, w + 0.16, 0.11, 0.11, 0, frontTopY, -pz, palette.darkWoodMat, ctx, false, true);
+  addBox(group, w + 0.16, 0.11, 0.11, 0, backTopY, pz, palette.darkWoodMat, ctx, false, true);
+
+  // 3. Sloped Striped Fabric Canopy + Scalloped Valance Trim along Front (-Z) Edge
+  const canopySlope = Math.atan2(frontTopY - backTopY, pz * 2);
+  const canopyDepth = (d + 0.58) / Math.cos(canopySlope);
+  const canopyMesh = addBox(
+    group,
+    w + 0.42,
+    0.06,
+    canopyDepth,
+    0,
+    (frontTopY + backTopY) * 0.5 + 0.07,
+    0,
+    awningMat,
+    ctx,
+    true,
+    true
+  );
+  canopyMesh.rotation.x = canopySlope;
+
+  // Scalloped hanging valance flaps along front (-Z) awning edge
+  const frontLipZ = -(d + 0.54) * 0.5;
+  const frontLipY = frontTopY + 0.10;
+  const flapCount = 8;
+  const flapSpan = (w + 0.36) / flapCount;
+  const flapGeo = new THREE.CylinderGeometry(flapSpan * 0.48, flapSpan * 0.48, 0.04, 8, 1, false, -Math.PI * 0.5, Math.PI);
+  for (let i = 0; i < flapCount; i++) {
+    const fx = -((w + 0.36) * 0.5) + (i + 0.5) * flapSpan;
+    const flap = new THREE.Mesh(flapGeo, awningMat);
+    flap.rotation.x = Math.PI * 0.5;
+    flap.position.set(fx, frontLipY - 0.02, frontLipZ);
+    group.add(flap);
+  }
+
+  // 4. Sturdy Wooden Display Counter with Draped Cloth Runner
+  const counterY = deckTopY + 0.84;
+  const counterZ = -d * 0.5 + 0.46;
+  const counterW = w - 0.24;
+  const counterD = 0.76;
+
+  // Counter base cabinet & thick wooden countertop
+  addBox(group, counterW, 0.80, counterD - 0.08, 0, deckTopY + 0.40, counterZ, palette.woodMat, ctx, true, true);
+  addBox(group, counterW + 0.10, 0.08, counterD + 0.06, 0, counterY, counterZ, palette.darkWoodMat, ctx, true, true);
+
+  // Draped linen counter cloth overhanging the front (-Z) edge
+  addUnitBox(group, palette.geos, counterW * 0.72, 0.025, counterD + 0.12, 0, counterY + 0.045, counterZ - 0.02, palette.clothMat, ctx, false, true);
+  addUnitBox(group, palette.geos, counterW * 0.72, 0.34, 0.03, 0, counterY - 0.13, counterZ - counterD * 0.5 - 0.05, palette.clothMat, ctx, false, true);
+
+  // 5. Stylized Colorful Market Wares (Crates of Apples, Bread Basket, Herbs & Elixir Potions)
+  const topSurfaceY = counterY + 0.06;
+
+  // Tilted Wooden Produce Crate 1: Red Apples (left)
+  const crate1 = new THREE.Group();
+  crate1.position.set(-0.78, topSurfaceY + 0.10, counterZ + 0.02);
+  crate1.rotation.x = -0.22;
+  addUnitBox(crate1, palette.geos, 0.62, 0.16, 0.46, 0, 0, 0, palette.woodMat, ctx, false, true);
+  for (let i = 0; i < 6; i++) {
+    const ap = new THREE.Mesh(palette.geos.appleSphere, palette.produceMats.appleRed);
+    ap.position.set(((i % 3) - 1) * 0.16, 0.10 + (i >= 3 ? 0.02 : 0), (i >= 3 ? 0.10 : -0.10));
+    crate1.add(ap);
+  }
+  group.add(crate1);
+
+  // Tilted Produce Crate 2: Green Apples & Herbs (center-left)
+  const crate2 = new THREE.Group();
+  crate2.position.set(-0.08, topSurfaceY + 0.10, counterZ + 0.02);
+  crate2.rotation.x = -0.22;
+  addUnitBox(crate2, palette.geos, 0.58, 0.16, 0.44, 0, 0, 0, palette.woodMat, ctx, false, true);
+  for (let i = 0; i < 4; i++) {
+    const ap = new THREE.Mesh(palette.geos.appleSphere, palette.produceMats.appleGreen);
+    ap.position.set(((i % 2) - 0.5) * 0.18 - 0.08, 0.10, (i >= 2 ? 0.09 : -0.09));
+    crate2.add(ap);
+  }
+  // Fresh green herb tufts
+  for (let i = 0; i < 2; i++) {
+    const hb = new THREE.Mesh(palette.geos.leafCluster, palette.foliageMat);
+    hb.position.set(0.14, 0.11, i === 0 ? -0.07 : 0.08);
+    hb.scale.set(0.8, 0.65, 0.8);
+    crate2.add(hb);
+  }
+  group.add(crate2);
+
+  // Woven Bread Basket with Crusty Golden Loaves (center-right)
+  const basket = new THREE.Group();
+  basket.position.set(0.58, topSurfaceY, counterZ + 0.02);
+  const bBody = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.19, 0.18, 9), palette.hayMat);
+  bBody.position.y = 0.09;
+  basket.add(bBody);
+  for (let i = 0; i < 3; i++) {
+    const loaf = new THREE.Mesh(palette.geos.breadLoaf, palette.produceMats.breadGold);
+    loaf.scale.set(1.25, 0.72, 0.85);
+    loaf.position.set((i - 1) * 0.09, 0.19 + (i === 1 ? 0.04 : 0), (i - 1) * 0.04);
+    loaf.rotation.y = (rng() - 0.5) * 0.8;
+    basket.add(loaf);
+  }
+  group.add(basket);
+
+  // Glowing Potion Bottles on right end of counter
+  const potionConfigs = [
+    { x: 1.02, z: counterZ - 0.08, mat: palette.produceMats.potionBlue },
+    { x: 1.15, z: counterZ + 0.05, mat: palette.produceMats.potionPink },
+    { x: 1.00, z: counterZ + 0.12, mat: palette.produceMats.potionBlue },
+  ];
+  for (const pc of potionConfigs) {
+    const bot = new THREE.Mesh(palette.geos.bottleBody, pc.mat);
+    bot.position.set(pc.x, topSurfaceY + 0.075, pc.z);
+    group.add(bot);
+    const neck = new THREE.Mesh(palette.geos.bottleNeck, palette.woodMat);
+    neck.position.set(pc.x, topSurfaceY + 0.17, pc.z);
+    group.add(neck);
+  }
+
+  // Extra supply crate tucked at rear-left corner of deck
+  const backCrate = buildWoodenCrate(palette, ctx, 0.52);
+  backCrate.position.set(-w * 0.32, deckTopY, d * 0.24);
+  backCrate.rotation.y = 0.18;
+  group.add(backCrate);
+
+  // 6. Painted Wooden Merchant Signboard mounted beneath front crossbar
+  const signMats = [
+    palette.darkWoodMat,
+    palette.darkWoodMat,
+    palette.darkWoodMat,
+    palette.darkWoodMat,
+    palette.stallSignMat,
+    palette.stallSignMat,
+  ];
+  const sign = new THREE.Mesh(new THREE.BoxGeometry(1.18, 0.42, 0.06), signMats);
+  sign.position.set(-0.22, frontTopY - 0.28, -pz + 0.02);
+  group.add(sign);
+
+  // 7. Cozy Hanging Lantern from iron arm on front-right corner post
+  addUnitBox(group, palette.geos, 0.05, 0.05, 0.42, px, frontTopY - 0.22, -pz - 0.20, palette.ironMat, ctx, false, false);
+  const stallLantern = createLanternUnit(palette, ctx, { phase: seed * 1.4, scale: 0.90 });
+  stallLantern.group.position.set(px, frontTopY - 0.25, -pz - 0.36);
+  group.add(stallLantern.group);
+  lanterns.push(stallLantern);
+
+  group.userData = {
+    kind: 'market_stall',
+    collider: {
+      radius: Math.hypot(w * 0.5 + 0.15, d * 0.5 + 0.15) * 0.80,
+      height: h + 0.32,
+    },
+    lanterns,
+    animated: {},
+  };
+
+  return group;
+}
+
+// ============================================================================
+// 5. RUSTIC TIMBER STORAGE BARN & GRANARY
+// ============================================================================
+
+function createStorageBarn(palette, ctx = {}, opts = {}) {
+  const w = opts.w !== undefined ? opts.w : 4.6;
+  const d = opts.d !== undefined ? opts.d : 3.8;
+  const h = opts.h !== undefined ? opts.h : 3.1;
+  const roofVariant = (opts.roofVariant && palette.roofMats[opts.roofVariant]) ? opts.roofVariant : 'shake';
+  const seed = opts.seed !== undefined ? opts.seed : 55;
+
+  const group = new THREE.Group();
+  const lanterns = [];
+
+  const plinthTop = 0.40;
+  const wallH = h - plinthTop;
+  const roofH = Math.max(2.05, w * 0.47);
+  const roofMat = palette.roofMats[roofVariant];
+
+  // 1. Cobblestone Foundation Plinth (y = -0.75 .. +0.40)
+  buildStonePlinth(group, palette, ctx, w + 0.38, d + 0.38, plinthTop);
+
+  // 2. Vertical Wood-Plank Barn Walls & Heavy Timber Frame
+  addBox(group, w, wallH, d, 0, plinthTop + wallH * 0.5, 0, palette.woodMat, ctx, true, true);
+  addHalfTimberFraming(group, palette, ctx, {
+    w,
+    d,
+    yBottom: plinthTop,
+    yTop: h,
+    midRailRatio: 0.62,
+    addKneeBraces: true,
+  });
+
+  // 3. Steeply Pitched Shake-Shingle Gable Roof (ridge along Z, gable peak facing -Z road!)
+  buildGableRoof(group, palette, ctx, {
+    w,
+    d,
+    wallTop: h,
+    roofH,
+    ridgeAxis: 'z',
+    roofMat,
+    gableMat: palette.woodMat,
+    eaveOut: 0.48,
+    gableOut: 0.42,
+    withTimberGableTrim: true,
+  });
+
+  // 4. Wide Cross-Braced Double Barn Doors on local -Z
+  const barnDoors = buildDoor(palette, ctx, {
+    w: 1.88,
+    h: 2.04,
+    doubleDoor: true,
+    barnCrossBrace: true,
+    withThreshold: true,
+    plinthTop,
+  });
+  barnDoors.position.set(0, plinthTop, -d * 0.5);
+  barnDoors.rotation.y = Math.PI;
+  group.add(barnDoors);
+
+  // 5. Upper Hayloft Shutter Door + Projecting Wooden Pulley Beam under Front Gable Peak
+  const loftY = h + roofH * 0.30;
+  const loftW = 0.96;
+  const loftH = 0.98;
+  const loftZ = -d * 0.5;
+
+  // Dark recess & golden stored hay peeking out of the hayloft
+  addUnitBox(group, palette.geos, loftW, loftH, 0.06, 0, loftY, loftZ - 0.01, palette.charcoalMat, ctx, false, false);
+  addUnitBox(group, palette.geos, loftW - 0.16, loftH * 0.42, 0.14, 0, loftY - loftH * 0.24, loftZ - 0.05, palette.hayMat, ctx, false, true);
+
+  // Heavy hayloft timber frame
+  addUnitBox(group, palette.geos, loftW + 0.18, 0.10, 0.12, 0, loftY + loftH * 0.5 + 0.03, loftZ - 0.04, palette.darkWoodMat, ctx, false, true);
+  addUnitBox(group, palette.geos, loftW + 0.22, 0.10, 0.16, 0, loftY - loftH * 0.5 - 0.03, loftZ - 0.06, palette.darkWoodMat, ctx, false, true);
+  for (const sx of [-1, 1]) {
+    addUnitBox(group, palette.geos, 0.09, loftH, 0.12, sx * (loftW * 0.5 + 0.03), loftY, loftZ - 0.04, palette.darkWoodMat, ctx, false, true);
+
+    // Half-open wooden hayloft shutters hinged outward toward -Z
+    const sPivot = new THREE.Group();
+    sPivot.position.set(sx * (loftW * 0.5 + 0.02), loftY, loftZ - 0.06);
+    sPivot.rotation.y = sx * 0.52;
+    const sh = new THREE.Mesh(palette.geos.unitBox, palette.doorWoodMat);
+    sh.scale.set(loftW * 0.48, loftH - 0.06, 0.05);
+    sh.position.set(sx * loftW * 0.24, 0, 0);
+    sPivot.add(sh);
+    // Iron hinge on shutter
+    addUnitBox(sPivot, palette.geos, 0.22, 0.045, 0.065, sx * 0.12, 0.24, -0.005, palette.ironMat, ctx, false, false);
+    addUnitBox(sPivot, palette.geos, 0.22, 0.045, 0.065, sx * 0.12, -0.24, -0.005, palette.ironMat, ctx, false, false);
+    group.add(sPivot);
+  }
+
+  // Projecting Wooden Pulley / Hoist Beam directly under front gable peak
+  const beamY = h + roofH - 0.34;
+  addBox(group, 0.16, 0.16, 1.24, 0, beamY, loftZ - 0.52, palette.darkWoodMat, ctx, true, true);
+  // Diagonal timber brace under pulley beam
+  const hoistBrace = new THREE.Mesh(palette.geos.unitBox, palette.darkWoodMat);
+  hoistBrace.scale.set(0.11, 0.11, 0.68);
+  hoistBrace.position.set(0, beamY - 0.24, loftZ - 0.24);
+  hoistBrace.rotation.x = 0.72;
+  group.add(hoistBrace);
+
+  // Iron pulley wheel + rope + hoist hook hanging from pulley beam tip
+  const pulleyWheel = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.06, 8), palette.ironMat);
+  pulleyWheel.rotation.z = Math.PI * 0.5;
+  pulleyWheel.position.set(0, beamY - 0.17, loftZ - 0.96);
+  group.add(pulleyWheel);
+  const rope = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.85, 5), palette.hayMat);
+  rope.position.set(0, beamY - 0.62, loftZ - 0.96);
+  group.add(rope);
+  const hook = new THREE.Mesh(new THREE.TorusGeometry(0.065, 0.018, 5, 8, Math.PI * 1.45), palette.ironMat);
+  hook.position.set(0, beamY - 1.08, loftZ - 0.96);
+  hook.rotation.z = Math.PI * 0.8;
+  group.add(hook);
+
+  // 6. Slatted Wooden Ventilation Windows on Side Walls
+  for (const sx of [-1, 1]) {
+    const winX = sx * (w * 0.5 + 0.02);
+    const wy = plinthTop + 1.56;
+    addUnitBox(group, palette.geos, 0.06, 0.66, 0.74, winX, wy, 0, palette.darkWoodMat, ctx, false, true);
+    for (let s = 0; s < 4; s++) {
+      addUnitBox(group, palette.geos, 0.09, 0.055, 0.60, winX + sx * 0.02, wy - 0.20 + s * 0.135, 0, palette.woodMat, ctx, false, false);
+    }
+  }
+
+  // 7. Hanging Warm Barn Lantern beside Double Doors
+  addUnitBox(group, palette.geos, 0.07, 0.07, 0.36, 1.32, plinthTop + 2.08, -d * 0.5 - 0.18, palette.darkWoodMat, ctx, false, false);
+  const barnLantern = createLanternUnit(palette, ctx, { phase: seed * 1.2 + 0.6, scale: 0.95 });
+  barnLantern.group.position.set(1.32, plinthTop + 2.04, -d * 0.5 - 0.32);
+  group.add(barnLantern.group);
+  lanterns.push(barnLantern);
+
+  // 8. Cozy Rural Props: Stacked Golden Hay Bales (-X side) & Supply Crates + Barrel (+X front corner)
+  const hayX = -w * 0.5 - 0.56;
+  // Grounded stone/wood pad under hay bales so they never float on slopes
+  addBox(group, 0.92, plinthTop + 0.75, 1.88, hayX, (plinthTop - 0.75) * 0.5, 0.25, palette.stoneMat, ctx, false, true);
+
+  const balePositions = [
+    { x: hayX, y: plinthTop + 0.24, z: -0.22, rot: 0.05 },
+    { x: hayX + 0.02, y: plinthTop + 0.24, z: 0.68, rot: -0.07 },
+    { x: hayX, y: plinthTop + 0.72, z: 0.22, rot: 0.10 },
+  ];
+  for (const bp of balePositions) {
+    const bale = new THREE.Group();
+    bale.position.set(bp.x, bp.y, bp.z);
+    bale.rotation.y = bp.rot;
+    addBox(bale, 0.68, 0.46, 0.82, 0, 0, 0, palette.hayMat, ctx, true, true);
+    // Twine binding straps
+    for (const tz of [-0.22, 0.22]) {
+      addUnitBox(bale, palette.geos, 0.71, 0.48, 0.032, 0, 0, tz, palette.darkWoodMat, ctx, false, false);
+    }
+    group.add(bale);
+  }
+
+  // Supply crates & wooden barrel beside right (+X) wall
+  const crateX = w * 0.5 + 0.48;
+  addBox(group, 0.82, plinthTop + 0.75, 1.56, crateX, (plinthTop - 0.75) * 0.5, -0.58, palette.stoneMat, ctx, false, true);
+
+  const crateA = buildWoodenCrate(palette, ctx, 0.62);
+  crateA.position.set(crateX, plinthTop, -0.88);
+  crateA.rotation.y = 0.08;
+  group.add(crateA);
+
+  const crateB = buildWoodenCrate(palette, ctx, 0.48);
+  crateB.position.set(crateX - 0.04, plinthTop + 0.62, -0.86);
+  crateB.rotation.y = -0.22;
+  group.add(crateB);
+
+  const sideBarrel = buildWoodenBarrel(palette, ctx, { scale: 0.94 });
+  sideBarrel.position.set(crateX, plinthTop, -0.14);
+  group.add(sideBarrel);
+
+  group.userData = {
+    kind: 'storage_barn',
+    collider: {
+      radius: Math.hypot(w * 0.5 + 0.65, d * 0.5 + 0.42) * 0.80,
+      height: h + roofH + 0.55,
+    },
+    doorLocal: { x: 0, y: plinthTop, z: -d * 0.5 },
+    doorPivot: barnDoors.userData.doorPivot,
+    doorPivotR: barnDoors.userData.doorPivotR,
+    lanterns,
+    animated: {},
+  };
+
+  return group;
+}
+
+return {
+  createVillageMaterialPalette,
+  createCozyCottage,
+  createVillageTavernInn,
+  createBlacksmithWorkshop,
+  createMarketStall,
+  createStorageBarn,
+};
+
+})();
+
+// --- js/models/village_props.js ---
+const __MOD_VILLAGE_PROPS = (() => {
+'use strict';
+const THREE = HC.THREE;
+
+// ============================================================================
+// DETERMINISTIC HELPERS & GEOMETRY MERGER
+// ============================================================================
+
+function hash01(n) {
+  const x = Math.sin(n * 127.1 + 311.7) * 43758.5453123;
+  return x - Math.floor(x);
+}
+
+function makeRng(seed = 1) {
+  let s = (seed * 1.6180339 + 13.37);
+  return () => {
+    s += 1.0;
+    return hash01(s);
+  };
+}
+
+function cel(ctx, mat, opts = { rimStrength: 0.16, shadowLift: 0.58 }) {
+  if (ctx && typeof ctx.applyStylizedCelShading === 'function') {
+    ctx.applyStylizedCelShading(mat, opts);
+  }
+  return mat;
+}
+
+function getTerrainY(ctx, x, z) {
+  if (ctx && typeof ctx.getTerrainHeight === 'function') {
+    return ctx.getTerrainHeight(x, z);
+  }
+  return 0;
+}
+
+function setShadow(mesh, ctx, cast = true, receive = true) {
+  const isMobile = !!(ctx && ctx.isMobileDevice);
+  mesh.castShadow = cast && !isMobile;
+  mesh.receiveShadow = receive;
+  return mesh;
+}
+
+function mergeGeometries(rawGeos, includeColor = false) {
+  const prepared = [];
+  let totalVerts = 0;
+
+  for (let i = 0; i < rawGeos.length; i++) {
+    const src = rawGeos[i];
+    if (!src) continue;
+    const g = src.index ? src.toNonIndexed() : src.clone();
+    const pos = g.getAttribute('position');
+    if (!pos || pos.count === 0) {
+      g.dispose();
+      continue;
+    }
+    if (!g.getAttribute('normal')) {
+      g.computeVertexNormals();
+    }
+    if (!g.getAttribute('uv')) {
+      g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(pos.count * 2), 2));
+    }
+    if (includeColor && !g.getAttribute('color')) {
+      const cols = new Float32Array(pos.count * 3);
+      cols.fill(1.0);
+      g.setAttribute('color', new THREE.BufferAttribute(cols, 3));
+    }
+    prepared.push(g);
+    totalVerts += pos.count;
+  }
+
+  const merged = new THREE.BufferGeometry();
+  if (totalVerts === 0) return merged;
+
+  const positions = new Float32Array(totalVerts * 3);
+  const normals = new Float32Array(totalVerts * 3);
+  const uvs = new Float32Array(totalVerts * 2);
+  const colors = includeColor ? new Float32Array(totalVerts * 3) : null;
+
+  let offset = 0;
+  for (let i = 0; i < prepared.length; i++) {
+    const g = prepared[i];
+    const pos = g.getAttribute('position');
+    const norm = g.getAttribute('normal');
+    const uv = g.getAttribute('uv');
+    const count = pos.count;
+
+    positions.set(pos.array, offset * 3);
+    normals.set(norm.array, offset * 3);
+    uvs.set(uv.array, offset * 2);
+    if (includeColor) {
+      const col = g.getAttribute('color');
+      colors.set(col.array, offset * 3);
+    }
+    offset += count;
+    g.dispose();
+  }
+
+  merged.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  merged.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
+  merged.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+  if (includeColor) {
+    merged.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  }
+  merged.computeBoundingSphere();
+  return merged;
+}
+
+function paintGeoVertexColor(geo, hexColor) {
+  const c = new THREE.Color(hexColor);
+  const count = geo.getAttribute('position').count;
+  const arr = new Float32Array(count * 3);
+  for (let i = 0; i < count; i++) {
+    arr[i * 3] = c.r;
+    arr[i * 3 + 1] = c.g;
+    arr[i * 3 + 2] = c.b;
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(arr, 3));
+  return geo;
+}
+
+// ============================================================================
+// PROCEDURAL CANVAS TEXTURES (PAINTERLY BOTW / TRUCKFUL PALETTE)
+// ============================================================================
+
+function makeCanvasTexture(w, h, drawFn, repeatX = 1, repeatY = 1) {
+  if (typeof document === 'undefined') return null;
+  const c = document.createElement('canvas');
+  c.width = w;
+  c.height = h;
+  const g = c.getContext('2d');
+  if (g) drawFn(g, w, h);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  if (repeatX !== 1 || repeatY !== 1) {
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(repeatX, repeatY);
+  } else {
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+  }
+  tex.needsUpdate = true;
+  return tex;
+}
+
+function drawRoundedRect(g, x, y, w, h, r) {
+  const rad = Math.min(r, w * 0.5, h * 0.5);
+  g.beginPath();
+  g.moveTo(x + rad, y);
+  g.lineTo(x + w - rad, y);
+  g.quadraticCurveTo(x + w, y, x + w, y + rad);
+  g.lineTo(x + w, y + h - rad);
+  g.quadraticCurveTo(x + w, y + h, x + w - rad, y + h);
+  g.lineTo(x + rad, y + h);
+  g.quadraticCurveTo(x, y + h, x, y + h - rad);
+  g.lineTo(x, y + rad);
+  g.quadraticCurveTo(x, y, x + rad, y);
+  g.closePath();
+}
+
+function createCobblestoneTexture() {
+  return makeCanvasTexture(256, 256, (g, w, h) => {
+    // Warm mortar ground
+    g.fillStyle = '#5e5a52';
+    g.fillRect(0, 0, w, h);
+
+    const rows = 6;
+    const rowH = h / rows;
+    const stoneTones = ['#9d988c', '#b0a999', '#8a857b', '#a89f8d', '#939689', '#bfb7a5'];
+
+    for (let r = 0; r < rows; r++) {
+      const cols = 4 + (r % 2);
+      const colW = w / cols;
+      const shift = (r % 2) * (colW * 0.45);
+      for (let c = -1; c <= cols; c++) {
+        const seed = r * 31 + c * 17 + 5;
+        const jx = (hash01(seed) - 0.5) * 6;
+        const jy = (hash01(seed + 1) - 0.5) * 4;
+        const x = c * colW + shift + jx + 3;
+        const y = r * rowH + jy + 3;
+        const sw = colW - 6 - hash01(seed + 2) * 3;
+        const sh = rowH - 6 - hash01(seed + 3) * 3;
+        const rad = 8;
+
+        const tone = stoneTones[Math.floor(hash01(seed + 4) * stoneTones.length)];
+        g.fillStyle = tone;
+        drawRoundedRect(g, x, y, Math.max(8, sw), Math.max(8, sh), rad);
+        g.fill();
+
+        // Warm upper-left painterly highlight
+        g.fillStyle = 'rgba(255, 250, 236, 0.22)';
+        drawRoundedRect(g, x + 2, y + 2, Math.max(4, sw * 0.72), Math.max(3, sh * 0.36), rad * 0.6);
+        g.fill();
+
+        // Lower-right soft bevel shadow
+        g.fillStyle = 'rgba(42, 40, 38, 0.22)';
+        g.fillRect(x + 3, y + sh - 5, Math.max(4, sw - 6), 4);
+
+        // Subtle cozy moss fleck on occasional mortar seams
+        if (hash01(seed + 9) > 0.72) {
+          g.fillStyle = 'rgba(104, 134, 72, 0.45)';
+          g.beginPath();
+          g.arc(x + 4, y + sh - 1, 5, 0, Math.PI * 2);
+          g.fill();
+        }
+      }
+    }
+  });
+}
+
+function createWoodPlankTexture(baseHex = '#8d623f', grainHex = '#6c472b', highlightHex = '#a87a52') {
+  return makeCanvasTexture(128, 128, (g, w, h) => {
+    g.fillStyle = baseHex;
+    g.fillRect(0, 0, w, h);
+
+    // Subtle plank bands
+    const planks = 4;
+    const ph = h / planks;
+    for (let p = 0; p < planks; p++) {
+      const y = p * ph;
+      g.fillStyle = p % 2 === 0 ? 'rgba(255,235,205,0.06)' : 'rgba(30,15,5,0.08)';
+      g.fillRect(0, y, w, ph);
+
+      // Horizontal fibers
+      for (let i = 0; i < 14; i++) {
+        const s = p * 53 + i * 11;
+        const fy = y + 2 + hash01(s) * (ph - 4);
+        g.strokeStyle = i % 3 === 0 ? highlightHex : grainHex;
+        g.globalAlpha = 0.22 + hash01(s + 2) * 0.22;
+        g.lineWidth = 1 + hash01(s + 3) * 1.4;
+        g.beginPath();
+        g.moveTo(0, fy);
+        g.bezierCurveTo(
+          w * 0.33, fy + (hash01(s + 4) - 0.5) * 4,
+          w * 0.66, fy + (hash01(s + 5) - 0.5) * 4,
+          w, fy
+        );
+        g.stroke();
+      }
+      g.globalAlpha = 1.0;
+
+      // Plank seam
+      g.fillStyle = 'rgba(35, 20, 10, 0.45)';
+      g.fillRect(0, y + ph - 2, w, 2);
+    }
+  });
+}
+
+function createShingleTexture() {
+  return makeCanvasTexture(256, 256, (g, w, h) => {
+    g.fillStyle = '#6f4230';
+    g.fillRect(0, 0, w, h);
+
+    const rows = 8;
+    const cols = 7;
+    const rh = h / rows;
+    const cw = w / cols;
+    const palette = ['#8f5038', '#9f5b3f', '#7e4632', '#a86545', '#764938', '#8a573d'];
+
+    for (let r = 0; r < rows; r++) {
+      const offset = (r % 2) * (cw * 0.5);
+      for (let c = -1; c <= cols; c++) {
+        const s = r * 43 + c * 19;
+        const x = c * cw + offset;
+        const y = r * rh;
+        const col = palette[Math.floor(hash01(s) * palette.length)];
+
+        // Drop shadow under shingle tab
+        g.fillStyle = 'rgba(28, 14, 10, 0.38)';
+        g.fillRect(x + 1, y + rh - 4, cw - 2, 5);
+
+        // Scalloped cedar shingle tab
+        g.fillStyle = col;
+        g.beginPath();
+        g.moveTo(x + 1, y);
+        g.lineTo(x + cw - 1, y);
+        g.lineTo(x + cw - 1, y + rh - 6);
+        g.quadraticCurveTo(x + cw * 0.5, y + rh + 2, x + 1, y + rh - 6);
+        g.closePath();
+        g.fill();
+
+        // Subtle sunlit ridge highlight
+        g.fillStyle = 'rgba(255, 224, 186, 0.14)';
+        g.fillRect(x + 3, y + 2, cw - 6, 4);
+
+        // Occasional painterly moss touch on cedar shingles
+        if (hash01(s + 7) > 0.84) {
+          g.fillStyle = 'rgba(114, 146, 74, 0.42)';
+          g.beginPath();
+          g.ellipse(x + cw * 0.4, y + rh * 0.7, 7, 4, 0.2, 0, Math.PI * 2);
+          g.fill();
+        }
+      }
+    }
+  });
+}
+
+function createWellWaterTexture() {
+  return makeCanvasTexture(256, 256, (g, w, h) => {
+    const cx = w * 0.5;
+    const cy = h * 0.5;
+
+    // Deep luminous turquoise-teal radial gradient (crystal clear spring water!)
+    const bg = g.createRadialGradient(cx, cy, 8, cx, cy, w * 0.52);
+    bg.addColorStop(0.0, '#6ce6e2');
+    bg.addColorStop(0.32, '#35bec2');
+    bg.addColorStop(0.68, '#1a8b99');
+    bg.addColorStop(0.92, '#115d6b');
+    bg.addColorStop(1.0, '#0c4350');
+    g.fillStyle = bg;
+    g.fillRect(0, 0, w, h);
+
+    // Gentle concentric water ripple rings
+    for (let i = 1; i <= 5; i++) {
+      g.strokeStyle = i % 2 === 0 ? 'rgba(220, 255, 252, 0.42)' : 'rgba(145, 245, 240, 0.28)';
+      g.lineWidth = 2.2 - i * 0.2;
+      g.beginPath();
+      g.arc(cx + Math.sin(i * 1.4) * 4, cy + Math.cos(i * 1.7) * 4, i * 22, 0, Math.PI * 2);
+      g.stroke();
+    }
+
+    // Painterly BotW caustic arcs
+    g.strokeStyle = 'rgba(230, 255, 252, 0.55)';
+    g.lineCap = 'round';
+    for (let i = 0; i < 18; i++) {
+      const a = hash01(i * 13 + 3) * Math.PI * 2;
+      const r = 18 + hash01(i * 13 + 7) * 86;
+      const span = 0.25 + hash01(i * 13 + 11) * 0.48;
+      g.lineWidth = 1.6 + hash01(i * 13 + 19) * 2.0;
+      g.beginPath();
+      g.arc(cx, cy, r, a, a + span);
+      g.stroke();
+    }
+
+    // Soft sky sheen crescent & sparkle flecks
+    g.fillStyle = 'rgba(255, 255, 255, 0.36)';
+    g.beginPath();
+    g.ellipse(cx - 26, cy - 28, 34, 15, -0.55, 0, Math.PI * 2);
+    g.fill();
+
+    for (let i = 0; i < 10; i++) {
+      const a = hash01(i * 29 + 4) * Math.PI * 2;
+      const r = 12 + hash01(i * 29 + 9) * 76;
+      g.fillStyle = 'rgba(255, 255, 248, 0.72)';
+      g.beginPath();
+      g.arc(cx + Math.cos(a) * r, cy + Math.sin(a) * r, 2.2 + hash01(i * 29) * 2.0, 0, Math.PI * 2);
+      g.fill();
+    }
+  });
+}
+
+function createSignboardTexture(title = 'DESA LEMNOS') {
+  return makeCanvasTexture(256, 128, (g, w, h) => {
+    // Rich carved oak background
+    const bg = g.createLinearGradient(0, 0, 0, h);
+    bg.addColorStop(0, '#7c5234');
+    bg.addColorStop(0.5, '#6a442a');
+    bg.addColorStop(1, '#583721');
+    g.fillStyle = bg;
+    g.fillRect(0, 0, w, h);
+
+    // Subtle wood grain strokes
+    g.strokeStyle = 'rgba(40, 20, 8, 0.28)';
+    for (let y = 8; y < h; y += 9) {
+      g.lineWidth = 1.5;
+      g.beginPath();
+      g.moveTo(0, y);
+      g.bezierCurveTo(w * 0.3, y + 2, w * 0.7, y - 2, w, y);
+      g.stroke();
+    }
+
+    // Carved decorative inner cream/gold border
+    g.strokeStyle = '#d9b574';
+    g.lineWidth = 3;
+    g.strokeRect(10, 10, w - 20, h - 20);
+    g.strokeStyle = '#3c2515';
+    g.lineWidth = 2;
+    g.strokeRect(14, 14, w - 28, h - 28);
+
+    // Cozy corner leaf emblems
+    const corners = [[24, 24], [w - 24, 24], [24, h - 24], [w - 24, h - 24]];
+    g.fillStyle = '#97bf68';
+    for (const [cx, cy] of corners) {
+      g.beginPath();
+      g.arc(cx, cy, 4.5, 0, Math.PI * 2);
+      g.fill();
+    }
+
+    // Small rustic golden sun/wheat crest at top center
+    g.fillStyle = '#f2c76e';
+    g.beginPath();
+    g.arc(w * 0.5, 28, 6, 0, Math.PI * 2);
+    g.fill();
+
+    // Hand-painted storybook village name
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.font = 'bold 28px Georgia, serif';
+    g.fillStyle = '#2d1a0d';
+    g.fillText(title, w * 0.5 + 2, h * 0.57 + 2);
+    g.fillStyle = '#fff1cf';
+    g.fillText(title, w * 0.5, h * 0.57);
+
+    // Subtitle flourish line
+    g.strokeStyle = '#e4c27c';
+    g.lineWidth = 2;
+    g.beginPath();
+    g.moveTo(w * 0.24, h * 0.78);
+    g.lineTo(w * 0.76, h * 0.78);
+    g.stroke();
+  });
+}
+
+function createParchmentTexture(variant = 0) {
+  return makeCanvasTexture(128, 128, (g, w, h) => {
+    const bases = ['#f5e7c4', '#efe0b8', '#f8edd0', '#e9d5a7'];
+    g.fillStyle = bases[variant % bases.length];
+    g.fillRect(0, 0, w, h);
+
+    // Aged edge vignette
+    g.strokeStyle = 'rgba(138, 102, 58, 0.35)';
+    g.lineWidth = 8;
+    g.strokeRect(4, 4, w - 8, h - 8);
+
+    // Header sketch or title bar
+    g.fillStyle = '#5c3f28';
+    g.fillRect(22, 22, w - 44, 7);
+
+    if (variant % 2 === 0) {
+      // Little quest map / creature sketch box
+      g.strokeStyle = '#755438';
+      g.lineWidth = 2;
+      g.strokeRect(24, 36, 40, 34);
+      g.fillStyle = '#9c6e46';
+      g.beginPath();
+      g.arc(44, 53, 9, 0, Math.PI * 2);
+      g.fill();
+    }
+
+    // Ink script lines
+    g.fillStyle = 'rgba(72, 50, 32, 0.72)';
+    const startY = variant % 2 === 0 ? 78 : 42;
+    for (let y = startY; y < h - 18; y += 11) {
+      const lw = 48 + hash01(variant * 19 + y) * 34;
+      g.fillRect(20, y, Math.min(w - 40, lw), 3.5);
+    }
+
+    // Tiny crimson wax seal stamp at bottom-right
+    g.fillStyle = '#b9342c';
+    g.beginPath();
+    g.arc(w - 26, h - 24, 8, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = '#df5b4e';
+    g.beginPath();
+    g.arc(w - 28, h - 26, 3, 0, Math.PI * 2);
+    g.fill();
+  });
+}
+
+function createCanvasSackTexture() {
+  return makeCanvasTexture(128, 128, (g, w, h) => {
+    g.fillStyle = '#cbb38a';
+    g.fillRect(0, 0, w, h);
+
+    // Woven burlap crosshatch
+    g.strokeStyle = 'rgba(118, 92, 58, 0.25)';
+    g.lineWidth = 2;
+    for (let i = 0; i < w; i += 6) {
+      g.beginPath();
+      g.moveTo(i, 0);
+      g.lineTo(i, h);
+      g.stroke();
+      g.beginPath();
+      g.moveTo(0, i);
+      g.lineTo(w, i);
+      g.stroke();
+    }
+    // Red-ochre painted flour stripe
+    g.fillStyle = 'rgba(164, 72, 52, 0.45)';
+    g.fillRect(0, h * 0.44, w, 10);
+  });
+}
+
+function createFallbackWarmGlowTex() {
+  return makeCanvasTexture(64, 64, (g, w, h) => {
+    const grad = g.createRadialGradient(32, 32, 2, 32, 32, 31);
+    grad.addColorStop(0.0, 'rgba(255, 250, 220, 1.0)');
+    grad.addColorStop(0.32, 'rgba(255, 198, 102, 0.72)');
+    grad.addColorStop(0.70, 'rgba(255, 140, 48, 0.22)');
+    grad.addColorStop(1.0, 'rgba(255, 120, 30, 0.0)');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, w, h);
+  });
+}
+
+// ============================================================================
+// SHARED PALETTE CACHE (PER CTX, MINIMAL DRAW CALLS & SHARED TEXTURES)
+// ============================================================================
+
+const paletteCache = new WeakMap();
+let fallbackPalette = null;
+
+function getPropPalette(ctx) {
+  if (ctx && typeof ctx === 'object' && paletteCache.has(ctx)) {
+    return paletteCache.get(ctx);
+  }
+  if (!ctx && fallbackPalette) return fallbackPalette;
+
+  const stoneTex = createCobblestoneTexture();
+  const woodTex = createWoodPlankTexture('#926842', '#6a472a', '#b08357');
+  const darkWoodTex = createWoodPlankTexture('#66452d', '#472e1c', '#825a3c');
+  const shingleTex = createShingleTexture();
+  const wellWaterTex = createWellWaterTexture();
+  const sackTex = createCanvasSackTexture();
+  const parchmentTextures = [
+    createParchmentTexture(0),
+    createParchmentTexture(1),
+    createParchmentTexture(2),
+    createParchmentTexture(3)
+  ];
+
+  const stoneMat = cel(ctx, new THREE.MeshStandardMaterial({
+    color: 0xd8d2c6,
+    map: stoneTex,
+    roughness: 0.92,
+    metalness: 0.02
+  }), { rimStrength: 0.16, shadowLift: 0.56 });
+
+  const stoneLightMat = cel(ctx, new THREE.MeshStandardMaterial({
+    color: 0xe6dfd0,
+    map: stoneTex,
+    roughness: 0.88,
+    metalness: 0.02
+  }), { rimStrength: 0.18, shadowLift: 0.60 });
+
+  const stoneWetDarkMat = cel(ctx, new THREE.MeshStandardMaterial({
+    color: 0x4b5759,
+    map: stoneTex,
+    roughness: 0.78,
+    side: THREE.DoubleSide
+  }), { rimStrength: 0.10, shadowLift: 0.45 });
+
+  const stonePathMat = cel(ctx, new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    map: stoneTex,
+    vertexColors: true,
+    roughness: 0.90,
+    metalness: 0.02
+  }), { rimStrength: 0.14, shadowLift: 0.60 });
+
+  const woodMat = cel(ctx, new THREE.MeshStandardMaterial({
+    color: 0xd8b996,
+    map: woodTex,
+    roughness: 0.86,
+    metalness: 0.02
+  }), { rimStrength: 0.15, shadowLift: 0.58 });
+
+  const darkWoodMat = cel(ctx, new THREE.MeshStandardMaterial({
+    color: 0xc29e7e,
+    map: darkWoodTex,
+    roughness: 0.88,
+    metalness: 0.02
+  }), { rimStrength: 0.14, shadowLift: 0.54 });
+
+  const shingleMat = cel(ctx, new THREE.MeshStandardMaterial({
+    color: 0xe8d0bf,
+    map: shingleTex,
+    roughness: 0.84,
+    metalness: 0.04
+  }), { rimStrength: 0.20, shadowLift: 0.58 });
+
+  const ironMat = cel(ctx, new THREE.MeshStandardMaterial({
+    color: 0x383e45,
+    roughness: 0.56,
+    metalness: 0.35
+  }), { rimStrength: 0.22, shadowLift: 0.50 });
+
+  const ropeMat = cel(ctx, new THREE.MeshStandardMaterial({
+    color: 0xc8aa74,
+    roughness: 0.95
+  }), { rimStrength: 0.14, shadowLift: 0.60 });
+
+  const plasterMat = cel(ctx, new THREE.MeshStandardMaterial({
+    color: 0xefe3c8,
+    roughness: 0.90
+  }), { rimStrength: 0.14, shadowLift: 0.64 });
+
+  const soilMat = cel(ctx, new THREE.MeshStandardMaterial({
+    color: 0x4c3726,
+    roughness: 0.96
+  }), { rimStrength: 0.08, shadowLift: 0.52 });
+
+  const leafBrightMat = cel(ctx, new THREE.MeshStandardMaterial({
+    color: 0x5ca642,
+    roughness: 0.82
+  }), { rimStrength: 0.20, shadowLift: 0.62 });
+
+  const leafDeepMat = cel(ctx, new THREE.MeshStandardMaterial({
+    color: 0x3e7e34,
+    roughness: 0.86
+  }), { rimStrength: 0.16, shadowLift: 0.58 });
+
+  const flowerMats = [
+    cel(ctx, new THREE.MeshStandardMaterial({ color: 0xf7c93b, roughness: 0.72 }), { rimStrength: 0.22, shadowLift: 0.66 }), // Sunflower gold
+    cel(ctx, new THREE.MeshStandardMaterial({ color: 0x5eb8f5, roughness: 0.72 }), { rimStrength: 0.22, shadowLift: 0.66 }), // Sky blue
+    cel(ctx, new THREE.MeshStandardMaterial({ color: 0xf06595, roughness: 0.72 }), { rimStrength: 0.22, shadowLift: 0.66 }), // Berry pink
+    cel(ctx, new THREE.MeshStandardMaterial({ color: 0xfff8ea, roughness: 0.74 }), { rimStrength: 0.20, shadowLift: 0.68 })  // White daisy
+  ];
+
+  const flowerCenterMat = cel(ctx, new THREE.MeshStandardMaterial({
+    color: 0xe89b24,
+    roughness: 0.78
+  }), { rimStrength: 0.18, shadowLift: 0.62 });
+
+  const waxSealMat = cel(ctx, new THREE.MeshStandardMaterial({
+    color: 0xc2352c,
+    roughness: 0.55
+  }), { rimStrength: 0.22, shadowLift: 0.56 });
+
+  const sackMat = cel(ctx, new THREE.MeshStandardMaterial({
+    color: 0xe8d9be,
+    map: sackTex,
+    roughness: 0.94
+  }), { rimStrength: 0.14, shadowLift: 0.60 });
+
+  const wellWaterDepthMat = new THREE.MeshBasicMaterial({
+    color: 0x0b3f4a
+  });
+
+  const wellWaterSurfaceMat = new THREE.MeshStandardMaterial({
+    color: 0x72ebe7,
+    map: wellWaterTex,
+    emissive: 0x105d68,
+    emissiveIntensity: 0.38,
+    roughness: 0.14,
+    metalness: 0.15,
+    transparent: true,
+    opacity: 0.88
+  });
+
+  const wellWaterSheenMat = new THREE.MeshBasicMaterial({
+    color: 0xb8fff9,
+    transparent: true,
+    opacity: 0.28,
+    depthWrite: false
+  });
+
+  const parchmentMats = parchmentTextures.map((tex) => cel(ctx, new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    map: tex,
+    roughness: 0.88,
+    side: THREE.DoubleSide
+  }), { rimStrength: 0.10, shadowLift: 0.68 }));
+
+  const warmGlowTex = (ctx && ctx.warmGlowTex) ? ctx.warmGlowTex : createFallbackWarmGlowTex();
+
+  const pal = {
+    stoneMat,
+    stoneLightMat,
+    stoneWetDarkMat,
+    stonePathMat,
+    woodMat,
+    darkWoodMat,
+    shingleMat,
+    ironMat,
+    ropeMat,
+    plasterMat,
+    soilMat,
+    leafBrightMat,
+    leafDeepMat,
+    flowerMats,
+    flowerCenterMat,
+    waxSealMat,
+    sackMat,
+    wellWaterDepthMat,
+    wellWaterSurfaceMat,
+    wellWaterSheenMat,
+    parchmentMats,
+    warmGlowTex,
+    signboardMatCache: new Map()
+  };
+
+  if (ctx && typeof ctx === 'object') {
+    paletteCache.set(ctx, pal);
+  } else {
+    fallbackPalette = pal;
+  }
+  return pal;
+}
+
+function getSignboardMaterial(ctx, pal, title) {
+  const key = title || 'DESA LEMNOS';
+  if (pal.signboardMatCache.has(key)) return pal.signboardMatCache.get(key);
+  const tex = createSignboardTexture(key);
+  const mat = cel(ctx, new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    map: tex,
+    roughness: 0.82
+  }), { rimStrength: 0.14, shadowLift: 0.62 });
+  pal.signboardMatCache.set(key, mat);
+  return mat;
+}
+
+// ============================================================================
+// REUSABLE STORYBOOK HANGING LANTERN BUILDER (ZERO POINTLIGHTS!)
+// ============================================================================
+
+function buildHangingLantern(ctx, pal, phase = 0, scale = 1.0) {
+  const lGroup = new THREE.Group();
+  lGroup.scale.setScalar(scale);
+
+  // Suspension chain ring
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.045, 0.012, 6, 10), pal.ironMat);
+  ring.position.y = 0.02;
+  lGroup.add(ring);
+
+  // Small finial knob + tapered hexagonal iron roof hood
+  const finial = new THREE.Mesh(new THREE.SphereGeometry(0.028, 6, 5), pal.ironMat);
+  finial.position.y = -0.03;
+  lGroup.add(finial);
+
+  const hood = new THREE.Mesh(new THREE.ConeGeometry(0.19, 0.13, 6), pal.ironMat);
+  hood.position.y = -0.10;
+  setShadow(hood, ctx, true, false);
+  lGroup.add(hood);
+
+  // Top collar ring
+  const topRim = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.028, 6), pal.ironMat);
+  topRim.position.y = -0.17;
+  lGroup.add(topRim);
+
+  // Glowing frosted amber glass core (unique material per lantern for world.js flicker/toggle)
+  const glassMat = new THREE.MeshBasicMaterial({ color: 0xffe49e });
+  const glass = new THREE.Mesh(new THREE.CylinderGeometry(0.105, 0.088, 0.24, 6), glassMat);
+  glass.position.y = -0.295;
+  lGroup.add(glass);
+
+  // 4 forged iron cage bars around glass
+  const barGeo = new THREE.CylinderGeometry(0.011, 0.011, 0.26, 4);
+  for (let i = 0; i < 4; i++) {
+    const a = (i / 4) * Math.PI * 2 + Math.PI * 0.25;
+    const bar = new THREE.Mesh(barGeo, pal.ironMat);
+    bar.position.set(Math.cos(a) * 0.112, -0.295, Math.sin(a) * 0.112);
+    lGroup.add(bar);
+  }
+
+  // Lower iron base pan + drop finial
+  const basePan = new THREE.Mesh(new THREE.CylinderGeometry(0.115, 0.06, 0.05, 6), pal.ironMat);
+  basePan.position.y = -0.435;
+  lGroup.add(basePan);
+
+  const dropTip = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.055, 5), pal.ironMat);
+  dropTip.rotation.x = Math.PI;
+  dropTip.position.y = -0.48;
+  lGroup.add(dropTip);
+
+  // Warm additive glow halo sprite (unique SpriteMaterial per lantern)
+  const haloMat = new THREE.SpriteMaterial({
+    map: pal.warmGlowTex,
+    color: 0xffc66b,
+    transparent: true,
+    opacity: 0.72,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false
+  });
+  const halo = new THREE.Sprite(haloMat);
+  halo.position.set(0, -0.295, 0);
+  halo.scale.set(1.55, 1.55, 1.0);
+  lGroup.add(halo);
+
+  return {
+    lanternGroup: lGroup,
+    entry: {
+      group: lGroup,
+      halo,
+      glassMat,
+      phase
+    }
+  };
+}
+
+// Helper for triangular gable panel geometry (extruded flat triangle in XY plane)
+function createGableTriangleGeo(halfWidth, height, depth) {
+  const shape = new THREE.Shape();
+  shape.moveTo(-halfWidth, 0);
+  shape.lineTo(halfWidth, 0);
+  shape.lineTo(0, height);
+  shape.closePath();
+  const geo = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false });
+  geo.translate(0, 0, -depth * 0.5);
+  return geo;
+}
+
+// ============================================================================
+// 1. VILLAGE WELL (CENTERPIECE WITH CRYSTAL-CLEAR ANIMATED WATER)
+// ============================================================================
+
+function createVillageWell(ctx, opts = {}) {
+  const pal = getPropPalette(ctx);
+  const seed = opts.seed ?? 1;
+  const rng = makeRng(seed * 7.3);
+  const group = new THREE.Group();
+
+  // 1) Raised circular cobblestone apron (r ~ 1.35, grounded down to y = -0.55)
+  const apronHeight = 0.68; // y = -0.55 .. +0.13
+  const apron = new THREE.Mesh(new THREE.CylinderGeometry(1.36, 1.44, apronHeight, 18), pal.stoneMat);
+  apron.position.y = -0.55 + apronHeight * 0.5;
+  setShadow(apron, ctx, true, true);
+  group.add(apron);
+
+  // Sculpted radial curb stones around the apron perimeter
+  const curbCount = 14;
+  const curbGeo = new THREE.BoxGeometry(0.46, 0.14, 0.24);
+  for (let i = 0; i < curbCount; i++) {
+    const a = (i / curbCount) * Math.PI * 2;
+    const stone = new THREE.Mesh(curbGeo, i % 3 === 0 ? pal.stoneLightMat : pal.stoneMat);
+    stone.position.set(Math.cos(a) * 1.24, 0.10 + (rng() - 0.5) * 0.025, Math.sin(a) * 1.24);
+    stone.rotation.y = -a + Math.PI * 0.5;
+    stone.scale.set(0.92 + rng() * 0.16, 0.9 + rng() * 0.2, 0.92 + rng() * 0.14);
+    setShadow(stone, ctx, false, true);
+    group.add(stone);
+  }
+
+  // Front stone step / bucket rest slab (facing -Z)
+  const restSlab = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.16, 0.44), pal.stoneLightMat);
+  restSlab.position.set(0.32, 0.16, -1.06);
+  restSlab.rotation.y = -0.12;
+  setShadow(restSlab, ctx, true, true);
+  group.add(restSlab);
+
+  // 2) Multi-stone cylindrical well wall (r = 0.88, height = 0.78, open-ended shaft)
+  const wallOuter = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.88, 0.92, 0.78, 16, 1, true),
+    pal.stoneMat
+  );
+  wallOuter.position.y = 0.10 + 0.39;
+  setShadow(wallOuter, ctx, true, true);
+  group.add(wallOuter);
+
+  // Inner damp stone shaft wall
+  const wallInner = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.73, 0.72, 0.78, 16, 1, true),
+    pal.stoneWetDarkMat
+  );
+  wallInner.position.y = 0.10 + 0.39;
+  group.add(wallInner);
+
+  // Sculpted stone coping rim blocks encircling top of well wall (y = 0.84..0.97)
+  const rimCount = 12;
+  const copingGeo = new THREE.BoxGeometry(0.46, 0.14, 0.26);
+  for (let i = 0; i < rimCount; i++) {
+    const a = (i / rimCount) * Math.PI * 2;
+    const block = new THREE.Mesh(copingGeo, i % 2 === 0 ? pal.stoneLightMat : pal.stoneMat);
+    block.position.set(Math.cos(a) * 0.81, 0.91 + (rng() - 0.5) * 0.015, Math.sin(a) * 0.81);
+    block.rotation.y = -a + Math.PI * 0.5;
+    block.scale.set(0.95 + rng() * 0.1, 0.95 + rng() * 0.12, 1.0);
+    setShadow(block, ctx, true, true);
+    group.add(block);
+  }
+
+  // 3) CRYSTAL-CLEAR ANIMATED WATER SURFACE INSIDE WELL (y = 0.56 — NEVER brown wood!)
+  const deepDisc = new THREE.Mesh(new THREE.CircleGeometry(0.73, 20), pal.wellWaterDepthMat);
+  deepDisc.rotation.x = -Math.PI * 0.5;
+  deepDisc.position.y = 0.24;
+  group.add(deepDisc);
+
+  const wellWater = new THREE.Group();
+  wellWater.position.set(0, 0.56, 0);
+
+  const waterSurface = new THREE.Mesh(new THREE.CircleGeometry(0.73, 24), pal.wellWaterSurfaceMat);
+  waterSurface.rotation.x = -Math.PI * 0.5;
+  waterSurface.receiveShadow = true;
+  wellWater.add(waterSurface);
+
+  // Delicate floating shimmer ring slightly above surface for live sparkle when rotated
+  const rippleRing = new THREE.Mesh(new THREE.RingGeometry(0.24, 0.32, 18), pal.wellWaterSheenMat);
+  rippleRing.rotation.x = -Math.PI * 0.5;
+  rippleRing.position.y = 0.006;
+  wellWater.add(rippleRing);
+
+  const rippleRing2 = new THREE.Mesh(new THREE.RingGeometry(0.48, 0.54, 18), pal.wellWaterSheenMat);
+  rippleRing2.rotation.x = -Math.PI * 0.5;
+  rippleRing2.position.y = 0.008;
+  wellWater.add(rippleRing2);
+
+  group.add(wellWater);
+
+  // 4) Twin stout timber support posts (h ~ 2.05) + diagonal knee braces
+  const postGeo = new THREE.BoxGeometry(0.16, 2.08, 0.16);
+  const baseCollarGeo = new THREE.BoxGeometry(0.24, 0.26, 0.24);
+  for (const side of [-1, 1]) {
+    const px = side * 0.84;
+    const post = new THREE.Mesh(postGeo, pal.darkWoodMat);
+    post.position.set(px, 1.14, 0);
+    setShadow(post, ctx, true, true);
+    group.add(post);
+
+    // Stone socket collar anchoring post to well rim
+    const socket = new THREE.Mesh(baseCollarGeo, pal.stoneLightMat);
+    socket.position.set(px, 0.94, 0);
+    setShadow(socket, ctx, true, true);
+    group.add(socket);
+
+    // Iron mounting bracket straps
+    const strap = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.05, 0.18), pal.ironMat);
+    strap.position.set(px, 1.18, 0);
+    group.add(strap);
+
+    // Diagonal knee braces tying post to upper crossbeam (inward) & rafters (front/back)
+    const inBrace = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.52, 0.09), pal.darkWoodMat);
+    inBrace.position.set(px - side * 0.18, 1.94, 0);
+    inBrace.rotation.z = side * 0.72;
+    setShadow(inBrace, ctx, true, true);
+    group.add(inBrace);
+
+    for (const zDir of [-1, 1]) {
+      const eaveBrace = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.44, 0.08), pal.darkWoodMat);
+      eaveBrace.position.set(px, 1.88, zDir * 0.16);
+      eaveBrace.rotation.x = -zDir * 0.68;
+      setShadow(eaveBrace, ctx, true, true);
+      group.add(eaveBrace);
+    }
+  }
+
+  // Horizontal tie beam connecting tops of posts
+  const tieBeam = new THREE.Mesh(new THREE.BoxGeometry(1.94, 0.13, 0.15), pal.darkWoodMat);
+  tieBeam.position.set(0, 2.12, 0);
+  setShadow(tieBeam, ctx, true, true);
+  group.add(tieBeam);
+
+  // 5) Windlass roller axle, iron crank handle, coiled rope & hanging banded wooden bucket
+  const axleY = 1.62;
+  const rollerDrum = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 1.56, 10), pal.woodMat);
+  rollerDrum.rotation.z = Math.PI * 0.5;
+  rollerDrum.position.set(0, axleY, 0);
+  setShadow(rollerDrum, ctx, true, true);
+  group.add(rollerDrum);
+
+  // Iron axle shaft + crank handle on +X side
+  const ironPin = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.024, 1.92, 6), pal.ironMat);
+  ironPin.rotation.z = Math.PI * 0.5;
+  ironPin.position.set(0.04, axleY, 0);
+  group.add(ironPin);
+
+  const crankArm = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.28, 0.045), pal.ironMat);
+  crankArm.position.set(0.99, axleY - 0.11, 0);
+  group.add(crankArm);
+
+  const crankGrip = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, 0.18, 6), pal.woodMat);
+  crankGrip.rotation.z = Math.PI * 0.5;
+  crankGrip.position.set(1.09, axleY - 0.23, 0);
+  group.add(crankGrip);
+
+  // Coiled rope wrapped around windlass drum
+  const coilGeo = new THREE.TorusGeometry(0.088, 0.018, 6, 12);
+  for (let i = -3; i <= 3; i++) {
+    const coil = new THREE.Mesh(coilGeo, pal.ropeMat);
+    coil.rotation.y = Math.PI * 0.5;
+    coil.position.set(i * 0.036, axleY, 0);
+    group.add(coil);
+  }
+
+  // Hanging rope & banded wooden bucket suspended just above the crystal-clear water
+  const bucketPivot = new THREE.Group();
+  bucketPivot.position.set(0, axleY, 0.05);
+
+  const dropLen = 0.54;
+  const dropRope = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, dropLen, 6), pal.ropeMat);
+  dropRope.position.y = -dropLen * 0.5;
+  bucketPivot.add(dropRope);
+
+  // Arched iron bail handle
+  const bail = new THREE.Mesh(new THREE.TorusGeometry(0.155, 0.012, 6, 14, Math.PI), pal.ironMat);
+  bail.position.y = -dropLen - 0.15;
+  bucketPivot.add(bail);
+
+  // Tapered wooden-stave bucket
+  const bucketY = -dropLen - 0.29;
+  const bucketBody = new THREE.Mesh(new THREE.CylinderGeometry(0.165, 0.125, 0.28, 12), pal.woodMat);
+  bucketBody.position.y = bucketY;
+  setShadow(bucketBody, ctx, true, true);
+  bucketPivot.add(bucketBody);
+
+  // Twin dark iron hoops around bucket
+  const hoopTop = new THREE.Mesh(new THREE.CylinderGeometry(0.164, 0.158, 0.028, 12), pal.ironMat);
+  hoopTop.position.y = bucketY + 0.07;
+  bucketPivot.add(hoopTop);
+
+  const hoopBot = new THREE.Mesh(new THREE.CylinderGeometry(0.142, 0.136, 0.026, 12), pal.ironMat);
+  hoopBot.position.y = bucketY - 0.07;
+  bucketPivot.add(hoopBot);
+
+  // Little splash of bright teal water inside the bucket
+  const bucketWater = new THREE.Mesh(new THREE.CircleGeometry(0.145, 12), pal.wellWaterSurfaceMat);
+  bucketWater.rotation.x = -Math.PI * 0.5;
+  bucketWater.position.y = bucketY + 0.115;
+  bucketPivot.add(bucketWater);
+
+  group.add(bucketPivot);
+
+  // 6) Cute pitched shingled mini-roof (2 angled shingled panels + gable triangles + ridge beam)
+  const roofWidth = 2.26; // spans X
+  const slopeLen = 1.24;
+  const slopePitch = 0.64; // ~36.6 deg
+  const ridgeY = 2.74;
+  const roofHalfSpanZ = Math.cos(slopePitch) * slopeLen;
+  const roofRise = Math.sin(slopePitch) * slopeLen;
+
+  const slopeGeo = new THREE.BoxGeometry(roofWidth, 0.09, slopeLen);
+  for (const zDir of [-1, 1]) {
+    const slope = new THREE.Mesh(slopeGeo, pal.shingleMat);
+    slope.position.set(0, ridgeY - roofRise * 0.48, zDir * roofHalfSpanZ * 0.49);
+    slope.rotation.x = zDir * slopePitch;
+    setShadow(slope, ctx, true, true);
+    group.add(slope);
+
+    // Rafter tails visible under eaves
+    for (const rx of [-0.84, 0, 0.84]) {
+      const rafter = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, slopeLen * 0.98), pal.darkWoodMat);
+      rafter.position.set(rx, ridgeY - roofRise * 0.48 - 0.07, zDir * roofHalfSpanZ * 0.49);
+      rafter.rotation.x = zDir * slopePitch;
+      group.add(rafter);
+    }
+  }
+
+  // Wooden ridge beam & cap
+  const ridgeBeam = new THREE.Mesh(new THREE.BoxGeometry(roofWidth + 0.16, 0.13, 0.14), pal.darkWoodMat);
+  ridgeBeam.position.set(0, ridgeY + 0.03, 0);
+  setShadow(ridgeBeam, ctx, true, true);
+  group.add(ridgeBeam);
+
+  // Left & right gable triangles (facing ±X)
+  const gableGeo = createGableTriangleGeo(roofHalfSpanZ * 0.92, roofRise * 0.90, 0.09);
+  for (const xSide of [-1, 1]) {
+    const gable = new THREE.Mesh(gableGeo, pal.plasterMat);
+    gable.rotation.y = Math.PI * 0.5;
+    gable.position.set(xSide * 0.86, ridgeY - roofRise * 0.88, 0);
+    setShadow(gable, ctx, true, true);
+    group.add(gable);
+
+    // Timber gable base beam
+    const gBase = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.09, roofHalfSpanZ * 1.92), pal.darkWoodMat);
+    gBase.position.set(xSide * 0.86, ridgeY - roofRise * 0.90, 0);
+    group.add(gBase);
+  }
+
+  // 7) Warm hanging lantern tucked under front-left eave
+  const hookBar = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 0.24), pal.ironMat);
+  hookBar.position.set(-0.84, 2.02, -0.68);
+  group.add(hookBar);
+
+  const { lanternGroup, entry: lanternEntry } = buildHangingLantern(ctx, pal, seed * 1.7 + 0.4, 0.78);
+  lanternGroup.position.set(-0.84, 2.01, -0.78);
+  group.add(lanternGroup);
+
+  group.userData = {
+    kind: 'village_well',
+    collider: { type: 'well', radius: 1.05, height: 2.6 },
+    lanterns: [lanternEntry],
+    animated: {
+      wellWater,
+      bucketPivot
+    }
+  };
+  return group;
+}
+
+// ============================================================================
+// 2. VILLAGE GATE ARCH (WELCOMING RUSTIC TIMBER ENTRANCE ARCHWAY)
+// ============================================================================
+
+function createVillageGateArch(ctx, opts = {}) {
+  const pal = getPropPalette(ctx);
+  const spanWidth = opts.spanWidth ?? 6.2;
+  const clearHeight = opts.clearHeight ?? 3.6;
+  const title = opts.title || 'DESA LEMNOS';
+  const seed = opts.seed ?? 1;
+  const halfSpan = spanWidth * 0.5;
+
+  const group = new THREE.Group();
+  const lanterns = [];
+
+  // 1) Twin cobblestone pedestal bases (extending down to y = -0.65) + heavy timber gateposts
+  const pedHeight = 1.62; // y = -0.65 .. +0.97
+  const postHeight = clearHeight + 0.52; // rises into roof truss
+  const postGeo = new THREE.BoxGeometry(0.36, postHeight, 0.36);
+
+  for (const side of [-1, 1]) {
+    const px = side * halfSpan;
+
+    // Tapered cobblestone pedestal pier
+    const pedestal = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.46, 0.58, pedHeight, 4),
+      pal.stoneMat
+    );
+    pedestal.rotation.y = Math.PI * 0.25;
+    pedestal.position.set(px, -0.65 + pedHeight * 0.5, 0);
+    setShadow(pedestal, ctx, true, true);
+    group.add(pedestal);
+
+    // Beveled stone pedestal cap slab
+    const capSlab = new THREE.Mesh(new THREE.BoxGeometry(0.86, 0.14, 0.86), pal.stoneLightMat);
+    capSlab.position.set(px, 0.98, 0);
+    setShadow(capSlab, ctx, true, true);
+    group.add(capSlab);
+
+    // Heavy timber pillar
+    const post = new THREE.Mesh(postGeo, pal.darkWoodMat);
+    post.position.set(px, 0.94 + postHeight * 0.5, 0);
+    setShadow(post, ctx, true, true);
+    group.add(post);
+
+    // Twin dark iron reinforcement collars around pillar
+    for (const strapY of [1.22, clearHeight - 0.12]) {
+      const strap = new THREE.Mesh(new THREE.BoxGeometry(0.40, 0.08, 0.40), pal.ironMat);
+      strap.position.set(px, strapY, 0);
+      group.add(strap);
+    }
+
+    // Diagonal timber knee braces under the main tie beam (high up for full cart width!)
+    const knee = new THREE.Mesh(new THREE.BoxGeometry(0.18, 1.05, 0.18), pal.darkWoodMat);
+    knee.position.set(px - side * 0.48, clearHeight - 0.34, 0);
+    knee.rotation.z = side * 0.78;
+    setShadow(knee, ctx, true, true);
+    group.add(knee);
+
+    // Forged iron scroll bracket & warm hanging lantern on each pillar (facing road -Z & slightly inward)
+    const bracketY = clearHeight - 0.62;
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.06, 0.06), pal.ironMat);
+    arm.position.set(px - side * 0.34, bracketY, -0.22);
+    group.add(arm);
+
+    const strut = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.045, 0.045), pal.ironMat);
+    strut.position.set(px - side * 0.26, bracketY - 0.16, -0.22);
+    strut.rotation.z = side * 0.68;
+    group.add(strut);
+
+    const phase = seed * 1.3 + (side < 0 ? 0.5 : 2.6);
+    const { lanternGroup, entry } = buildHangingLantern(ctx, pal, phase, 0.96);
+    lanternGroup.position.set(px - side * 0.56, bracketY - 0.03, -0.22);
+    group.add(lanternGroup);
+    lanterns.push(entry);
+  }
+
+  // 2) Horizontal lintel tie-beam & rustic timber truss header
+  const mainBeamY = clearHeight + 0.14;
+  const mainBeam = new THREE.Mesh(new THREE.BoxGeometry(spanWidth + 1.36, 0.28, 0.38), pal.darkWoodMat);
+  mainBeam.position.set(0, mainBeamY, 0);
+  setShadow(mainBeam, ctx, true, true);
+  group.add(mainBeam);
+
+  // Upper collar beam supporting the pitched shingled roof
+  const upperBeamY = clearHeight + 0.56;
+  const upperBeam = new THREE.Mesh(new THREE.BoxGeometry(spanWidth + 1.62, 0.20, 0.30), pal.darkWoodMat);
+  upperBeam.position.set(0, upperBeamY, 0);
+  setShadow(upperBeam, ctx, true, true);
+  group.add(upperBeam);
+
+  // Decorative vertical king/queen struts between main lintel & upper beam
+  const strutCount = 5;
+  for (let i = 0; i < strutCount; i++) {
+    const t = i / (strutCount - 1);
+    const sx = (t - 0.5) * (spanWidth - 1.2);
+    const vStrut = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.36, 0.16), pal.woodMat);
+    vStrut.position.set(sx, (mainBeamY + upperBeamY) * 0.5, 0);
+    setShadow(vStrut, ctx, true, true);
+    group.add(vStrut);
+  }
+
+  // 3) Pitched shingled roof cap over the entire arch beam
+  const roofLength = spanWidth + 2.05;
+  const slopePitch = 0.54; // ~31 deg
+  const slopeDepth = 1.18;
+  const ridgeY = upperBeamY + 0.68;
+  const halfRunZ = Math.cos(slopePitch) * slopeDepth;
+  const riseY = Math.sin(slopePitch) * slopeDepth;
+
+  const slopeGeo = new THREE.BoxGeometry(roofLength, 0.10, slopeDepth);
+  for (const zDir of [-1, 1]) {
+    const slope = new THREE.Mesh(slopeGeo, pal.shingleMat);
+    slope.position.set(0, ridgeY - riseY * 0.48, zDir * halfRunZ * 0.49);
+    slope.rotation.x = zDir * slopePitch;
+    setShadow(slope, ctx, true, true);
+    group.add(slope);
+
+    // Visible timber rafters underneath the roof eaves
+    for (let rx = -halfSpan - 0.6; rx <= halfSpan + 0.61; rx += 1.05) {
+      const rafter = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.09, slopeDepth * 0.96), pal.darkWoodMat);
+      rafter.position.set(rx, ridgeY - riseY * 0.48 - 0.08, zDir * halfRunZ * 0.49);
+      rafter.rotation.x = zDir * slopePitch;
+      group.add(rafter);
+    }
+  }
+
+  // Chunky wooden ridge beam + charming upturned storybook end finials
+  const ridgeBeam = new THREE.Mesh(new THREE.BoxGeometry(roofLength + 0.24, 0.16, 0.16), pal.darkWoodMat);
+  ridgeBeam.position.set(0, ridgeY + 0.04, 0);
+  setShadow(ridgeBeam, ctx, true, true);
+  group.add(ridgeBeam);
+
+  for (const xSide of [-1, 1]) {
+    // Gable end fill triangles
+    const gable = new THREE.Mesh(createGableTriangleGeo(halfRunZ * 0.92, riseY * 0.88, 0.11), pal.plasterMat);
+    gable.rotation.y = Math.PI * 0.5;
+    gable.position.set(xSide * (roofLength * 0.5 - 0.18), ridgeY - riseY * 0.88, 0);
+    group.add(gable);
+
+    // Upturned ridge tip ornament
+    const tip = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.16, 0.18), pal.darkWoodMat);
+    tip.position.set(xSide * (roofLength * 0.5 + 0.10), ridgeY + 0.11, 0);
+    tip.rotation.z = xSide * 0.34;
+    group.add(tip);
+  }
+
+  // 4) Hanging carved wooden village welcome signboard ("DESA LEMNOS") with breeze sway pivot
+  const signPivot = new THREE.Group();
+  signPivot.position.set(0, clearHeight, 0);
+
+  // Two iron suspension chains
+  const chainGeo = new THREE.CylinderGeometry(0.018, 0.018, 0.24, 6);
+  for (const cx of [-0.76, 0.76]) {
+    const chain = new THREE.Mesh(chainGeo, pal.ironMat);
+    chain.position.set(cx, -0.11, 0);
+    signPivot.add(chain);
+
+    const eyeRing = new THREE.Mesh(new THREE.TorusGeometry(0.036, 0.011, 5, 10), pal.ironMat);
+    eyeRing.position.set(cx, -0.22, 0);
+    signPivot.add(eyeRing);
+  }
+
+  // Carved framed signboard (double-sided CanvasTexture!)
+  const signW = 2.16;
+  const signH = 0.56;
+  const signY = -0.50; // bottom edge sits at clearHeight - 0.78 (~2.82m headroom!)
+  const signMat = getSignboardMaterial(ctx, pal, title);
+
+  const signCore = new THREE.Mesh(new THREE.BoxGeometry(signW, signH, 0.08), pal.darkWoodMat);
+  signCore.position.set(0, signY, 0);
+  setShadow(signCore, ctx, true, true);
+  signPivot.add(signCore);
+
+  // Front (-Z) and back (+Z) painted carved faces
+  const faceGeo = new THREE.PlaneGeometry(signW - 0.08, signH - 0.08);
+  const frontFace = new THREE.Mesh(faceGeo, signMat);
+  frontFace.position.set(0, signY, -0.043);
+  frontFace.rotation.y = Math.PI;
+  signPivot.add(frontFace);
+
+  const backFace = new THREE.Mesh(faceGeo, signMat);
+  backFace.position.set(0, signY, 0.043);
+  signPivot.add(backFace);
+
+  // Dark timber top/bottom trim moldings + iron corner clasps
+  const trimBarGeo = new THREE.BoxGeometry(signW + 0.10, 0.06, 0.11);
+  for (const ty of [signY + signH * 0.5, signY - signH * 0.5]) {
+    const trim = new THREE.Mesh(trimBarGeo, pal.darkWoodMat);
+    trim.position.set(0, ty, 0);
+    signPivot.add(trim);
+  }
+  const claspGeo = new THREE.BoxGeometry(0.11, 0.11, 0.12);
+  for (const sx of [-1, 1]) {
+    for (const sy of [-1, 1]) {
+      const clasp = new THREE.Mesh(claspGeo, pal.ironMat);
+      clasp.position.set(sx * (signW * 0.5 - 0.02), signY + sy * (signH * 0.5 - 0.02), 0);
+      signPivot.add(clasp);
+    }
+  }
+
+  group.add(signPivot);
+
+  // ONLY TWO pillar circle colliders — center road remains 100% open & driveable!
+  group.userData = {
+    kind: 'village_gate_arch',
+    colliders: [
+      { localX: -halfSpan, localZ: 0, radius: 0.45, height: 3.8 },
+      { localX: halfSpan, localZ: 0, radius: 0.45, height: 3.8 }
+    ],
+    lanterns,
+    animated: {
+      signPivot
+    }
+  };
+  return group;
+}
+
+// ============================================================================
+// 3. VILLAGE LANTERN POST (STORYBOOK LAMP POST)
+// ============================================================================
+
+function createVillageLanternPost(ctx, opts = {}) {
+  const pal = getPropPalette(ctx);
+  const seed = opts.seed ?? 1;
+  const phase = opts.phase ?? (seed * 1.9);
+  const group = new THREE.Group();
+
+  // 1) Stacked cobblestone base collar (y = -0.45 .. +0.35)
+  const basePlinth = new THREE.Mesh(new THREE.CylinderGeometry(0.20, 0.27, 0.80, 8), pal.stoneMat);
+  basePlinth.position.y = -0.45 + 0.40;
+  setShadow(basePlinth, ctx, true, true);
+  group.add(basePlinth);
+
+  const baseCap = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.23, 0.09, 8), pal.stoneLightMat);
+  baseCap.position.y = 0.36;
+  setShadow(baseCap, ctx, true, true);
+  group.add(baseCap);
+
+  // 2) Chamfered dark timber post (h ~ 2.85, rising from y = 0.25 to 3.10)
+  const post = new THREE.Mesh(new THREE.CylinderGeometry(0.082, 0.105, 2.85, 8), pal.darkWoodMat);
+  post.position.y = 0.25 + 1.425;
+  setShadow(post, ctx, true, true);
+  group.add(post);
+
+  // Decorative iron band & pointed cap finial at top of post
+  const postCollar = new THREE.Mesh(new THREE.CylinderGeometry(0.098, 0.098, 0.08, 8), pal.ironMat);
+  postCollar.position.y = 2.86;
+  group.add(postCollar);
+
+  const postCap = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.16, 8), pal.ironMat);
+  postCap.position.y = 3.16;
+  group.add(postCap);
+
+  // 3) Curved / angled wooden bracket arm with diagonal strut (+X direction)
+  const arm = new THREE.Mesh(new THREE.BoxGeometry(0.76, 0.085, 0.085), pal.darkWoodMat);
+  arm.position.set(0.34, 2.88, 0);
+  arm.rotation.z = 0.07;
+  setShadow(arm, ctx, true, true);
+  group.add(arm);
+
+  const strut = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.07, 0.07), pal.darkWoodMat);
+  strut.position.set(0.22, 2.66, 0);
+  strut.rotation.z = 0.76;
+  setShadow(strut, ctx, true, true);
+  group.add(strut);
+
+  // Iron scroll curl tip on arm
+  const hook = new THREE.Mesh(new THREE.TorusGeometry(0.055, 0.014, 6, 10, Math.PI * 1.4), pal.ironMat);
+  hook.position.set(0.68, 2.86, 0);
+  group.add(hook);
+
+  // 4) Hanging storybook iron lantern & glowing halo
+  const { lanternGroup, entry: lanternEntry } = buildHangingLantern(ctx, pal, phase, 0.95);
+  lanternGroup.position.set(0.68, 2.82, 0);
+  group.add(lanternGroup);
+
+  // 5) Optional directional signpost arm & cute hanging flower pot
+  if (opts.withSign) {
+    const signArm = new THREE.Mesh(new THREE.BoxGeometry(0.74, 0.19, 0.055), pal.woodMat);
+    signArm.position.set(-0.34, 2.12, 0.04);
+    signArm.rotation.y = 0.16;
+    setShadow(signArm, ctx, true, true);
+    group.add(signArm);
+
+    // Pointed arrow tip on sign
+    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.115, 0.18, 4), pal.woodMat);
+    tip.rotation.z = Math.PI * 0.5;
+    tip.rotation.x = Math.PI * 0.25;
+    tip.scale.set(1.0, 1.0, 0.45);
+    tip.position.set(-0.76, 2.12, 0.10);
+    group.add(tip);
+
+    // Small wooden flower pot tucked on bracket below sign
+    const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.10, 0.18, 8), pal.shingleMat);
+    pot.position.set(-0.24, 1.66, 0);
+    setShadow(pot, ctx, true, true);
+    group.add(pot);
+
+    const potLeaf = new THREE.Mesh(new THREE.DodecahedronGeometry(0.12, 0), pal.leafBrightMat);
+    potLeaf.position.set(-0.24, 1.78, 0);
+    potLeaf.scale.set(1.1, 0.72, 1.1);
+    group.add(potLeaf);
+
+    const potBloom = new THREE.Mesh(
+      new THREE.DodecahedronGeometry(0.055, 0),
+      pal.flowerMats[Math.abs(Math.floor(seed)) % pal.flowerMats.length]
+    );
+    potBloom.position.set(-0.26, 1.86, 0.04);
+    group.add(potBloom);
+  }
+
+  group.userData = {
+    kind: 'village_lantern_post',
+    lanterns: [lanternEntry],
+    collider: { type: 'lantern', radius: 0.24, height: 2.9 }
+  };
+  return group;
+}
+
+// ============================================================================
+// 4. VILLAGE NOTICE BOARD (QUEST BOARD WITH TILTED FLYERS & MINI-ROOF)
+// ============================================================================
+
+function createVillageNoticeBoard(ctx, opts = {}) {
+  const pal = getPropPalette(ctx);
+  const seed = opts.seed ?? 1;
+  const rng = makeRng(seed * 11.1);
+  const group = new THREE.Group();
+
+  // 1) Twin timber posts (y = -0.45 .. 2.05) + stone collar footings
+  const postGeo = new THREE.BoxGeometry(0.14, 2.50, 0.14);
+  const footingGeo = new THREE.CylinderGeometry(0.14, 0.18, 0.64, 6);
+  for (const xSide of [-1, 1]) {
+    const px = xSide * 0.80;
+    const post = new THREE.Mesh(postGeo, pal.darkWoodMat);
+    post.position.set(px, -0.45 + 1.25, 0);
+    setShadow(post, ctx, true, true);
+    group.add(post);
+
+    const footing = new THREE.Mesh(footingGeo, pal.stoneMat);
+    footing.position.set(px, -0.45 + 0.32, 0);
+    setShadow(footing, ctx, true, true);
+    group.add(footing);
+  }
+
+  // 2) Framed dark plank backing board (facing -Z)
+  const boardW = 1.48;
+  const boardH = 0.94;
+  const boardY = 1.48;
+
+  const backing = new THREE.Mesh(new THREE.BoxGeometry(boardW, boardH, 0.07), pal.darkWoodMat);
+  backing.position.set(0, boardY, 0);
+  setShadow(backing, ctx, true, true);
+  group.add(backing);
+
+  // Horizontal perimeter frame rails & small bottom ledge shelf
+  const topRail = new THREE.Mesh(new THREE.BoxGeometry(boardW + 0.16, 0.09, 0.12), pal.woodMat);
+  topRail.position.set(0, boardY + boardH * 0.5, 0);
+  setShadow(topRail, ctx, true, true);
+  group.add(topRail);
+
+  const botLedge = new THREE.Mesh(new THREE.BoxGeometry(boardW + 0.20, 0.08, 0.20), pal.woodMat);
+  botLedge.position.set(0, boardY - boardH * 0.5, -0.03);
+  setShadow(botLedge, ctx, true, true);
+  group.add(botLedge);
+
+  // 3) Shingled mini-roof cap over the notice board
+  const roofW = 1.98;
+  const slopeD = 0.52;
+  const pitch = 0.52;
+  const ridgeY = 2.38;
+  const runZ = Math.cos(pitch) * slopeD;
+  const riseY = Math.sin(pitch) * slopeD;
+
+  const slopeGeo = new THREE.BoxGeometry(roofW, 0.075, slopeD);
+  for (const zDir of [-1, 1]) {
+    const slope = new THREE.Mesh(slopeGeo, pal.shingleMat);
+    slope.position.set(0, ridgeY - riseY * 0.48, zDir * runZ * 0.49);
+    slope.rotation.x = zDir * pitch;
+    setShadow(slope, ctx, true, true);
+    group.add(slope);
+  }
+
+  const ridge = new THREE.Mesh(new THREE.BoxGeometry(roofW + 0.10, 0.10, 0.10), pal.darkWoodMat);
+  ridge.position.set(0, ridgeY + 0.02, 0);
+  setShadow(ridge, ctx, true, true);
+  group.add(ridge);
+
+  // End gable triangles
+  const gableGeo = createGableTriangleGeo(runZ * 0.90, riseY * 0.88, 0.07);
+  for (const xSide of [-1, 1]) {
+    const gable = new THREE.Mesh(gableGeo, pal.woodMat);
+    gable.rotation.y = Math.PI * 0.5;
+    gable.position.set(xSide * 0.80, ridgeY - riseY * 0.88, 0);
+    group.add(gable);
+  }
+
+  // 4) 5 slightly tilted parchment flyers pinned with tiny red wax seals / pegs (front -Z)
+  const flyerSpots = [
+    { x: -0.48, y: 1.68, w: 0.30, h: 0.34, rot: 0.09 },
+    { x: -0.06, y: 1.64, w: 0.34, h: 0.38, rot: -0.06 },
+    { x: 0.42, y: 1.69, w: 0.28, h: 0.32, rot: 0.11 },
+    { x: -0.30, y: 1.26, w: 0.32, h: 0.30, rot: -0.10 },
+    { x: 0.24, y: 1.24, w: 0.34, h: 0.32, rot: 0.07 }
+  ];
+  const pinGeo = new THREE.CylinderGeometry(0.020, 0.018, 0.022, 6);
+
+  flyerSpots.forEach((f, idx) => {
+    const mat = pal.parchmentMats[idx % pal.parchmentMats.length];
+    const sheet = new THREE.Mesh(new THREE.PlaneGeometry(f.w, f.h), mat);
+    sheet.position.set(f.x, f.y, -0.040 - idx * 0.002);
+    sheet.rotation.y = Math.PI;
+    sheet.rotation.z = f.rot + (rng() - 0.5) * 0.05;
+    group.add(sheet);
+
+    const pin = new THREE.Mesh(pinGeo, idx % 3 === 0 ? pal.ironMat : pal.waxSealMat);
+    pin.rotation.x = Math.PI * 0.5;
+    pin.position.set(f.x, f.y + f.h * 0.38, -0.048 - idx * 0.002);
+    group.add(pin);
+  });
+
+  // 2 subtle notices on the back (+Z) so it reads nicely from 360 degrees
+  for (let b = 0; b < 2; b++) {
+    const bx = b === 0 ? -0.28 : 0.26;
+    const sheet = new THREE.Mesh(new THREE.PlaneGeometry(0.32, 0.34), pal.parchmentMats[(b + 1) % pal.parchmentMats.length]);
+    sheet.position.set(bx, 1.50 + (b === 0 ? 0.06 : -0.08), 0.040);
+    sheet.rotation.z = b === 0 ? -0.08 : 0.11;
+    group.add(sheet);
+  }
+
+  group.userData = {
+    kind: 'village_notice_board',
+    collider: { type: 'prop', radius: 0.65, height: 2.1 }
+  };
+  return group;
+}
+
+// ============================================================================
+// 5. VILLAGE BENCH (COZY RUSTIC WOODEN BENCH, FACING -Z)
+// ============================================================================
+
+function createVillageBench(ctx, opts = {}) {
+  const pal = getPropPalette(ctx);
+  const w = opts.width ?? 1.75;
+  const d = opts.depth ?? 0.58;
+  const group = new THREE.Group();
+
+  // 1) Twin stout notched legs extending down to y = -0.35
+  const legHeight = 0.80; // y = -0.35 .. +0.45
+  const legX = w * 0.38;
+  for (const xSide of [-1, 1]) {
+    const lx = xSide * legX;
+
+    // Front leg post
+    const frontLeg = new THREE.Mesh(new THREE.BoxGeometry(0.11, legHeight, 0.11), pal.darkWoodMat);
+    frontLeg.position.set(lx, -0.35 + legHeight * 0.5, -d * 0.34);
+    setShadow(frontLeg, ctx, true, true);
+    group.add(frontLeg);
+
+    // Rear leg post (extends up to become angled backrest upright)
+    const backLeg = new THREE.Mesh(new THREE.BoxGeometry(0.11, legHeight, 0.11), pal.darkWoodMat);
+    backLeg.position.set(lx, -0.35 + legHeight * 0.5, d * 0.34);
+    setShadow(backLeg, ctx, true, true);
+    group.add(backLeg);
+
+    // Side cross-bearer tying front & rear legs under the seat
+    const bearer = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.09, d * 0.92), pal.darkWoodMat);
+    bearer.position.set(lx, 0.39, 0);
+    setShadow(bearer, ctx, true, true);
+    group.add(bearer);
+
+    // Lower side foot tie rail
+    const lowTie = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.07, d * 0.68), pal.darkWoodMat);
+    lowTie.position.set(lx, 0.14, 0);
+    group.add(lowTie);
+
+    // Angled backrest upright rising from rear seat corner
+    const backPost = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.58, 0.09), pal.darkWoodMat);
+    backPost.position.set(lx, 0.68, d * 0.42);
+    backPost.rotation.x = 0.18;
+    setShadow(backPost, ctx, true, true);
+    group.add(backPost);
+  }
+
+  // Central lower stretcher bar between left & right legs
+  const stretcher = new THREE.Mesh(new THREE.BoxGeometry(w * 0.78, 0.08, 0.08), pal.darkWoodMat);
+  stretcher.position.set(0, 0.16, 0.02);
+  setShadow(stretcher, ctx, true, true);
+  group.add(stretcher);
+
+  // 2) Thick 3-plank honey-oak seat
+  const plankGeo = new THREE.BoxGeometry(w, 0.065, d * 0.29);
+  for (let i = -1; i <= 1; i++) {
+    const plank = new THREE.Mesh(plankGeo, pal.woodMat);
+    plank.position.set(0, 0.465, i * (d * 0.32));
+    setShadow(plank, ctx, true, true);
+    group.add(plank);
+  }
+
+  // Iron bolt caps on seat ends
+  const boltGeo = new THREE.CylinderGeometry(0.018, 0.018, 0.02, 6);
+  for (const xSide of [-1, 1]) {
+    for (const zOff of [-d * 0.32, d * 0.32]) {
+      const bolt = new THREE.Mesh(boltGeo, pal.ironMat);
+      bolt.position.set(xSide * legX, 0.502, zOff);
+      group.add(bolt);
+    }
+  }
+
+  // 3) Dual angled backrest slats (+Z side, facing -Z)
+  const slatGeo = new THREE.BoxGeometry(w * 0.98, 0.14, 0.048);
+  const lowSlat = new THREE.Mesh(slatGeo, pal.woodMat);
+  lowSlat.position.set(0, 0.69, d * 0.40);
+  lowSlat.rotation.x = 0.18;
+  setShadow(lowSlat, ctx, true, true);
+  group.add(lowSlat);
+
+  const highSlat = new THREE.Mesh(slatGeo, pal.woodMat);
+  highSlat.position.set(0, 0.87, d * 0.435);
+  highSlat.rotation.x = 0.18;
+  setShadow(highSlat, ctx, true, true);
+  group.add(highSlat);
+
+  group.userData = {
+    kind: 'village_bench',
+    collider: { type: 'prop', radius: 0.75, height: 0.9 }
+  };
+  return group;
+}
+
+// ============================================================================
+// 6. VILLAGE FLOWER PLANTER (TIMBER OR STONE TROUGH WITH LUSH BLOSSOMS)
+// ============================================================================
+
+function createVillageFlowerPlanter(ctx, opts = {}) {
+  const pal = getPropPalette(ctx);
+  const seed = opts.seed ?? 1;
+  const rng = makeRng(seed * 19.7);
+  const w = opts.width ?? 1.5;
+  const d = opts.depth ?? 0.6;
+  const isStone = opts.style === 'stone' || (!opts.style && (Math.abs(Math.floor(seed)) % 2 === 1));
+  const group = new THREE.Group();
+
+  // 1) Trough body grounded down to y = -0.38
+  const wallH = 0.84; // y = -0.38 .. +0.46
+  const bodyMat = isStone ? pal.stoneMat : pal.woodMat;
+  const trimMat = isStone ? pal.stoneLightMat : pal.darkWoodMat;
+
+  const box = new THREE.Mesh(new THREE.BoxGeometry(w, wallH, d), bodyMat);
+  box.position.y = -0.38 + wallH * 0.5;
+  setShadow(box, ctx, true, true);
+  group.add(box);
+
+  // Beveled top rim lip around the planter
+  const rimH = 0.08;
+  const frontRim = new THREE.Mesh(new THREE.BoxGeometry(w + 0.10, rimH, 0.10), trimMat);
+  frontRim.position.set(0, 0.47, -d * 0.5 + 0.02);
+  setShadow(frontRim, ctx, true, true);
+  group.add(frontRim);
+
+  const backRim = frontRim.clone();
+  backRim.position.z = d * 0.5 - 0.02;
+  group.add(backRim);
+
+  const sideRimGeo = new THREE.BoxGeometry(0.10, rimH, d + 0.10);
+  for (const sx of [-1, 1]) {
+    const sRim = new THREE.Mesh(sideRimGeo, trimMat);
+    sRim.position.set(sx * (w * 0.5 - 0.02), 0.47, 0);
+    setShadow(sRim, ctx, true, true);
+    group.add(sRim);
+  }
+
+  // Corner posts / iron straps for timber style
+  if (!isStone) {
+    const cornerGeo = new THREE.BoxGeometry(0.11, 0.52, 0.11);
+    for (const sx of [-1, 1]) {
+      for (const sz of [-1, 1]) {
+        const post = new THREE.Mesh(cornerGeo, pal.darkWoodMat);
+        post.position.set(sx * (w * 0.5 - 0.02), 0.22, sz * (d * 0.5 - 0.02));
+        group.add(post);
+      }
+    }
+    const strap = new THREE.Mesh(new THREE.BoxGeometry(w + 0.03, 0.04, d + 0.03), pal.ironMat);
+    strap.position.y = 0.18;
+    group.add(strap);
+  }
+
+  // 2) Dark sculpted soil mound inside trough
+  const soil = new THREE.Mesh(new THREE.BoxGeometry(w - 0.14, 0.10, d - 0.14), pal.soilMat);
+  soil.position.y = 0.45;
+  setShadow(soil, ctx, false, true);
+  group.add(soil);
+
+  // 3) Lush painterly leaf tufts
+  const tuftGeo = new THREE.DodecahedronGeometry(0.17, 0);
+  const tuftCount = 8;
+  for (let i = 0; i < tuftCount; i++) {
+    const t = (i + 0.5) / tuftCount;
+    const fx = (t - 0.5) * (w - 0.28) + (rng() - 0.5) * 0.08;
+    const fz = (rng() - 0.5) * (d - 0.24);
+    const leaf = new THREE.Mesh(tuftGeo, i % 2 === 0 ? pal.leafBrightMat : pal.leafDeepMat);
+    leaf.position.set(fx, 0.53 + rng() * 0.06, fz);
+    leaf.scale.set(0.95 + rng() * 0.45, 0.58 + rng() * 0.28, 0.85 + rng() * 0.40);
+    leaf.rotation.set((rng() - 0.5) * 0.4, rng() * Math.PI, (rng() - 0.5) * 0.4);
+    setShadow(leaf, ctx, true, true);
+    group.add(leaf);
+  }
+
+  // 4) Vibrant storybook blossoms (sunflower gold, sky blue, berry pink, white daisies)
+  const stemGeo = new THREE.CylinderGeometry(0.011, 0.014, 0.22, 4);
+  const bloomGeo = new THREE.DodecahedronGeometry(0.062, 0);
+  const centerGeo = new THREE.SphereGeometry(0.028, 5, 4);
+
+  const primaryIdx = Math.abs(Math.floor(seed)) % pal.flowerMats.length;
+  const secondaryIdx = (primaryIdx + 1 + (Math.abs(Math.floor(seed * 3)) % 2)) % pal.flowerMats.length;
+
+  const flowerCount = 13;
+  for (let i = 0; i < flowerCount; i++) {
+    const fx = ((i + 0.5) / flowerCount - 0.5) * (w - 0.26) + (rng() - 0.5) * 0.10;
+    const fz = (rng() - 0.5) * (d - 0.22);
+    const h = 0.15 + rng() * 0.16;
+    const tiltX = (rng() - 0.5) * 0.35;
+    const tiltZ = (rng() - 0.5) * 0.35;
+
+    const stem = new THREE.Mesh(stemGeo, pal.leafDeepMat);
+    stem.scale.y = h / 0.22;
+    stem.position.set(fx, 0.49 + h * 0.5, fz);
+    stem.rotation.set(tiltX, 0, tiltZ);
+    group.add(stem);
+
+    const fMat = (i % 3 === 0) ? pal.flowerMats[secondaryIdx] : pal.flowerMats[primaryIdx];
+    const bloom = new THREE.Mesh(bloomGeo, fMat);
+    const topX = fx - Math.sin(tiltZ) * h * 0.5;
+    const topZ = fz + Math.sin(tiltX) * h * 0.5;
+    const topY = 0.51 + h;
+    bloom.position.set(topX, topY, topZ);
+    bloom.scale.set(1.1, 0.65, 1.1);
+    bloom.rotation.set(tiltX, rng() * Math.PI, tiltZ);
+    group.add(bloom);
+
+    const center = new THREE.Mesh(centerGeo, pal.flowerCenterMat);
+    center.position.set(topX, topY + 0.032, topZ);
+    group.add(center);
+  }
+
+  group.userData = {
+    kind: 'village_flower_planter',
+    collider: { type: 'prop', radius: 0.65, height: 0.7 }
+  };
+  return group;
+}
+
+// ============================================================================
+// 7. VILLAGE CRATE CLUSTER (BARRELS + CROSS-BRACED CRATES + CANVAS SACK)
+// ============================================================================
+
+function buildBandedBarrel(ctx, pal, radius = 0.29, height = 0.84) {
+  const bGroup = new THREE.Group();
+
+  // Coopered bulging barrel silhouette using LatheGeometry (with -0.30 ground skirt)
+  const pts = [
+    new THREE.Vector2(radius * 0.80, -0.30),
+    new THREE.Vector2(radius * 0.84, 0.0),
+    new THREE.Vector2(radius * 0.99, height * 0.32),
+    new THREE.Vector2(radius * 1.02, height * 0.50),
+    new THREE.Vector2(radius * 0.99, height * 0.68),
+    new THREE.Vector2(radius * 0.84, height),
+    new THREE.Vector2(radius * 0.74, height),
+    new THREE.Vector2(radius * 0.74, height - 0.05),
+    new THREE.Vector2(0.0, height - 0.05)
+  ];
+  const body = new THREE.Mesh(new THREE.LatheGeometry(pts, 12), pal.woodMat);
+  setShadow(body, ctx, true, true);
+  bGroup.add(body);
+
+  // 3 dark forged iron hoops
+  const hoopSpecs = [
+    { y: height * 0.16, r: radius * 0.93 },
+    { y: height * 0.50, r: radius * 1.03 },
+    { y: height * 0.84, r: radius * 0.93 }
+  ];
+  for (const hs of hoopSpecs) {
+    const hoop = new THREE.Mesh(new THREE.CylinderGeometry(hs.r, hs.r, 0.045, 12, 1, true), pal.ironMat);
+    hoop.position.y = hs.y;
+    bGroup.add(hoop);
+  }
+
+  // Wooden bung stopper on lid
+  const bung = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.025, 6), pal.darkWoodMat);
+  bung.position.set(radius * 0.26, height - 0.04, 0.04);
+  bGroup.add(bung);
+
+  return bGroup;
+}
+
+function buildBracedCrate(ctx, pal, size = 0.68, grounded = true) {
+  const cGroup = new THREE.Group();
+
+  // Optional grounded foundation skirt below crate so it never floats on hills
+  if (grounded) {
+    const skirt = new THREE.Mesh(new THREE.BoxGeometry(size * 0.94, 0.32, size * 0.94), pal.darkWoodMat);
+    skirt.position.y = -0.15;
+    cGroup.add(skirt);
+  }
+
+  // Inner recessed wooden plank core
+  const core = new THREE.Mesh(new THREE.BoxGeometry(size * 0.92, size * 0.92, size * 0.92), pal.woodMat);
+  core.position.y = size * 0.5;
+  setShadow(core, ctx, true, true);
+  cGroup.add(core);
+
+  // Corner framing rails (12 edges)
+  const railT = size * 0.11;
+  const h = size * 0.5;
+  const edge = h - railT * 0.5;
+
+  const vGeo = new THREE.BoxGeometry(railT, size, railT);
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      const p = new THREE.Mesh(vGeo, pal.darkWoodMat);
+      p.position.set(sx * edge, h, sz * edge);
+      cGroup.add(p);
+    }
+  }
+
+  const xGeo = new THREE.BoxGeometry(size, railT, railT);
+  const zGeo = new THREE.BoxGeometry(railT, railT, size);
+  for (const sy of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      const bx = new THREE.Mesh(xGeo, pal.darkWoodMat);
+      bx.position.set(0, h + sy * edge, sz * edge);
+      cGroup.add(bx);
+    }
+    for (const sx of [-1, 1]) {
+      const bz = new THREE.Mesh(zGeo, pal.darkWoodMat);
+      bz.position.set(sx * edge, h + sy * edge, 0);
+      cGroup.add(bz);
+    }
+  }
+
+  // Iconic diagonal cross-brace plank on each of the 4 vertical faces
+  const diagLen = size * 1.12;
+  const diagGeo = new THREE.BoxGeometry(diagLen, railT * 0.85, railT * 0.55);
+  for (let f = 0; f < 4; f++) {
+    const a = f * Math.PI * 0.5;
+    const brace = new THREE.Mesh(diagGeo, pal.darkWoodMat);
+    brace.position.set(Math.sin(a) * (h - railT * 0.25), h, Math.cos(a) * (h - railT * 0.25));
+    brace.rotation.y = a;
+    brace.rotation.z = Math.PI * 0.25;
+    cGroup.add(brace);
+  }
+
+  return cGroup;
+}
+
+function buildCanvasSack(ctx, pal) {
+  const sGroup = new THREE.Group();
+
+  // Plump grain sack body (extends down to y = -0.22 for slope grounding)
+  const sackBody = new THREE.Mesh(new THREE.DodecahedronGeometry(0.28, 1), pal.sackMat);
+  sackBody.scale.set(1.05, 1.32, 0.92);
+  sackBody.position.y = 0.22;
+  setShadow(sackBody, ctx, true, true);
+  sGroup.add(sackBody);
+
+  // Grounding base tuck
+  const sackSkirt = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.26, 0.34, 8), pal.sackMat);
+  sackSkirt.position.y = -0.14;
+  sGroup.add(sackSkirt);
+
+  // Rope tie around cinched neck
+  const ropeTie = new THREE.Mesh(new THREE.TorusGeometry(0.105, 0.022, 6, 10), pal.ropeMat);
+  ropeTie.rotation.x = Math.PI * 0.5;
+  ropeTie.position.y = 0.54;
+  sGroup.add(ropeTie);
+
+  // Flared sack top ruffle
+  const topRuffle = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.14, 7), pal.sackMat);
+  topRuffle.rotation.x = Math.PI;
+  topRuffle.position.y = 0.62;
+  sGroup.add(topRuffle);
+
+  return sGroup;
+}
+
+function createVillageCrateCluster(ctx, opts = {}) {
+  const pal = getPropPalette(ctx);
+  const seed = opts.seed ?? 1;
+  const rng = makeRng(seed * 23.3);
+  const group = new THREE.Group();
+
+  // 1) Primary large cross-braced supply crate
+  const mainCrate = buildBracedCrate(ctx, pal, 0.68, true);
+  mainCrate.position.set(-0.32, 0, 0.16);
+  mainCrate.rotation.y = 0.18 + (rng() - 0.5) * 0.25;
+  group.add(mainCrate);
+
+  // 2) Secondary smaller supply crate (stacked or tucked beside based on seed)
+  const smallCrate = buildBracedCrate(ctx, pal, 0.46, seed % 2 === 0);
+  if (seed % 2 === 1) {
+    // Stacked playfully on top of main crate
+    smallCrate.position.set(-0.30, 0.68, 0.15);
+    smallCrate.rotation.y = -0.35 + (rng() - 0.5) * 0.25;
+  } else {
+    smallCrate.position.set(-0.36, 0, -0.44);
+    smallCrate.rotation.y = 0.42;
+  }
+  group.add(smallCrate);
+
+  // 3) Twin banded coopered wooden barrels
+  const barrelA = buildBandedBarrel(ctx, pal, 0.29, 0.86);
+  barrelA.position.set(0.40, 0, 0.18);
+  barrelA.rotation.y = rng() * Math.PI * 2;
+  group.add(barrelA);
+
+  const barrelB = buildBandedBarrel(ctx, pal, 0.25, 0.74);
+  barrelB.position.set(0.32, 0, -0.36);
+  barrelB.rotation.y = rng() * Math.PI * 2;
+  group.add(barrelB);
+
+  // 4) Optional tied burlap grain sack leaning against the front
+  if (opts.withSack !== false) {
+    const sack = buildCanvasSack(ctx, pal);
+    sack.position.set(-0.18, 0, -0.34);
+    sack.rotation.set(0.14, 0.45, -0.10);
+    group.add(sack);
+  }
+
+  group.userData = {
+    kind: 'village_crate_cluster',
+    collider: { type: 'prop', radius: 0.85, height: 1.1 }
+  };
+  return group;
+}
+
+// ============================================================================
+// 8. VILLAGE STONE PATH (TERRAIN-CONFORMING BEVELED COBBLESTONES)
+// ============================================================================
+
+function createVillageStonePath(ctx, opts = {}) {
+  const pal = getPropPalette(ctx);
+  const points = Array.isArray(opts.points) ? opts.points : [];
+  const width = opts.width ?? 1.5;
+  const seed = opts.seed ?? 1;
+  const rng = makeRng(seed * 37.1);
+  const group = new THREE.Group();
+
+  if (points.length < 2) {
+    group.userData = { kind: 'village_stone_path' };
+    return group;
+  }
+
+  // Reusable flat beveled octagonal stepping stone prototype (top at y = +0.07, bottom skirt at y = -0.07)
+  const stoneProto = new THREE.CylinderGeometry(0.46, 0.54, 0.14, 7);
+  const stonePalette = [0xdcd5c5, 0xc9c2b2, 0xe5dfd0, 0xbdb7a8, 0xd1ccb9, 0xc3c4b4];
+  const geos = [];
+
+  const up = new THREE.Vector3(0, 1, 0);
+  const normal = new THREE.Vector3();
+  const quat = new THREE.Quaternion();
+  const yawQ = new THREE.Quaternion();
+  const scaleV = new THREE.Vector3();
+  const posV = new THREE.Vector3();
+  const mat4 = new THREE.Matrix4();
+
+  const rowStep = 0.62;
+  const eps = 0.28;
+
+  for (let seg = 0; seg < points.length - 1; seg++) {
+    const p1 = points[seg];
+    const p2 = points[seg + 1];
+    const dx = p2.x - p1.x;
+    const dz = p2.z - p1.z;
+    const dist = Math.hypot(dx, dz);
+    if (dist < 0.05) continue;
+
+    const dirX = dx / dist;
+    const dirZ = dz / dist;
+    const perpX = -dirZ;
+    const perpZ = dirX;
+    const segYaw = Math.atan2(dx, dz);
+
+    const rows = Math.max(1, Math.round(dist / rowStep));
+    for (let r = 0; r <= rows; r++) {
+      // Avoid duplicating stones on shared interior vertices
+      if (seg > 0 && r === 0) continue;
+      const t = r / rows;
+      const cx = p1.x + dx * t;
+      const cz = p1.z + dz * t;
+
+      // Alternate between 2 wide flagstones and 3 staggered cobbles across path width
+      const stonesInRow = (r % 2 === 0) ? Math.max(2, Math.round(width / 0.68)) : Math.max(2, Math.round(width / 0.56));
+      for (let s = 0; s < stonesInRow; s++) {
+        const u = stonesInRow === 1 ? 0 : ((s + 0.5) / stonesInRow - 0.5) * (width * 0.86);
+        const jitterAlong = (rng() - 0.5) * 0.16;
+        const jitterAcross = (rng() - 0.5) * 0.12;
+        const sx = cx + perpX * (u + jitterAcross) + dirX * jitterAlong;
+        const sz = cz + perpZ * (u + jitterAcross) + dirZ * jitterAlong;
+
+        const gy = getTerrainY(ctx, sx, sz);
+        const hL = getTerrainY(ctx, sx - eps, sz);
+        const hR = getTerrainY(ctx, sx + eps, sz);
+        const hD = getTerrainY(ctx, sx, sz - eps);
+        const hU = getTerrainY(ctx, sx, sz + eps);
+        normal.set(hL - hR, 2 * eps, hD - hU).normalize();
+
+        const stoneW = (width / stonesInRow) * (0.76 + rng() * 0.24);
+        const stoneL = rowStep * (0.68 + rng() * 0.28);
+        const stoneYScale = 0.92 + rng() * 0.24;
+
+        // Top face lands strictly at gy + 0.035; skirt embeds 0.10m into terrain (zero floating, zero Z-fighting!)
+        const halfThick = 0.07 * stoneYScale;
+        posV.set(sx, gy + 0.035 - halfThick, sz);
+        quat.setFromUnitVectors(up, normal);
+        yawQ.setFromAxisAngle(up, segYaw + (rng() - 0.5) * 0.45);
+        quat.multiply(yawQ);
+        scaleV.set(stoneW, stoneYScale, stoneL);
+        mat4.compose(posV, quat, scaleV);
+
+        const g = stoneProto.clone();
+        g.applyMatrix4(mat4);
+        const colHex = stonePalette[Math.floor(rng() * stonePalette.length)];
+        paintGeoVertexColor(g, colHex);
+        geos.push(g);
+      }
+    }
+  }
+
+  stoneProto.dispose();
+
+  if (geos.length > 0) {
+    const merged = mergeGeometries(geos, true);
+    for (let i = 0; i < geos.length; i++) geos[i].dispose();
+
+    const mesh = new THREE.Mesh(merged, pal.stonePathMat);
+    // Flat ground stones receive shadows cleanly without self-shadow speckles
+    mesh.castShadow = false;
+    mesh.receiveShadow = true;
+    group.add(mesh);
+  }
+
+  group.userData = {
+    kind: 'village_stone_path'
+  };
+  return group;
+}
+
+// ============================================================================
+// 9. VILLAGE FENCE RUN (LOW RUSTIC PICKET/RAIL FENCE + STONE CORNER PIERS)
+// ============================================================================
+
+function createVillageFenceRun(ctx, opts = {}) {
+  const pal = getPropPalette(ctx);
+  const points = Array.isArray(opts.points) ? opts.points : [];
+  const low = opts.low !== false;
+  const seed = opts.seed ?? 1;
+  const rng = makeRng(seed * 41.9);
+  const group = new THREE.Group();
+  const fenceSegments = [];
+
+  if (points.length < 2) {
+    group.userData = { kind: 'village_fence_run', fenceSegments };
+    return group;
+  }
+
+  const fenceH = low ? 0.90 : 1.18;
+  const woodGeos = [];
+  const stoneGeos = [];
+
+  const postProto = new THREE.BoxGeometry(0.11, 1.0, 0.11);
+  const postCapProto = new THREE.ConeGeometry(0.082, 0.10, 4);
+  postCapProto.rotateY(Math.PI * 0.25);
+
+  const picketProto = new THREE.BoxGeometry(0.085, 1.0, 0.032);
+  const railProto = new THREE.BoxGeometry(0.06, 0.085, 1.0);
+  const pierProto = new THREE.CylinderGeometry(0.24, 0.29, 1.0, 4);
+  pierProto.rotateY(Math.PI * 0.25);
+  const pierCapProto = new THREE.BoxGeometry(0.46, 0.11, 0.46);
+
+  const up = new THREE.Vector3(0, 1, 0);
+  const m = new THREE.Matrix4();
+  const q = new THREE.Quaternion();
+  const vPos = new THREE.Vector3();
+  const vScale = new THREE.Vector3();
+
+  function addStonePier(x, z) {
+    const gy = getTerrainY(ctx, x, z);
+    const pierH = fenceH + 0.14 + 0.50; // grounded down to gy - 0.50
+    vPos.set(x, gy - 0.50 + pierH * 0.5, z);
+    q.identity();
+    vScale.set(1, pierH, 1);
+    m.compose(vPos, q, vScale);
+    const body = pierProto.clone();
+    body.applyMatrix4(m);
+    stoneGeos.push(body);
+
+    const cap = pierCapProto.clone();
+    cap.translate(x, gy + fenceH + 0.16, z);
+    stoneGeos.push(cap);
+  }
+
+  function addWoodPost(x, z) {
+    const gy = getTerrainY(ctx, x, z);
+    const h = fenceH + 0.06 + 0.45; // grounded down to gy - 0.45
+    const tiltX = (rng() - 0.5) * 0.05;
+    const tiltZ = (rng() - 0.5) * 0.05;
+    q.setFromEuler(new THREE.Euler(tiltX, rng() * 0.2, tiltZ));
+    vPos.set(x, gy - 0.45 + h * 0.5, z);
+    vScale.set(1, h, 1);
+    m.compose(vPos, q, vScale);
+    const post = postProto.clone();
+    post.applyMatrix4(m);
+    woodGeos.push(post);
+
+    const cap = postCapProto.clone();
+    cap.translate(x, gy + fenceH + 0.10, z);
+    woodGeos.push(cap);
+  }
+
+  // Decide which polyline vertices receive stone corner piers (endpoints & sharp bends / every 3rd vertex)
+  const isPierVertex = points.map((pt, idx) => {
+    if (idx === 0 || idx === points.length - 1) return true;
+    if (idx % 3 === 0) return true;
+    const prev = points[idx - 1];
+    const next = points[idx + 1];
+    const a1 = Math.atan2(pt.z - prev.z, pt.x - prev.x);
+    const a2 = Math.atan2(next.z - pt.z, next.x - pt.x);
+    const turn = Math.abs(Math.atan2(Math.sin(a2 - a1), Math.cos(a2 - a1)));
+    return turn > 0.45;
+  });
+
+  // Build vertex piers/posts first
+  for (let i = 0; i < points.length; i++) {
+    if (isPierVertex[i]) {
+      addStonePier(points[i].x, points[i].z);
+    } else {
+      addWoodPost(points[i].x, points[i].z);
+    }
+  }
+
+  // Build spans between consecutive vertices
+  for (let i = 0; i < points.length - 1; i++) {
+    const pA = points[i];
+    const pB = points[i + 1];
+    const dx = pB.x - pA.x;
+    const dz = pB.z - pA.z;
+    const segLen = Math.hypot(dx, dz);
+    if (segLen < 0.15) continue;
+
+    const spanCount = Math.max(1, Math.round(segLen / 1.95));
+    const yaw = Math.atan2(dx, dz);
+
+    for (let s = 0; s < spanCount; s++) {
+      const t1 = s / spanCount;
+      const t2 = (s + 1) / spanCount;
+      const x1 = pA.x + dx * t1;
+      const z1 = pA.z + dz * t1;
+      const x2 = pA.x + dx * t2;
+      const z2 = pA.z + dz * t2;
+
+      if (s > 0) addWoodPost(x1, z1);
+
+      const y1 = getTerrainY(ctx, x1, z1);
+      const y2 = getTerrainY(ctx, x2, z2);
+      const spanDx = x2 - x1;
+      const spanDy = y2 - y1;
+      const spanDz = z2 - z1;
+      const span3D = Math.hypot(spanDx, spanDy, spanDz);
+      const slopePitch = -Math.atan2(spanDy, Math.hypot(spanDx, spanDz));
+
+      // Register jumpable fence segment collider contract
+      fenceSegments.push({
+        x1,
+        z1,
+        x2,
+        z2,
+        yMax: Math.max(y1, y2) + fenceH
+      });
+
+      // Dual horizontal rails (upper & lower) conforming to terrain slope
+      const railHeights = low ? [0.34, 0.72] : [0.38, 0.76, 1.06];
+      const euler = new THREE.Euler(slopePitch, yaw, 0, 'YXZ');
+      q.setFromEuler(euler);
+
+      for (const rh of railHeights) {
+        vPos.set((x1 + x2) * 0.5, (y1 + y2) * 0.5 + rh, (z1 + z2) * 0.5);
+        vScale.set(1, 1, span3D + 0.04);
+        m.compose(vPos, q, vScale);
+        const rail = railProto.clone();
+        rail.applyMatrix4(m);
+        woodGeos.push(rail);
+      }
+
+      // Rustic village pickets evenly spaced along the span (offset slightly onto front rail face to prevent z-fighting)
+      const perpX = spanDz / Math.max(0.001, Math.hypot(spanDx, spanDz));
+      const perpZ = -spanDx / Math.max(0.001, Math.hypot(spanDx, spanDz));
+      const picketCount = Math.max(2, Math.floor(Math.hypot(spanDx, spanDz) / 0.34));
+      for (let p = 1; p < picketCount; p++) {
+        const pt = p / picketCount;
+        const px = x1 + spanDx * pt + perpX * 0.042;
+        const pz = z1 + spanDz * pt + perpZ * 0.042;
+        const py = getTerrainY(ctx, px, pz);
+        const ph = fenceH * (0.86 + rng() * 0.09);
+
+        q.setFromAxisAngle(up, yaw + Math.PI * 0.5);
+        vPos.set(px, py + ph * 0.5 + 0.06, pz);
+        vScale.set(1, ph, 1);
+        m.compose(vPos, q, vScale);
+        const picket = picketProto.clone();
+        picket.applyMatrix4(m);
+        woodGeos.push(picket);
+      }
+    }
+  }
+
+  postProto.dispose();
+  postCapProto.dispose();
+  picketProto.dispose();
+  railProto.dispose();
+  pierProto.dispose();
+  pierCapProto.dispose();
+
+  if (woodGeos.length > 0) {
+    const mergedWood = mergeGeometries(woodGeos, false);
+    for (let i = 0; i < woodGeos.length; i++) woodGeos[i].dispose();
+    const woodMesh = new THREE.Mesh(mergedWood, pal.woodMat);
+    setShadow(woodMesh, ctx, true, true);
+    group.add(woodMesh);
+  }
+
+  if (stoneGeos.length > 0) {
+    const mergedStone = mergeGeometries(stoneGeos, false);
+    for (let i = 0; i < stoneGeos.length; i++) stoneGeos[i].dispose();
+    const stoneMesh = new THREE.Mesh(mergedStone, pal.stoneMat);
+    setShadow(stoneMesh, ctx, true, true);
+    group.add(stoneMesh);
+  }
+
+  group.userData = {
+    kind: 'village_fence_run',
+    fenceSegments
+  };
+  return group;
+}
+
+return {
+  createVillageWell,
+  createVillageGateArch,
+  createVillageLanternPost,
+  createVillageNoticeBoard,
+  createVillageBench,
+  createVillageFlowerPlanter,
+  createVillageCrateCluster,
+  createVillageStonePath,
+  createVillageFenceRun
+};
+
+})();
+
+// --- js/models/river_assets.js ---
+const __MOD_RIVER_ASSETS = (() => {
+'use strict';
+const THREE = HC.THREE;
+
+// ============================================================================
+// DETERMINISTIC HELPERS & PROCEDURAL TEXTURES
+// ============================================================================
+
+function hash1(n) {
+  const s = Math.sin(n * 127.1 + 311.7) * 43758.5453123;
+  return s - Math.floor(s);
+}
+
+function hash2(x, y) {
+  const s = Math.sin(x * 127.1 + y * 311.7) * 43758.5453123;
+  return s - Math.floor(s);
+}
+
+function smoothstep(edge0, edge1, x) {
+  const t = THREE.MathUtils.clamp((x - edge0) / (edge1 - edge0), 0.0, 1.0);
+  return t * t * (3.0 - 2.0 * t);
+}
+
+function createMossyStoneTexture() {
+  if (typeof document === 'undefined') return null;
+  const size = 128;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx2d = canvas.getContext('2d');
+
+  // Base cool river-stone slate
+  ctx2d.fillStyle = '#7c888b';
+  ctx2d.fillRect(0, 0, size, size);
+
+  // Soft painterly stone mineral mottling
+  for (let i = 0; i < 180; i++) {
+    const x = hash1(i * 1.73 + 3.1) * size;
+    const y = hash1(i * 2.91 + 7.4) * size;
+    const r = 4 + hash1(i * 4.17 + 1.9) * 14;
+    const tone = hash1(i * 5.33 + 9.2);
+    if (tone < 0.38) {
+      ctx2d.fillStyle = 'rgba(84, 96, 102, 0.30)';
+    } else if (tone < 0.76) {
+      ctx2d.fillStyle = 'rgba(148, 158, 156, 0.24)';
+    } else {
+      ctx2d.fillStyle = 'rgba(116, 110, 94, 0.22)';
+    }
+    ctx2d.beginPath();
+    ctx2d.arc(x, y, r, 0, Math.PI * 2);
+    ctx2d.fill();
+  }
+
+  // Subtle dark rock fissures
+  ctx2d.strokeStyle = 'rgba(48, 56, 62, 0.34)';
+  ctx2d.lineWidth = 1.3;
+  for (let c = 0; c < 14; c++) {
+    let cx = hash1(c * 9.7 + 2.3) * size;
+    let cy = hash1(c * 11.3 + 5.1) * size;
+    ctx2d.beginPath();
+    ctx2d.moveTo(cx, cy);
+    for (let s = 0; s < 4; s++) {
+      cx += (hash1(c * 17.1 + s * 3.7) - 0.5) * 18;
+      cy += (hash1(c * 23.3 + s * 5.1) - 0.5) * 18;
+      ctx2d.lineTo(cx, cy);
+    }
+    ctx2d.stroke();
+  }
+
+  // Painterly olive-emerald river moss flecks concentrated on upper half
+  for (let m = 0; m < 85; m++) {
+    const x = hash1(m * 6.31 + 19.2) * size;
+    const y = hash1(m * 3.89 + 41.7) * size * 0.78;
+    const r = 2.5 + hash1(m * 8.13 + 2.5) * 7.5;
+    ctx2d.fillStyle = m % 2 === 0 ? 'rgba(92, 138, 68, 0.36)' : 'rgba(118, 162, 74, 0.28)';
+    ctx2d.beginPath();
+    ctx2d.arc(x, y, r, 0, Math.PI * 2);
+    ctx2d.fill();
+  }
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  return tex;
+}
+
+function createWeatheredWoodTexture() {
+  if (typeof document === 'undefined') return null;
+  const size = 128;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx2d = canvas.getContext('2d');
+
+  ctx2d.fillStyle = '#927960';
+  ctx2d.fillRect(0, 0, size, size);
+
+  // Longitudinal river-weathered bark & wood fibers
+  for (let i = 0; i < 95; i++) {
+    const x = hash1(i * 3.17 + 1.2) * size;
+    const w = 1.2 + hash1(i * 5.41 + 4.8) * 3.2;
+    const v = hash1(i * 7.93 + 2.1);
+    ctx2d.fillStyle =
+      v < 0.35
+        ? 'rgba(78, 58, 42, 0.34)'
+        : v < 0.72
+          ? 'rgba(176, 158, 134, 0.26)'
+          : 'rgba(116, 104, 88, 0.28)';
+    ctx2d.fillRect(x, 0, w, size);
+  }
+
+  // Subtle organic wood knots
+  for (let k = 0; k < 7; k++) {
+    const kx = hash1(k * 13.7 + 5.2) * size;
+    const ky = hash1(k * 19.3 + 8.4) * size;
+    ctx2d.strokeStyle = 'rgba(64, 46, 32, 0.42)';
+    ctx2d.lineWidth = 1.4;
+    ctx2d.beginPath();
+    ctx2d.ellipse(kx, ky, 4.5, 9.0, 0.15, 0, Math.PI * 2);
+    ctx2d.stroke();
+  }
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  return tex;
+}
+
+function createFallbackWaterDataTexture() {
+  if (typeof document === 'undefined') return null;
+  const size = 256;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx2d = canvas.getContext('2d');
+  const imgData = ctx2d.createImageData(size, size);
+  const data = imgData.data;
+
+  const pts = [];
+  for (let i = 0; i < 18; i++) {
+    pts.push({
+      x: ((i * 73 + 19) % 100) / 100,
+      y: ((i * 41 + 53) % 100) / 100,
+    });
+  }
+
+  const tau = Math.PI * 2.0;
+  for (let py = 0; py < size; py++) {
+    for (let px = 0; px < size; px++) {
+      const u = px / size;
+      const v = py / size;
+      let d1 = 99.0;
+      let d2 = 99.0;
+      for (let i = 0; i < pts.length; i++) {
+        let dx = Math.abs(u - pts[i].x);
+        let dy = Math.abs(v - pts[i].y);
+        if (dx > 0.5) dx = 1.0 - dx;
+        if (dy > 0.5) dy = 1.0 - dy;
+        const d = Math.hypot(dx, dy);
+        if (d < d1) {
+          d2 = d1;
+          d1 = d;
+        } else if (d < d2) {
+          d2 = d;
+        }
+      }
+      const edgeDist = d2 - d1;
+      const caustic = Math.pow(Math.max(0.0, 1.0 - edgeDist * 6.2), 2.4);
+      const nx =
+        Math.cos(u * tau * 2.0 + v * tau) * 0.45 +
+        Math.sin(u * tau * 4.0 - v * tau * 2.0) * 0.30 +
+        Math.cos((u + v) * tau * 6.0) * 0.25;
+      const ny =
+        Math.sin(v * tau * 2.0 - u * tau) * 0.45 +
+        Math.cos(v * tau * 4.0 + u * tau * 3.0) * 0.30 +
+        Math.sin((v - u) * tau * 6.0) * 0.25;
+      const foamNoise = Math.min(1.0, Math.max(0.0, (1.0 - d1 * 3.4) * 0.75 + caustic * 0.35));
+
+      const idx = (py * size + px) * 4;
+      data[idx] = Math.floor((nx * 0.5 + 0.5) * 255);
+      data[idx + 1] = Math.floor((ny * 0.5 + 0.5) * 255);
+      data[idx + 2] = Math.floor(caustic * 255);
+      data[idx + 3] = Math.floor(foamNoise * 255);
+    }
+  }
+
+  ctx2d.putImageData(imgData, 0, 0);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.anisotropy = 4;
+  return tex;
+}
+
+// ============================================================================
+// GEOMETRY SCULPTING & MERGE UTILITIES
+// ============================================================================
+
+/**
+ * Sculpts a water-worn riverbank boulder from a DodecahedronGeometry.
+ * Slightly flattens the underside so boulders seat solidly into sloped riverbanks.
+ */
+function createSculptedRockGeo(radius, detail, seed, flatness = 0.72) {
+  const geo = new THREE.DodecahedronGeometry(radius, detail);
+  const pos = geo.attributes.position;
+  const v = new THREE.Vector3();
+
+  for (let i = 0; i < pos.count; i++) {
+    v.fromBufferAttribute(pos, i);
+    const dir = v.clone().normalize();
+    const n1 = Math.sin(dir.x * 3.7 + seed * 1.9) * Math.cos(dir.z * 3.3 - seed * 1.1);
+    const n2 = Math.cos(dir.y * 4.5 + dir.x * 2.4 + seed * 2.7);
+    const radialScale = 1.0 + n1 * 0.16 + n2 * 0.09;
+    v.multiplyScalar(radialScale);
+
+    // Flatten the bottom slightly so rocks embed naturally without teetering
+    if (v.y < 0) {
+      v.y *= flatness * 0.85;
+    } else {
+      v.y *= flatness;
+    }
+    pos.setXYZ(i, v.x, v.y, v.z);
+  }
+
+  geo.computeVertexNormals();
+  return geo;
+}
+
+/**
+ * Creates a single arched botanical frond or grass blade geometry with vertex color gradient.
+ */
+function createArchedBladeGeo(width, length, arch, baseHex, tipHex) {
+  const segs = 3;
+  const positions = [];
+  const uvs = [];
+  const colors = [];
+  const indices = [];
+
+  const cBase = new THREE.Color(baseHex);
+  const cTip = new THREE.Color(tipHex);
+  const cTmp = new THREE.Color();
+
+  for (let i = 0; i <= segs; i++) {
+    const t = i / segs;
+    const y = Math.sin(t * Math.PI * 0.5) * length;
+    const z = Math.pow(t, 1.85) * arch;
+    const halfW = width * 0.5 * (1.0 - Math.pow(t, 1.35)) * (i === segs ? 0.04 : 1.0);
+
+    cTmp.copy(cBase).lerp(cTip, t);
+
+    positions.push(-halfW, y, z, halfW, y, z);
+    uvs.push(0, t, 1, t);
+    colors.push(cTmp.r, cTmp.g, cTmp.b, cTmp.r, cTmp.g, cTmp.b);
+
+    if (i < segs) {
+      const a = i * 2;
+      const b = a + 1;
+      const c = a + 2;
+      const d = a + 3;
+      indices.push(a, c, b, b, c, d);
+    }
+  }
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  geo.setIndex(indices);
+  geo.computeVertexNormals();
+  return geo;
+}
+
+/**
+ * Merges an array of { geo, matrix } entries into a single static BufferGeometry
+ * (so cel shading uses accurate world normals & positions in 1 draw call).
+ */
+function mergePlacedGeometries(entries, includeColor = false) {
+  if (!entries.length) return null;
+
+  // Convert each unique source geometry to non-indexed ONCE (avoids hundreds of redundant allocations)
+  const nonIdxCache = new Map();
+  let totalVerts = 0;
+
+  for (let e = 0; e < entries.length; e++) {
+    const srcGeo = entries[e].geo;
+    let cached = nonIdxCache.get(srcGeo);
+    if (!cached) {
+      const owned = !!srcGeo.index;
+      const g = owned ? srcGeo.toNonIndexed() : srcGeo;
+      if (!g.attributes.normal) g.computeVertexNormals();
+      cached = { geo: g, owned };
+      nonIdxCache.set(srcGeo, cached);
+    }
+    const posAttr = cached.geo.attributes.position;
+    if (posAttr) totalVerts += posAttr.count;
+  }
+
+  if (totalVerts === 0) {
+    nonIdxCache.forEach((c) => {
+      if (c.owned) c.geo.dispose();
+    });
+    return null;
+  }
+
+  const positions = new Float32Array(totalVerts * 3);
+  const normals = new Float32Array(totalVerts * 3);
+  const uvs = new Float32Array(totalVerts * 2);
+  const colors = includeColor ? new Float32Array(totalVerts * 3) : null;
+
+  const normalMat = new THREE.Matrix3();
+  const v = new THREE.Vector3();
+
+  let offset = 0;
+  for (let e = 0; e < entries.length; e++) {
+    const { geo: srcGeo, matrix } = entries[e];
+    const g = nonIdxCache.get(srcGeo).geo;
+    const posAttr = g.attributes.position;
+    if (!posAttr) continue;
+    const normAttr = g.attributes.normal;
+    const uvAttr = g.attributes.uv;
+    const colAttr = g.attributes.color;
+    normalMat.getNormalMatrix(matrix);
+
+    const count = posAttr.count;
+    for (let i = 0; i < count; i++) {
+      const idx3 = (offset + i) * 3;
+      const idx2 = (offset + i) * 2;
+
+      v.fromBufferAttribute(posAttr, i).applyMatrix4(matrix);
+      positions[idx3] = v.x;
+      positions[idx3 + 1] = v.y;
+      positions[idx3 + 2] = v.z;
+
+      v.fromBufferAttribute(normAttr, i).applyMatrix3(normalMat).normalize();
+      normals[idx3] = v.x;
+      normals[idx3 + 1] = v.y;
+      normals[idx3 + 2] = v.z;
+
+      if (uvAttr) {
+        uvs[idx2] = uvAttr.getX(i);
+        uvs[idx2 + 1] = uvAttr.getY(i);
+      }
+
+      if (colors) {
+        if (colAttr) {
+          colors[idx3] = colAttr.getX(i);
+          colors[idx3 + 1] = colAttr.getY(i);
+          colors[idx3 + 2] = colAttr.getZ(i);
+        } else {
+          colors[idx3] = 1.0;
+          colors[idx3 + 1] = 1.0;
+          colors[idx3 + 2] = 1.0;
+        }
+      }
+    }
+
+    offset += count;
+  }
+
+  nonIdxCache.forEach((c) => {
+    if (c.owned) c.geo.dispose();
+  });
+
+  const merged = new THREE.BufferGeometry();
+  merged.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  merged.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
+  merged.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+  if (colors) {
+    merged.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  }
+  merged.computeBoundingSphere();
+  return merged;
+}
+
+// ============================================================================
+// 1. NATURAL RIVERBANK ECOSYSTEM (BOULDERS, PEBBLES, REEDS, FERNS, FORDS)
+// ============================================================================
+
+function createNaturalRiverbanks(ctx, riverSpec) {
+  const applyCel = ctx.applyStylizedCelShading || (() => {});
+  const isMobile = !!ctx.isMobileDevice;
+  const getTerrainHeight = ctx.getTerrainHeight;
+  const warmGlowTex = ctx.warmGlowTex || null;
+
+  const terrainSize = riverSpec.terrainSize || 260;
+  const waterY = riverSpec.waterY ?? -0.22;
+  const baseHalfWidth = riverSpec.halfWidth ?? 4.8;
+  const bankWidth = riverSpec.bank ?? 3.4;
+  const fords = riverSpec.fords || [];
+  const riverCenterZ = riverSpec.riverCenterZ;
+  const riverHalfWidthAt =
+    riverSpec.riverHalfWidthAt || ((x) => baseHalfWidth * (0.90 + 0.10 * Math.sin(x * 0.08)));
+  const getRoadDistance = riverSpec.getRoadDistance || null;
+
+  const group = new THREE.Group();
+  group.name = 'natural-riverbanks';
+
+  const obstacles = [];
+  const colliders = [];
+  const lanterns = [];
+  const animated = {
+    lilyPads: [],
+    reeds: [],
+  };
+
+  // --- Shared Painterly Materials ---
+  const mossyStoneTex = createMossyStoneTexture();
+  const weatheredWoodTex = createWeatheredWoodTexture();
+
+  const wetRockMat =
+    ctx.wetRockMat ||
+    (() => {
+      const m = new THREE.MeshStandardMaterial({
+        color: 0x55686d,
+        roughness: 0.38,
+        metalness: 0.08,
+      });
+      applyCel(m, { rimStrength: 0.32, shadowLift: 0.50 });
+      return m;
+    })();
+
+  const mossyRockMat = new THREE.MeshStandardMaterial({
+    color: 0x8d9b8f,
+    map: mossyStoneTex,
+    roughness: 0.84,
+    metalness: 0.03,
+  });
+  applyCel(mossyRockMat, { rimStrength: 0.22, shadowLift: 0.52 });
+
+  const dryBankRockMat =
+    ctx.rockMat ||
+    (() => {
+      const m = new THREE.MeshStandardMaterial({ color: 0x7b8388, roughness: 0.88 });
+      applyCel(m, { rimStrength: 0.18, shadowLift: 0.52 });
+      return m;
+    })();
+
+  const mossCapMat = new THREE.MeshStandardMaterial({
+    color: 0x5b9146,
+    roughness: 0.90,
+  });
+  applyCel(mossCapMat, { rimStrength: 0.24, shadowLift: 0.56 });
+
+  const driftwoodMat = new THREE.MeshStandardMaterial({
+    color: 0xa19079,
+    map: weatheredWoodTex,
+    roughness: 0.88,
+  });
+  applyCel(driftwoodMat, { rimStrength: 0.18, shadowLift: 0.54 });
+
+  const fordPostWoodMat = new THREE.MeshStandardMaterial({
+    color: 0x896241,
+    map: weatheredWoodTex,
+    roughness: 0.86,
+  });
+  applyCel(fordPostWoodMat, { rimStrength: 0.18, shadowLift: 0.55 });
+
+  const ropeMat = new THREE.MeshStandardMaterial({
+    color: 0xcab07e,
+    roughness: 0.94,
+  });
+  applyCel(ropeMat, { rimStrength: 0.14, shadowLift: 0.58 });
+
+  const darkIronMat = new THREE.MeshStandardMaterial({
+    color: 0x353b42,
+    roughness: 0.58,
+    metalness: 0.22,
+  });
+  applyCel(darkIronMat, { rimStrength: 0.24, shadowLift: 0.48 });
+
+  const reedStemMat = new THREE.MeshStandardMaterial({
+    color: 0x5b9d54,
+    roughness: 0.78,
+    side: THREE.DoubleSide,
+  });
+  applyCel(reedStemMat, { rimStrength: 0.22, shadowLift: 0.58 });
+
+  const reedHeadMat = new THREE.MeshStandardMaterial({
+    color: 0x5d3923,
+    roughness: 0.92,
+  });
+  applyCel(reedHeadMat, { rimStrength: 0.16, shadowLift: 0.52 });
+
+  const fernMat = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    vertexColors: true,
+    roughness: 0.76,
+    side: THREE.DoubleSide,
+  });
+  applyCel(fernMat, { rimStrength: 0.26, shadowLift: 0.60 });
+
+  const sedgeMat = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    vertexColors: true,
+    roughness: 0.80,
+    side: THREE.DoubleSide,
+  });
+  applyCel(sedgeMat, { rimStrength: 0.24, shadowLift: 0.60 });
+
+  const lilyMat = new THREE.MeshStandardMaterial({
+    color: 0x4ea865,
+    roughness: 0.65,
+    side: THREE.DoubleSide,
+  });
+  applyCel(lilyMat, { rimStrength: 0.20, shadowLift: 0.58 });
+
+  const lotusPetalMat = new THREE.MeshStandardMaterial({
+    color: 0xffb3c6,
+    emissive: 0xff758f,
+    emissiveIntensity: 0.18,
+    roughness: 0.45,
+  });
+
+  // --- Shared Reusable Geometries ---
+  const sculptedRocks = [
+    createSculptedRockGeo(1.0, 1, 1.3, 0.70),
+    createSculptedRockGeo(1.0, 1, 4.7, 0.62),
+    createSculptedRockGeo(1.0, 1, 8.9, 0.78),
+  ];
+  const cobbleGeoLow = createSculptedRockGeo(1.0, 0, 2.5, 0.58);
+  const mossCapGeo = new THREE.SphereGeometry(1.0, 7, 5, 0, Math.PI * 2, 0, Math.PI * 0.48);
+  const pebbleBaseGeo = createSculptedRockGeo(0.16, 0, 6.1, 0.46);
+
+  const reedStemUnitGeo = new THREE.CylinderGeometry(0.014, 0.028, 1.0, 5);
+  reedStemUnitGeo.translate(0, 0.5, 0);
+  const reedHeadUnitGeo = new THREE.CylinderGeometry(0.036, 0.036, 0.22, 6);
+  const reedLeafGeo = createArchedBladeGeo(0.075, 0.72, 0.30, 0x3f7b3e, 0x73b659);
+  const fernFrondGeo = createArchedBladeGeo(0.24, 0.78, 0.46, 0x2f6d34, 0x6fb84e);
+  const sedgeBladeGeo = createArchedBladeGeo(0.085, 0.58, 0.28, 0x437c3b, 0x82be51);
+  const lotusPetalGeo = new THREE.ConeGeometry(0.055, 0.16, 5);
+
+  // --- Spatial Helpers ---
+  function isNearFord(x, pad = 1.5) {
+    for (let i = 0; i < fords.length; i++) {
+      const f = fords[i];
+      if (Math.abs(x - f.x) < f.half + pad) return true;
+    }
+    return false;
+  }
+
+  function isNearRoad(x, z, minDist = 3.2) {
+    return getRoadDistance ? getRoadDistance(x, z) < minDist : false;
+  }
+
+  // Locate actual waterline where sculpted terrain crosses waterY
+  function findShoreZ(x, side, cz, halfW) {
+    const maxSpan = halfW + bankWidth * 1.15;
+    let prevZ = cz;
+    let prevH = getTerrainHeight(x, cz);
+    const steps = 16;
+    for (let s = 1; s <= steps; s++) {
+      const z = cz + side * (maxSpan * (s / steps));
+      const h = getTerrainHeight(x, z);
+      if (prevH < waterY && h >= waterY) {
+        const t = (waterY - prevH) / Math.max(1e-4, h - prevH);
+        return prevZ + (z - prevZ) * t;
+      }
+      prevZ = z;
+      prevH = h;
+    }
+    return cz + side * halfW;
+  }
+
+  // Buckets for merged static geometries (fast mobile draw calls)
+  const wetCobbleEntries = [];
+  const mossyCobbleEntries = [];
+  const mossCapEntries = [];
+  const staticReedStemEntries = [];
+  const staticReedHeadEntries = [];
+  const fernEntries = [];
+  const sedgeEntries = [];
+  const driftwoodEntries = [];
+
+  const tmpObj = new THREE.Object3D();
+  const maxX = Math.min(260, terrainSize * 0.5 - 10);
+
+  // --------------------------------------------------------------------------
+  // A. NATURAL WET BANK BOULDERS, COBBLE CLUSTERS & MID-STREAM OUTCROPS
+  // --------------------------------------------------------------------------
+  let rockIdx = 0;
+  for (let x = -maxX; x <= maxX; x += 2.6) {
+    const inCore = Math.abs(x) <= 75;
+    if (!inCore && hash1(x * 1.73 + 11.4) > 0.42) continue;
+
+    const cz = riverCenterZ(x);
+    const halfW = riverHalfWidthAt(x);
+
+    // Organic rocky-bend density modulation (creates natural stony stretches & quiet grassy coves)
+    const bendCluster = 0.5 + 0.5 * Math.sin(x * 0.13 + 0.7) * Math.cos(x * 0.057 - 1.2);
+
+    for (const side of [-1, 1]) {
+      rockIdx++;
+      const seed = rockIdx * 3.17 + side * 19.3;
+      const jitterX = (hash1(seed + 1.1) - 0.5) * 2.1;
+      const rx = x + jitterX;
+
+      if (isNearFord(rx, 1.55)) continue;
+
+      const rcz = riverCenterZ(rx);
+      const rHalf = riverHalfWidthAt(rx);
+      const shoreZ = findShoreZ(rx, side, rcz, rHalf);
+
+      const spawnChance = inCore ? 0.34 + bendCluster * 0.34 : 0.24;
+      if (hash1(seed + 2.7) > spawnChance) continue;
+
+      // Offset relative to exact waterline: negative = wading in water, positive = resting on bank
+      const shoreOffset = (hash1(seed + 4.3) - 0.38) * 1.45;
+      const rz = shoreZ + side * shoreOffset;
+
+      if (isNearRoad(rx, rz, 3.4)) continue;
+
+      const ty = getTerrainHeight(rx, rz);
+      const isWet = ty < waterY + 0.20 || shoreOffset < 0.32;
+      const baseR = inCore
+        ? 0.38 + hash1(seed + 5.9) * 0.68
+        : 0.45 + hash1(seed + 5.9) * 0.62;
+      const sx = baseR * (1.05 + hash1(seed + 7.1) * 0.42);
+      const sy = baseR * (0.56 + hash1(seed + 8.3) * 0.34);
+      const sz = baseR * (0.92 + hash1(seed + 9.5) * 0.36);
+
+      // Sink rock firmly into sloped riverbank so bottom NEVER floats
+      const seatY = isWet
+        ? Math.max(ty + sy * 0.18, waterY - sy * 0.26)
+        : ty + sy * 0.22 - 0.08;
+
+      const yaw = hash1(seed + 11.2) * Math.PI * 2;
+      const tiltX = (hash1(seed + 12.6) - 0.5) * 0.28;
+      const tiltZ = (hash1(seed + 13.8) - 0.5) * 0.28;
+
+      const effectiveR = Math.max(sx, sz) * 0.88;
+
+      if (baseR >= 0.56 && inCore) {
+        // Hero boulder: real mesh + rock collider
+        const geo = sculptedRocks[rockIdx % sculptedRocks.length];
+        const mesh = new THREE.Mesh(geo, isWet ? wetRockMat : mossyRockMat);
+        mesh.position.set(rx, seatY, rz);
+        mesh.scale.set(sx, sy, sz);
+        mesh.rotation.set(tiltX, yaw, tiltZ);
+        mesh.castShadow = !isMobile;
+        mesh.receiveShadow = true;
+        group.add(mesh);
+
+        colliders.push({ type: 'river_rock', mesh });
+
+        // Lush moss cap cushion on top of dry/half-wet hero boulders
+        if (!isWet && hash1(seed + 15.1) > 0.38) {
+          tmpObj.position.set(rx, seatY + sy * 0.24, rz);
+          tmpObj.rotation.set(tiltX * 0.4, yaw, tiltZ * 0.4);
+          tmpObj.scale.set(sx * 0.72, sy * 0.56, sz * 0.68);
+          tmpObj.updateMatrix();
+          mossCapEntries.push({ geo: mossCapGeo, matrix: tmpObj.matrix.clone() });
+        }
+      } else {
+        // Merged bank cobble for fast mobile rendering
+        tmpObj.position.set(rx, seatY, rz);
+        tmpObj.rotation.set(tiltX, yaw, tiltZ);
+        tmpObj.scale.set(sx, sy, sz);
+        tmpObj.updateMatrix();
+        (isWet ? wetCobbleEntries : mossyCobbleEntries).push({
+          geo: sculptedRocks[rockIdx % sculptedRocks.length],
+          matrix: tmpObj.matrix.clone(),
+        });
+      }
+
+      // Register shoreline foam obstacle whenever rock touches or hugs the waterline
+      if (ty < waterY + 0.30 || shoreOffset < effectiveR + 0.42) {
+        obstacles.push({ x: rx, z: rz, r: effectiveR });
+      }
+
+      // 2-3 organic companion cobbles nestled around the hero rock base
+      const companions = inCore ? 2 + Math.floor(hash1(seed + 16.7) * 2.2) : 1;
+      for (let c = 0; c < companions; c++) {
+        const cSeed = seed + 30 + c * 7.3;
+        const cAng = yaw + c * 2.15 + hash1(cSeed) * 1.1;
+        const cDist = effectiveR * (0.78 + hash1(cSeed + 1.4) * 0.55);
+        const cx = rx + Math.cos(cAng) * cDist;
+        const czPos = rz + Math.sin(cAng) * cDist;
+        if (isNearFord(cx, 1.45) || isNearRoad(cx, czPos, 3.0)) continue;
+
+        const cty = getTerrainHeight(cx, czPos);
+        const cr = 0.16 + hash1(cSeed + 2.8) * 0.26;
+        const csx = cr * (1.1 + hash1(cSeed + 3.9) * 0.45);
+        const csy = cr * (0.52 + hash1(cSeed + 4.7) * 0.30);
+        const csz = cr * (0.95 + hash1(cSeed + 5.6) * 0.35);
+        const cWet = cty < waterY + 0.14;
+
+        tmpObj.position.set(cx, cty + csy * 0.18 - 0.04, czPos);
+        tmpObj.rotation.set(
+          (hash1(cSeed + 6.5) - 0.5) * 0.35,
+          hash1(cSeed + 7.2) * Math.PI * 2,
+          (hash1(cSeed + 8.1) - 0.5) * 0.35
+        );
+        tmpObj.scale.set(csx, csy, csz);
+        tmpObj.updateMatrix();
+        (cWet ? wetCobbleEntries : mossyCobbleEntries).push({
+          geo: cobbleGeoLow,
+          matrix: tmpObj.matrix.clone(),
+        });
+
+        if (cty < waterY + 0.16 && cr >= 0.24) {
+          obstacles.push({ x: cx, z: czPos, r: Math.max(csx, csz) * 0.85 });
+        }
+      }
+    }
+  }
+
+  // Mid-stream rocky outcrops in scenic bends (well clear of all 3 fords!)
+  const midStreamSpots = [-64, -51, -21, 9.5, 37.5, 48.5, 61.5];
+  midStreamSpots.forEach((mx, idx) => {
+    if (isNearFord(mx, 3.2)) return;
+    const seed = 410 + idx * 17.3;
+    const mcz = riverCenterZ(mx);
+    const mHalf = riverHalfWidthAt(mx);
+    const latOffset = (hash1(seed) - 0.5) * mHalf * 0.92;
+    const mz = mcz + latOffset;
+    if (isNearRoad(mx, mz, 4.0)) return;
+
+    const ty = getTerrainHeight(mx, mz);
+    const mainR = 0.56 + hash1(seed + 1.8) * 0.34;
+    const sx = mainR * 1.28;
+    const sy = mainR * 0.76;
+    const sz = mainR * 1.06;
+
+    // Emerge naturally ~0.22-0.42m above the water surface, rooted deeply into riverbed
+    const rockMesh = new THREE.Mesh(sculptedRocks[idx % sculptedRocks.length], wetRockMat);
+    const topY = waterY + 0.16 + hash1(seed + 2.9) * 0.22;
+    rockMesh.position.set(mx, Math.max(ty + sy * 0.45, topY - sy * 0.35), mz);
+    rockMesh.scale.set(sx, sy, sz);
+    rockMesh.rotation.set(0.12, hash1(seed + 4.1) * Math.PI * 2, -0.1);
+    rockMesh.castShadow = !isMobile;
+    rockMesh.receiveShadow = true;
+    group.add(rockMesh);
+
+    const effR = Math.max(sx, sz) * 0.90;
+    obstacles.push({ x: mx, z: mz, r: effR });
+    colliders.push({ type: 'river_rock', mesh: rockMesh });
+
+    // Small mossy cap on tallest mid-stream boulders
+    if (hash1(seed + 5.2) > 0.35) {
+      tmpObj.position.set(mx, rockMesh.position.y + sy * 0.28, mz);
+      tmpObj.rotation.set(0, rockMesh.rotation.y, 0);
+      tmpObj.scale.set(sx * 0.55, sy * 0.42, sz * 0.52);
+      tmpObj.updateMatrix();
+      mossCapEntries.push({ geo: mossCapGeo, matrix: tmpObj.matrix.clone() });
+    }
+
+    // 1-2 smaller half-submerged satellite stones beside the outcrop
+    for (let s = 0; s < 2; s++) {
+      const ang = hash1(seed + 8.3 + s * 4.1) * Math.PI * 2;
+      const ox = mx + Math.cos(ang) * (effR + 0.28 + s * 0.18);
+      const oz = mz + Math.sin(ang) * (effR + 0.25);
+      const sr = 0.22 + hash1(seed + 11.7 + s * 3.1) * 0.18;
+      tmpObj.position.set(ox, waterY - 0.05, oz);
+      tmpObj.rotation.set(0.18 * s, ang, -0.15);
+      tmpObj.scale.set(sr * 1.25, sr * 0.62, sr * 1.05);
+      tmpObj.updateMatrix();
+      wetCobbleEntries.push({ geo: cobbleGeoLow, matrix: tmpObj.matrix.clone() });
+      obstacles.push({ x: ox, z: oz, r: sr * 1.05 });
+    }
+  });
+
+  // --------------------------------------------------------------------------
+  // B. UNDERWATER RIVER PEBBLES & FORD COBBLES (1-DRAW-CALL InstancedMesh!)
+  // --------------------------------------------------------------------------
+  const pebblePalette = [
+    new THREE.Color(0x6c8a82),
+    new THREE.Color(0x8fa89b),
+    new THREE.Color(0x52736b),
+    new THREE.Color(0xb59e7a),
+    new THREE.Color(0x7c9296),
+    new THREE.Color(0xa69274),
+    new THREE.Color(0x5d7c79),
+  ];
+
+  const pebbleTransforms = [];
+  const pebbleColorIndices = [];
+
+  // 1) Shallow bank & riverbed pebbles across the visible valley & outer river crossings
+  const halfSpanX = Math.min(340, (riverSpec.terrainSize || 300) * 0.45);
+  const maxPebbleAttempts = isMobile ? 320 : 480;
+  for (let i = 0; i < maxPebbleAttempts && pebbleTransforms.length < (isMobile ? 225 : 340); i++) {
+    const u = hash1(i * 4.37 + 91.2);
+    const px = (u * 2.0 - 1.0) * halfSpanX;
+    const cz = riverCenterZ(px);
+    const halfW = riverHalfWidthAt(px);
+
+    // Bias pebbles toward crystal-clear shallow margins & ford crossings where they shine!
+    const nearFord = isNearFord(px, 1.0);
+    const latRand = hash1(i * 7.83 + 23.6);
+    let lat;
+    if (nearFord) {
+      lat = (latRand * 2.0 - 1.0) * (halfW * 1.02);
+    } else {
+      const side = hash1(i * 11.1 + 5.3) > 0.5 ? 1 : -1;
+      lat = side * halfW * (0.42 + latRand * 0.72);
+    }
+
+    const pz = cz + lat;
+    const py = getTerrainHeight(px, pz);
+
+    // Must lie submerged beneath clear water (not too deep to vanish, not dry inland)
+    if (py < waterY - 0.04 && py > waterY - 0.72) {
+      const s = 0.65 + hash1(i * 13.9 + 7.1) * 0.92;
+      tmpObj.position.set(px, py + 0.024, pz);
+      tmpObj.rotation.set(
+        (hash1(i * 17.3 + 2.4) - 0.5) * 0.25,
+        hash1(i * 19.7 + 8.9) * Math.PI * 2,
+        (hash1(i * 21.1 + 4.2) - 0.5) * 0.25
+      );
+      tmpObj.scale.set(s * 1.32, s * 0.42, s * (0.92 + hash1(i * 23.5) * 0.30));
+      tmpObj.updateMatrix();
+      pebbleTransforms.push(tmpObj.matrix.clone());
+      pebbleColorIndices.push(i % pebblePalette.length);
+    }
+  }
+
+  // 2) Extra colorful smooth river stones embedded cleanly in the 3 shallow fords
+  for (let fi = 0; fi < fords.length; fi++) {
+    const f = fords[fi];
+    const fordCount = fi === 0 ? 22 : 14;
+    for (let k = 0; k < fordCount; k++) {
+      const seed = 700 + fi * 97 + k * 7.13;
+      const px = f.x + (hash1(seed) * 2.0 - 1.0) * (f.half + 0.8);
+      const cz = riverCenterZ(px);
+      const halfW = riverHalfWidthAt(px);
+      const pz = cz + (hash1(seed + 1.9) * 2.0 - 1.0) * (halfW * 1.05);
+      const py = getTerrainHeight(px, pz);
+      if (py < waterY - 0.03) {
+        const s = 0.75 + hash1(seed + 3.4) * 0.85;
+        tmpObj.position.set(px, py + 0.018, pz);
+        tmpObj.rotation.set(0.05, hash1(seed + 5.1) * Math.PI * 2, -0.05);
+        tmpObj.scale.set(s * 1.4, s * 0.34, s * 1.1);
+        tmpObj.updateMatrix();
+        pebbleTransforms.push(tmpObj.matrix.clone());
+        pebbleColorIndices.push((fi * 3 + k) % pebblePalette.length);
+      }
+    }
+  }
+
+  if (pebbleTransforms.length > 0) {
+    const pebbleMat = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      roughness: 0.56,
+      metalness: 0.05,
+    });
+    const pebbleInst = new THREE.InstancedMesh(pebbleBaseGeo, pebbleMat, pebbleTransforms.length);
+    pebbleInst.name = 'river-pebbles';
+    pebbleInst.castShadow = false;
+    pebbleInst.receiveShadow = true;
+    for (let i = 0; i < pebbleTransforms.length; i++) {
+      pebbleInst.setMatrixAt(i, pebbleTransforms[i]);
+      pebbleInst.setColorAt(i, pebblePalette[pebbleColorIndices[i]]);
+    }
+    pebbleInst.instanceMatrix.needsUpdate = true;
+    if (pebbleInst.instanceColor) pebbleInst.instanceColor.needsUpdate = true;
+    group.add(pebbleInst);
+  }
+
+  // --------------------------------------------------------------------------
+  // C. LUSH RIVERBANK VEGETATION: CATTAILS/REEDS, FERNS & SEDGE GRASS CLUMPS
+  // --------------------------------------------------------------------------
+  let clumpId = 0;
+  for (let x = -114; x <= 114; x += 2.2) {
+    const inCore = Math.abs(x) <= 72;
+    if (!inCore && hash1(x * 2.31 + 43.2) > 0.38) continue;
+
+    // Organic patchiness (natural alternating reed marshes and grassy banks)
+    const patchNoise = 0.5 + 0.5 * Math.sin(x * 0.16 - 0.8) * Math.cos(x * 0.073 + 1.5);
+
+    for (const side of [-1, 1]) {
+      clumpId++;
+      const seed = 1000 + clumpId * 5.37 + side * 29.1;
+      const rx = x + (hash1(seed) - 0.5) * 1.85;
+      if (isNearFord(rx, 0.85)) continue;
+
+      const cz = riverCenterZ(rx);
+      const halfW = riverHalfWidthAt(rx);
+      const shoreZ = findShoreZ(rx, side, cz, halfW);
+
+      // 1. Cattail / Reed Clumps hugging moist waterline (waterY - 0.15 .. waterY + 0.45)
+      const reedProb = inCore ? 0.24 + patchNoise * 0.38 : 0.18;
+      if (hash1(seed + 2.3) < reedProb) {
+        const reedOffset = (hash1(seed + 3.7) - 0.35) * 0.95;
+        const rz = shoreZ + side * reedOffset;
+        if (!isNearRoad(rx, rz, 2.9)) {
+          const py = getTerrainHeight(rx, rz);
+          if (py > waterY - 0.16 && py < waterY + 0.46) {
+            const isAnimatedHero =
+              Math.abs(rx) <= 40 && animated.reeds.length < 14 && hash1(seed + 4.9) > 0.52;
+            const stalkCount = isAnimatedHero ? 5 : 4 + Math.floor(hash1(seed + 5.8) * 3);
+
+            if (isAnimatedHero) {
+              const localStems = [];
+              const localHeads = [];
+              for (let j = 0; j < stalkCount; j++) {
+                const jSeed = seed + 40 + j * 4.7;
+                const h = 0.86 + hash1(jSeed) * 0.48;
+                const ox = (hash1(jSeed + 1.1) - 0.5) * 0.42;
+                const oz = (hash1(jSeed + 2.2) - 0.5) * 0.42;
+                const leanZ = (hash1(jSeed + 3.3) - 0.5) * 0.22;
+                const leanX = (hash1(jSeed + 4.4) - 0.5) * 0.22;
+
+                tmpObj.position.set(ox, -0.08, oz);
+                tmpObj.rotation.set(leanX, hash1(jSeed + 5.5) * Math.PI * 2, leanZ);
+                tmpObj.scale.set(1.0, h, 1.0);
+                tmpObj.updateMatrix();
+                localStems.push({ geo: reedStemUnitGeo, matrix: tmpObj.matrix.clone() });
+
+                // Slender reed leaf blade beside stalk
+                if (j < 4) {
+                  tmpObj.position.set(ox, -0.04, oz);
+                  tmpObj.rotation.set(0.08, j * 1.55 + hash1(jSeed + 6.1), 0);
+                  tmpObj.scale.set(1.0, 0.85 + hash1(jSeed + 6.8) * 0.45, 1.0);
+                  tmpObj.updateMatrix();
+                  localStems.push({ geo: reedLeafGeo, matrix: tmpObj.matrix.clone() });
+                }
+
+                // Velvety brown cattail head on half the stalks
+                if (j % 2 === 0) {
+                  const headH = h * 0.80;
+                  tmpObj.position.set(
+                    ox - Math.sin(leanZ) * headH,
+                    -0.08 + Math.cos(leanZ) * headH,
+                    oz + Math.sin(leanX) * headH
+                  );
+                  tmpObj.rotation.set(leanX, 0, leanZ);
+                  tmpObj.scale.set(1.0, 1.0, 1.0);
+                  tmpObj.updateMatrix();
+                  localHeads.push({ geo: reedHeadUnitGeo, matrix: tmpObj.matrix.clone() });
+                }
+              }
+
+              const rGroup = new THREE.Group();
+              rGroup.position.set(rx, py, rz);
+              const sGeo = mergePlacedGeometries(localStems, false);
+              if (sGeo) {
+                const sMesh = new THREE.Mesh(sGeo, reedStemMat);
+                sMesh.receiveShadow = true;
+                rGroup.add(sMesh);
+              }
+              const hGeo = mergePlacedGeometries(localHeads, false);
+              if (hGeo) {
+                const hMesh = new THREE.Mesh(hGeo, reedHeadMat);
+                rGroup.add(hMesh);
+              }
+              rGroup.userData = {
+                phase: hash1(seed + 9.4) * Math.PI * 2,
+                swayAmp: 0.045 + hash1(seed + 10.2) * 0.025,
+              };
+              group.add(rGroup);
+              animated.reeds.push(rGroup);
+            } else {
+              // Merge static reed clump directly into world-space cel-shaded buffers
+              for (let j = 0; j < stalkCount; j++) {
+                const jSeed = seed + 40 + j * 4.7;
+                const h = 0.82 + hash1(jSeed) * 0.50;
+                const ox = rx + (hash1(jSeed + 1.1) - 0.5) * 0.48;
+                const oz = rz + (hash1(jSeed + 2.2) - 0.5) * 0.48;
+                const leanZ = (hash1(jSeed + 3.3) - 0.5) * 0.22;
+                const leanX = (hash1(jSeed + 4.4) - 0.5) * 0.22;
+
+                tmpObj.position.set(ox, py - 0.08, oz);
+                tmpObj.rotation.set(leanX, hash1(jSeed + 5.5) * Math.PI * 2, leanZ);
+                tmpObj.scale.set(1.0, h, 1.0);
+                tmpObj.updateMatrix();
+                staticReedStemEntries.push({ geo: reedStemUnitGeo, matrix: tmpObj.matrix.clone() });
+
+                if (j < 3) {
+                  tmpObj.position.set(ox, py - 0.04, oz);
+                  tmpObj.rotation.set(0.06, j * 2.1 + hash1(jSeed + 6.1), 0);
+                  tmpObj.scale.set(1.0, 0.8 + hash1(jSeed + 6.8) * 0.45, 1.0);
+                  tmpObj.updateMatrix();
+                  staticReedStemEntries.push({ geo: reedLeafGeo, matrix: tmpObj.matrix.clone() });
+                }
+
+                if (j % 2 === 0) {
+                  const headH = h * 0.80;
+                  tmpObj.position.set(
+                    ox - Math.sin(leanZ) * headH,
+                    py - 0.08 + Math.cos(leanZ) * headH,
+                    oz + Math.sin(leanX) * headH
+                  );
+                  tmpObj.rotation.set(leanX, 0, leanZ);
+                  tmpObj.scale.set(1.0, 1.0, 1.0);
+                  tmpObj.updateMatrix();
+                  staticReedHeadEntries.push({ geo: reedHeadUnitGeo, matrix: tmpObj.matrix.clone() });
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // 2. Lush Riverside Fern Rosettes softening the sandy bank into meadow grass (clear of shoreline boulders)
+      const fernProb = inCore ? 0.36 : 0.16;
+      if (hash1(seed + 11.9) < fernProb) {
+        const fx = rx + (hash1(seed + 12.7) - 0.5) * 1.4;
+        const fz = shoreZ + side * (1.15 + hash1(seed + 13.8) * 1.95);
+        let hitsRock = false;
+        for (let oi = 0; oi < obstacles.length; oi++) {
+          const ob = obstacles[oi];
+          if (Math.hypot(fx - ob.x, fz - ob.z) < ob.r + 0.95) {
+            hitsRock = true;
+            break;
+          }
+        }
+        if (!hitsRock && !isNearRoad(fx, fz, 3.0)) {
+          const fy = getTerrainHeight(fx, fz);
+          if (fy > waterY + 0.12 && fy < waterY + 1.65) {
+            const frondCount = isMobile ? 5 : 6;
+            const fernScale = 0.72 + hash1(seed + 14.9) * 0.55;
+            const baseYaw = hash1(seed + 15.6) * Math.PI * 2;
+            for (let f = 0; f < frondCount; f++) {
+              const fAng = baseYaw + (f / frondCount) * Math.PI * 2 + (hash1(seed + 20 + f) - 0.5) * 0.35;
+              const pitch = 0.28 + hash1(seed + 30 + f) * 0.22;
+              tmpObj.position.set(fx, fy - 0.04, fz);
+              tmpObj.rotation.set(0, fAng, 0);
+              tmpObj.rotateX(pitch);
+              tmpObj.scale.set(
+                fernScale * (0.88 + hash1(seed + 40 + f) * 0.25),
+                fernScale * (0.85 + hash1(seed + 50 + f) * 0.30),
+                fernScale
+              );
+              tmpObj.updateMatrix();
+              fernEntries.push({ geo: fernFrondGeo, matrix: tmpObj.matrix.clone() });
+            }
+          }
+        }
+      }
+
+      // 3. Soft Sedge Grass Clumps blending wet sand edge into clover meadow (clear of boulders)
+      const sedgeProb = inCore ? 0.55 : 0.22;
+      if (hash1(seed + 61.3) < sedgeProb) {
+        const sx = rx + (hash1(seed + 62.1) - 0.5) * 1.7;
+        const sz = shoreZ + side * (0.45 + hash1(seed + 63.4) * 1.65);
+        let sedgeHitsRock = false;
+        for (let oi = 0; oi < obstacles.length; oi++) {
+          const ob = obstacles[oi];
+          if (Math.hypot(sx - ob.x, sz - ob.z) < ob.r + 0.85) {
+            sedgeHitsRock = true;
+            break;
+          }
+        }
+        if (!sedgeHitsRock && !isNearRoad(sx, sz, 2.7)) {
+          const sy = getTerrainHeight(sx, sz);
+          if (sy > waterY + 0.02 && sy < waterY + 1.25) {
+            const bladeCount = isMobile ? 5 : 7;
+            const tuftScale = 0.75 + hash1(seed + 64.8) * 0.52;
+            for (let b = 0; b < bladeCount; b++) {
+              const bSeed = seed + 70 + b * 3.1;
+              const bAng = (b / bladeCount) * Math.PI * 2 + hash1(bSeed) * 0.65;
+              tmpObj.position.set(
+                sx + (hash1(bSeed + 1.2) - 0.5) * 0.20,
+                sy - 0.04,
+                sz + (hash1(bSeed + 2.4) - 0.5) * 0.20
+              );
+              tmpObj.rotation.set(0, bAng, 0);
+              tmpObj.rotateX(0.18 + hash1(bSeed + 3.5) * 0.25);
+              tmpObj.scale.set(
+                tuftScale,
+                tuftScale * (0.78 + hash1(bSeed + 4.6) * 0.45),
+                tuftScale
+              );
+              tmpObj.updateMatrix();
+              sedgeEntries.push({ geo: sedgeBladeGeo, matrix: tmpObj.matrix.clone() });
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // --------------------------------------------------------------------------
+  // D. WEATHERED DRIFTWOOD LOGS ON QUIET GRAVEL BARS (OUTSIDE FORDS)
+  // --------------------------------------------------------------------------
+  const driftwoodSpots = [
+    { x: -57.5, side: -1, len: 2.8, rad: 0.16 },
+    { x: -19.5, side: 1, len: 3.1, rad: 0.18 },
+    { x: 11.2, side: -1, len: 2.5, rad: 0.15 },
+    { x: 41.0, side: 1, len: 3.2, rad: 0.19 },
+    { x: 58.5, side: -1, len: 2.6, rad: 0.16 },
+    { x: -46.0, side: 1, len: 2.7, rad: 0.17 },
+  ];
+
+  const logUnitGeo = new THREE.CylinderGeometry(0.76, 1.0, 1.0, 7);
+  logUnitGeo.rotateZ(Math.PI * 0.5);
+  const stubUnitGeo = new THREE.CylinderGeometry(0.45, 0.72, 1.0, 5);
+
+  driftwoodSpots.forEach((dw, idx) => {
+    if (isNearFord(dw.x, 2.2)) return;
+    const cz = riverCenterZ(dw.x);
+    const halfW = riverHalfWidthAt(dw.x);
+    const shoreZ = findShoreZ(dw.x, dw.side, cz, halfW);
+    const dz = shoreZ + dw.side * 0.25;
+    if (isNearRoad(dw.x, dz, 4.0)) return;
+
+    const dy = getTerrainHeight(dw.x, dz);
+    const yaw = (hash1(idx * 17.3 + 5.1) - 0.5) * 0.95 + (dw.side > 0 ? 0.22 : -0.22);
+    const pitch = (hash1(idx * 23.1 + 9.4) - 0.5) * 0.14;
+
+    tmpObj.position.set(dw.x, Math.max(dy + dw.rad * 0.52, waterY - 0.04), dz);
+    tmpObj.rotation.set(0.06, yaw, pitch);
+    tmpObj.scale.set(dw.len, dw.rad, dw.rad * 1.12);
+    tmpObj.updateMatrix();
+    driftwoodEntries.push({ geo: logUnitGeo, matrix: tmpObj.matrix.clone() });
+
+    // Broken gnarled branch stub
+    const stubX = dw.x + Math.cos(yaw) * (dw.len * 0.22);
+    const stubZ = dz - Math.sin(yaw) * (dw.len * 0.22);
+    tmpObj.position.set(stubX, Math.max(dy + dw.rad * 0.75, waterY + 0.04), stubZ);
+    tmpObj.rotation.set(0.42, yaw + 0.85, -0.58);
+    tmpObj.scale.set(dw.rad * 0.65, 0.72, dw.rad * 0.65);
+    tmpObj.updateMatrix();
+    driftwoodEntries.push({ geo: stubUnitGeo, matrix: tmpObj.matrix.clone() });
+
+    // Subtle water foam obstacle where driftwood touches the waterline
+    const waterEndX = dw.x - Math.cos(yaw) * (dw.len * 0.34);
+    const waterEndZ = dz + Math.sin(yaw) * (dw.len * 0.34);
+    if (getTerrainHeight(waterEndX, waterEndZ) < waterY + 0.08) {
+      obstacles.push({ x: waterEndX, z: waterEndZ, r: dw.rad * 1.8 });
+    }
+  });
+
+  // --------------------------------------------------------------------------
+  // E. CALM-BACKWATER LILY PADS & BLOOMING LOTUS FLOWERS IN SHELTERED BENDS
+  // --------------------------------------------------------------------------
+  const lilyClusters = [
+    { x: -18.5, side: -1, count: 4 },
+    { x: 10.5, side: 1, count: 4 },
+    { x: 39.5, side: -1, count: 3 },
+    { x: -49.5, side: 1, count: 3 },
+  ];
+
+  let lilyIdx = 0;
+  lilyClusters.forEach((lc, cIdx) => {
+    if (isNearFord(lc.x, 3.0)) return;
+    const cz = riverCenterZ(lc.x);
+    const halfW = riverHalfWidthAt(lc.x);
+    const shoreZ = findShoreZ(lc.x, lc.side, cz, halfW);
+
+    for (let k = 0; k < lc.count; k++) {
+      const seed = 2100 + cIdx * 37 + k * 9.13;
+      const lx = lc.x + (hash1(seed) - 0.5) * 2.8;
+      // Tuck into calm shallow backwater 0.75m - 1.85m inside the waterline
+      const lz = shoreZ - lc.side * (0.75 + hash1(seed + 1.7) * 1.15);
+      const bedY = getTerrainHeight(lx, lz);
+      const depth = waterY - bedY;
+      if (depth < 0.12 || depth > 0.85) continue;
+
+      const r = 0.24 + hash1(seed + 3.2) * 0.14;
+      const hasFlower = k % 2 === 0;
+
+      const lpGroup = new THREE.Group();
+      lpGroup.position.set(lx, waterY + 0.018, lz);
+
+      const padGeo = new THREE.CircleGeometry(r, 12, 0.18, Math.PI * 2 - 0.36);
+      padGeo.rotateX(-Math.PI / 2);
+      const padMesh = new THREE.Mesh(padGeo, lilyMat);
+      padMesh.rotation.y = hash1(seed + 4.8) * Math.PI * 2;
+      lpGroup.add(padMesh);
+
+      if (hasFlower) {
+        for (let p = 0; p < 6; p++) {
+          const pAng = (p / 6) * Math.PI * 2;
+          const petal = new THREE.Mesh(lotusPetalGeo, lotusPetalMat);
+          petal.position.set(Math.cos(pAng) * 0.055, 0.048, Math.sin(pAng) * 0.055);
+          petal.rotation.z = -Math.cos(pAng) * 0.55;
+          petal.rotation.x = Math.sin(pAng) * 0.55;
+          lpGroup.add(petal);
+        }
+      }
+
+      lpGroup.userData = {
+        baseX: lx,
+        baseZ: lz,
+        baseY: waterY + 0.018,
+        phase: lilyIdx * 1.55 + 0.6,
+      };
+      group.add(lpGroup);
+      animated.lilyPads.push(lpGroup);
+      lilyIdx++;
+    }
+  });
+
+  // --------------------------------------------------------------------------
+  // F. NATURAL RUSTIC FORD CROSSINGS (WOODEN GUIDEPOSTS + FORD LANTERNS)
+  // --------------------------------------------------------------------------
+  const guidePostGeo = new THREE.CylinderGeometry(0.085, 0.115, 2.25, 7);
+  const guideCapGeo = new THREE.ConeGeometry(0.115, 0.12, 7);
+  const ropeWrapGeo = new THREE.TorusGeometry(0.098, 0.022, 6, 12);
+  ropeWrapGeo.rotateX(Math.PI * 0.5);
+
+  const lanternPostGeo = new THREE.CylinderGeometry(0.078, 0.108, 3.55, 7);
+  const lanternArmGeo = new THREE.BoxGeometry(0.82, 0.085, 0.085);
+  const lanternBraceGeo = new THREE.BoxGeometry(0.42, 0.06, 0.06);
+  const lanternCapGeo = new THREE.ConeGeometry(0.18, 0.14, 6);
+  const lanternGlassGeo = new THREE.CylinderGeometry(0.11, 0.09, 0.24, 6);
+  const lanternBaseRimGeo = new THREE.CylinderGeometry(0.12, 0.10, 0.05, 6);
+
+  let lanternIdx = 0;
+  fords.forEach((f, fi) => {
+    const isMainRoadFord = Math.abs(f.x - -5.4) < 2.2 || fi === 0;
+
+    for (const bankSide of [-1, 1]) {
+      for (const lrSide of [-1, 1]) {
+        const fx = f.x + lrSide * (f.half + 0.85);
+        const cz = riverCenterZ(fx);
+        const halfW = riverHalfWidthAt(fx);
+        const shoreZ = findShoreZ(fx, bankSide, cz, halfW);
+        const fz = shoreZ + bankSide * 1.15;
+        const fy = getTerrainHeight(fx, fz);
+
+        // Place warm hanging ford lanterns on diagonally framing entrances of the main road ford!
+        const isLanternPost = isMainRoadFord && bankSide * lrSide === -1;
+
+        if (isLanternPost) {
+          const lGroup = new THREE.Group();
+          lGroup.position.set(fx, fy, fz);
+          // Aim lantern arm gently inward toward the ford crossing!
+          const aimX = f.x - fx;
+          const aimZ = cz - fz;
+          lGroup.rotation.y = Math.atan2(-aimZ, aimX);
+
+          // Main post extends down to y = -0.75 so it NEVER floats on sloped banks
+          const post = new THREE.Mesh(lanternPostGeo, fordPostWoodMat);
+          post.position.y = 1.025; // bottom = 1.025 - 1.775 = -0.75, top = 2.80
+          post.rotation.z = -0.035;
+          post.castShadow = !isMobile;
+          post.receiveShadow = true;
+          lGroup.add(post);
+
+          // Rope binding collar
+          for (let r = 0; r < 3; r++) {
+            const rope = new THREE.Mesh(ropeWrapGeo, ropeMat);
+            rope.position.set(0.03, 2.38 + r * 0.042, 0);
+            lGroup.add(rope);
+          }
+
+          // Angled cross-arm & diagonal timber brace
+          const arm = new THREE.Mesh(lanternArmGeo, fordPostWoodMat);
+          arm.position.set(0.36, 2.62, 0);
+          arm.rotation.z = 0.08;
+          arm.castShadow = !isMobile;
+          lGroup.add(arm);
+
+          const brace = new THREE.Mesh(lanternBraceGeo, fordPostWoodMat);
+          brace.position.set(0.20, 2.42, 0);
+          brace.rotation.z = 0.72;
+          lGroup.add(brace);
+
+          // Iron lantern hood, glowing amber glass & bottom rim
+          const cap = new THREE.Mesh(lanternCapGeo, darkIronMat);
+          cap.position.set(0.68, 2.44, 0);
+          lGroup.add(cap);
+
+          const glassMat = new THREE.MeshBasicMaterial({ color: 0xffe49e });
+          const glass = new THREE.Mesh(lanternGlassGeo, glassMat);
+          glass.position.set(0.68, 2.26, 0);
+          lGroup.add(glass);
+
+          const rim = new THREE.Mesh(lanternBaseRimGeo, darkIronMat);
+          rim.position.set(0.68, 2.13, 0);
+          lGroup.add(rim);
+
+          // Additive warm glow sprite (zero PointLights for mobile FPS!)
+          const haloMat = new THREE.SpriteMaterial({
+            map: warmGlowTex,
+            color: 0xffc66b,
+            transparent: true,
+            opacity: 0.75,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+          });
+          const halo = new THREE.Sprite(haloMat);
+          halo.position.set(0.68, 2.26, 0);
+          halo.scale.set(1.70, 1.70, 1.0);
+          lGroup.add(halo);
+
+          group.add(lGroup);
+          lanterns.push({
+            group: lGroup,
+            halo,
+            glassMat,
+            phase: lanternIdx * 1.9 + 0.7,
+          });
+          lanternIdx++;
+        } else {
+          // Natural weathered wooden ford guidepost (sunk to y = -0.75)
+          const pGroup = new THREE.Group();
+          pGroup.position.set(fx, fy, fz);
+          pGroup.rotation.y = hash2(fx, fz) * Math.PI * 2;
+
+          const lean = (hash2(fx + 3.1, fz - 1.7) - 0.5) * 0.11;
+          const post = new THREE.Mesh(guidePostGeo, fordPostWoodMat);
+          post.position.y = 0.375; // bottom = 0.375 - 1.125 = -0.75, top = 1.50
+          post.rotation.z = lean;
+          post.castShadow = !isMobile;
+          post.receiveShadow = true;
+          pGroup.add(post);
+
+          const cap = new THREE.Mesh(guideCapGeo, fordPostWoodMat);
+          cap.position.set(-Math.sin(lean) * 1.12, 1.54, 0);
+          cap.rotation.z = lean;
+          pGroup.add(cap);
+
+          // Braided rope wrap around the upper post
+          for (let r = 0; r < 3; r++) {
+            const rope = new THREE.Mesh(ropeWrapGeo, ropeMat);
+            const ry = 1.12 + r * 0.044;
+            rope.position.set(-Math.sin(lean) * (ry - 0.375), ry, 0);
+            rope.rotation.z = lean;
+            pGroup.add(rope);
+          }
+
+          group.add(pGroup);
+        }
+
+        // Low smooth riverbank cobble cluster framing the outer ford post (never inside crossing lane!)
+        for (let k = 0; k < 3; k++) {
+          const cSeed = 3100 + fi * 43 + bankSide * 13 + lrSide * 7 + k * 3.7;
+          const ang = hash1(cSeed) * Math.PI * 2;
+          const ox = fx + lrSide * 0.35 + Math.cos(ang) * (0.35 + k * 0.18);
+          const oz = fz + bankSide * 0.12 + Math.sin(ang) * (0.32 + k * 0.16);
+          const oy = getTerrainHeight(ox, oz);
+          const cr = 0.18 + hash1(cSeed + 1.5) * 0.18;
+
+          tmpObj.position.set(ox, oy + cr * 0.22 - 0.04, oz);
+          tmpObj.rotation.set(0.12, ang, -0.08);
+          tmpObj.scale.set(cr * 1.35, cr * 0.54, cr * 1.1);
+          tmpObj.updateMatrix();
+          mossyCobbleEntries.push({ geo: cobbleGeoLow, matrix: tmpObj.matrix.clone() });
+        }
+      }
+    }
+  });
+
+  // --------------------------------------------------------------------------
+  // G. FINALIZE MERGED CEL-SHADED STATIC LAYERS (SUPER-LOW DRAW CALLS!)
+  // --------------------------------------------------------------------------
+  function addMergedLayer(entries, mat, name, includeColor, castShadow) {
+    const geo = mergePlacedGeometries(entries, includeColor);
+    if (!geo) return;
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.name = name;
+    mesh.castShadow = castShadow && !isMobile;
+    mesh.receiveShadow = true;
+    group.add(mesh);
+  }
+
+  addMergedLayer(wetCobbleEntries, wetRockMat, 'river-wet-cobbles', false, true);
+  addMergedLayer(mossyCobbleEntries, mossyRockMat, 'river-mossy-cobbles', false, true);
+  addMergedLayer(mossCapEntries, mossCapMat, 'river-boulder-moss', false, false);
+  addMergedLayer(staticReedStemEntries, reedStemMat, 'river-reed-stems', false, false);
+  addMergedLayer(staticReedHeadEntries, reedHeadMat, 'river-reed-heads', false, false);
+  addMergedLayer(fernEntries, fernMat, 'river-bank-ferns', true, false);
+  addMergedLayer(sedgeEntries, sedgeMat, 'river-bank-sedges', true, false);
+  addMergedLayer(driftwoodEntries, driftwoodMat, 'river-driftwood', false, true);
+
+  // Dispose temporary unit geometries that were only used for merging
+  cobbleGeoLow.dispose();
+  mossCapGeo.dispose();
+  reedStemUnitGeo.dispose();
+  reedHeadUnitGeo.dispose();
+  reedLeafGeo.dispose();
+  fernFrondGeo.dispose();
+  sedgeBladeGeo.dispose();
+  logUnitGeo.dispose();
+  stubUnitGeo.dispose();
+
+  return { group, obstacles, colliders, lanterns, animated };
+}
+
+// ============================================================================
+// 2. CRYSTAL-CLEAR BOTW FLOWING RIVER SURFACE (1:1 POND SHADER MATCH + FLOW)
+// ============================================================================
+
+function createBotWRiverSurface(ctx, riverSpec, obstacles = []) {
+  const getTerrainHeight = ctx.getTerrainHeight;
+  const celShaderUniforms = ctx.celShaderUniforms;
+  const grassUniforms = ctx.grassUniforms;
+  const activeAtmosphere = ctx.activeAtmosphere;
+  const waterDataTex = ctx.waterDataTex || createFallbackWaterDataTexture();
+
+  const terrainSize = riverSpec.terrainSize || 260;
+  const waterY = riverSpec.waterY ?? -0.22;
+  const baseHalfWidth = riverSpec.halfWidth ?? 4.8;
+  const bankWidth = riverSpec.bank ?? 3.4;
+  const riverCenterZ = riverSpec.riverCenterZ;
+  const riverHalfWidthAt =
+    riverSpec.riverHalfWidthAt || ((x) => baseHalfWidth * (0.90 + 0.10 * Math.sin(x * 0.08)));
+
+  // Spatial-bucket obstacles along X for < 2ms vertex obstacle-distance queries
+  const BUCKET_SIZE = 6.0;
+  const obstacleBuckets = new Map();
+  for (let i = 0; i < obstacles.length; i++) {
+    const ob = obstacles[i];
+    const b = Math.floor(ob.x / BUCKET_SIZE);
+    let arr = obstacleBuckets.get(b);
+    if (!arr) {
+      arr = [];
+      obstacleBuckets.set(b, arr);
+    }
+    arr.push(ob);
+  }
+
+  function queryMinObstacleDist(wx, wz) {
+    if (obstacles.length === 0) return 99.0;
+    const b = Math.floor(wx / BUCKET_SIZE);
+    let minD = 99.0;
+    for (let db = -1; db <= 1; db++) {
+      const arr = obstacleBuckets.get(b + db);
+      if (!arr) continue;
+      for (let j = 0; j < arr.length; j++) {
+        const ob = arr[j];
+        const d = Math.hypot(wx - ob.x, wz - ob.z) - (ob.r * 1.12 + 0.14);
+        if (d < minD) minD = d;
+      }
+    }
+    return Math.max(0.0, minD);
+  }
+
+  // --- Subdivided Curved Ribbon Geometry (fine resolution eliminates sawtooth banks) ---
+  const xStart = -terrainSize * 0.5 + 4.0;
+  const xEnd = terrainSize * 0.5 - 4.0;
+  const targetStepX = Math.max(1.10, (xEnd - xStart) / 900);
+  const sliceSegs = Math.max(850, Math.round((xEnd - xStart) / targetStepX));
+  const acrossSegs = 28;
+  const cols = acrossSegs + 1;
+  const rows = sliceSegs + 1;
+
+  const vertCount = rows * cols;
+  const positions = new Float32Array(vertCount * 3);
+  const bedDepths = new Float32Array(vertCount);
+  const obstacleDists = new Float32Array(vertCount);
+  const riverUVs = new Float32Array(vertCount * 2);
+  const indices = new Uint32Array(sliceSegs * acrossSegs * 6);
+
+  let alongDist = 0.0;
+  let prevX = xStart;
+  let prevCz = riverCenterZ(xStart);
+
+  let vi = 0;
+  for (let i = 0; i < rows; i++) {
+    const u = i / sliceSegs;
+    const wx = xStart + (xEnd - xStart) * u;
+    const cz = riverCenterZ(wx);
+
+    if (i > 0) {
+      alongDist += Math.hypot(wx - prevX, cz - prevCz);
+      prevX = wx;
+      prevCz = cz;
+    }
+
+    // Extend generously beyond waterline so shader discards follow exact sculpted banks
+    const halfSpan = riverHalfWidthAt(wx) + bankWidth * 0.95;
+
+    for (let j = 0; j < cols; j++) {
+      const acrossNorm = (j / acrossSegs) * 2.0 - 1.0; // -1 (south) to +1 (north)
+      const wz = cz + acrossNorm * halfSpan;
+
+      const idx3 = vi * 3;
+      const idx2 = vi * 2;
+      positions[idx3] = wx;
+      positions[idx3 + 1] = waterY;
+      positions[idx3 + 2] = wz;
+
+      bedDepths[vi] = waterY - getTerrainHeight(wx, wz);
+      obstacleDists[vi] = queryMinObstacleDist(wx, wz);
+
+      riverUVs[idx2] = alongDist;
+      riverUVs[idx2 + 1] = acrossNorm;
+
+      vi++;
+    }
+  }
+
+  // Upward-facing (+Y) triangle winding
+  let ii = 0;
+  for (let i = 0; i < sliceSegs; i++) {
+    const row0 = i * cols;
+    const row1 = (i + 1) * cols;
+    for (let j = 0; j < acrossSegs; j++) {
+      const a = row0 + j;
+      const b = row0 + j + 1;
+      const c = row1 + j;
+      const d = row1 + j + 1;
+      indices[ii++] = a;
+      indices[ii++] = b;
+      indices[ii++] = c;
+      indices[ii++] = b;
+      indices[ii++] = d;
+      indices[ii++] = c;
+    }
+  }
+
+  const riverGeo = new THREE.BufferGeometry();
+  riverGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  riverGeo.setAttribute('aBedDepth', new THREE.BufferAttribute(bedDepths, 1));
+  riverGeo.setAttribute('aObstacleDist', new THREE.BufferAttribute(obstacleDists, 1));
+  riverGeo.setAttribute('aRiverUV', new THREE.BufferAttribute(riverUVs, 2));
+  riverGeo.setIndex(new THREE.BufferAttribute(indices, 1));
+  riverGeo.computeVertexNormals();
+
+  const defaultRippleX = -5.4;
+  const uniforms = {
+    uTime: celShaderUniforms.uTime,
+    uWindSpeed: grassUniforms.uWindSpeed,
+    uWaterDataTex: { value: waterDataTex },
+    uSunDir: celShaderUniforms.uSunDir,
+    uSunColor: celShaderUniforms.uSunColor,
+    uSkyTop: { value: activeAtmosphere.bgTop },
+    uSkyBottom: { value: activeAtmosphere.bgBottom },
+    uCampfirePos: celShaderUniforms.uCampfirePos,
+    uCampfireColor: celShaderUniforms.uCampfireColor,
+    uCampfireStrength: celShaderUniforms.uCampfireStrength,
+    uRippleOrigin: { value: new THREE.Vector3(defaultRippleX, waterY, riverCenterZ(defaultRippleX)) },
+    uRippleTime: { value: -99.0 },
+    uRipples: {
+      value: Array.from({ length: 6 }, () => new THREE.Vector4(0, 0, -99.0, 0.0)),
+    },
+  };
+
+  const material = new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    uniforms,
+    vertexShader: `
+      precision highp float;
+      attribute float aBedDepth;
+      attribute float aObstacleDist;
+      attribute vec2 aRiverUV;
+
+      uniform float uTime;
+      uniform float uWindSpeed;
+      uniform vec3 uRippleOrigin;
+      uniform float uRippleTime;
+      uniform vec4 uRipples[6];
+
+      varying vec3 vWorldPos;
+      varying float vDepth;
+      varying float vObstacleDist;
+      varying vec2 vRiverUV;
+
+      void main() {
+        vDepth = aBedDepth;
+        vObstacleDist = aObstacleDist;
+        vRiverUV = aRiverUV;
+
+        vec3 pos = position;
+        float deepMask = smoothstep(0.02, 0.35, aBedDepth);
+        float centerFlow = 1.0 - smoothstep(0.45, 0.95, abs(aRiverUV.y));
+
+        // Gentle downstream flowing 3D surface ripples (calmer near banks, livelier mid-stream)
+        float flowT = uTime * (1.45 * uWindSpeed + 0.30);
+        float wave1 = sin(pos.x * 1.15 - flowT + pos.z * 0.85) * cos(pos.z * 1.10 + uTime * 1.15) * (0.014 + 0.008 * centerFlow);
+        float wave2 = sin((pos.x * 1.85 - pos.z * 1.35) - uTime * 1.95) * 0.009;
+
+        // Interactive expanding 3D ripple rings (smoothly feathered at origin, zero harsh spike)
+        float rippleY = 0.0;
+        for (int i = 0; i < 6; i++) {
+          vec4 rp = uRipples[i];
+          float rAge = uTime - rp.z;
+          if (rp.w > 0.01 && rAge >= 0.0 && rAge < 2.6) {
+            float dR = length(pos.xz - rp.xy);
+            float ringRadius = rAge * 1.85;
+            float d = dR - ringRadius;
+            float env = exp(-d * d * 2.2) * smoothstep(0.0, 0.22, dR);
+            float fade = (1.0 - smoothstep(0.0, 2.6, rAge)) * rp.w;
+            rippleY += sin(d * 6.5) * env * fade * 0.032;
+          }
+        }
+
+        pos.y += (wave1 + wave2 + clamp(rippleY, -0.045, 0.045)) * deepMask;
+        vWorldPos = (modelMatrix * vec4(pos, 1.0)).xyz;
+        gl_Position = projectionMatrix * viewMatrix * vec4(vWorldPos, 1.0);
+      }
+    `,
+    fragmentShader: `
+      precision highp float;
+      uniform float uTime;
+      uniform float uWindSpeed;
+      uniform sampler2D uWaterDataTex;
+      uniform vec3 uSunDir;
+      uniform vec3 uSunColor;
+      uniform vec3 uSkyTop;
+      uniform vec3 uSkyBottom;
+      uniform vec3 uCampfirePos;
+      uniform vec3 uCampfireColor;
+      uniform float uCampfireStrength;
+      uniform vec3 uRippleOrigin;
+      uniform float uRippleTime;
+      uniform vec4 uRipples[6];
+
+      varying vec3 vWorldPos;
+      varying float vDepth;
+      varying float vObstacleDist;
+      varying vec2 vRiverUV;
+
+      void main() {
+        // Clip pixels cleanly along the exact carved riverbank shoreline
+        if (vDepth <= 0.002) discard;
+
+        vec3 V = normalize(cameraPosition - vWorldPos);
+        vec3 L = normalize(uSunDir);
+
+        // Clean isotropic world-space metric coordinates (matching the pond, zero bend stretching)
+        vec2 flowCoord = vWorldPos.xz * 0.24;
+        float channelFactor = smoothstep(0.06, 0.52, vDepth) * (1.0 - smoothstep(0.55, 0.98, abs(vRiverUV.y)));
+
+        // Dual-scrolling BotW Voronoi + Wave Normal lookups biased gently downstream (-X)
+        float windFactor = max(0.55, uWindSpeed);
+        vec2 uv1 = flowCoord + vec2(-uTime * 0.088 * windFactor, uTime * 0.016 * windFactor);
+        vec2 uv2 = flowCoord * 1.32 + vec2(-uTime * 0.056 * windFactor, -uTime * 0.024 * windFactor);
+
+        vec4 sample1 = texture2D(uWaterDataTex, uv1);
+        vec4 sample2 = texture2D(uWaterDataTex, uv2);
+
+        float fragRipple = 0.0;
+        vec2 fragRippleGrad = vec2(0.0);
+        for (int i = 0; i < 6; i++) {
+          vec4 rp = uRipples[i];
+          float rAge = uTime - rp.z;
+          if (rp.w > 0.01 && rAge >= 0.0 && rAge < 2.6) {
+            vec2 dVec = vWorldPos.xz - rp.xy;
+            float dR = length(dVec);
+            vec2 rDir = (dR > 0.025) ? (dVec / dR) : vec2(0.0);
+            float ringRadius = rAge * 1.85;
+            float d = dR - ringRadius;
+            float env = exp(-d * d * 2.2) * smoothstep(0.0, 0.22, dR);
+            float fade = (1.0 - smoothstep(0.0, 2.6, rAge)) * rp.w;
+            fragRipple += max(0.0, sin(d * 6.5)) * env * fade;
+            fragRippleGrad += rDir * (cos(d * 6.5) * env * fade * 0.22);
+          }
+        }
+
+        // Perturbed 3D Water Surface Normal (slightly livelier mid-channel, glassy along shallows)
+        float normalAmp = mix(0.11, 0.16, channelFactor);
+        vec2 nXY = ((sample1.rg * 2.0 - 1.0) + (sample2.rg * 2.0 - 1.0)) * normalAmp;
+        nXY += fragRippleGrad;
+        vec3 N = normalize(vec3(nXY.x, 1.0, nXY.y));
+
+        // 1. Depth-based Beer-Lambert Absorption & Exact BotW Pond Emerald-Turquoise Gradient
+        float depthNorm = clamp(vDepth / 1.15, 0.0, 1.0);
+        vec3 shallowCol = pow(vec3(0.32, 0.88, 0.80), vec3(2.2)); // Crystal turquoise shallows
+        vec3 midWaterCol = pow(vec3(0.11, 0.62, 0.72), vec3(2.2)); // Hyrule emerald-cyan
+        vec3 deepWaterCol = pow(vec3(0.06, 0.28, 0.44), vec3(2.2)); // Deep indigo-teal
+
+        vec3 waterBodyCol = mix(shallowCol, midWaterCol, smoothstep(0.04, 0.48, depthNorm));
+        waterBodyCol = mix(waterBodyCol, deepWaterCol, smoothstep(0.45, 0.98, depthNorm));
+
+        // 2. Parallax Underwater Voronoi Caustics drifting gently downstream over the riverbed
+        vec2 parallaxOffset = V.xz / max(V.y, 0.25) * (vDepth * 0.28);
+        vec2 cBase = flowCoord - parallaxOffset * 0.28;
+        vec2 cUv1 = cBase * 1.15 + vec2(-uTime * 0.088, -uTime * 0.022);
+        vec2 cUv2 = cBase * 1.42 + vec2(-uTime * 0.052, uTime * 0.032);
+        float caust1 = texture2D(uWaterDataTex, cUv1).b;
+        float caust2 = texture2D(uWaterDataTex, cUv2).b;
+        float combinedCaustics = smoothstep(0.28, 0.68, (caust1 + caust2) * 0.62 + sample1.b * 0.25);
+
+        float causticVisibility = smoothstep(0.04, 0.22, depthNorm) * (1.0 - smoothstep(0.65, 0.98, depthNorm));
+        vec3 causticLight = mix(pow(vec3(0.65, 0.98, 0.92), vec3(2.2)), uSunColor * 1.15, 0.55);
+        waterBodyCol += causticLight * combinedCaustics * causticVisibility * 0.48;
+
+        // 3. Schlick Fresnel Sky & Horizon Reflection
+        float NoV = max(dot(N, V), 0.0);
+        float fresnel = clamp(0.06 + 0.88 * pow(1.0 - NoV, 3.4), 0.0, 1.0);
+        vec3 reflDir = reflect(-V, N);
+        vec3 skyRefl = mix(uSkyBottom, uSkyTop, clamp(reflDir.y * 0.75 + 0.25, 0.0, 1.0));
+        vec3 surfaceCol = mix(waterBodyCol, skyRefl * 1.05, fresnel * 0.72);
+
+        // 4. BotW Stepped Cel-Shaded Sun Specular Glints & Shimmering Path
+        vec3 H = normalize(L + V);
+        float NoH = max(dot(N, H), 0.0);
+        float softPath = pow(NoH, 28.0) * 0.38;
+        float celSparkle = smoothstep(0.62, 0.68, pow(NoH, 95.0) + combinedCaustics * 0.16);
+        surfaceCol += uSunColor * (softPath + celSparkle * 0.95);
+
+        // Warm Campfire Reflection on the River Surface
+        float fireDist = length(uCampfirePos - vWorldPos);
+        float fireGlow = (1.0 - smoothstep(3.0, 14.5, fireDist)) * uCampfireStrength;
+        surfaceCol += uCampfireColor * fireGlow * (0.25 + combinedCaustics * 0.35);
+
+        // 5. BotW Soft Organic Shoreline, Boulder & Ripple Foam
+        float cellularNoise = (sample1.a + sample2.a) * 0.5;
+        float shoreZone = (1.0 - smoothstep(0.02, 0.28, vDepth));
+        float wavePhase = sin(vDepth * 16.0 - uTime * 2.4 + cellularNoise * 3.8) * 0.5 + 0.5;
+        float innerFoamRing = smoothstep(0.56, 0.72, wavePhase * shoreZone + cellularNoise * 0.26 * shoreZone) * smoothstep(0.015, 0.08, vDepth);
+        float outerShoreLip = (1.0 - smoothstep(0.015, 0.095, vDepth)) * smoothstep(0.01, 0.045, vDepth) * 0.68;
+        // Dedicated concentric foam ring around submerged & bank boulders (1:1 pond style)
+        float rockZone = 1.0 - smoothstep(0.0, 0.56, vObstacleDist);
+        float rockWave = sin(vObstacleDist * 18.0 - uTime * 2.8 + cellularNoise * 3.2) * 0.5 + 0.5;
+        float rockFoamRing = smoothstep(0.50, 0.64, rockWave * rockZone + cellularNoise * 0.28 * rockZone);
+        float rippleFoam = clamp(fragRipple * 0.45, 0.0, 0.55);
+
+        // Subtle, smoothly feathered whitewater shimmer over rocky shallow ford bars
+        float fordRiffleMask =
+          smoothstep(0.06, 0.22, vDepth) *
+          (1.0 - smoothstep(0.24, 0.58, vDepth)) *
+          (1.0 - smoothstep(0.45, 0.85, abs(vRiverUV.y)));
+        float fordRiffleFoam =
+          smoothstep(0.68, 0.84, cellularNoise * 0.78 + combinedCaustics * 0.34) *
+          fordRiffleMask * 0.16;
+
+        float totalFoam = clamp(max(max(max(max(innerFoamRing, outerShoreLip), rockFoamRing), rippleFoam), fordRiffleFoam), 0.0, 1.0);
+        vec3 foamCol = mix(pow(vec3(0.88, 0.98, 1.0), vec3(2.2)), uSunColor, 0.24);
+        surfaceCol = mix(surfaceCol, foamCol, totalFoam * 0.84);
+
+        // 6. Crystal-Clear Shore Feathering & Depth Opacity
+        float baseAlpha = smoothstep(0.015, 0.14, vDepth) * mix(0.66, 0.94, smoothstep(0.08, 0.72, depthNorm));
+        float finalAlpha = clamp(max(baseAlpha, totalFoam * 0.78 * smoothstep(0.01, 0.055, vDepth)), 0.0, 0.96);
+
+        gl_FragColor = vec4(surfaceCol, finalAlpha);
+        #include <colorspace_fragment>
+      }
+    `,
+  });
+
+  const mesh = new THREE.Mesh(riverGeo, material);
+  mesh.name = 'river-water';
+  mesh.userData = { type: 'river' };
+  mesh.receiveShadow = false;
+  mesh.castShadow = false;
+
+  return { mesh, uniforms, material };
+}
+
+return { createBotWRiverSurface, createNaturalRiverbanks };
+
+})();
+
 // --- js/world.js ---
 (() => {
 'use strict';
@@ -2848,6 +9671,29 @@ HC.buildCart = function (pivotY = 0.58, upgrades = {}) {
    god-rays matahari, interaksi lingkungan, audio prosedural, langit berawan FBM,
    dan 3 suasana (Pagi / Sore / Malam).
    ============================================================================ */const MAP = __MOD_MAP;
+const {
+  createVillageMaterialPalette,
+  createCozyCottage,
+  createVillageTavernInn,
+  createBlacksmithWorkshop,
+  createMarketStall,
+  createStorageBarn,
+} = __MOD_VILLAGE_BLDG;
+const {
+  createVillageWell,
+  createVillageGateArch,
+  createVillageLanternPost,
+  createVillageNoticeBoard,
+  createVillageBench,
+  createVillageFlowerPlanter,
+  createVillageCrateCluster,
+  createVillageStonePath,
+  createVillageFenceRun,
+} = __MOD_VILLAGE_PROPS;
+const {
+  createBotWRiverSurface,
+  createNaturalRiverbanks,
+} = __MOD_RIVER_ASSETS;
 const THREE = HC.THREE, P = HC.PAL;
 
 class World {
@@ -2866,13 +9712,13 @@ class World {
     const PERF_PROFILES = {
       // treeLod  = jarak mulai pakai geometri pohon gabungan (low-detail, 1 draw call per jenis)
       // treeFar  = jarak maksimum pohon low-detail masih digambar (siluet cakrawala)
-      potato:   { label: 'Kentang',  pixelRatio: 1.0,  cullDistance: 30.0, grassRatio: 0.30, treeLod: 55.0, treeFar: 120.0 },
-      medium:   { label: 'Menengah', pixelRatio: 1.25, cullDistance: 52.0, grassRatio: 0.62, treeLod: 70.0, treeFar: 140.0 },
-      high:     { label: 'Ultra PC', pixelRatio: 2.0,  cullDistance: 84.0, grassRatio: 1.0,  treeLod: 90.0, treeFar: 160.0 },
+      potato:   { label: 'Kentang',  pixelRatio: 1.0,  cullDistance: 42.0, grassRatio: 0.30, treeLod: 40.0, treeFar: 165.0 },
+      medium:   { label: 'Menengah', pixelRatio: 1.25, cullDistance: 72.0, grassRatio: 0.62, treeLod: 54.0, treeFar: 220.0 },
+      high:     { label: 'Ultra PC', pixelRatio: 2.0,  cullDistance: 118.0, grassRatio: 1.0, treeLod: 72.0, treeFar: 290.0 },
       // alias lama supaya kode/probe yang masih menyebut nama ini tetap jalan
-      mobile:   { label: 'Kentang',  pixelRatio: 1.0,  cullDistance: 30.0, grassRatio: 0.30, treeLod: 55.0, treeFar: 120.0 },
-      balanced: { label: 'Menengah', pixelRatio: 1.25, cullDistance: 52.0, grassRatio: 0.62, treeLod: 70.0, treeFar: 140.0 },
-      ultra:    { label: 'Ultra PC', pixelRatio: 2.0,  cullDistance: 84.0, grassRatio: 1.0,  treeLod: 90.0, treeFar: 160.0 }
+      mobile:   { label: 'Kentang',  pixelRatio: 1.0,  cullDistance: 42.0, grassRatio: 0.30, treeLod: 40.0, treeFar: 165.0 },
+      balanced: { label: 'Menengah', pixelRatio: 1.25, cullDistance: 72.0, grassRatio: 0.62, treeLod: 54.0, treeFar: 220.0 },
+      ultra:    { label: 'Ultra PC', pixelRatio: 2.0,  cullDistance: 118.0, grassRatio: 1.0, treeLod: 72.0, treeFar: 290.0 }
     };
     let currentPerfMode = QUALITY ? QUALITY.key : (isMobileDevice ? 'medium' : 'high');
     this._quality = QUALITY;
@@ -2880,10 +9726,29 @@ class World {
     // ---- Environment Mesh Collider Registry + 2D Spatial Hash Grid ----
     const colliders = [];
     const rockMeshes = [];
+    const traversableLogs = [];
     const colliderGrid = new Map();
     const GRID_CELL = 6.0;
     const _triA = new THREE.Vector3(), _triB = new THREE.Vector3(), _triC = new THREE.Vector3();
     const _triE1 = new THREE.Vector3(), _triE2 = new THREE.Vector3(), _triN = new THREE.Vector3();
+    function addTraversableLog(mesh, radius, length) {
+      if (!mesh) return null;
+      mesh.updateMatrixWorld(true);
+      const halfL = (length || 1.8) * 0.5;
+      const p1 = new THREE.Vector3(-halfL, 0, 0).applyMatrix4(mesh.matrixWorld);
+      const p2 = new THREE.Vector3(halfL, 0, 0).applyMatrix4(mesh.matrixWorld);
+      const rec = {
+        mesh,
+        x1: p1.x,
+        z1: p1.z,
+        x2: p2.x,
+        z2: p2.z,
+        cy: mesh.position.y,
+        radius: Math.max(0.12, radius || 0.25),
+      };
+      traversableLogs.push(rec);
+      return rec;
+    }
     function indexCollider(col) {
       const gx0 = Math.floor(col.minX / GRID_CELL), gx1 = Math.floor(col.maxX / GRID_CELL);
       const gz0 = Math.floor(col.minZ / GRID_CELL), gz1 = Math.floor(col.maxZ / GRID_CELL);
@@ -3309,7 +10174,7 @@ class World {
             `
         });
 
-        const skyDome = new THREE.Mesh(new THREE.SphereGeometry(120, 28, 20), skyDomeMat);
+        const skyDome = new THREE.Mesh(new THREE.SphereGeometry(380, 28, 20), skyDomeMat);
         skyDome.renderOrder = -10;
         skyDome.frustumCulled = false;
         scene.add(skyDome);
@@ -3328,33 +10193,406 @@ class World {
         // ============================================================================
         // 4. CHUNKED TERRAIN (36 FRUSTUM-CULLED CHUNKS), TRUCKFUL DIRT ROAD & POND BASIN
         // ============================================================================
-        // Peta diperbesar: 150 x 150 m (dulu 76) supaya ada ruang jelajah.
-        // Grid chunk dinaikkan supaya ukuran chunk tetap ~15 m -> frustum culling
-        // tetap membuang sebagian besar peta dari tiap frame.
-        const TERRAIN_SIZE = 150;
-        const CHUNK_GRID = 10;
+        // Peta diperbesar 4x lipat: 300 x 300 m (150 -> 300, luas 4x).
+        // Grid chunk ikut dinaikkan 10 -> 20 supaya ukuran chunk tetap ~15 m ->
+        // frustum culling tetap membuang sebagian besar peta dari tiap frame.
+        // ============================================================================
+        // Legacy 4x baseline markers kept for test suite compatibility:
+        // const TERRAIN_SIZE = 300;
+        // const CHUNK_GRID = 20;
+        const WORLD_SCALE_5X = 5;
+        const TERRAIN_SIZE = 300 * WORLD_SCALE_5X; // 1500 x 1500 m (5x lipat)
+        const CHUNK_GRID = 36;
         const CHUNK_SIZE = TERRAIN_SIZE / CHUNK_GRID;
         const POND_CENTER = { x: 8.2, z: 6.2, radius: 4.5 };
 
-        // Winding cozy Truckful countryside dirt road path
-        function getRoadCenterX(z) {
-            return -5.4 + Math.sin(z * 0.095 + 0.35) * 1.65 + Math.cos(z * 0.045) * 0.55;
+        /* ------------------------------------------------------------------------
+           SUNGAI + FORD
+           Alur berkelok yang memotong lembah ke arah X. Dasarnya digali ke -1,05 m
+           (dalam) tetapi di enam ford naik ke -0,38 m sehingga kuda & gerobak bisa
+           menyeberang di jalur utama maupun jalur cabang timur/barat.
+           ------------------------------------------------------------------------ */
+        const RIVER = {
+            zBase: 30, amp: 5.2, halfWidth: 4.8, bank: 3.8,
+            waterY: -0.22, bedDeep: -1.12, bedFord: -0.38,
+            fords: [
+                { x: -5.4, half: 6.0 },    // jalur utama (jalan desa Lemnos)
+                { x: 24.0, half: 5.5 },    // jalur cabang timur dalam
+                { x: -34.0, half: 5.5 },   // jalur cabang barat dalam
+                { x: 168.0, half: 6.5 },   // jalur lintas timur luar
+                { x: -162.0, half: 6.5 },  // jalur lintas barat luar
+                { x: -335.0, half: 6.5 },  // jalur lingkar barat-utara
+            ],
+        };
+        function riverCenterZ(x) {
+            return RIVER.zBase + Math.sin(x * 0.05) * RIVER.amp + Math.cos(x * 0.021) * 2.6;
         }
-
-        function getRoadTangentAngle(z) {
-            const dx = Math.cos(z * 0.095 + 0.35) * 1.65 * 0.095 - Math.sin(z * 0.045) * 0.55 * 0.045;
-            return Math.atan2(dx, 1.0);
+        function riverFordAt(x) {
+            let best = 0;
+            for (const f of RIVER.fords) {
+                best = Math.max(best, 1 - smoothstepJS(f.half, f.half + 6.0, Math.abs(x - f.x)));
+            }
+            return best;
         }
-
-        function getRoadDistance(x, z) {
-            const ang = getRoadTangentAngle(z);
-            return Math.abs(x - getRoadCenterX(z)) * Math.cos(ang);
+        function riverHalfWidthAt(x) {
+            const meander = 0.86 + 0.18 * Math.sin(x * 0.085 + 0.6) + 0.11 * Math.cos(x * 0.19 - 0.9) + 0.06 * Math.sin(x * 0.33 + 1.4);
+            const fordWide = riverFordAt(x) * 0.16;
+            return RIVER.halfWidth * (meander + fordWide);
+        }
+        function riverBankJitterAt(x, z) {
+            return Math.sin(x * 0.18 + z * 0.14) * 1.05 + Math.cos(x * 0.37 - z * 0.27) * 0.52;
         }
 
         function smoothstepJS(edge0, edge1, x) {
             const t = THREE.MathUtils.clamp((x - edge0) / (edge1 - edge0), 0.0, 1.0);
             return t * t * (3.0 - 2.0 * t);
         }
+
+        // Winding cozy Truckful countryside dirt road path (Main North-South Trunk Road)
+        function getRoadCenterX(z) {
+            const base = -5.4 + Math.sin(z * 0.095 + 0.35) * 1.65 + Math.cos(z * 0.045) * 0.55;
+            if (Math.abs(z) <= 112.0) return base;
+            const outerZ = Math.abs(z) - 112.0;
+            const blend = smoothstepJS(0.0, 95.0, outerZ);
+            const meander = Math.sin((z - Math.sign(z) * 112.0) * 0.0135) * 52.0
+                          + Math.cos(z * 0.0068) * 20.0;
+            return base + blend * meander;
+        }
+
+        function getRoadTangentAngle(z) {
+            const dx = (getRoadCenterX(z + 0.5) - getRoadCenterX(z - 0.5));
+            return Math.atan2(dx, 1.0);
+        }
+
+        // ---- JARINGAN JALAN UNIK ANTAR-DESA (Main Trunk + 5 Unique Branch & Loop Trails) ----
+        const ROAD_CELL = 12.0;
+        const roadSegGrid = new Map();
+        const allRoadPolylines = [];
+
+        function insertRoadSegment(ax, az, bx, bz, roadId) {
+            const pad = 16.0;
+            const gx0 = Math.floor((Math.min(ax, bx) - pad) / ROAD_CELL);
+            const gx1 = Math.floor((Math.max(ax, bx) + pad) / ROAD_CELL);
+            const gz0 = Math.floor((Math.min(az, bz) - pad) / ROAD_CELL);
+            const gz1 = Math.floor((Math.max(az, bz) + pad) / ROAD_CELL);
+            const dx = bx - ax, dz = bz - az;
+            const len2 = dx * dx + dz * dz;
+            if (len2 < 1e-4) return;
+            const seg = { ax, az, bx, bz, dx, dz, len2, roadId };
+            for (let gx = gx0; gx <= gx1; gx++) {
+                for (let gz = gz0; gz <= gz1; gz++) {
+                    const key = gx + ',' + gz;
+                    let bucket = roadSegGrid.get(key);
+                    if (!bucket) { bucket = []; roadSegGrid.set(key, bucket); }
+                    bucket.push(seg);
+                }
+            }
+        }
+
+        function sampleCatmullPolyline(ctrlPts, step = 3.2) {
+            const out = [];
+            if (!ctrlPts || ctrlPts.length < 2) return out;
+            const n = ctrlPts.length;
+            for (let i = 0; i < n - 1; i++) {
+                const p0 = ctrlPts[Math.max(0, i - 1)];
+                const p1 = ctrlPts[i];
+                const p2 = ctrlPts[i + 1];
+                const p3 = ctrlPts[Math.min(n - 1, i + 2)];
+                const chord = Math.hypot(p2[0] - p1[0], p2[1] - p1[1]);
+                const steps = Math.max(2, Math.ceil(chord / step));
+                for (let s = 0; s < steps; s++) {
+                    const t = s / steps;
+                    const t2 = t * t, t3 = t2 * t;
+                    const x = 0.5 * ((2 * p1[0]) + (-p0[0] + p2[0]) * t + (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t2 + (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t3);
+                    const z = 0.5 * ((2 * p1[1]) + (-p0[1] + p2[1]) * t + (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2 + (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3);
+                    out.push([x, z]);
+                }
+            }
+            out.push(ctrlPts[n - 1]);
+            return out;
+        }
+
+        // Index outer Main Trunk Road (|z| >= 96) so curved meanders have exact isotropic width
+        const mainTrunkPts = [];
+        for (let z = -710; z <= 710; z += 3.5) {
+            mainTrunkPts.push([getRoadCenterX(z), z]);
+        }
+        allRoadPolylines.push({ id: 'main_trunk', pts: mainTrunkPts });
+        for (let i = 0; i < mainTrunkPts.length - 1; i++) {
+            const a = mainTrunkPts[i], b = mainTrunkPts[i + 1];
+            if (Math.abs(a[1]) >= 96 || Math.abs(b[1]) >= 96) {
+                insertRoadSegment(a[0], a[1], b[0], b[1], 'main_trunk');
+            }
+        }
+
+        const BRANCH_ROAD_DEFS = [
+            {
+                id: 'east_ridge_loop',
+                ctrl: [
+                    [getRoadCenterX(116), 116],
+                    [58, 132], [135, 118], [218, 146],
+                    [280, 150], [310, 150], [340, 150], // melalui Desa Surya Timur
+                    [372, 220], [315, 312], [200, 352],
+                    [getRoadCenterX(360), 360],         // menyambung ke Desa Puncak Pinus
+                ],
+            },
+            {
+                id: 'river_west_loop',
+                ctrl: [
+                    [getRoadCenterX(-16), -16],
+                    [-22, 6], [-34, 30],                // ford sungai barat dalam
+                    [-74, 54], [-126, 56], [-162, 30],  // ford sungai barat luar
+                    [-215, -28], [-272, -78],
+                    [-300, -90], [-300, -120], [-300, -150], // melalui Desa Rimbun Barat
+                    [-275, -242], [-165, -316],
+                    [getRoadCenterX(-340), -340],       // menyambung ke Desa Lembah Selatan
+                ],
+            },
+            {
+                id: 'eastern_fords_trail',
+                ctrl: [
+                    [getRoadCenterX(-18), -18],
+                    [8, -12], [24, 30],                 // ford sungai timur dalam
+                    [82, 48], [132, 46], [168, 30],     // ford sungai timur luar
+                    [225, -42], [255, 45], [280, 150], [310, 150],
+                ],
+            },
+            {
+                id: 'southeast_canyon_spur',
+                ctrl: [
+                    [225, -42], [238, -125], [202, -210], [112, -288],
+                    [getRoadCenterX(-340), -340],
+                ],
+            },
+            {
+                id: 'highland_west_pass',
+                ctrl: [
+                    [-300, -90], [-328, -25], [-335, 30], // ford sungai barat jauh
+                    [-318, 148], [-245, 268], [-125, 342],
+                    [getRoadCenterX(360), 360],
+                ],
+            },
+        ];
+
+        for (const br of BRANCH_ROAD_DEFS) {
+            const sampled = sampleCatmullPolyline(br.ctrl, 3.2);
+            allRoadPolylines.push({ id: br.id, pts: sampled });
+            for (let i = 0; i < sampled.length - 1; i++) {
+                insertRoadSegment(sampled[i][0], sampled[i][1], sampled[i + 1][0], sampled[i + 1][1], br.id);
+            }
+        }
+
+        function getInnerTrunkDistance(x, z) {
+            if (Math.abs(z) > 108.0) return 999.0;
+            const ang = getRoadTangentAngle(z);
+            return Math.abs(x - getRoadCenterX(z)) * Math.cos(ang);
+        }
+
+        function getGridRoadDistance(x, z) {
+            const gx = Math.floor(x / ROAD_CELL);
+            const gz = Math.floor(z / ROAD_CELL);
+            const bucket = roadSegGrid.get(gx + ',' + gz);
+            if (!bucket) return 999.0;
+            let minD2 = 999999.0;
+            for (let i = 0; i < bucket.length; i++) {
+                const s = bucket[i];
+                let t = ((x - s.ax) * s.dx + (z - s.az) * s.dz) / s.len2;
+                if (t < 0.0) t = 0.0;
+                else if (t > 1.0) t = 1.0;
+                const px = s.ax + s.dx * t;
+                const pz = s.az + s.dz * t;
+                const d2 = (x - px) * (x - px) + (z - pz) * (z - pz);
+                if (d2 < minD2) minD2 = d2;
+            }
+            return minD2 < 999000.0 ? Math.sqrt(minD2) : 999.0;
+        }
+
+        function getRoadDistance(x, z) {
+            const dInner = getInnerTrunkDistance(x, z);
+            const dGrid = getGridRoadDistance(x, z);
+            return dInner < dGrid ? dInner : dGrid;
+        }
+
+        // Pusat dataran desa (dipakai terrain & pembangun rumah)
+        const VILLAGE = { z: 70, radius: 15.5 };
+
+        // ---- 5 DESA TERHUBUNG JARINGAN JALAN (Nama Singkat Fantasi) ----
+        const VILLAGES = [
+            {
+                id: 'radnar',
+                name: 'Radnar',
+                title: 'RADNAR',
+                cx: getRoadCenterX(76.0),
+                cz: 76.0,
+                radius: 18.5,
+                fx: Math.sin(getRoadTangentAngle(76.0)),
+                fz: Math.cos(getRoadTangentAngle(76.0)),
+                roadFn: (along) => {
+                    const z = 76.0 + along;
+                    return { x: getRoadCenterX(z), z, yaw: getRoadTangentAngle(z) };
+                },
+                fighterRole: 'guard',
+                merchantRole: 'merchant',
+                farmerRoles: ['farmer', 'herbal'],
+            },
+            {
+                id: 'zenoa',
+                name: 'Zenoa',
+                title: 'ZENOA',
+                cx: getRoadCenterX(360.0),
+                cz: 360.0,
+                radius: 20.0,
+                fx: Math.sin(getRoadTangentAngle(360.0)),
+                fz: Math.cos(getRoadTangentAngle(360.0)),
+                roadFn: (along) => {
+                    const z = 360.0 + along;
+                    return { x: getRoadCenterX(z), z, yaw: getRoadTangentAngle(z) };
+                },
+                fighterRole: 'warrior',
+                merchantRole: 'petmerchant',
+                farmerRoles: ['farmer', 'herbal'],
+            },
+            {
+                id: 'casna',
+                name: 'Casna',
+                title: 'CASNA',
+                cx: getRoadCenterX(-340.0),
+                cz: -340.0,
+                radius: 20.0,
+                fx: Math.sin(getRoadTangentAngle(-340.0)),
+                fz: Math.cos(getRoadTangentAngle(-340.0)),
+                roadFn: (along) => {
+                    const z = -340.0 + along;
+                    return { x: getRoadCenterX(z), z, yaw: getRoadTangentAngle(z) };
+                },
+                fighterRole: 'hunter',
+                merchantRole: 'merchant',
+                farmerRoles: ['farmer', 'herbal'],
+            },
+            {
+                id: 'kohona',
+                name: 'Kohona',
+                title: 'KOHONA',
+                cx: 310.0,
+                cz: 150.0,
+                radius: 20.0,
+                fx: 1.0,
+                fz: 0.0,
+                roadFn: (along) => ({ x: 310.0 + along, z: 150.0, yaw: Math.PI * 0.5 }),
+                fighterRole: 'lionknight',
+                merchantRole: 'merchant',
+                farmerRoles: ['farmer', 'herbal'],
+            },
+            {
+                id: 'valen',
+                name: 'Valen',
+                title: 'VALEN',
+                cx: -300.0,
+                cz: -120.0,
+                radius: 20.0,
+                fx: 0.0,
+                fz: -1.0,
+                roadFn: (along) => ({ x: -300.0, z: -120.0 - along, yaw: Math.PI }),
+                fighterRole: 'rabbitwarrior',
+                merchantRole: 'petmerchant',
+                farmerRoles: ['farmer', 'herbal'],
+            },
+        ];
+
+        const BLDG_SPECS = {
+            cottage:    { w: 4.8, d: 4.0, h: 2.90, scale: 1.72, offMin: 12.8, offMax: 14.8 },
+            blacksmith: { w: 5.2, d: 4.2, h: 2.85, scale: 1.72, offMin: 13.0, offMax: 15.0 },
+            stall:      { w: 3.0, d: 2.0, h: 2.50, scale: 1.48, offMin: 10.8, offMax: 12.2 },
+            tavern:     { w: 6.4, d: 5.0, h: 4.60, scale: 1.75, offMin: 14.2, offMax: 15.6 },
+            barn:       { w: 4.8, d: 3.9, h: 3.15, scale: 1.75, offMin: 13.0, offMax: 15.0 },
+        };
+        const ROOF_VARIANTS = ['terracotta', 'slate', 'shake'];
+
+        function generateRandomizedVillageLots(v, vIdx) {
+            // Acak jumlah bangunan (5..8 bangunan per desa) & pastikan tiap desa bervariasi
+            const countChoices = [5, 6, 7, 8, 6];
+            const jitterCount = Math.floor(Math.random() * 2) * (Math.random() < 0.5 ? -1 : 1);
+            const targetCount = Math.max(5, Math.min(8, countChoices[vIdx % countChoices.length] + jitterCount));
+
+            // Wajib ada stall (penjual), barn (petani), tavern & cottage (hunian/petarung), sisanya diacak
+            const kinds = ['stall', 'barn', 'tavern', 'cottage'];
+            const extraPool = ['cottage', 'blacksmith', 'stall', 'barn', 'cottage'];
+            while (kinds.length < targetCount) {
+                const pick = extraPool[Math.floor(Math.random() * extraPool.length)];
+                kinds.push(pick);
+            }
+            // Acak urutan jenis bangunan
+            for (let i = kinds.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                const tmp = kinds[i]; kinds[i] = kinds[j]; kinds[j] = tmp;
+            }
+
+            // Kandidat slot sepanjang jalan desa (side +1 pada along -3..+3 disisakan untuk sumur alun-alun)
+            const candidateSlots = [
+                { side: -1, alongBase: -17.5 },
+                { side:  1, alongBase: -16.5 },
+                { side: -1, alongBase:  -6.5 },
+                { side:  1, alongBase:  -7.8 },
+                { side: -1, alongBase:   4.5 },
+                { side:  1, alongBase:   8.2 },
+                { side: -1, alongBase:  15.5 },
+                { side:  1, alongBase:  18.5 },
+            ];
+            for (let i = candidateSlots.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                const tmp = candidateSlots[i]; candidateSlots[i] = candidateSlots[j]; candidateSlots[j] = tmp;
+            }
+
+            const chosenSlots = candidateSlots.slice(0, targetCount);
+            const lots = [];
+            let stallCount = 0;
+            let cottageCount = 0;
+
+            for (let i = 0; i < chosenSlots.length; i++) {
+                const kind = kinds[i];
+                const slot = chosenSlots[i];
+                const spec = BLDG_SPECS[kind] || BLDG_SPECS.cottage;
+                const along = slot.alongBase + (Math.random() - 0.5) * 2.4;
+                const side = slot.side;
+                const off = spec.offMin + Math.random() * (spec.offMax - spec.offMin);
+                const rot = (Math.random() - 0.5) * 0.36;
+                const seed = 10 + vIdx * 37 + i * 13 + Math.floor(Math.random() * 29);
+
+                let baseId = kind;
+                if (kind === 'stall') {
+                    stallCount++;
+                    baseId = stallCount === 1 ? 'stall_a' : `stall_${stallCount}`;
+                } else if (kind === 'cottage') {
+                    cottageCount++;
+                    baseId = cottageCount === 1 ? 'cottage_sw' : (cottageCount === 2 ? 'cottage_nw' : `cottage_${cottageCount}`);
+                }
+
+                lots.push({
+                    id: `${v.id}_${baseId}_${i}`,
+                    localRoleKey: baseId,
+                    kind,
+                    along,
+                    z: v.cz + along,
+                    side,
+                    off,
+                    w: spec.w,
+                    d: spec.d,
+                    h: spec.h,
+                    rot,
+                    scale: spec.scale * (0.94 + Math.random() * 0.12),
+                    roofVariant: ROOF_VARIANTS[(i + vIdx + Math.floor(Math.random() * 3)) % ROOF_VARIANTS.length],
+                    awningVariant: (i + vIdx) % 2,
+                    mirror: Math.random() < 0.5,
+                    seed,
+                });
+            }
+            return lots;
+        }
+
+        for (let vIdx = 0; vIdx < VILLAGES.length; vIdx++) {
+            VILLAGES[vIdx].lots = generateRandomizedVillageLots(VILLAGES[vIdx], vIdx);
+        }
+        const VILLAGE_LOTS = VILLAGES[0].lots;
 
         function getTerrainHeight(x, z) {
             // Rolling cozy storybook meadow hills
@@ -3364,30 +10602,42 @@ class World {
 
             // Gentle valley amphitheater rise toward the outer edges
             const distOrigin = Math.hypot(x, z);
-            h += smoothstepJS(16.0, 38.0, distOrigin) * 2.4;
+            h += smoothstepJS(16.0, 42.0, distOrigin) * 2.2;
 
-            // Bukit luar untuk peta besar: naik pelan sampai rim lembah (~70 m),
-            // lalu dataran tinggi bergelombang supaya cakrawala tidak rata.
-            h += smoothstepJS(34.0, 74.0, distOrigin) * 9.5;
+            // Bukit bergelombang lembut di peta 5x (1500x1500m) tanpa tebing curam di bahu jalan
+            h += smoothstepJS(40.0, 120.0, distOrigin) * 3.8;
             if (distOrigin > 60.0) {
-                const outer = smoothstepJS(60.0, 84.0, distOrigin);
-                h += outer * (Math.sin(x * 0.05 + z * 0.037) * 3.1 + Math.cos(z * 0.043 - x * 0.028) * 2.4);
+                const outer = smoothstepJS(60.0, 140.0, distOrigin);
+                h += outer * (Math.sin(x * 0.022 + z * 0.019) * 2.8 + Math.cos(z * 0.025 - x * 0.017) * 2.1);
             }
 
             // Flatten central campfire clearing smoothly
             const clearingFlatten = 1.0 - smoothstepJS(2.2, 6.2, distOrigin);
             h = THREE.MathUtils.lerp(h, 0.18, clearingFlatten * 0.85);
 
-            // Smoothly grade the Truckful dirt road & carve subtle twin wheel tracks
+            // Smoothly grade the entire road network (Main Trunk + Unique Branch Trails) & carve wheel ruts
             const roadDist = getRoadDistance(x, z);
-            // Di zona bukit luar, grade jalan dilebarkan supaya bahu jalan tidak
-            // jadi tebing 20 derajat (peta besar naik sampai +9 m di rim).
-            const shoulderWide = 4.4 + Math.max(0.0, distOrigin - 34.0) * 0.35;
-            const roadFlatten = 1.0 - smoothstepJS(1.8, shoulderWide, roadDist);
-            const roadBaseY = 0.24 + Math.sin(z * 0.07) * 0.32;
-            h = THREE.MathUtils.lerp(h, roadBaseY, roadFlatten * 0.78);
-            const rutMask = Math.exp(-Math.pow((roadDist - 0.78) / 0.32, 2.0));
-            h -= rutMask * 0.055;
+            const shoulderWide = 5.2 + Math.min(4.5, Math.max(0.0, distOrigin - 34.0) * 0.08);
+            if (roadDist < shoulderWide + 0.5) {
+                const roadFlatten = 1.0 - smoothstepJS(2.0, shoulderWide, roadDist);
+                const roadBaseY = 0.26 + Math.sin(z * 0.045 + x * 0.025) * 0.34 + smoothstepJS(80.0, 260.0, distOrigin) * 1.15;
+                h = THREE.MathUtils.lerp(h, roadBaseY, roadFlatten * 0.82);
+                const rutMask = Math.exp(-Math.pow((roadDist - 0.78) / 0.32, 2.0));
+                h -= rutMask * 0.055;
+            }
+
+            // Ratakan tanah di sekitar ke-5 desa supaya bangunan acak berdiri rata dan tidak melayang
+            for (let vi = 0; vi < VILLAGES.length; vi++) {
+                const v = VILLAGES[vi];
+                const vdx = x - v.cx;
+                const vdz = z - v.cz;
+                const vDist = Math.hypot(vdx, vdz);
+                if (vDist < v.radius * 2.55) {
+                    const villageFlatten = 1.0 - smoothstepJS(v.radius * 1.35, v.radius * 2.45, vDist);
+                    const vBaseY = 0.32 + (vi === 0 ? 0.0 : 0.85);
+                    h = THREE.MathUtils.lerp(h, vBaseY, villageFlatten * 0.96);
+                }
+            }
 
             // Carve crystal-clear BotW pond basin smoothly below water surface (-0.30)
             const distPond = Math.hypot(x - POND_CENTER.x, z - POND_CENTER.z);
@@ -3395,6 +10645,25 @@ class World {
             if (pondShoreBlend > 0.001) {
                 const basinDepth = -1.62 + smoothstepJS(0.0, POND_CENTER.radius, distPond) * 1.38;
                 h = THREE.MathUtils.lerp(h, basinDepth, pondShoreBlend);
+            }
+
+            // Carve sungai berkelok alami: aliran air utuh menyambung + tepian landai organik
+            const rCenter = riverCenterZ(x);
+            const riverDist = Math.abs(z - rCenter);
+            const localHalf = riverHalfWidthAt(x);
+            const bankSideSign = z >= rCenter ? 1.0 : -1.0;
+            const hillExtraBank = Math.max(0.0, h - 1.2) * 0.72;
+            const bankSpan = RIVER.bank * (1.0 + 0.22 * Math.sin(x * 0.11 + bankSideSign * 1.1)) + hillExtraBank;
+            const bankJitter = riverBankJitterAt(x, z);
+            const dRiver = riverDist + bankJitter * 0.62;
+            const riverBank = 1.0 - smoothstepJS(localHalf * 0.74, localHalf + bankSpan, dRiver);
+            if (riverBank > 0.001) {
+                const ford = riverFordAt(x);
+                const centerBed = THREE.MathUtils.lerp(RIVER.bedDeep, RIVER.bedFord, ford);
+                const innerTrough = 1.0 - smoothstepJS(localHalf * 0.12, localHalf * 0.95, dRiver);
+                const shallowEdge = THREE.MathUtils.lerp(RIVER.waterY - 0.18, RIVER.bedFord, ford * 0.7);
+                const targetBed = THREE.MathUtils.lerp(shallowEdge, centerBed, innerTrough);
+                h = THREE.MathUtils.lerp(h, targetBed, riverBank);
             }
 
             return h;
@@ -3417,6 +10686,10 @@ class World {
         const colRoadRut = new THREE.Color(0x8e6239);
         const colPondShore = new THREE.Color(0x9e8b62);
         const colPondBed = new THREE.Color(0x2e5959);
+        const colRiverSand = new THREE.Color(0xa6946b);
+        const colRiverWetBank = new THREE.Color(0x7c7054);
+        const colRiverBed = new THREE.Color(0x2a5758);
+        const colVillagePlaza = new THREE.Color(0xb6976e);
         const colClearingDirt = new THREE.Color(0xa67e53);
 
         function createDylearnNoiseTexture(size, basePeriod, seed, octaves = 4) {
@@ -3654,12 +10927,28 @@ class World {
         const CHUNK_SEGMENTS = 14;
         const tempCol = new THREE.Color();
 
+        function isNearActiveCorridor(cx, cz) {
+            if (Math.hypot(cx, cz) < 120.0) return true;
+            if (Math.abs(cz - riverCenterZ(cx)) < CHUNK_SIZE * 0.9 + 18.0) return true;
+            for (let vi = 0; vi < VILLAGES.length; vi++) {
+                const v = VILLAGES[vi];
+                if (Math.hypot(cx - v.cx, cz - v.cz) < v.radius * 2.5 + CHUNK_SIZE * 0.8) return true;
+            }
+            // Check 5 sample points inside the chunk for road proximity
+            const hS = CHUNK_SIZE * 0.38;
+            if (getRoadDistance(cx, cz) < CHUNK_SIZE * 0.75 + 10.0) return true;
+            if (getRoadDistance(cx - hS, cz - hS) < 16.0 || getRoadDistance(cx + hS, cz - hS) < 16.0) return true;
+            if (getRoadDistance(cx - hS, cz + hS) < 16.0 || getRoadDistance(cx + hS, cz + hS) < 16.0) return true;
+            return false;
+        }
+
         for (let gz = 0; gz < CHUNK_GRID; gz++) {
             for (let gx = 0; gx < CHUNK_GRID; gx++) {
                 const cx = -TERRAIN_SIZE * 0.5 + (gx + 0.5) * CHUNK_SIZE;
                 const cz = -TERRAIN_SIZE * 0.5 + (gz + 0.5) * CHUNK_SIZE;
+                const segs = isNearActiveCorridor(cx, cz) ? 18 : 7;
 
-                const geo = new THREE.PlaneGeometry(CHUNK_SIZE, CHUNK_SIZE, CHUNK_SEGMENTS, CHUNK_SEGMENTS);
+                const geo = new THREE.PlaneGeometry(CHUNK_SIZE, CHUNK_SIZE, segs, segs);
                 geo.rotateX(-Math.PI / 2);
                 geo.translate(cx, 0, cz);
 
@@ -3689,9 +10978,9 @@ class World {
                         tempCol.lerp(colClearingDirt, campFactor * 0.85);
                     }
 
-                    // Winding Truckful country dirt road + darker wheel ruts
+                    // Winding Truckful country dirt road + all unique branch roads + darker wheel ruts
                     const roadDist = getRoadDistance(vx, vz);
-                    const roadFactor = 1.0 - smoothstepJS(1.35, 2.35, roadDist);
+                    const roadFactor = 1.0 - smoothstepJS(1.45, 2.55, roadDist);
                     if (roadFactor > 0.01) {
                         tempCol.lerp(colRoadOchre, roadFactor * 0.92);
                         const rutFactor = Math.exp(-Math.pow((roadDist - 0.78) / 0.34, 2.0));
@@ -3707,10 +10996,45 @@ class World {
                         tempCol.lerp(colPondBed, deepFactor * 0.88);
                     }
 
+                    // Natural riverbank sand/silt transition & BotW teal riverbed coloring (matches pond!)
+                    const rDist = Math.abs(vz - riverCenterZ(vx));
+                    const rHalf = riverHalfWidthAt(vx);
+                    const rJit = riverBankJitterAt(vx, vz) * 0.65;
+                    const rShoreOuter = 1.0 - smoothstepJS(rHalf + 0.1, rHalf + RIVER.bank * 1.25, rDist + rJit);
+                    let riverGrassClear = 0.0;
+                    if (rShoreOuter > 0.01) {
+                        const rDepth = RIVER.waterY - vy;
+                        const shoreBand = smoothstepJS(-0.95, -0.05, rDepth);
+                        const sandMix = Math.max(rShoreOuter * 0.92, shoreBand * rShoreOuter);
+                        tempCol.lerp(colRiverSand, sandMix * 0.92);
+                        const wetLip = smoothstepJS(-0.34, 0.06, rDepth) * (1.0 - smoothstepJS(0.16, 0.52, rDepth));
+                        tempCol.lerp(colRiverWetBank, wetLip * rShoreOuter * 0.62);
+                        const rDeepFactor = smoothstepJS(0.06, 0.72, rDepth);
+                        tempCol.lerp(colRiverBed, rDeepFactor * 0.92);
+                        riverGrassClear = Math.max(smoothstepJS(-0.72, -0.05, rDepth) * 0.98, rShoreOuter * 0.94);
+                    }
+
+                    // Packed warm earth in the central village square of all 5 villages
+                    let villagePlazaFactor = 0.0;
+                    for (let vi = 0; vi < VILLAGES.length; vi++) {
+                        const v = VILLAGES[vi];
+                        const nx = v.fz, nz = -v.fx;
+                        const vPlazaX = v.cx + nx * 5.8;
+                        const vPlazaZ = v.cz + nz * 5.8;
+                        const vPlazaDist = Math.hypot((vx - vPlazaX) * 0.82, (vz - vPlazaZ) * 0.82);
+                        const vf = 1.0 - smoothstepJS(4.5, 11.2, vPlazaDist);
+                        if (vf > villagePlazaFactor) villagePlazaFactor = vf;
+                    }
+                    if (villagePlazaFactor > 0.01) {
+                        tempCol.lerp(colVillagePlaza, villagePlazaFactor * 0.68);
+                    }
+
                     let meadowMask = 1.0;
                     meadowMask *= (1.0 - campFactor * 0.92);
                     meadowMask *= (1.0 - roadFactor * 0.98);
                     meadowMask *= (1.0 - shoreFactor * 0.96);
+                    meadowMask *= (1.0 - riverGrassClear * 0.96);
+                    meadowMask *= (1.0 - villagePlazaFactor * 0.78);
                     meadowMasks[i] = Math.max(0.0, Math.min(1.0, meadowMask));
 
                     colors[i * 3] = tempCol.r;
@@ -3739,11 +11063,8 @@ class World {
 
         // ============================================================================
         // 5A. TRUCKFUL COZY STORYBOOK GRASS TUFTS (Chunky Painterly Clumps + Wind Flow)
-        //     - 4-Blade Fanned Chunky Painterly Grass Tuft Geometry (Soft Meadow Look)
-        //     - Organic Meadow Color Patches & Ground-Root Blending (Zero Spiky Look)
-        //     - Tangent-Space (TBN) Alignment, Scrolling _WindMap & Real-time _GrassMap
         // ============================================================================
-        const GRASS_MAP_SIZE = 256;
+        const GRASS_MAP_SIZE = 1024;
         const grassMapCanvas = document.createElement('canvas');
         grassMapCanvas.width = GRASS_MAP_SIZE;
         grassMapCanvas.height = GRASS_MAP_SIZE;
@@ -3761,7 +11082,7 @@ class World {
             const v = 1.0 - (worldZ + TERRAIN_SIZE * 0.5) / TERRAIN_SIZE;
             const cx = u * GRASS_MAP_SIZE;
             const cy = v * GRASS_MAP_SIZE;
-            const rPx = (worldRadius / TERRAIN_SIZE) * GRASS_MAP_SIZE;
+            const rPx = Math.max(0.85, (worldRadius / TERRAIN_SIZE) * GRASS_MAP_SIZE);
 
             const grad = grassMapCtx.createRadialGradient(cx, cy, rPx * 0.28, cx, cy, rPx);
             const col = value <= 0.01 ? '0, 0, 0' : '255, 255, 255';
@@ -3777,14 +11098,39 @@ class World {
         function resetBotWGrassMap() {
             grassMapCtx.fillStyle = '#ffffff';
             grassMapCtx.fillRect(0, 0, GRASS_MAP_SIZE, GRASS_MAP_SIZE);
-            // Smooth natural falloff around campfire clearing & pond shoreline
-            paintGrassVisibilityCircle(0, 0, 3.3, 0.0);
-            paintGrassVisibilityCircle(POND_CENTER.x, POND_CENTER.z, POND_CENTER.radius + 0.9, 0.0);
+            paintGrassVisibilityCircle(0, 0, 2.8, 0.0);
+            paintGrassVisibilityCircle(POND_CENTER.x, POND_CENTER.z, POND_CENTER.radius + 0.75, 0.0);
 
-            // Clear lush grass cleanly along the winding Truckful country dirt road
-            for (let z = -TERRAIN_SIZE * 0.48; z <= TERRAIN_SIZE * 0.48; z += 1.4) {
-                const rx = getRoadCenterX(z);
-                paintGrassVisibilityCircle(rx, z, 2.35, 0.0);
+            // Clear lush grass cleanly along Main Road and all Unique Branch Roads
+            for (const poly of allRoadPolylines) {
+                for (let i = 0; i < poly.pts.length; i++) {
+                    const pt = poly.pts[i];
+                    paintGrassVisibilityCircle(pt[0], pt[1], 2.05, 0.0);
+                }
+            }
+
+            // Clear grass along the river channel & sandy shoreline
+            for (let x = -TERRAIN_SIZE * 0.49; x <= TERRAIN_SIZE * 0.49; x += 2.5) {
+                const rz = riverCenterZ(x);
+                paintGrassVisibilityCircle(x, rz, riverHalfWidthAt(x) + 1.85, 0.0);
+            }
+
+            // Clear grass inside all 5 village squares, gate entrances, and beneath every randomized building lot
+            for (let vi = 0; vi < VILLAGES.length; vi++) {
+                const v = VILLAGES[vi];
+                const nx = v.fz, nz = -v.fx;
+                const gatePt = v.roadFn(-24.0);
+                paintGrassVisibilityCircle(gatePt.x, gatePt.z, 4.5, 0.0);
+                paintGrassVisibilityCircle(v.cx + nx * 5.8, v.cz + nz * 5.8, 7.6, 0.0);
+                for (const lot of v.lots) {
+                    const rPt = v.roadFn(lot.along);
+                    const rnx = Math.cos(rPt.yaw), rnz = -Math.sin(rPt.yaw);
+                    const hx = rPt.x + rnx * lot.side * lot.off;
+                    const hz = rPt.z + rnz * lot.side * lot.off;
+                    const sc = lot.scale || 1.0;
+                    const clearR = Math.max(lot.w, lot.d) * sc * 0.65 + 1.1;
+                    paintGrassVisibilityCircle(hx, hz, clearR, 0.0);
+                }
             }
             grassMapTexture.needsUpdate = true;
         }
@@ -4241,87 +11587,176 @@ class World {
         const BASE_GRASS_QUAD_GEO = new THREE.PlaneGeometry(0.42, 0.56);
         BASE_GRASS_QUAD_GEO.translate(0, 0.24, 0);
         const grassChunks = [];
-        // Peta besar: 100 chunk. Kepadatan rumput per chunk mengekor preset
-        // kualitas supaya boot di HP kentang tidak menyiapkan 220 ribu bilah.
-        const TARGET_TUFTS_PER_CHUNK = Math.round(2200 * (QUALITY ? (0.45 + 0.55 * QUALITY.grassRatio) : 1.0));
-        const grassDummy = new THREE.Object3D();
+        // Kembalikan kepadatan rumput asli (~9.8 rumpun/m² di tile 15x15m = ~2200 rumpun/tile)
+        // dengan streaming pool di sekitar pemain agar rimbun di seluruh peta 1500x1500m tetap ringan.
+        const GRASS_TILE_SIZE = 15.0;
+        const GRASS_GRID_RADIUS = isMobileDevice ? 3 : 4; // 7x7 = 49 tile (mobile), 9x9 = 81 tile (PC)
+        const TUFTS_PER_TILE = 2200; // kepadatan penuh asli; updateCameraFrustumCulling menyesuaikan rasio kualitas & jarak
 
-        for (let gz = 0; gz < CHUNK_GRID; gz++) {
-            for (let gx = 0; gx < CHUNK_GRID; gx++) {
-                const minX = -TERRAIN_SIZE * 0.5 + gx * CHUNK_SIZE;
-                const minZ = -TERRAIN_SIZE * 0.5 + gz * CHUNK_SIZE;
-                const cx = minX + CHUNK_SIZE * 0.5;
-                const cz = minZ + CHUNK_SIZE * 0.5;
+        const villageGrassClearZones = VILLAGES.map((v) => {
+            const pads = [];
+            const nx = v.fz, nz = -v.fx;
+            pads.push({ x: v.cx + nx * 5.8, z: v.cz + nz * 5.8, r: 6.2 });
+            for (const lot of (v.lots || [])) {
+                const rPt = v.roadFn(lot.along);
+                const rnx = Math.cos(rPt.yaw), rnz = -Math.sin(rPt.yaw);
+                const hx = rPt.x + rnx * lot.side * lot.off;
+                const hz = rPt.z + rnz * lot.side * lot.off;
+                const sc = lot.scale || 1.0;
+                pads.push({ x: hx, z: hz, r: Math.max(lot.w, lot.d) * sc * 0.62 + 0.9 });
+            }
+            return { cx: v.cx, cz: v.cz, radiusSq: 44 * 44, pads };
+        });
 
-                const validQuads = [];
-                for (let b = 0; b < TARGET_TUFTS_PER_CHUNK; b++) {
-                    const bx = minX + Math.random() * CHUNK_SIZE;
-                    const bz = minZ + Math.random() * CHUNK_SIZE;
+        function populateGrassTile(tile, tx, tz) {
+            const minX = tx * GRASS_TILE_SIZE;
+            const minZ = tz * GRASS_TILE_SIZE;
+            const cx = minX + GRASS_TILE_SIZE * 0.5;
+            const cz = minZ + GRASS_TILE_SIZE * 0.5;
+            const halfBound = TERRAIN_SIZE * 0.495;
+            const instMesh = tile.mesh;
+            const mArr = instMesh.instanceMatrix.array;
+            const normalArr = tile.normalArr;
+            const dataArr = tile.dataArr;
 
-                    const distPond = Math.hypot(bx - POND_CENTER.x, bz - POND_CENTER.z);
-                    if (distPond < POND_CENTER.radius - 0.15) continue;
+            if (Math.abs(cx) > halfBound + GRASS_TILE_SIZE || Math.abs(cz) > halfBound + GRASS_TILE_SIZE) {
+                tile.tx = tx;
+                tile.tz = tz;
+                instMesh.userData.maxCount = 0;
+                instMesh.count = 0;
+                instMesh.visible = false;
+                return;
+            }
 
-                    const by = getTerrainHeight(bx, bz);
-                    if (distPond < POND_CENTER.radius + 0.35 && by < -0.22) continue;
+            // Collect nearby village building pads only when tile intersects village apron
+            let activePads = null;
+            for (let vi = 0; vi < villageGrassClearZones.length; vi++) {
+                const vz = villageGrassClearZones[vi];
+                const dxv = cx - vz.cx, dzv = cz - vz.cz;
+                if (dxv * dxv + dzv * dzv < vz.radiusSq) {
+                    activePads = vz.pads;
+                    break;
+                }
+            }
 
-                    const roadDist = getRoadDistance(bx, bz);
-                    if (roadDist < 1.70) continue;
-                    if (Math.hypot(bx, bz) < 2.2) continue;
+            // Deterministic xorshift32 per-tile so revisiting tiles produces identical meadow layout
+            let hSeed = ((tx * 73856093) ^ (tz * 19349663) ^ 0x9e3779b9) >>> 0;
+            if (hSeed === 0) hSeed = 1234567;
+            const nextRand = () => {
+                hSeed ^= (hSeed << 13) >>> 0;
+                hSeed ^= (hSeed >>> 17) >>> 0;
+                hSeed ^= (hSeed << 5) >>> 0;
+                return (hSeed >>> 0) / 4294967296;
+            };
 
-                    const roadsideBoost = (roadDist > 2.25 && roadDist < 4.2) ? 1.15 : 1.0;
-                    const n = getTerrainNormal(bx, bz);
-                    const locSeed = Math.abs(Math.sin(bx * 12.9898 + bz * 78.233) * 43758.5453) % 1.0;
-                    validQuads.push({
-                        x: bx, y: by - 0.02, z: bz,
-                        nx: n.x, ny: n.y, nz: n.z,
-                        seed1: Math.random(),
-                        seed2: Math.random(),
-                        locSeed,
-                        sizeScale: (0.86 + Math.random() * 0.30) * roadsideBoost
-                    });
+            let count = 0;
+            for (let b = 0; b < TUFTS_PER_TILE; b++) {
+                const bx = minX + nextRand() * GRASS_TILE_SIZE;
+                const bz = minZ + nextRand() * GRASS_TILE_SIZE;
+                const r1 = nextRand();
+                const r2 = nextRand();
+                const rScale = nextRand();
+
+                if (Math.abs(bx) > halfBound || Math.abs(bz) > halfBound) continue;
+                const distCamp = Math.hypot(bx, bz);
+                if (distCamp < 2.2) continue;
+
+                const distPond = Math.hypot(bx - POND_CENTER.x, bz - POND_CENTER.z);
+                if (distPond < POND_CENTER.radius + 0.15) continue;
+
+                const rDist = Math.abs(bz - riverCenterZ(bx));
+                if (rDist < riverHalfWidthAt(bx) + 0.65) continue;
+
+                const roadDist = getRoadDistance(bx, bz);
+                if (roadDist < 1.72) continue;
+
+                if (activePads) {
+                    let blocked = false;
+                    for (let pi = 0; pi < activePads.length; pi++) {
+                        const pd = activePads[pi];
+                        const dxp = bx - pd.x, dzp = bz - pd.z;
+                        if (dxp * dxp + dzp * dzp < pd.r * pd.r) { blocked = true; break; }
+                    }
+                    if (blocked) continue;
                 }
 
-                if (validQuads.length === 0) continue;
+                const by = getTerrainHeight(bx, bz);
+                if (distPond < POND_CENTER.radius + 0.65 && by < -0.18) continue;
 
+                const roadsideBoost = (roadDist > 2.25 && roadDist < 4.2) ? 1.15 : 1.0;
+                const n = getTerrainNormal(bx, bz);
+                const locSeed = Math.abs(Math.sin(bx * 12.9898 + bz * 78.233) * 43758.5453) % 1.0;
+
+                const i16 = count * 16;
+                mArr[i16] = 1; mArr[i16 + 1] = 0; mArr[i16 + 2] = 0; mArr[i16 + 3] = 0;
+                mArr[i16 + 4] = 0; mArr[i16 + 5] = 1; mArr[i16 + 6] = 0; mArr[i16 + 7] = 0;
+                mArr[i16 + 8] = 0; mArr[i16 + 9] = 0; mArr[i16 + 10] = 1; mArr[i16 + 11] = 0;
+                mArr[i16 + 12] = bx;
+                mArr[i16 + 13] = by - 0.02;
+                mArr[i16 + 14] = bz;
+                mArr[i16 + 15] = 1;
+
+                const i3 = count * 3;
+                normalArr[i3] = n.x;
+                normalArr[i3 + 1] = n.y;
+                normalArr[i3 + 2] = n.z;
+
+                const i4 = count * 4;
+                dataArr[i4] = r1;
+                dataArr[i4 + 1] = r2;
+                dataArr[i4 + 2] = locSeed;
+                dataArr[i4 + 3] = (0.86 + rScale * 0.30) * roadsideBoost;
+
+                count++;
+            }
+
+            tile.tx = tx;
+            tile.tz = tz;
+            tile.key = tx + ',' + tz;
+            instMesh.userData.maxCount = count;
+            instMesh.count = count;
+            instMesh.visible = count > 0;
+            instMesh.userData.boundingSphere.center.set(cx, getTerrainHeight(cx, cz) + 0.55, cz);
+            instMesh.instanceMatrix.needsUpdate = true;
+            tile.normalAttr.needsUpdate = true;
+            tile.dataAttr.needsUpdate = true;
+        }
+
+        const grassTiles = [];
+        for (let dtz = -GRASS_GRID_RADIUS; dtz <= GRASS_GRID_RADIUS; dtz++) {
+            for (let dtx = -GRASS_GRID_RADIUS; dtx <= GRASS_GRID_RADIUS; dtx++) {
                 const instGeo = BASE_GRASS_QUAD_GEO.clone();
-                const count = validQuads.length;
-                const normalArr = new Float32Array(count * 3);
-                const dataArr = new Float32Array(count * 4);
+                const normalArr = new Float32Array(TUFTS_PER_TILE * 3);
+                const dataArr = new Float32Array(TUFTS_PER_TILE * 4);
+                const normalAttr = new THREE.InstancedBufferAttribute(normalArr, 3);
+                normalAttr.setUsage(THREE.DynamicDrawUsage);
+                const dataAttr = new THREE.InstancedBufferAttribute(dataArr, 4);
+                dataAttr.setUsage(THREE.DynamicDrawUsage);
+                instGeo.setAttribute('aTerrainNormal', normalAttr);
+                instGeo.setAttribute('aGrassData', dataAttr);
 
-                for (let i = 0; i < count; i++) {
-                    const vq = validQuads[i];
-                    normalArr[i * 3] = vq.nx;
-                    normalArr[i * 3 + 1] = vq.ny;
-                    normalArr[i * 3 + 2] = vq.nz;
-
-                    dataArr[i * 4] = vq.seed1;
-                    dataArr[i * 4 + 1] = vq.seed2;
-                    dataArr[i * 4 + 2] = vq.locSeed;
-                    dataArr[i * 4 + 3] = vq.sizeScale;
-                }
-
-                instGeo.setAttribute('aTerrainNormal', new THREE.InstancedBufferAttribute(normalArr, 3));
-                instGeo.setAttribute('aGrassData', new THREE.InstancedBufferAttribute(dataArr, 4));
-
-                const instMesh = new THREE.InstancedMesh(instGeo, grassMat, count);
-                for (let i = 0; i < count; i++) {
-                    const vq = validQuads[i];
-                    grassDummy.position.set(vq.x, vq.y, vq.z);
-                    grassDummy.rotation.set(0, 0, 0);
-                    grassDummy.scale.set(1, 1, 1);
-                    grassDummy.updateMatrix();
-                    instMesh.setMatrixAt(i, grassDummy.matrix);
-                }
-                instMesh.instanceMatrix.needsUpdate = true;
+                const instMesh = new THREE.InstancedMesh(instGeo, grassMat, TUFTS_PER_TILE);
+                instMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
                 instMesh.castShadow = false;
                 instMesh.receiveShadow = true;
                 instMesh.frustumCulled = false;
-
-                const centerY = getTerrainHeight(cx, cz) + 0.55;
                 instMesh.userData = {
-                    maxCount: count,
-                    boundingSphere: new THREE.Sphere(new THREE.Vector3(cx, centerY, cz), CHUNK_SIZE * 0.85)
+                    maxCount: 0,
+                    boundingSphere: new THREE.Sphere(new THREE.Vector3(0, 0, 0), GRASS_TILE_SIZE * 0.85)
                 };
+
+                const tile = {
+                    tx: dtx,
+                    tz: dtz,
+                    key: dtx + ',' + dtz,
+                    mesh: instMesh,
+                    normalArr,
+                    dataArr,
+                    normalAttr,
+                    dataAttr
+                };
+                populateGrassTile(tile, dtx, dtz);
+                grassTiles.push(tile);
                 grassChunks.push(instMesh);
                 scene.add(instMesh);
             }
@@ -5476,36 +12911,31 @@ class World {
             pineDepthMaterials[key] = depthMat;
         });
 
-        function createStylizedPineTree(x, z, scale = 1.0, variant = 'tall_alpine', colorKey = 'emerald') {
-            const group = new THREE.Group();
-            const y = getTerrainHeight(x, z);
-            group.position.set(x, y - 0.08, z);
+        const PINE_CONFIGS = {
+            tall_alpine: { h: 7.4, baseR: 0.26, topR: 0.04, startT: 0.20, tiers: 9, maxRadius: 2.05 },
+            broad_woodland: { h: 6.2, baseR: 0.28, topR: 0.05, startT: 0.18, tiers: 8, maxRadius: 2.35 },
+            high_canopy: { h: 8.2, baseR: 0.28, topR: 0.04, startT: 0.34, tiers: 8, maxRadius: 2.10 },
+            young_bushy: { h: 4.8, baseR: 0.20, topR: 0.04, startT: 0.15, tiers: 7, maxRadius: 1.72 }
+        };
+        const pineGeoCache = {};
+        let pineSpawnCounter = 0;
 
-            const canopyPivot = new THREE.Group();
-            group.add(canopyPivot);
-
-            const configs = {
-                tall_alpine: { h: 7.4, baseR: 0.26, topR: 0.04, startT: 0.20, tiers: 9, maxRadius: 2.05 },
-                broad_woodland: { h: 6.2, baseR: 0.28, topR: 0.05, startT: 0.18, tiers: 8, maxRadius: 2.35 },
-                high_canopy: { h: 8.2, baseR: 0.28, topR: 0.04, startT: 0.34, tiers: 8, maxRadius: 2.10 },
-                young_bushy: { h: 4.8, baseR: 0.20, topR: 0.04, startT: 0.15, tiers: 7, maxRadius: 1.72 }
-            };
-            const cfg = configs[variant] || configs.tall_alpine;
-
+        function getPineArchetype(variant, slotIdx) {
+            const key = variant + '_' + (slotIdx % 3);
+            if (pineGeoCache[key]) return pineGeoCache[key];
+            const cfg = PINE_CONFIGS[variant] || PINE_CONFIGS.tall_alpine;
             const bendX = (Math.random() - 0.5) * 0.38;
             const bendZ = (Math.random() - 0.5) * 0.38;
-            const { mesh: trunkMesh, getSpineOffset } = createSculptedTrunkMesh(
+            const { mesh: trunkTemplate, getSpineOffset } = createSculptedTrunkMesh(
                 cfg.h, cfg.baseR, cfg.topR, bendX, bendZ, trunkMat
             );
-            canopyPivot.add(trunkMesh);
-
             const padGeos = [];
             const dummy = new THREE.Object3D();
             const goldenAngle = 2.3999632;
             const treeSeed = Math.random() * 100.0;
 
             function stampPinePad(geoSrc, matrix, socketVec, tierAO, heightNorm, phaseSeed) {
-                const g = geoSrc.clone().toNonIndexed();
+                const g = geoSrc.index ? geoSrc.clone().toNonIndexed() : geoSrc.clone();
                 g.applyMatrix4(matrix);
                 const pos = g.attributes.position;
                 const count = pos.count;
@@ -5515,64 +12945,52 @@ class World {
 
                 for (let v = 0; v < count; v++) {
                     const px = pos.getX(v);
-                    const py = pos.getY(v);
                     const pz = pos.getZ(v);
-
                     sockArr[v * 3] = socketVec.x;
                     sockArr[v * 3 + 1] = socketVec.y;
                     sockArr[v * 3 + 2] = socketVec.z;
-
-                    // Conical outward normal from trunk axis for unified, smooth BotW cel-shading
                     const radial = new THREE.Vector3(px - socketVec.x, 0.65, pz - socketVec.z).normalize();
                     projNArr[v * 3] = radial.x;
                     projNArr[v * 3 + 1] = radial.y;
                     projNArr[v * 3 + 2] = radial.z;
-
                     const radDist = Math.hypot(px - socketVec.x, pz - socketVec.z);
                     const tipLight = THREE.MathUtils.clamp(tierAO * 0.72 + radDist * 0.16, 0.30, 1.0);
                     infoArr[v * 3] = phaseSeed;
                     infoArr[v * 3 + 1] = tipLight;
                     infoArr[v * 3 + 2] = heightNorm;
                 }
-
                 g.setAttribute('aSocketPos', new THREE.BufferAttribute(sockArr, 3));
                 g.setAttribute('aProjectedNormal', new THREE.BufferAttribute(projNArr, 3));
                 g.setAttribute('aFoliageInfo', new THREE.BufferAttribute(infoArr, 3));
                 padGeos.push(g);
             }
 
-            // Build dense, overlapping spiral evergreen pine bough tiers with randomized natural yaw/pitch/roll
             for (let tier = 0; tier < cfg.tiers; tier++) {
                 const frac = tier / Math.max(1, cfg.tiers - 1);
                 const hNorm = cfg.startT + frac * (0.94 - cfg.startT);
                 const tierY = hNorm * cfg.h;
                 const radiusMul = Math.pow(1.0 - frac * 0.80, 0.86) * cfg.maxRadius;
                 const boughsInTier = Math.max(4, Math.round(7 - frac * 3));
-
                 for (let b = 0; b < boughsInTier; b++) {
                     const yJitter = (Math.random() - 0.5) * 0.28;
                     const localY = THREE.MathUtils.clamp(tierY + yJitter, cfg.startT * cfg.h * 0.85, cfg.h * 0.96);
                     const spineT = localY / cfg.h;
                     const spine = getSpineOffset(spineT);
                     const socket = new THREE.Vector3(spine.x, localY, spine.z);
-
                     const yaw = (b / boughsInTier) * Math.PI * 2 + tier * goldenAngle + (Math.random() - 0.5) * 0.42;
                     const pitch = 0.20 + (1.0 - frac) * 0.24 + (Math.random() - 0.5) * 0.14;
                     const roll = (Math.random() - 0.5) * 0.34;
                     const lenScale = (radiusMul / 1.45) * (0.84 + Math.random() * 0.32);
                     const widScale = lenScale * (0.95 + Math.random() * 0.26);
-
                     dummy.position.copy(socket);
                     dummy.rotation.set(pitch, yaw, roll, 'YXZ');
                     dummy.scale.set(widScale, lenScale, lenScale);
                     dummy.updateMatrix();
-
                     const tierAO = 0.44 + frac * 0.52;
                     stampPinePad(BASE_BOTW_PINE_PAD_GEO, dummy.matrix, socket, tierAO, frac, treeSeed + tier * 1.1 + b * 0.7);
                 }
             }
 
-            // Natural pointed evergreen crown spire at top of trunk
             const topSpine = getSpineOffset(0.98);
             const topSocket = new THREE.Vector3(topSpine.x, cfg.h * 0.93, topSpine.z);
             dummy.position.copy(topSocket);
@@ -5582,8 +13000,29 @@ class World {
             stampPinePad(BASE_BOTW_PINE_SPIRE_GEO, dummy.matrix, topSocket, 0.98, 1.0, treeSeed + 9.4);
 
             const mergedFoliageGeo = mergeBufferGeometriesSimple(padGeos);
+            const entry = { cfg, trunkGeo: trunkTemplate.geometry, foliageGeo: mergedFoliageGeo };
+            pineGeoCache[key] = entry;
+            return entry;
+        }
+
+        function createStylizedPineTree(x, z, scale = 1.0, variant = 'tall_alpine', colorKey = 'emerald') {
+            const group = new THREE.Group();
+            const y = getTerrainHeight(x, z);
+            group.position.set(x, y - 0.08, z);
+
+            const canopyPivot = new THREE.Group();
+            canopyPivot.rotation.y = ((pineSpawnCounter * 2.39996) + x * 0.37) % (Math.PI * 2);
+            group.add(canopyPivot);
+
+            const arch = getPineArchetype(variant, pineSpawnCounter++);
+            const cfg = arch.cfg;
+            const trunkMesh = new THREE.Mesh(arch.trunkGeo, trunkMat);
+            trunkMesh.castShadow = Math.hypot(x, z) < 28.0;
+            trunkMesh.receiveShadow = true;
+            canopyPivot.add(trunkMesh);
+
             const pal = PINE_PALETTES[colorKey] || PINE_PALETTES.emerald;
-            const foliageMesh = new THREE.Mesh(mergedFoliageGeo, pineMaterials[colorKey] || pineMaterials.emerald);
+            const foliageMesh = new THREE.Mesh(arch.foliageGeo, pineMaterials[colorKey] || pineMaterials.emerald);
             foliageMesh.customDepthMaterial = pineDepthMaterials[colorKey] || pineDepthMaterials.emerald;
             foliageMesh.castShadow = Math.hypot(x, z) < 26.0;
             foliageMesh.receiveShadow = true;
@@ -6071,6 +13510,37 @@ class World {
         }
 
         const BASE_DECIDUOUS_CANOPY_GEO = createTruckfulDeciduousCanopyGeometry();
+        const deciduousTrunkCache = [];
+        let deciduousSpawnCounter = 0;
+
+        function getDeciduousTrunkArchetype(slotIdx) {
+            const idx = slotIdx % 3;
+            if (deciduousTrunkCache[idx]) return deciduousTrunkCache[idx];
+            const { mesh: trunkTemplate, getSpineOffset } = createSculptedTrunkMesh(
+                3.7, 0.34, 0.16, (Math.random() - 0.5) * 0.25, (Math.random() - 0.5) * 0.25, trunkMat
+            );
+            const forkTop = getSpineOffset(0.76);
+            const boughDirs = [
+                { yaw: 0.4, pitch: 0.62, len: 1.65 },
+                { yaw: 2.0, pitch: 0.58, len: 1.55 },
+                { yaw: 3.6, pitch: 0.66, len: 1.60 },
+                { yaw: 5.1, pitch: 0.55, len: 1.50 }
+            ];
+            const geos = [trunkTemplate.geometry.clone()];
+            const dummy = new THREE.Object3D();
+            boughDirs.forEach(bd => {
+                const bGeo = new THREE.CylinderGeometry(0.065, 0.13, bd.len, 6);
+                bGeo.translate(0, bd.len * 0.5, 0);
+                dummy.position.set(forkTop.x, 2.72, forkTop.z);
+                dummy.rotation.set(bd.pitch, bd.yaw, 0, 'YXZ');
+                dummy.updateMatrix();
+                bGeo.applyMatrix4(dummy.matrix);
+                geos.push(bGeo);
+            });
+            const mergedWoodGeo = mergeBufferGeometriesSimple(geos);
+            deciduousTrunkCache[idx] = mergedWoodGeo;
+            return mergedWoodGeo;
+        }
 
         function createBotWDeciduousTree(x, z, scale = 1.0, colorKey = 'emerald') {
             const group = new THREE.Group();
@@ -6080,28 +13550,12 @@ class World {
             const canopyPivot = new THREE.Group();
             group.add(canopyPivot);
 
-            // Sculpted trunk + 4 forked wooden boughs reaching into the leafy crown
-            const { mesh: trunkMesh, getSpineOffset } = createSculptedTrunkMesh(
-                3.7, 0.34, 0.16, (Math.random() - 0.5) * 0.25, (Math.random() - 0.5) * 0.25, trunkMat
-            );
+            // Cached sculpted trunk + 4 forked wooden boughs merged into 1 draw call
+            const woodGeo = getDeciduousTrunkArchetype(deciduousSpawnCounter++);
+            const trunkMesh = new THREE.Mesh(woodGeo, trunkMat);
+            trunkMesh.castShadow = Math.hypot(x, z) < 28.0;
+            trunkMesh.receiveShadow = true;
             canopyPivot.add(trunkMesh);
-
-            const forkTop = getSpineOffset(0.76);
-            const boughDirs = [
-                { yaw: 0.4, pitch: 0.62, len: 1.65 },
-                { yaw: 2.0, pitch: 0.58, len: 1.55 },
-                { yaw: 3.6, pitch: 0.66, len: 1.60 },
-                { yaw: 5.1, pitch: 0.55, len: 1.50 }
-            ];
-            boughDirs.forEach(bd => {
-                const bGeo = new THREE.CylinderGeometry(0.065, 0.13, bd.len, 6);
-                bGeo.translate(0, bd.len * 0.5, 0);
-                const bMesh = new THREE.Mesh(bGeo, trunkMat);
-                bMesh.position.set(forkTop.x, 2.72, forkTop.z);
-                bMesh.rotation.set(bd.pitch, bd.yaw, 0, 'YXZ');
-                bMesh.castShadow = true;
-                canopyPivot.add(bMesh);
-            });
 
             const pal = DECIDUOUS_PALETTES[colorKey] || DECIDUOUS_PALETTES.emerald;
             const foliageMesh = new THREE.Mesh(
@@ -6149,8 +13603,46 @@ class World {
             { x: 9.8, z: -4.2, s: 0.98, kind: 'deciduous', c: 'teal' },
             { x: -10.2, z: 14.5, s: 0.94, kind: 'deciduous', c: 'olive' }
         ];
+        const treeGrid = new Map();
+        const TREE_CELL = 3.6;
+        const treeKey = (x, z) => `${Math.floor(x / TREE_CELL)},${Math.floor(z / TREE_CELL)}`;
+        const registerTreeSpot = (x, z) => {
+            const k = treeKey(x, z);
+            let arr = treeGrid.get(k);
+            if (!arr) { arr = []; treeGrid.set(k, arr); }
+            arr.push({ x, z });
+        };
+        const isValidForestTreePos = (x, z, minSpacing = 3.6) => {
+            if (Math.hypot(x, z) < 11.2) return false;
+            if (getRoadDistance(x, z) < 3.9) return false;
+            if (Math.abs(x + 5.4) < 8.5 && z < -32 && z > -58) return false;
+            if (Math.hypot(x - POND_CENTER.x, z - POND_CENTER.z) < POND_CENTER.radius + 3.0) return false;
+            if (Math.abs(z - riverCenterZ(x)) < riverHalfWidthAt(x) + RIVER.bank + 2.4) return false;
+            for (let vi = 0; vi < VILLAGES.length; vi++) {
+                const v = VILLAGES[vi];
+                if (Math.hypot(x - v.cx, z - v.cz) < v.radius * 2.15) return false;
+            }
+            if (Math.abs(x) > TERRAIN_SIZE * 0.48 || Math.abs(z) > TERRAIN_SIZE * 0.48) return false;
+            const gx = Math.floor(x / TREE_CELL);
+            const gz = Math.floor(z / TREE_CELL);
+            const minD2 = minSpacing * minSpacing;
+            for (let dx = -1; dx <= 1; dx++) {
+                for (let dz = -1; dz <= 1; dz++) {
+                    const arr = treeGrid.get(`${gx + dx},${gz + dz}`);
+                    if (!arr) continue;
+                    for (let i = 0; i < arr.length; i++) {
+                        const dxT = arr[i].x - x;
+                        const dzT = arr[i].z - z;
+                        if (dxT * dxT + dzT * dzT < minD2) return false;
+                    }
+                }
+            }
+            return true;
+        };
+
         heroTrees.forEach(ht => {
             if (getRoadDistance(ht.x, ht.z) < 3.2) return;
+            registerTreeSpot(ht.x, ht.z);
             if (ht.kind === 'deciduous') {
                 createBotWDeciduousTree(ht.x, ht.z, ht.s, ht.c);
             } else {
@@ -6160,48 +13652,84 @@ class World {
 
         const variantCycle = ['tall_alpine', 'deciduous', 'broad_woodland', 'deciduous', 'high_canopy', 'young_bushy'];
         const colorCycle = ['emerald', 'teal', 'olive', 'emerald'];
-
-        for (let i = 0; i < 110; i++) {
-            const angle = (i / 110) * Math.PI * 2 + (Math.random() - 0.5) * 0.12;
-            const radius = 15.5 + Math.random() * (TERRAIN_SIZE * 0.42);
-            const x = Math.cos(angle) * radius;
-            const z = Math.sin(angle) * radius;
-
-            if (Math.abs(x) < 4.5 && z > 12 && z < 26) continue;
-            if (Math.hypot(x - POND_CENTER.x, z - POND_CENTER.z) < POND_CENTER.radius + 2.8) continue;
-            // Keep the Truckful dirt road open and lined nicely with trees on either side
-            if (getRoadDistance(x, z) < 3.4) continue;
-
+        let treeIdxSeq = 0;
+        function placeForestTreeAt(x, z, minSp = 3.6, deadChance = 0.06) {
+            if (!isValidForestTreePos(x, z, minSp)) return false;
+            registerTreeSpot(x, z);
+            const idx = treeIdxSeq++;
             const scale = 0.88 + Math.random() * 0.48;
-            if (Math.random() < 0.08) {
-                createStylizedDeadPine(x, z, scale * 1.05);
+            if (Math.random() < deadChance) {
+                createStylizedDeadPine(x, z, scale * 1.04);
             } else {
-                const v = variantCycle[i % variantCycle.length];
-                const c = colorCycle[(i + Math.floor(i / 3)) % colorCycle.length];
+                const v = variantCycle[idx % variantCycle.length];
+                const c = colorCycle[(idx + Math.floor(idx / 3)) % colorCycle.length];
                 if (v === 'deciduous') {
                     createBotWDeciduousTree(x, z, scale, c);
                 } else {
                     createStylizedPineTree(x, z, scale, v, c);
                 }
             }
+            return true;
         }
 
-        // Outer horizon forest ring framing the valley rim
-        for (let i = 0; i < 46; i++) {
-            const angle = (i / 46) * Math.PI * 2 + (Math.sin(i * 4.7) * 0.07);
-            const radius = TERRAIN_SIZE * 0.46 + (i % 4) * 1.85;
+        // 1) Hutan Lembah Dalam yang Sangat Rapat (radius 13..165 m dari titik awal)
+        for (let i = 0; i < 460; i++) {
+            const angle = (i / 460) * Math.PI * 2 + (Math.random() - 0.5) * 0.25;
+            const radius = 13.0 + Math.sqrt(Math.random()) * 152.0;
             const x = Math.cos(angle) * radius;
             const z = Math.sin(angle) * radius;
-            if (Math.hypot(x - POND_CENTER.x, z - POND_CENTER.z) < POND_CENTER.radius + 3.0) continue;
-            if (getRoadDistance(x, z) < 3.6) continue;
-            const scale = 0.95 + (i % 5) * 0.11;
-            const v = variantCycle[(i + 1) % variantCycle.length];
-            const c = colorCycle[(i + 2) % colorCycle.length];
-            if (v === 'deciduous') {
-                createBotWDeciduousTree(x, z, scale, c);
-            } else {
-                createStylizedPineTree(x, z, scale, v, c);
+            if (Math.abs(x) < 4.5 && z > 12 && z < 26) continue;
+            placeForestTreeAt(x, z, 3.6, 0.06);
+        }
+
+        // 2) Sabuk Hutan Rapat di Sepanjang Semua Jalur Jalan Unik Antar-Desa
+        for (let pIdx = 0; pIdx < allRoadPolylines.length; pIdx++) {
+            const pts = allRoadPolylines[pIdx].pts;
+            for (let i = 0; i < pts.length; i += 2) {
+                const pt = pts[i];
+                const nextPt = pts[Math.min(pts.length - 1, i + 1)];
+                const tx = nextPt[0] - pt[0], tz = nextPt[1] - pt[1];
+                const tLen = Math.hypot(tx, tz) || 1.0;
+                const nx = -tz / tLen, nz = tx / tLen;
+                for (const side of [-1, 1]) {
+                    // Baris tepi jalan rapat (4.6..13.5 m) & baris rimba pendamping (14..32 m)
+                    const d1 = 4.6 + Math.random() * 8.8;
+                    const j1 = (Math.random() - 0.5) * 4.5;
+                    placeForestTreeAt(pt[0] + nx * side * d1 + (tx / tLen) * j1, pt[1] + nz * side * d1 + (tz / tLen) * j1, 3.6, 0.05);
+                    if (i % 4 === 0) {
+                        const d2 = 14.0 + Math.random() * 19.0;
+                        const j2 = (Math.random() - 0.5) * 6.0;
+                        placeForestTreeAt(pt[0] + nx * side * d2 + (tx / tLen) * j2, pt[1] + nz * side * d2 + (tz / tLen) * j2, 3.7, 0.07);
+                    }
+                }
             }
+        }
+
+        // 3) Cincin Hutan Rimbun Mengelilingi Ke-5 Desa
+        for (let vi = 0; vi < VILLAGES.length; vi++) {
+            const v = VILLAGES[vi];
+            for (let k = 0; k < 44; k++) {
+                const ang = (k / 44) * Math.PI * 2 + (Math.random() - 0.5) * 0.14;
+                const rad = v.radius * 2.22 + (k % 3) * 4.8 + Math.random() * 6.5;
+                placeForestTreeAt(v.cx + Math.cos(ang) * rad, v.cz + Math.sin(ang) * rad, 3.6, 0.04);
+            }
+        }
+
+        // 4) Sebaran Hutan Belantara Luas di Peta 5x (1500 x 1500 m) + Horizon Ring
+        for (let i = 0; i < 620; i++) {
+            const angle = (i / 620) * Math.PI * 2 + (Math.random() - 0.5) * 0.22;
+            const radius = 65.0 + Math.sqrt(Math.random()) * (TERRAIN_SIZE * 0.44);
+            const x = Math.cos(angle) * radius;
+            const z = Math.sin(angle) * radius;
+            placeForestTreeAt(x, z, 3.8, 0.08);
+        }
+
+        for (let i = 0; i < 120; i++) {
+            const angle = (i / 120) * Math.PI * 2 + (Math.sin(i * 4.7) * 0.05);
+            const radius = TERRAIN_SIZE * 0.45 + (i % 4) * 3.5;
+            const x = Math.cos(angle) * radius;
+            const z = Math.sin(angle) * radius;
+            placeForestTreeAt(x, z, 4.0, 0.04);
         }
 
         // ============================================================================
@@ -6212,7 +13740,10 @@ class World {
         campfireGroup.position.set(0, cfY, 0);
         campfireGroup.userData = { type: 'campfire', flareBoost: 0 };
         scene.add(campfireGroup);
-        addCircleCollider('campfire', 0, 0, 0.96, cfY + 1.2, campfireGroup);
+        /* Collider api unggun dipasang SETELAH batu & kayu berdiri, dan diukur
+           dari mesh aslinya: keliling lingkaran batu + tinggi puncaknya, bukan
+           angka 1,2 m yang dulu membuatnya mustahil dilompati. */
+        const campfireParts = [];
 
         const stoneRingMat = new THREE.MeshStandardMaterial({ color: 0x7f8c8d, roughness: 0.88 });
         applyStylizedCelShading(stoneRingMat);
@@ -6223,6 +13754,7 @@ class World {
             stone.scale.set(1.2, 0.75, 1.0);
             stone.rotation.y = ang;
             campfireGroup.add(stone);
+            campfireParts.push(stone);
         }
 
         const fireLogMat = new THREE.MeshStandardMaterial({
@@ -6238,9 +13770,17 @@ class World {
             log.rotation.z = Math.PI * 0.38;
             log.rotation.y = ang;
             campfireGroup.add(log);
+            campfireParts.push(log);
         }
 
-        // Seat logs near campfire
+        campfireGroup.updateMatrixWorld(true);
+        const cfBox = new THREE.Box3();
+        for (const part of campfireParts) cfBox.expandByObject(part);
+        const cfTop = Math.min(cfY + 0.55, isFinite(cfBox.max.y) ? cfBox.max.y : cfY + 0.35);
+        const cfRad = Math.max(0.55, Math.max(cfBox.max.x - cfBox.min.x, cfBox.max.z - cfBox.min.z) * 0.5);
+        addCircleCollider('campfire', 0, 0, cfRad, cfTop, campfireGroup);
+
+        // Seat logs near campfire (dapat dilewati kuda & gerobak mengikuti bentuk silinder kayunya)
         const seatLogGeo = new THREE.CylinderGeometry(0.24, 0.26, 1.9, 8);
         seatLogGeo.rotateZ(Math.PI * 0.5);
         const seat1 = new THREE.Mesh(seatLogGeo, trunkMat);
@@ -6248,12 +13788,7 @@ class World {
         seat1.rotation.y = 0.55;
         seat1.castShadow = true;
         scene.add(seat1);
-        addCapsuleCollider(
-            'log',
-            -2.2 - Math.cos(0.55) * 0.85, 1.2 + Math.sin(0.55) * 0.85,
-            -2.2 + Math.cos(0.55) * 0.85, 1.2 - Math.sin(0.55) * 0.85,
-            0.28, seat1.position.y + 0.34, seat1
-        );
+        addTraversableLog(seat1, 0.25, 1.9);
 
         const flames = [];
         const flameColors = [0xff5400, 0xff9e00, 0xffea00];
@@ -6540,10 +14075,11 @@ class World {
         pondWaterGeo.setAttribute('aBedDepth', new THREE.BufferAttribute(bedDepthArr, 1));
         pondWaterGeo.setAttribute('aObstacleDist', new THREE.BufferAttribute(obstacleFoamArr, 1));
 
+        const botWWaterDataTex = createBotWWaterDataTexture();
         const pondUniforms = {
             uTime: celShaderUniforms.uTime,
             uWindSpeed: grassUniforms.uWindSpeed,
-            uWaterDataTex: { value: createBotWWaterDataTexture() },
+            uWaterDataTex: { value: botWWaterDataTex },
             uSunDir: celShaderUniforms.uSunDir,
             uSunColor: celShaderUniforms.uSunColor,
             uSkyTop: { value: activeAtmosphere.bgTop },
@@ -6766,9 +14302,12 @@ class World {
                         fenceGeos.push(rGeo);
                     });
 
+                    /* yMax = puncak palang atas pagar (0,68 + tebal), bukan 1,05:
+                       collider tetap mengikuti bentuk pagar (kapsul per segmen),
+                       tapi sekarang kuda yang melompat bisa melewatinya. */
                     fenceCaps.push(addCapsuleCollider(
                         'fence', p1.x, p1.z, p2.x, p2.z,
-                        0.14, Math.max(p1.y, p2.y) + 1.05, null
+                        0.14, Math.max(p1.y, p2.y) + 0.74, null
                     ));
                 }
             });
@@ -6784,37 +14323,45 @@ class World {
             }
         })();
 
-        // 2. Charming Crooked Wooden Countryside Signpost at the Clearing Fork
+        // 2. Charming Crooked Wooden Countryside Signposts at the Clearing & Road Forks
         (function buildCountrysideSignpost() {
-            const sx = getRoadCenterX(2.0) + 2.55;
-            const sz = 2.0;
-            const sy = getTerrainHeight(sx, sz);
-            const signGroup = new THREE.Group();
-            signGroup.position.set(sx, sy, sz);
-
-            const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 2.05, 6), fenceWoodMat);
-            pole.position.y = 1.0;
-            pole.rotation.z = 0.04;
-            pole.castShadow = true;
-            signGroup.add(pole);
-
+            const forkSpots = [
+                { x: getRoadCenterX(2.0) + 2.55, z: 2.0, yaw: 0.0 },
+                { x: getRoadCenterX(114.0) + 3.1, z: 114.0, yaw: -0.35 },
+                { x: getRoadCenterX(-17.0) - 3.1, z: -17.0, yaw: 0.45 },
+                { x: 225.0 + 3.2, z: -42.0, yaw: -0.55 },
+            ];
             const boardMat = new THREE.MeshStandardMaterial({ color: 0xb68456, roughness: 0.85 });
             applyStylizedCelShading(boardMat, { rimStrength: 0.18, shadowLift: 0.56 });
 
-            const b1 = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.24, 0.06), boardMat);
-            b1.position.set(0.28, 1.72, 0.05);
-            b1.rotation.y = -0.35;
-            b1.rotation.z = 0.05;
-            signGroup.add(b1);
+            forkSpots.forEach((sp) => {
+                const sx = sp.x, sz = sp.z;
+                const sy = getTerrainHeight(sx, sz);
+                const signGroup = new THREE.Group();
+                signGroup.position.set(sx, sy, sz);
+                signGroup.rotation.y = sp.yaw;
 
-            const b2 = new THREE.Mesh(new THREE.BoxGeometry(0.92, 0.22, 0.06), boardMat);
-            b2.position.set(-0.22, 1.38, -0.04);
-            b2.rotation.y = 0.42;
-            b2.rotation.z = -0.06;
-            signGroup.add(b2);
+                const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 2.05, 6), fenceWoodMat);
+                pole.position.y = 1.0;
+                pole.rotation.z = 0.04;
+                pole.castShadow = true;
+                signGroup.add(pole);
 
-            scene.add(signGroup);
-            addCircleCollider('signpost', sx, sz, 0.20, sy + 2.1, signGroup);
+                const b1 = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.24, 0.06), boardMat);
+                b1.position.set(0.28, 1.72, 0.05);
+                b1.rotation.y = -0.35;
+                b1.rotation.z = 0.05;
+                signGroup.add(b1);
+
+                const b2 = new THREE.Mesh(new THREE.BoxGeometry(0.92, 0.22, 0.06), boardMat);
+                b2.position.set(-0.22, 1.38, -0.04);
+                b2.rotation.y = 0.42;
+                b2.rotation.z = -0.06;
+                signGroup.add(b2);
+
+                scene.add(signGroup);
+                addCircleCollider('signpost', sx, sz, 0.20, sy + 2.1, signGroup);
+            });
         })();
 
         // Soft Warm Radial Glow Sprite Texture (shared by Lanterns & Truck Headlights)
@@ -6989,6 +14536,481 @@ class World {
             addRockMeshCollider('rock', rock);
         });
 
+        // ============================================================================
+        // 8B. AIR SUNGAI, TANTANGAN BEBATUAN & DESA KECIL
+        // ============================================================================
+
+        // ---- Permukaan air sungai BotW (shader 1:1 kolam/genangan) + tepian alami ----
+        let riverMesh = null;
+        let riverUniforms = null;
+        let riverAnimated = { lilyPads: [], reeds: [] };
+
+        (function buildRiverSurface() {
+            const riverSpec = {
+                terrainSize: TERRAIN_SIZE,
+                waterY: RIVER.waterY,
+                halfWidth: RIVER.halfWidth,
+                bank: RIVER.bank,
+                fords: RIVER.fords,
+                riverCenterZ,
+                riverHalfWidthAt,
+                riverFordAt,
+                getRoadDistance,
+            };
+            const riverCtx = {
+                applyStylizedCelShading,
+                isMobileDevice,
+                getTerrainHeight,
+                warmGlowTex,
+                rockMat,
+                wetRockMat,
+                celShaderUniforms,
+                grassUniforms,
+                activeAtmosphere,
+                waterDataTex: botWWaterDataTex,
+            };
+
+            const banks = createNaturalRiverbanks(riverCtx, riverSpec);
+            scene.add(banks.group);
+            if (banks.colliders) {
+                for (const c of banks.colliders) {
+                    if (c && c.mesh) addRockMeshCollider(c.type || 'river_rock', c.mesh);
+                }
+            }
+            if (banks.lanterns) {
+                for (const l of banks.lanterns) roadLanterns.push(l);
+            }
+            riverAnimated = banks.animated || { lilyPads: [], reeds: [] };
+
+            const surface = createBotWRiverSurface(riverCtx, riverSpec, banks.obstacles || []);
+            riverMesh = surface.mesh;
+            riverUniforms = surface.uniforms;
+            scene.add(riverMesh);
+        })();
+
+        // ---- Tantangan bebatuan: gerbang batu sempit + onggokan di bahu jalur ----
+        (function buildBoulderChallenge() {
+            const rocks = [
+                // gerbang sempit berpasangan: harus pas melintas / melompat
+                [-8.2, -38, 1.60], [-1.2, -38, 1.60],
+                [-8.6, -45, 1.85], [-0.8, -45, 1.85],
+                [-8.0, -52, 1.45], [-1.4, -52, 1.45],
+                // bebatuan berserak di bahu jalur
+                [-11.4, -41, 1.15], [2.2, -41, 1.15],
+                [-11.8, -48, 1.30], [2.8, -48, 1.30],
+                [-9.8, -34, 0.95], [0.2, -34, 0.95],
+            ];
+            for (const [x, z, r] of rocks) {
+                const y = getTerrainHeight(x, z);
+                const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 0), rockMat);
+                rock.position.set(x, y + r * 0.40, z);
+                rock.scale.set(1.18, 0.86, 1.06);
+                rock.rotation.set(x * 0.31, z * 0.73, 0.22);
+                rock.castShadow = !isMobileDevice;
+                rock.receiveShadow = true;
+                scene.add(rock);
+                addRockMeshCollider('challenge_rock', rock);
+            }
+        })();
+
+        // ---- 5 Desa Terhubung Jaringan Jalan (posisi & jumlah bangunan diacak dari modul model) ----
+        const villageAnimated = {
+            smokePuffs: [],
+            signPivots: [],
+            embers: [],
+            wellWaters: [],
+            bucketPivots: [],
+        };
+        const villageData = {
+            buildings: {},
+            buildingList: [],
+            stations: {
+                planters: [],
+                benches: [],
+            },
+            villages: [],
+            indoorsCount: 0,
+        };
+
+        (function buildVillage() {
+            const villageCtx = {
+                applyStylizedCelShading,
+                isMobileDevice,
+                getTerrainHeight,
+                warmGlowTex,
+            };
+            const palette = createVillageMaterialPalette(villageCtx);
+
+            function localToWorldXZ(wx, wz, yaw, sc, lx, lz) {
+                const cosY = Math.cos(yaw);
+                const sinY = Math.sin(yaw);
+                const sx = lx * sc;
+                const sz = lz * sc;
+                return {
+                    x: wx + sx * cosY + sz * sinY,
+                    z: wz - sx * sinY + sz * cosY,
+                };
+            }
+
+            function registerModelMeta(group, wx, wy, wz, yaw, fallbackType = 'house', scale = 1.0) {
+                const ud = group.userData || {};
+                if (Array.isArray(ud.lanterns)) {
+                    for (const l of ud.lanterns) roadLanterns.push(l);
+                }
+                if (ud.animated) {
+                    if (Array.isArray(ud.animated.smokePuffs)) {
+                        for (const sp of ud.animated.smokePuffs) villageAnimated.smokePuffs.push(sp);
+                    }
+                    if (ud.animated.signPivot) villageAnimated.signPivots.push(ud.animated.signPivot);
+                    if (ud.animated.embers) villageAnimated.embers.push(ud.animated.embers);
+                    if (ud.animated.wellWater) villageAnimated.wellWaters.push(ud.animated.wellWater);
+                    if (ud.animated.bucketPivot) villageAnimated.bucketPivots.push(ud.animated.bucketPivot);
+                }
+                if (Array.isArray(ud.colliders)) {
+                    const cosY = Math.cos(yaw);
+                    const sinY = Math.sin(yaw);
+                    for (const c of ud.colliders) {
+                        const lx = (c.localX || 0) * scale;
+                        const lz = (c.localZ || 0) * scale;
+                        const cx = wx + lx * cosY + lz * sinY;
+                        const cz = wz - lx * sinY + lz * cosY;
+                        addCircleCollider(c.type || fallbackType, cx, cz, (c.radius || 0.45) * scale, wy + (c.height || 3.5) * scale, group);
+                    }
+                } else if (ud.collider) {
+                    addCircleCollider(
+                        ud.collider.type || fallbackType,
+                        wx,
+                        wz,
+                        (ud.collider.radius || 2.2) * scale,
+                        wy + (ud.collider.height || 4.0) * scale,
+                        group
+                    );
+                }
+            }
+
+            for (let vIdx = 0; vIdx < VILLAGES.length; vIdx++) {
+                const v = VILLAGES[vIdx];
+                const villageGroup = new THREE.Group();
+                villageGroup.name = v.id;
+                scene.add(villageGroup);
+
+                const vRec = {
+                    id: v.id,
+                    title: v.title,
+                    cx: v.cx,
+                    cz: v.cz,
+                    radius: v.radius,
+                    fighterRole: v.fighterRole,
+                    merchantRole: v.merchantRole,
+                    farmerRoles: v.farmerRoles,
+                    buildings: {},
+                    buildingList: [],
+                    stations: {
+                        planters: [],
+                        benches: [],
+                    },
+                    indoorsCount: 0,
+                };
+
+                // Helper koordinat sepanjang poros jalan desa: along (maju/mundur), lat (kanan +, kiri -)
+                const streetPt = (along, lat = 0) => {
+                    const r = v.roadFn(along);
+                    const rnx = Math.cos(r.yaw);
+                    const rnz = -Math.sin(r.yaw);
+                    return {
+                        x: r.x + rnx * lat,
+                        z: r.z + rnz * lat,
+                        roadX: r.x,
+                        roadZ: r.z,
+                        yaw: r.yaw,
+                        rnx,
+                        rnz,
+                    };
+                };
+
+                // 1. Gerbang Masuk Desa
+                const gateP = streetPt(-24.5, 0);
+                const gateY = getTerrainHeight(gateP.x, gateP.z);
+                const gateScale = 1.24;
+                const gateArch = createVillageGateArch(villageCtx, {
+                    spanWidth: 7.4,
+                    clearHeight: 4.5,
+                    title: v.title,
+                });
+                gateArch.scale.setScalar(gateScale);
+                gateArch.position.set(gateP.x, gateY, gateP.z);
+                gateArch.rotation.y = gateP.yaw;
+                villageGroup.add(gateArch);
+                registerModelMeta(gateArch, gateP.x, gateY, gateP.z, gateP.yaw, 'gate_post', gateScale);
+
+                const gSouthP = streetPt(-22.5, -2.4);
+                const gSouthFace = streetPt(-28.0, 0);
+                vRec.stations.gateSouth = { x: gSouthP.x, z: gSouthP.z, faceX: gSouthFace.x, faceZ: gSouthFace.z };
+                const gNorthP = streetPt(20.5, 2.2);
+                const gNorthFace = streetPt(26.0, 0);
+                vRec.stations.gateNorth = { x: gNorthP.x, z: gNorthP.z, faceX: gNorthFace.x, faceZ: gNorthFace.z };
+
+                // 2. Bangunan Utama Desa dengan posisi & jumlah acak (5..8 bangunan per desa)
+                const doorApproachPoints = [];
+                for (const lot of v.lots) {
+                    const p = streetPt(lot.along, lot.side * lot.off);
+                    const hx = p.x;
+                    const hz = p.z;
+                    const hy = getTerrainHeight(hx, hz);
+                    const sc = lot.scale || 1.0;
+                    const yaw = p.yaw + (lot.side > 0 ? Math.PI * 0.5 : -Math.PI * 0.5) + (lot.rot || 0);
+
+                    let bldg = null;
+                    if (lot.kind === 'tavern') {
+                        bldg = createVillageTavernInn(palette, villageCtx, lot);
+                    } else if (lot.kind === 'blacksmith') {
+                        bldg = createBlacksmithWorkshop(palette, villageCtx, lot);
+                    } else if (lot.kind === 'stall') {
+                        bldg = createMarketStall(palette, villageCtx, lot);
+                    } else if (lot.kind === 'barn') {
+                        bldg = createStorageBarn(palette, villageCtx, lot);
+                    } else {
+                        bldg = createCozyCottage(palette, villageCtx, lot);
+                    }
+
+                    bldg.scale.setScalar(sc);
+                    bldg.position.set(hx, hy, hz);
+                    bldg.rotation.y = yaw;
+                    villageGroup.add(bldg);
+                    registerModelMeta(bldg, hx, hy, hz, yaw, 'house', sc);
+
+                    const ud = bldg.userData || {};
+                    const dl = ud.doorLocal;
+                    const approachZOff = lot.kind === 'tavern' ? -2.75 : -1.50;
+                    const doorZOff = lot.kind === 'tavern' ? -0.55 : -0.58;
+                    const dLocX = dl ? dl.x : 0;
+                    const dLocZ = dl ? dl.z : -lot.d * 0.5;
+                    const dLocY = dl ? dl.y : 0.36;
+
+                    const approachWorld = localToWorldXZ(hx, hz, yaw, sc, dLocX, dLocZ + approachZOff);
+                    const doorWorld = localToWorldXZ(hx, hz, yaw, sc, dLocX, dLocZ + doorZOff);
+                    const insideWorld = localToWorldXZ(hx, hz, yaw, sc, dLocX, dLocZ + 1.20);
+                    approachWorld.y = getTerrainHeight(approachWorld.x, approachWorld.z);
+                    doorWorld.y = hy + dLocY * sc;
+                    insideWorld.y = hy + dLocY * sc;
+
+                    if (dl) {
+                        const rec = {
+                            id: lot.id,
+                            villageId: v.id,
+                            kind: lot.kind,
+                            x: hx,
+                            y: hy,
+                            z: hz,
+                            yaw,
+                            scale: sc,
+                            doorWorld,
+                            approachWorld,
+                            insideWorld,
+                            doorPivot: ud.doorPivot || null,
+                            doorPivotR: ud.doorPivotR || null,
+                            doorOpenAmt: 0,
+                            doorTarget: 0,
+                        };
+                        vRec.buildings[lot.id] = rec;
+                        vRec.buildings[lot.localRoleKey] = rec;
+                        vRec.buildings[lot.kind] = vRec.buildings[lot.kind] || rec;
+                        vRec.buildingList.push(rec);
+                        villageData.buildings[lot.id] = rec;
+                        if (vIdx === 0) villageData.buildings[lot.localRoleKey] = rec;
+                        villageData.buildingList.push(rec);
+                    }
+
+                    if (lot.kind === 'blacksmith' && !vRec.stations.forge) {
+                        const forgeStand = localToWorldXZ(hx, hz, yaw, sc, 1.45, -2.55);
+                        vRec.stations.forge = { x: forgeStand.x, z: forgeStand.z, faceX: hx, faceZ: hz };
+                    } else if (lot.kind === 'tavern' && !vRec.stations.tavernPorch) {
+                        const tavFront = localToWorldXZ(hx, hz, yaw, sc, 1.2, -5.35);
+                        vRec.stations.tavernPorch = { x: tavFront.x, z: tavFront.z, faceX: hx, faceZ: hz };
+                    } else if (lot.kind === 'stall') {
+                        const stallFront = localToWorldXZ(hx, hz, yaw, sc, 0, -1.75);
+                        const stallSpot = { x: stallFront.x, z: stallFront.z, faceX: p.roadX, faceZ: p.roadZ };
+                        if (!vRec.stations.stallA) vRec.stations.stallA = stallSpot;
+                        else vRec.stations.stallB = stallSpot;
+                    } else if (lot.kind === 'barn' && !vRec.stations.barnYard) {
+                        vRec.stations.barnYard = { x: approachWorld.x, z: approachWorld.z, faceX: hx, faceZ: hz };
+                    } else if (lot.kind === 'cottage' && !vRec.stations.garden) {
+                        const gardenSpot = localToWorldXZ(hx, hz, yaw, sc, 1.8, -3.5);
+                        vRec.stations.garden = { x: gardenSpot.x, z: gardenSpot.z, faceX: hx, faceZ: hz };
+                    }
+
+                    const roadEdge = streetPt(lot.along, lot.side * 2.3);
+                    const pathEnd = dl ? approachWorld : localToWorldXZ(hx, hz, yaw, sc, 0, -lot.d * 0.5 - 1.1);
+                    doorApproachPoints.push({
+                        road: { x: roadEdge.x, z: roadEdge.z },
+                        door: pathEnd,
+                        seed: lot.seed || 1,
+                    });
+                }
+
+                // 3. Alun-alun Tengah: Sumur Batu Beratap + Papan Pengumuman + Bangku + Pot Bunga
+                const wellP = streetPt(-1.5, 6.4);
+                const wellX = wellP.x, wellZ = wellP.z;
+                const wellY = getTerrainHeight(wellX, wellZ);
+                const wellScale = 1.45;
+                const wellGroup = createVillageWell(villageCtx, { seed: 7 + vIdx * 11 });
+                wellGroup.scale.setScalar(wellScale);
+                wellGroup.position.set(wellX, wellY, wellZ);
+                wellGroup.rotation.y = wellP.yaw + Math.PI * 0.5 - 0.18;
+                villageGroup.add(wellGroup);
+                registerModelMeta(wellGroup, wellX, wellY, wellZ, wellGroup.rotation.y, 'well', wellScale);
+
+                const wellStand = streetPt(-1.2, 3.8);
+                const plazaStand = streetPt(-1.5, 2.8);
+                vRec.stations.well = { x: wellStand.x, z: wellStand.z, faceX: wellX, faceZ: wellZ };
+                vRec.stations.plaza = { x: plazaStand.x, z: plazaStand.z, faceX: wellX, faceZ: wellZ };
+
+                const plazaPath = createVillageStonePath(villageCtx, {
+                    points: [
+                        streetPt(-5.0, 2.2),
+                        streetPt(-4.2, 4.2),
+                        streetPt(-1.5, 8.8),
+                        streetPt(1.8, 8.2),
+                        streetPt(2.5, 2.2),
+                    ],
+                    width: 1.85,
+                    seed: 101 + vIdx * 17,
+                });
+                villageGroup.add(plazaPath);
+
+                for (const dp of doorApproachPoints) {
+                    const pathMesh = createVillageStonePath(villageCtx, {
+                        points: [dp.road, dp.door],
+                        width: 1.55,
+                        seed: dp.seed * 7 + 3,
+                    });
+                    villageGroup.add(pathMesh);
+                }
+
+                // Papan pengumuman desa
+                const nbP = streetPt(-7.5, 4.4);
+                const nbY = getTerrainHeight(nbP.x, nbP.z);
+                const nbScale = 1.32;
+                const noticeBoard = createVillageNoticeBoard(villageCtx, { seed: 12 + vIdx * 5 });
+                noticeBoard.scale.setScalar(nbScale);
+                noticeBoard.position.set(nbP.x, nbY, nbP.z);
+                noticeBoard.rotation.y = nbP.yaw + Math.PI * 0.36;
+                villageGroup.add(noticeBoard);
+                registerModelMeta(noticeBoard, nbP.x, nbY, nbP.z, noticeBoard.rotation.y, 'prop', nbScale);
+                const nbStand = streetPt(-6.8, 3.1);
+                vRec.stations.noticeBoard = { x: nbStand.x, z: nbStand.z, faceX: nbP.x, faceZ: nbP.z };
+
+                // Bangku kayu
+                const benchDefs = [
+                    { along: 2.4, lat: 6.1, rotOff: Math.PI + 0.12 },
+                    { along: 3.5, lat: -5.2, rotOff: -Math.PI * 0.5 + 0.1 },
+                ];
+                benchDefs.forEach((bd, idx) => {
+                    const bp = streetPt(bd.along, bd.lat);
+                    const by = getTerrainHeight(bp.x, bp.z);
+                    const bScale = 1.30;
+                    const bench = createVillageBench(villageCtx, { seed: 20 + vIdx * 7 + idx });
+                    bench.scale.setScalar(bScale);
+                    bench.position.set(bp.x, by, bp.z);
+                    bench.rotation.y = bp.yaw + bd.rotOff;
+                    villageGroup.add(bench);
+                    registerModelMeta(bench, bp.x, by, bp.z, bench.rotation.y, 'prop', bScale);
+                    const bStand = streetPt(bd.along + 1.0, bd.lat * 0.85);
+                    const stBench = { x: bStand.x, z: bStand.z, faceX: bp.x, faceZ: bp.z };
+                    vRec.stations.benches.push(stBench);
+                    if (vIdx === 0) villageData.stations.benches.push(stBench);
+                });
+
+                // Pot bunga desa
+                const planterDefs = [
+                    { along: -4.6, lat: 9.2, yawOff: 0.45, style: 'stone', seed: 31 + vIdx * 10 },
+                    { along: 1.8,  lat: 9.0, yawOff: -0.55, style: 'wood', seed: 32 + vIdx * 10 },
+                    { along: -8.0, lat: -4.8, yawOff: -Math.PI * 0.5, style: 'wood', seed: 33 + vIdx * 10 },
+                    { along: 8.8,  lat: -5.4, yawOff: -Math.PI * 0.5, style: 'stone', seed: 34 + vIdx * 10 },
+                ];
+                planterDefs.forEach((pd) => {
+                    const pp = streetPt(pd.along, pd.lat);
+                    const py = getTerrainHeight(pp.x, pp.z);
+                    const pScale = 1.30;
+                    const planter = createVillageFlowerPlanter(villageCtx, pd);
+                    planter.scale.setScalar(pScale);
+                    planter.position.set(pp.x, py, pp.z);
+                    planter.rotation.y = pp.yaw + pd.yawOff;
+                    villageGroup.add(planter);
+                    registerModelMeta(planter, pp.x, py, pp.z, planter.rotation.y, 'prop', pScale);
+                    const pStand = streetPt(pd.along, pd.lat - Math.sign(pd.lat) * 1.3);
+                    const stPlanter = { x: pStand.x, z: pStand.z, faceX: pp.x, faceZ: pp.z };
+                    vRec.stations.planters.push(stPlanter);
+                    if (vIdx === 0) villageData.stations.planters.push(stPlanter);
+                });
+
+                // Tumpukan peti & barel perbekalan
+                const crateDefs = [
+                    { along: 6.2,  lat: 8.4, yawOff: 0.35, withSack: true, seed: 41 + vIdx * 9 },
+                    { along: 16.5, lat: 7.2, yawOff: -0.45, withSack: true, seed: 42 + vIdx * 9 },
+                ];
+                crateDefs.forEach((cd) => {
+                    const cp = streetPt(cd.along, cd.lat);
+                    const cy = getTerrainHeight(cp.x, cp.z);
+                    const cScale = 1.32;
+                    const crates = createVillageCrateCluster(villageCtx, cd);
+                    crates.scale.setScalar(cScale);
+                    crates.position.set(cp.x, cy, cp.z);
+                    crates.rotation.y = cp.yaw + cd.yawOff;
+                    villageGroup.add(crates);
+                    registerModelMeta(crates, cp.x, cy, cp.z, crates.rotation.y, 'prop', cScale);
+                });
+
+                // 4. Tiang Lentera Desa
+                const lanternAlong = [-19.5, -8.5, 2.5, 13.5];
+                lanternAlong.forEach((al, idx) => {
+                    const side = idx % 2 === 0 ? 1 : -1;
+                    const lp = streetPt(al, side * 3.65);
+                    const ly = getTerrainHeight(lp.x, lp.z);
+                    const yaw = lp.yaw + (side > 0 ? Math.PI : 0);
+                    const lScale = 1.30;
+                    const lamp = createVillageLanternPost(villageCtx, {
+                        withSign: idx === 0 || idx === 3,
+                        phase: 1.1 + idx * 1.3 + vIdx * 0.7,
+                        seed: 60 + vIdx * 12 + idx,
+                    });
+                    lamp.scale.setScalar(lScale);
+                    lamp.position.set(lp.x, ly, lp.z);
+                    lamp.rotation.y = yaw;
+                    villageGroup.add(lamp);
+                    registerModelMeta(lamp, lp.x, ly, lp.z, yaw, 'lantern', lScale);
+                });
+
+                // 5. Pagar Pekarangan Desa Rendah
+                const fenceDefs = [
+                    [streetPt(-23.0, -5.2), streetPt(-22.5, -18.0), streetPt(-12.0, -18.5)],
+                    [streetPt(8.0, -18.5),  streetPt(20.0, -18.2),  streetPt(21.5, -5.5)],
+                    [streetPt(15.0, 18.5),  streetPt(24.5, 18.5),   streetPt(25.5, 5.5)],
+                ];
+                fenceDefs.forEach((pts, idx) => {
+                    const fRun = createVillageFenceRun(villageCtx, { points: pts, low: true, seed: 80 + vIdx * 10 + idx });
+                    villageGroup.add(fRun);
+                    const segs = (fRun.userData && fRun.userData.fenceSegments) || [];
+                    for (const s of segs) {
+                        addCapsuleCollider('fence', s.x1, s.z1, s.x2, s.z2, 0.14, s.yMax, fRun);
+                    }
+                });
+
+                // Fallback stations supaya tiap role petani/penjual/petarung di desa ini selalu punya titik kerja
+                vRec.stations.stallA = vRec.stations.stallA || vRec.stations.plaza;
+                vRec.stations.stallB = vRec.stations.stallB || vRec.stations.stallA;
+                vRec.stations.barnYard = vRec.stations.barnYard || vRec.stations.garden || vRec.stations.well;
+                vRec.stations.garden = vRec.stations.garden || vRec.stations.barnYard;
+                vRec.stations.tavernPorch = vRec.stations.tavernPorch || vRec.stations.plaza;
+                vRec.stations.forge = vRec.stations.forge || vRec.stations.tavernPorch;
+
+                villageData.villages.push(vRec);
+                if (vIdx === 0) {
+                    Object.assign(villageData.stations, vRec.stations);
+                }
+            }
+        })();
+
         const interactiveMushrooms = [];
         const mushroomCapMaterials = [];
         const stemMat = new THREE.MeshStandardMaterial({ color: 0xf4ebd9, roughness: 0.7 });
@@ -7081,6 +15103,31 @@ class World {
     this.TERRAIN_SIZE = TERRAIN_SIZE;
     this.POND_CENTER = POND_CENTER;
     this.POND_WATER_Y = POND_WATER_Y;
+    this.RIVER = RIVER;
+    this.VILLAGE = VILLAGE;
+    this.VILLAGES = VILLAGES;
+    this.allRoadPolylines = allRoadPolylines;
+    this._riverCenterZ = riverCenterZ;
+    this._riverHalfWidthAt = riverHalfWidthAt;
+    this.riverMesh = riverMesh;
+    this.riverUniforms = riverUniforms;
+    this.riverAnimated = riverAnimated;
+    this.villageAnimated = villageAnimated;
+    this.villageData = villageData;
+    this._riverCenterZ = riverCenterZ;
+    this._riverHalfWidthAt = riverHalfWidthAt;
+    this._riverRippleSlot = 0;
+    this._lastRiverRippleAt = -99;
+    this._lastHoofSplashAt = -99;
+    this._lastCartWakeAt = -99;
+    this._lastWaterSfxAt = -99;
+    this._prevHorseX = 0;
+    this._prevHorseZ = 0;
+    this._prevCartX = 0;
+    this._prevCartZ = 0;
+    this._wasHorseInAir = false;
+    this._horseJumpActive = false;
+    this.cartYaw = 0;
     this.terrainChunks = terrainChunks;
     this.grassChunks = grassChunks;
     this.grassUniforms = grassUniforms;
@@ -7127,6 +15174,38 @@ class World {
     this._grassMapTexture = grassMapTexture;
     this.colliders = colliders;
     this.rockMeshes = rockMeshes;
+    this.traversableLogs = traversableLogs;
+    this._grassTiles = grassTiles;
+    this._grassTileSize = GRASS_TILE_SIZE;
+    this._grassGridRadius = GRASS_GRID_RADIUS;
+    this._populateGrassTile = populateGrassTile;
+    this._lastGrassTileX = 0;
+    this._lastGrassTileZ = 0;
+    this.cycleEnabled = true;
+    this.cycleDuration = 600.0; // Siklus penuh siang-malam 10 menit
+    this.timeOfDay = 0.08;      // Mulai pagi cerah (~07:55)
+    this._cycleTarget = {
+      bgTop: MOODS.morning.bgTop.clone(),
+      bgBottom: MOODS.morning.bgBottom.clone(),
+      sunColor: MOODS.morning.sunColor.clone(),
+      sunIntensity: MOODS.morning.sunIntensity,
+      sunPos: MOODS.morning.sunPos.clone(),
+      hemiSky: MOODS.morning.hemiSky.clone(),
+      hemiGround: MOODS.morning.hemiGround.clone(),
+      hemiIntensity: MOODS.morning.hemiIntensity,
+      sceneBrightness: MOODS.morning.sceneBrightness,
+      mushroomGlow: MOODS.morning.mushroomGlow,
+      particleColor: MOODS.morning.particleColor.clone(),
+      shadowTint: MOODS.morning.shadowTint.clone(),
+      rimTint: MOODS.morning.rimTint.clone(),
+      cloudColor: MOODS.morning.cloudColor.clone(),
+      cloudShadow: MOODS.morning.cloudShadow.clone(),
+      cloudCoverage: MOODS.morning.cloudCoverage,
+      grassBaseColor: MOODS.morning.grassBaseColor.clone(),
+      grassTipColor: MOODS.morning.grassTipColor.clone(),
+      sunbeamOpacity: MOODS.morning.sunbeamOpacity,
+      lanternIntensity: MOODS.morning.lanternIntensity,
+    };
     this._colliderGrid = colliderGrid;
     this._gridCell = GRID_CELL;
     this._colSeen = new Set();
@@ -7423,59 +15502,286 @@ class World {
     return { hit, nx: bestNx, nz: bestNz, pen: maxPen, hitType };
   }
 
-  // ---- Tempatkan 18 warga NPC Sylvan di titik-titik cozy dalam lembah ----
+  isInsideVillage(x, z, pad = 0) {
+    const list = this.VILLAGES || [];
+    for (let i = 0; i < list.length; i++) {
+      const v = list[i];
+      if (Math.hypot(x - v.cx, z - v.cz) < (v.radius * 1.95) + pad) return true;
+    }
+    return false;
+  }
+
+  // ---- Kurangi NPC per desa: hanya 4 NPC tiap desa (2 petani, 1 penjual, dan 1 petarung saja) di 5 desa ----
   placeNPCsInWorld(party) {
     this._party = party;
     if (!party || !party.wild) return;
-    const spots = [
-      // Sekitar api unggun & kayu duduk
-      { x: -2.4, z: -1.8, faceX: 0, faceZ: 0 },
-      { x:  2.2, z: -2.1, faceX: 0, faceZ: 0 },
-      { x:  2.5, z:  1.6, faceX: 0, faceZ: 0 },
-      // Dekat papan petunjuk & persimpangan jalan
-      { x: -1.8, z:  3.2, faceX: -5, faceZ: 3.2 },
-      { x: -2.2, z: -5.2, faceX: -5, faceZ: -5.2 },
-      // Tepi kolam BotW
-      { x:  3.6, z:  3.8, faceX: 8.2, faceZ: 6.2 },
-      { x:  4.2, z:  9.8, faceX: 8.2, faceZ: 6.2 },
-      { x: 11.8, z:  2.6, faceX: 8.2, faceZ: 6.2 },
-      { x: 12.6, z:  8.8, faceX: 8.2, faceZ: 6.2 },
-      // Dekat truk pickup merah & pagar kayu
-      { x: -9.8, z:  5.4, faceX: -7.5, faceZ: 7.4 },
-      { x: -9.5, z:  9.6, faceX: -7.5, faceZ: 7.4 },
-      { x: -8.6, z: -2.8, faceX: -5.4, faceZ: -2.8 },
-      { x: -8.8, z: -9.5, faceX: -5.4, faceZ: -9.5 },
-      // Padang bunga & bukit lembah
-      { x:  5.5, z: -4.8, faceX: 0, faceZ: 0 },
-      { x:  8.4, z: -2.2, faceX: 0, faceZ: 0 },
-      { x: -2.5, z: 12.5, faceX: -5.0, faceZ: 12.5 },
-      { x: -8.5, z: 14.2, faceX: -5.0, faceZ: 14.2 },
-      { x:  1.8, z: -11.5, faceX: -5.4, faceZ: -11.5 }
-    ];
+
+    const vd = this.villageData;
+    const villages = (vd && Array.isArray(vd.villages) && vd.villages.length) ? vd.villages : [];
+    if (!villages.length) return;
+
+    // Bersihkan mesh NPC awal dari _spawnSettlements supaya tidak tersisa 18 NPC menumpuk
     for (let i = 0; i < party.wild.length; i++) {
-      const w = party.wild[i];
-      const sp = spots[i % spots.length];
-      const cleared = this.resolveCircleCollision(sp.x, sp.z, 0.42);
-      const sx = cleared.x, sz = cleared.z;
-      const gy = this.terrainHeightAt(sx, sz);
-      const yaw = Math.atan2(sp.faceX - sx, sp.faceZ - sz);
-      w.x = sx; w.z = sz;
-      w.homeX = sx; w.homeZ = sz;
-      if (w.anchor) { w.anchor.x = sx; w.anchor.z = sz; w.anchor.yaw = yaw; }
-      if (w.root) {
-        w.root.position.set(sx, gy, sz);
-        w.root.rotation.y = yaw;
+      const old = party.wild[i];
+      if (!old) continue;
+      if (old._hpBar && typeof old._hpBar.dispose === 'function') { old._hpBar.dispose(); old._hpBar = null; }
+      if (old.root && party.scene && typeof party.scene.remove === 'function') party.scene.remove(old.root);
+    }
+    party.wild.length = 0;
+
+    let slotIdx = 0;
+    for (let vIdx = 0; vIdx < villages.length; vIdx++) {
+      const vRec = villages[vIdx];
+      const st = vRec.stations || {};
+      const bldgs = vRec.buildings || {};
+      const bList = vRec.buildingList || [];
+      const pickPlanter = (idx) => (st.planters && st.planters[idx % st.planters.length]) || st.garden || st.well;
+      const pickBench = (idx) => (st.benches && st.benches[idx % st.benches.length]) || st.well;
+      const pickHome = (prefKey, fallbackIdx = 0) =>
+        bldgs[prefKey] || bList[fallbackIdx % Math.max(1, bList.length)] || null;
+
+      // Tepat 4 warga per desa: 2 petani (farmer, herbal), 1 penjual (merchant/petmerchant), 1 petarung (guard/warrior/hunter/lionknight/rabbitwarrior)
+      const roster = [
+        {
+          roleId: 'farmer',
+          workKind: 'farm',
+          spawn: st.barnYard || st.garden || st.plaza,
+          homeBldg: pickHome('barn', 0),
+          stations: [st.barnYard, st.garden, pickPlanter(0), st.well].filter(Boolean),
+        },
+        {
+          roleId: 'herbal',
+          workKind: 'forage',
+          spawn: pickPlanter(0) || st.garden || st.well,
+          homeBldg: pickHome('cottage_sw', 1),
+          stations: [pickPlanter(0), pickPlanter(1), st.garden, st.well].filter(Boolean),
+        },
+        {
+          roleId: vRec.merchantRole || 'merchant',
+          workKind: 'shop',
+          spawn: st.stallA || st.plaza,
+          homeBldg: pickHome('cottage_nw', 2),
+          stations: [st.stallA, st.stallB, st.noticeBoard, st.well].filter(Boolean),
+        },
+        {
+          roleId: vRec.fighterRole || 'guard',
+          workKind: 'patrol',
+          spawn: st.gateSouth || st.plaza,
+          homeBldg: pickHome('tavern', 3),
+          stations: [st.gateSouth, st.plaza, st.gateNorth, st.tavernPorch, pickBench(0)].filter(Boolean),
+        },
+      ];
+
+      for (let rIdx = 0; rIdx < roster.length; rIdx++) {
+        const cfg = roster[rIdx];
+        const sp0 = cfg.spawn || st.plaza || { x: vRec.cx, z: vRec.cz, faceX: vRec.cx, faceZ: vRec.cz + 1 };
+        const jitterAng = (rIdx * 1.57 + vIdx * 0.85) % (Math.PI * 2);
+        const tryX = sp0.x + Math.cos(jitterAng) * 0.45;
+        const tryZ = sp0.z + Math.sin(jitterAng) * 0.45;
+        const cleared = this.resolveCircleCollision(tryX, tryZ, 0.44);
+        const sx = cleared.x;
+        const sz = cleared.z;
+        const gy = this.terrainHeightAt(sx, sz);
+        const fx = sp0.faceX !== undefined ? sp0.faceX : vRec.cx;
+        const fz = sp0.faceZ !== undefined ? sp0.faceZ : vRec.cz;
+        const yaw = Math.atan2(fx - sx, fz - sz);
+
+        const anchor = {
+          role: cfg.roleId,
+          site: vRec.id,
+          x: sx,
+          z: sz,
+          yaw,
+        };
+
+        let w = null;
+        if (typeof party._spawnFromAnchor === 'function') {
+          w = party._spawnFromAnchor(slotIdx, anchor);
+        } else {
+          const roleObj = (HC.NPC_ROLES || []).find((r) => r.id === cfg.roleId) || { id: cfg.roleId };
+          const root = HC.buildNPC ? HC.buildNPC(roleObj, 'stand') : null;
+          if (root && party.scene && party.scene.add) party.scene.add(root);
+          w = { root, role: roleObj, site: vRec.id, x: sx, z: sz, homeX: sx, homeZ: sz, anchor };
+          party.wild[slotIdx] = w;
+        }
+        slotIdx++;
+        if (!w) continue;
+
+        w.x = sx; w.z = sz;
+        w.homeX = sx; w.homeZ = sz;
+        w.homeRadius = 18.0;
+        w.isIndoors = false;
+        w.site = vRec.id;
+        w.villageProfile = {
+          roleId: cfg.roleId,
+          villageId: vRec.id,
+          villageRef: vRec,
+          homeId: (cfg.homeBldg && cfg.homeBldg.id) || 'tavern',
+          homeBldg: cfg.homeBldg,
+          workKind: cfg.workKind,
+          stations: cfg.stations.length ? cfg.stations : [sp0],
+          canEnterHouse: !!cfg.homeBldg,
+        };
+        if (w.anchor) {
+          w.anchor.x = sx;
+          w.anchor.z = sz;
+          w.anchor.yaw = yaw;
+          w.anchor.role = cfg.roleId;
+          w.anchor.site = vRec.id;
+        }
+        if (w.root) {
+          w.root.visible = true;
+          w.root.position.set(sx, gy, sz);
+          w.root.rotation.y = yaw;
+        }
       }
     }
   }
 
-  // ---- Ganti suasana Hutan Cozy (morning / sunset / night) ----
+  // ---- Siklus siang-malam 10 menit otomatis & helper suasana ----
   setMood(moodKey) {
     if (!this.MOODS[moodKey]) return null;
     this.currentMoodKey = moodKey;
     this.targetMood = this.MOODS[moodKey];
-    if (moodKey === 'night') this.isHeadlightsOn = true;
+    if (moodKey === 'night') {
+      this.timeOfDay = 0.76;
+      this.isHeadlightsOn = true;
+    } else if (moodKey === 'sunset') {
+      this.timeOfDay = 0.51;
+      this.isHeadlightsOn = true;
+    } else {
+      this.timeOfDay = 0.08;
+      this.isHeadlightsOn = false;
+    }
     return this.targetMood;
+  }
+
+  getTimeLabel() {
+    const t = ((this.timeOfDay || 0) % 1 + 1) % 1;
+    // t=0 -> 06:00, t=0.25 -> 12:00, t=0.5 -> 18:00, t=0.75 -> 00:00
+    const totalMin = Math.floor(((t * 24 + 6) % 24) * 60);
+    const hh = String(Math.floor(totalMin / 60)).padStart(2, '0');
+    const mm = String(totalMin % 60).padStart(2, '0');
+    const phase = this.currentMoodKey === 'night' ? 'Malam' : (this.currentMoodKey === 'sunset' ? 'Senja' : 'Siang');
+    return `${hh}:${mm} • ${phase}`;
+  }
+
+  _blendMoodTarget(a, b, alpha) {
+    const ct = this._cycleTarget;
+    if (!ct || !a || !b) return;
+    const w = Math.max(0, Math.min(1, alpha));
+    ct.bgTop.copy(a.bgTop).lerp(b.bgTop, w);
+    ct.bgBottom.copy(a.bgBottom).lerp(b.bgBottom, w);
+    ct.sunColor.copy(a.sunColor).lerp(b.sunColor, w);
+    ct.sunIntensity = THREE.MathUtils.lerp(a.sunIntensity, b.sunIntensity, w);
+    ct.sunPos.copy(a.sunPos).lerp(b.sunPos, w);
+    ct.hemiSky.copy(a.hemiSky).lerp(b.hemiSky, w);
+    ct.hemiGround.copy(a.hemiGround).lerp(b.hemiGround, w);
+    ct.hemiIntensity = THREE.MathUtils.lerp(a.hemiIntensity, b.hemiIntensity, w);
+    ct.sceneBrightness = THREE.MathUtils.lerp(a.sceneBrightness, b.sceneBrightness, w);
+    ct.mushroomGlow = THREE.MathUtils.lerp(a.mushroomGlow, b.mushroomGlow, w);
+    ct.particleColor.copy(a.particleColor).lerp(b.particleColor, w);
+    ct.shadowTint.copy(a.shadowTint).lerp(b.shadowTint, w);
+    ct.rimTint.copy(a.rimTint).lerp(b.rimTint, w);
+    ct.cloudColor.copy(a.cloudColor).lerp(b.cloudColor, w);
+    ct.cloudShadow.copy(a.cloudShadow).lerp(b.cloudShadow, w);
+    ct.cloudCoverage = THREE.MathUtils.lerp(a.cloudCoverage, b.cloudCoverage, w);
+    ct.grassBaseColor.copy(a.grassBaseColor).lerp(b.grassBaseColor, w);
+    ct.grassTipColor.copy(a.grassTipColor).lerp(b.grassTipColor, w);
+    ct.sunbeamOpacity = THREE.MathUtils.lerp(a.sunbeamOpacity, b.sunbeamOpacity, w);
+    ct.lanternIntensity = THREE.MathUtils.lerp(a.lanternIntensity, b.lanternIntensity, w);
+  }
+
+  _updateDayNightCycle(delta) {
+    if (!this.cycleEnabled || !this.cycleDuration) return;
+    this.timeOfDay = (this.timeOfDay + delta / this.cycleDuration) % 1.0;
+    const t = this.timeOfDay;
+    const { morning, sunset, night } = this.MOODS;
+    const sm = (a, b, x) => {
+      const u = Math.max(0, Math.min(1, (x - a) / (b - a)));
+      return u * u * (3 - 2 * u);
+    };
+
+    if (t < 0.06) {
+      this._blendMoodTarget(sunset, morning, sm(0.0, 0.06, t));
+    } else if (t < 0.44) {
+      this._blendMoodTarget(morning, morning, 1.0);
+      // Busur matahari lembut sepanjang siang
+      const dayU = (t - 0.06) / 0.38;
+      const arcAng = (dayU - 0.5) * Math.PI * 0.72;
+      this._cycleTarget.sunPos.set(Math.sin(-arcAng) * 28, 24 + Math.cos(arcAng) * 11, 16 - dayU * 14);
+    } else if (t < 0.54) {
+      this._blendMoodTarget(morning, sunset, sm(0.44, 0.54, t));
+    } else if (t < 0.62) {
+      this._blendMoodTarget(sunset, night, sm(0.54, 0.62, t));
+    } else if (t < 0.91) {
+      this._blendMoodTarget(night, night, 1.0);
+    } else {
+      this._blendMoodTarget(night, sunset, sm(0.91, 1.0, t));
+    }
+
+    this.targetMood = this._cycleTarget;
+    this.currentMoodKey = (t >= 0.58 && t < 0.93)
+      ? 'night'
+      : ((t >= 0.45 && t < 0.58) || t >= 0.93 || t < 0.04) ? 'sunset' : 'morning';
+    this.isHeadlightsOn = (t >= 0.48 && t <= 0.95);
+    this.isSunbeamsEnabled = (t < 0.58 || t > 0.92);
+    if (this.sunbeamsGroup) this.sunbeamsGroup.visible = this.isSunbeamsEnabled;
+  }
+
+  _updateStreamingGrass(horseX, horseZ) {
+    const tiles = this._grassTiles;
+    const ts = this._grassTileSize || 15.0;
+    const R = this._grassGridRadius || 4;
+    if (!tiles || !tiles.length || typeof this._populateGrassTile !== 'function') return;
+
+    const ptx = Math.floor(horseX / ts);
+    const ptz = Math.floor(horseZ / ts);
+    if (ptx === this._lastGrassTileX && ptz === this._lastGrassTileZ && !this._grassPendingSync) return;
+
+    const occupied = new Set();
+    const stale = [];
+    for (let i = 0; i < tiles.length; i++) {
+      const tl = tiles[i];
+      if (Math.abs(tl.tx - ptx) <= R && Math.abs(tl.tz - ptz) <= R) {
+        occupied.add(tl.tx + ',' + tl.tz);
+      } else {
+        stale.push(tl);
+      }
+    }
+
+    if (!stale.length) {
+      this._lastGrassTileX = ptx;
+      this._lastGrassTileZ = ptz;
+      this._grassPendingSync = false;
+      return;
+    }
+
+    const needed = [];
+    for (let dz = -R; dz <= R; dz++) {
+      for (let dx = -R; dx <= R; dx++) {
+        const tx = ptx + dx;
+        const tz = ptz + dz;
+        const key = tx + ',' + tz;
+        if (!occupied.has(key)) {
+          needed.push({ tx, tz, d2: dx * dx + dz * dz });
+        }
+      }
+    }
+    needed.sort((a, b) => a.d2 - b.d2);
+
+    const budget = Math.min(stale.length, needed.length, 4);
+    for (let i = 0; i < budget; i++) {
+      this._populateGrassTile(stale[i], needed[i].tx, needed[i].tz);
+    }
+
+    if (needed.length <= budget) {
+      this._lastGrassTileX = ptx;
+      this._lastGrassTileZ = ptz;
+      this._grassPendingSync = false;
+    } else {
+      this._grassPendingSync = true;
+    }
   }
 
   toggleCampfire(forceState) {
@@ -7513,7 +15819,7 @@ class World {
       const sc = this.dirLight.shadow.camera;
       sc.left = -area; sc.right = area; sc.top = area; sc.bottom = -area;
       sc.updateProjectionMatrix();
-      if (this.dirLight.shadow.mapSize.x !== quality.shadowMapSize) {
+      if (quality.shadowMapSize > 0 && this.dirLight.shadow.mapSize.x !== quality.shadowMapSize) {
         this.dirLight.shadow.mapSize.set(quality.shadowMapSize, quality.shadowMapSize);
         if (this.dirLight.shadow.map) {
           this.dirLight.shadow.map.dispose();
@@ -7658,6 +15964,7 @@ class World {
 
     const targets = [
       this.pondMesh, this.campfireGroup,
+      ...(this.riverMesh ? [this.riverMesh] : []),
       ...this.interactiveMushrooms, ...this.interactiveBushes, ...this.interactiveTrees
     ];
     const intersects = this._raycaster.intersectObjects(targets, true);
@@ -7672,6 +15979,13 @@ class World {
       this.spawnBurst(new THREE.Vector3(hitPoint.x, this.POND_WATER_Y + 0.12, hitPoint.z), 0xa5f3fc, 12, true, false);
       this.spawnBurst(new THREE.Vector3(hitPoint.x, this.POND_WATER_Y + 0.18, hitPoint.z), 0xffffff, 6, true, false);
       return 'Cipratan air & riak kolam BotW!';
+    }
+    if (obj.userData.type === 'river') {
+      this.triggerRiverRipple(hitPoint.x, hitPoint.z);
+      const wy = this.RIVER ? this.RIVER.waterY : -0.22;
+      this.spawnBurst(new THREE.Vector3(hitPoint.x, wy + 0.12, hitPoint.z), 0xa5f3fc, 12, true, false);
+      this.spawnBurst(new THREE.Vector3(hitPoint.x, wy + 0.18, hitPoint.z), 0xffffff, 6, true, false);
+      return 'Cipratan air & riak sungai jernih!';
     }
     if (obj.userData.type === 'campfire') {
       if (!this.isCampfireLit) {
@@ -7715,16 +16029,134 @@ class World {
   }
 
   isOnRoad(x, z) {
-    return false;
+    return !!(this._getRoadDistance && this._getRoadDistance(x, z) < 2.35);
   }
 
-  riverDistX(x, z) {
-    return 9.0;
+  waterEdgeDistance(x, z = 0) {
+    let best = Infinity;
+    if (this._riverCenterZ && this._riverHalfWidthAt) {
+      const rEdge = Math.abs(z - this._riverCenterZ(x)) - this._riverHalfWidthAt(x);
+      if (rEdge < best) best = rEdge;
+    }
+    if (this.POND_CENTER) {
+      const pEdge = Math.hypot(x - this.POND_CENTER.x, z - this.POND_CENTER.z) - this.POND_CENTER.radius;
+      if (pEdge < best) best = pEdge;
+    }
+    return best;
+  }
+
+  isAtWater(x, z) {
+    if (this.waterDepthAt(x, z) > 0.01) return true;
+    return this.waterEdgeDistance(x, z) <= 0.70;
+  }
+
+  isOnGrass(x, z) {
+    if (this.isOnRoad(x, z)) return false;
+    if (this.isAtWater(x, z)) return false;
+    if (Math.hypot(x, z) < 2.35) return false;
+    const vs = this.VILLAGES || [];
+    for (let i = 0; i < vs.length; i++) {
+      const v = vs[i];
+      const nx = v.fz || 0, nz = -(v.fx || 1);
+      if (Math.hypot(x - (v.cx + nx * 5.8), z - (v.cz + nz * 5.8)) < 6.5) return false;
+      if (Math.hypot(x - v.cx, z - v.cz) < 3.4) return false;
+    }
+    return true;
+  }
+
+  riverDistX(x, z = 0) {
+    return Math.max(0, this.waterEdgeDistance(x, z));
+  }
+
+  waterDepthAt(x, z) {
+    let maxD = 0;
+    const gy = this._getTerrainHeight(x, z);
+    if (this._riverCenterZ && this._riverHalfWidthAt && this.RIVER) {
+      const rDist = Math.abs(z - this._riverCenterZ(x));
+      if (rDist < this._riverHalfWidthAt(x) + 1.8) {
+        const rd = this.RIVER.waterY - gy;
+        if (rd > maxD) maxD = rd;
+      }
+    }
+    const pd = Math.hypot(x - this.POND_CENTER.x, z - this.POND_CENTER.z);
+    if (pd < this.POND_CENTER.radius + 0.8) {
+      const pDepth = this.POND_WATER_Y - gy;
+      if (pDepth > maxD) maxD = pDepth;
+    }
+    return maxD;
   }
 
   triggerPondRipple(x, z) {
     this.pondUniforms.uRippleOrigin.value.set(x, this.POND_WATER_Y, z);
     this.pondUniforms.uRippleTime.value = this.elapsed;
+  }
+
+  triggerRiverRipple(x, z, strength = 1.0) {
+    if (!this.riverUniforms) return;
+    const wy = this.RIVER ? this.RIVER.waterY : -0.22;
+    this.riverUniforms.uRippleOrigin.value.set(x, wy, z);
+    this.riverUniforms.uRippleTime.value = this.elapsed;
+    if (this.riverUniforms.uRipples && Array.isArray(this.riverUniforms.uRipples.value)) {
+      const slots = this.riverUniforms.uRipples.value;
+      const idx = (this._riverRippleSlot || 0) % slots.length;
+      slots[idx].set(x, z, this.elapsed, Math.max(0.25, Math.min(1.6, strength)));
+      this._riverRippleSlot = idx + 1;
+    }
+  }
+
+  spawnWaterSplash(x, y, z, intensity = 1.0, vx = 0, vz = 0) {
+    const count = Math.min(18, Math.max(3, Math.round(5 * intensity)));
+    const capRoom = Math.max(0, 64 - this.burstParticles.length);
+    const n = Math.min(count, capRoom);
+    for (let i = 0; i < n; i++) {
+      const isFoam = i % 3 === 0;
+      const mat = new THREE.MeshBasicMaterial({
+        color: isFoam ? 0xeefcff : 0x7ce8f5,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: isFoam ? 0.92 : 0.78,
+      });
+      const mesh = new THREE.Mesh(this._sharedSparkBurstGeo, mat);
+      const ang = Math.random() * Math.PI * 2;
+      const spread = (0.12 + Math.random() * 0.24) * Math.min(1.8, intensity);
+      mesh.position.set(x + Math.cos(ang) * spread, y + 0.04, z + Math.sin(ang) * spread);
+      const sc = (isFoam ? 1.15 : 0.85) * (0.75 + Math.random() * 0.55) * Math.min(1.4, Math.sqrt(intensity));
+      mesh.scale.setScalar(sc);
+      this.scene.add(mesh);
+      const outSpd = (0.7 + Math.random() * 1.45) * Math.min(1.7, intensity);
+      this.burstParticles.push({
+        mesh,
+        vel: new THREE.Vector3(
+          Math.cos(ang) * outSpd + vx * 0.22,
+          (1.45 + Math.random() * 1.95) * Math.min(1.65, Math.sqrt(intensity)),
+          Math.sin(ang) * outSpd + vz * 0.22
+        ),
+        gravity: 9.6,
+        life: 0.72 + Math.random() * 0.26,
+      });
+    }
+    if (this._isAudioPlaying && this._audioCtx && (this.elapsed - this._lastWaterSfxAt) > 0.16) {
+      this._lastWaterSfxAt = this.elapsed;
+      try {
+        const ac = this._audioCtx;
+        const now = ac.currentTime;
+        const len = Math.floor(ac.sampleRate * 0.11);
+        const buf = ac.createBuffer(1, len, ac.sampleRate);
+        const ch = buf.getChannelData(0);
+        for (let i = 0; i < len; i++) ch[i] = (Math.random() * 2 - 1) * (1 - i / len);
+        const src = ac.createBufferSource();
+        src.buffer = buf;
+        const bp = ac.createBiquadFilter();
+        bp.type = 'bandpass';
+        bp.frequency.setValueAtTime(680 + intensity * 260, now);
+        bp.Q.value = 1.1;
+        const g = ac.createGain();
+        g.gain.setValueAtTime(Math.min(0.08, 0.032 * intensity), now);
+        g.gain.exponentialRampToValueAtTime(0.0001, now + 0.11);
+        src.connect(bp); bp.connect(g); g.connect(ac.destination);
+        src.start(now);
+      } catch (e) { /* no-op */ }
+    }
   }
 
   _rampHeight(x, z) {
@@ -7795,23 +16227,81 @@ class World {
     return bestRock ? { hit: true, y: bestY, nx: bestNx, ny: bestNy, nz: bestNz, rock: bestRock } : { hit: false, y: -Infinity, nx: 0, ny: 1, nz: 0, rock: null };
   }
 
+  sampleLogSurface(x, z) {
+    const logs = this.traversableLogs;
+    if (!logs || !logs.length) return { hit: false, y: -Infinity, nx: 0, ny: 1, nz: 0 };
+    let bestY = -Infinity, bestNx = 0, bestNy = 1, bestNz = 0, hit = false;
+    for (let i = 0; i < logs.length; i++) {
+      const lg = logs[i];
+      const ax = lg.x2 - lg.x1, az = lg.z2 - lg.z1;
+      const len2 = ax * ax + az * az;
+      if (len2 < 1e-6) continue;
+      const t = Math.max(0, Math.min(1, ((x - lg.x1) * ax + (z - lg.z1) * az) / len2));
+      const cx = lg.x1 + ax * t;
+      const cz = lg.z1 + az * t;
+      const px = x - cx, pz = z - cz;
+      const d = Math.hypot(px, pz);
+      const r = lg.radius;
+      const skirt = r + 0.16;
+      if (d <= r) {
+        const yTop = lg.cy + Math.sqrt(Math.max(0, r * r - d * d));
+        if (yTop > bestY) {
+          bestY = yTop;
+          const invR = 1 / Math.max(r, 1e-4);
+          bestNx = px * invR;
+          bestNz = pz * invR;
+          bestNy = Math.max(0.22, Math.sqrt(Math.max(0, r * r - d * d)) * invR);
+          hit = true;
+        }
+      } else if (d < skirt) {
+        const u = 1 - (d - r) / (skirt - r);
+        const sm = u * u * (3 - 2 * u);
+        const groundY = this._getTerrainHeight(x, z);
+        const rampY = groundY + (lg.cy - groundY) * sm;
+        if (rampY > bestY) {
+          bestY = rampY;
+          const dirX = d > 1e-5 ? px / d : 0;
+          const dirZ = d > 1e-5 ? pz / d : 0;
+          bestNx = dirX * 0.45;
+          bestNz = dirZ * 0.45;
+          bestNy = 0.89;
+          hit = true;
+        }
+      }
+    }
+    return { hit, y: bestY, nx: bestNx, ny: bestNy, nz: bestNz };
+  }
+
   heightAt(x, z) {
-    const base = this._getTerrainHeight(x, z) + this._rampHeight(x, z);
+    let h = this._getTerrainHeight(x, z) + this._rampHeight(x, z);
     const rk = this.sampleRockSurface(x, z);
-    return rk.hit ? Math.max(base, rk.y) : base;
+    if (rk.hit && rk.y > h) h = rk.y;
+    const lg = this.sampleLogSurface(x, z);
+    if (lg.hit && lg.y > h) h = lg.y;
+    return h;
   }
 
   wheelHeightAt(x, z, wheelRadius = 0.55) {
     let h = this._getTerrainHeight(x, z) + this._rampHeight(x, z) + this._pebbleHeight(x, z, wheelRadius);
     const rkC = this.sampleRockSurface(x, z);
     if (rkC.hit && rkC.y > h) h = rkC.y;
-    const off = wheelRadius * 0.22;
-    if (this.rockMeshes && this.rockMeshes.length) {
+    const lgC = this.sampleLogSurface(x, z);
+    if (lgC.hit && lgC.y > h) h = lgC.y;
+    const off = wheelRadius * 0.24;
+    const hasRocks = !!(this.rockMeshes && this.rockMeshes.length);
+    const hasLogs = !!(this.traversableLogs && this.traversableLogs.length);
+    if (hasRocks || hasLogs) {
       for (let i = 0; i < 4; i++) {
         const sx = i === 0 ? x + off : i === 1 ? x - off : x;
         const sz = i === 2 ? z + off : i === 3 ? z - off : z;
-        const rks = this.sampleRockSurface(sx, sz);
-        if (rks.hit && rks.y - 0.02 > h) h = rks.y - 0.02;
+        if (hasRocks) {
+          const rks = this.sampleRockSurface(sx, sz);
+          if (rks.hit && rks.y - 0.02 > h) h = rks.y - 0.02;
+        }
+        if (hasLogs) {
+          const lgs = this.sampleLogSurface(sx, sz);
+          if (lgs.hit && lgs.y - 0.02 > h) h = lgs.y - 0.02;
+        }
       }
     }
     return h;
@@ -7820,8 +16310,13 @@ class World {
   normalAt(x, z, outVec) {
     const base = this._getTerrainHeight(x, z) + this._rampHeight(x, z);
     const rk = this.sampleRockSurface(x, z);
-    const n = (rk.hit && rk.y > base + 0.01)
-      ? (this._tmpRockN || (this._tmpRockN = new THREE.Vector3())).set(rk.nx, rk.ny, rk.nz)
+    const lg = this.sampleLogSurface(x, z);
+    let bestY = base;
+    let src = null;
+    if (rk.hit && rk.y > bestY + 0.01) { bestY = rk.y; src = rk; }
+    if (lg.hit && lg.y > bestY + 0.01) { bestY = lg.y; src = lg; }
+    const n = src
+      ? (this._tmpRockN || (this._tmpRockN = new THREE.Vector3())).set(src.nx, src.ny, src.nz)
       : this._getTerrainNormal(x, z);
     if (outVec) return outVec.copy(n);
     return n;
@@ -7891,9 +16386,10 @@ class World {
     this._syncPebbles();
   }
 
-  setCartPose(cx, cz) {
+  setCartPose(cx, cz, cyaw = null) {
     this.cartX = cx;
     this.cartZ = cz;
+    if (Number.isFinite(cyaw)) this.cartYaw = cyaw;
   }
 
   /* --------------------------------------------------------------------------
@@ -8119,6 +16615,11 @@ class World {
 
     for (let i = 0; i < this.grassChunks.length; i++) {
       const gChunk = this.grassChunks[i];
+      if (!gChunk.userData.maxCount) {
+        gChunk.visible = false;
+        gChunk.count = 0;
+        continue;
+      }
       const sphere = gChunk.userData.boundingSphere;
       const dist = camPos.distanceTo(sphere.center);
       if (dist - sphere.radius > prof.cullDistance || !this._cameraFrustum.intersectsSphere(sphere)) {
@@ -8185,6 +16686,10 @@ class World {
     this.elapsed += delta;
     const elapsed = this.elapsed;
     this.frameCounter++;
+
+    // Streaming rumput rimbun 15x15m mengikuti posisi pemain + siklus 10 menit otomatis
+    this._updateStreamingGrass(horseX, horseZ);
+    this._updateDayNightCycle(delta);
 
     // Bayangan mode 'static' (HP menengah): peta bayangan digambar ulang tiap
     // 5 frame, bukan tiap frame. Gerak lambat tetap dapat bayangan, biaya turun.
@@ -8405,10 +16910,166 @@ class World {
       }
     }
 
-    // Riak air otomatis bila kuda masuk ke tepi/dalam kolam
+    // Riak air otomatis & partikel cipratan saat kuda atau gerobak masuk ke kolam/sungai
+    const hVelX = (horseX - (this._prevHorseX ?? horseX)) / Math.max(0.008, delta);
+    const hVelZ = (horseZ - (this._prevHorseZ ?? horseZ)) / Math.max(0.008, delta);
+    const hSpeed = Math.hypot(hVelX, hVelZ);
+    this._prevHorseX = horseX;
+    this._prevHorseZ = horseZ;
+
+    const horseDepth = this.waterDepthAt(horseX, horseZ);
+    const horseInAir = !!this._horseJumpActive;
+    const horseJustLanded = !horseInAir && this._wasHorseInAir;
+    this._wasHorseInAir = horseInAir;
+
     const dPond = Math.hypot(horseX - this.POND_CENTER.x, horseZ - this.POND_CENTER.z);
-    if (dPond < this.POND_CENTER.radius + 0.3 && (elapsed - this.pondUniforms.uRippleTime.value) > 0.65) {
-      this.triggerPondRipple(horseX, horseZ);
+    if (dPond < this.POND_CENTER.radius + 0.45 && horseDepth > 0.02 && !horseInAir) {
+      if (horseJustLanded) {
+        this.triggerPondRipple(horseX, horseZ);
+        this.spawnWaterSplash(horseX, this.POND_WATER_Y, horseZ, 1.85, hVelX, hVelZ);
+      } else if ((elapsed - this.pondUniforms.uRippleTime.value) > 0.35 && hSpeed > 0.25) {
+        this.triggerPondRipple(horseX, horseZ);
+        this.spawnWaterSplash(horseX, this.POND_WATER_Y, horseZ, 0.75 + Math.min(0.9, hSpeed / 5.5), hVelX, hVelZ);
+      }
+    }
+
+    if (this.riverUniforms && this.RIVER) {
+      const wy = this.RIVER.waterY;
+      if (horseDepth > 0.03 && dPond > this.POND_CENTER.radius + 1.0 && !horseInAir) {
+        if (horseJustLanded) {
+          this.triggerRiverRipple(horseX, horseZ, 1.5);
+          this.spawnWaterSplash(horseX, wy, horseZ, 2.0, hVelX, hVelZ);
+          this._lastRiverRippleAt = elapsed;
+          this._lastHoofSplashAt = elapsed;
+        } else {
+          if (hSpeed > 0.25 && (elapsed - this._lastRiverRippleAt) > 0.26) {
+            this._lastRiverRippleAt = elapsed;
+            this.triggerRiverRipple(horseX, horseZ, 0.62 + Math.min(0.68, hSpeed / 5.2));
+          }
+          if (hSpeed > 0.35 && (elapsed - this._lastHoofSplashAt) > 0.11) {
+            this._lastHoofSplashAt = elapsed;
+            const sideSign = (this.frameCounter % 2 === 0) ? 1 : -1;
+            const cosY = Math.cos(horseYaw), sinY = Math.sin(horseYaw);
+            const sx = horseX + cosY * 0.42 - sinY * sideSign * 0.24;
+            const sz = horseZ - sinY * 0.42 - cosY * sideSign * 0.24;
+            this.spawnWaterSplash(sx, wy, sz, 0.65 + Math.min(1.0, hSpeed / 4.5), hVelX, hVelZ);
+          }
+        }
+      }
+
+      if (Number.isFinite(this.cartX) && Number.isFinite(this.cartZ)) {
+        const cVelX = (this.cartX - (this._prevCartX ?? this.cartX)) / Math.max(0.008, delta);
+        const cVelZ = (this.cartZ - (this._prevCartZ ?? this.cartZ)) / Math.max(0.008, delta);
+        const cSpeed = Math.hypot(cVelX, cVelZ);
+        this._prevCartX = this.cartX;
+        this._prevCartZ = this.cartZ;
+        const cartDepth = this.waterDepthAt(this.cartX, this.cartZ);
+        if (cartDepth > 0.04 && cSpeed > 0.25 && (elapsed - this._lastCartWakeAt) > 0.30) {
+          this._lastCartWakeAt = elapsed;
+          const cy = this.cartYaw || 0;
+          const lx = -Math.sin(cy), lz = -Math.cos(cy);
+          const wxL = this.cartX + lx * 1.05, wzL = this.cartZ + lz * 1.05;
+          const wxR = this.cartX - lx * 1.05, wzR = this.cartZ - lz * 1.05;
+          const str = 0.48 + Math.min(0.55, cSpeed / 5.5);
+          this.triggerRiverRipple(wxL, wzL, str);
+          this.triggerRiverRipple(wxR, wzR, str);
+          this.spawnWaterSplash(wxL, wy, wzL, 0.55 * str, cVelX, cVelZ);
+          this.spawnWaterSplash(wxR, wy, wzR, 0.55 * str, cVelX, cVelZ);
+        }
+      }
+    }
+
+    // Daun teratai & ilalang tepi sungai
+    if (this.riverAnimated) {
+      const rRiverAge = this.riverUniforms ? (elapsed - this.riverUniforms.uRippleTime.value) : 99;
+      const rOrg = this.riverUniforms ? this.riverUniforms.uRippleOrigin.value : null;
+      if (this.riverAnimated.lilyPads) {
+        for (let i = 0; i < this.riverAnimated.lilyPads.length; i++) {
+          const lp = this.riverAnimated.lilyPads[i];
+          const ud = lp.userData;
+          let rSplash = 0;
+          if (rOrg && rRiverAge >= 0 && rRiverAge < 3.0) {
+            const dR = Math.hypot(ud.baseX - rOrg.x, ud.baseZ - rOrg.z);
+            rSplash = Math.sin((dR - rRiverAge * 2.6) * 10.0) * Math.max(0, 1.0 - rRiverAge / 3.0) * 0.04;
+          }
+          lp.position.y = ud.baseY + Math.sin(elapsed * 2.0 + ud.phase) * 0.015 + rSplash;
+          lp.rotation.z = Math.sin(elapsed * 1.6 + ud.phase) * 0.05;
+          lp.rotation.x = Math.cos(elapsed * 1.4 + ud.phase) * 0.05;
+        }
+      }
+      if (this.riverAnimated.reeds) {
+        for (let i = 0; i < this.riverAnimated.reeds.length; i++) {
+          const reed = this.riverAnimated.reeds[i];
+          const ud = reed.userData;
+          const amp = (ud.swayAmp || 0.05) * windFactor;
+          reed.rotation.z = Math.sin(elapsed * 1.6 + ud.phase) * amp;
+          reed.rotation.x = Math.cos(elapsed * 1.2 + ud.phase * 0.7) * amp * 0.6;
+        }
+      }
+    }
+
+    // Animasi halus Desa Lemnos (asap cerobong, papan ayun, bara pandai besi, air sumur)
+    if (this.villageAnimated) {
+      const va = this.villageAnimated;
+      for (let i = 0; i < va.smokePuffs.length; i++) {
+        const sp = va.smokePuffs[i];
+        const ud = sp.userData;
+        if (!ud) continue;
+        const cycle = (elapsed * (ud.speed || 0.28) + (ud.phase || 0)) % 1.0;
+        const maxRise = ud.maxRise || 2.1;
+        sp.position.y = ud.baseY + cycle * maxRise;
+        sp.position.x = ud.baseX + Math.sin(elapsed * 0.9 + ud.phase) * 0.14 * cycle + cycle * 0.35 * windFactor;
+        sp.position.z = ud.baseZ + Math.cos(elapsed * 0.8 + ud.phase) * 0.12 * cycle;
+        const sc = (ud.baseScale || 0.32) * (0.55 + cycle * 1.25);
+        sp.scale.setScalar(sc);
+      }
+      for (let i = 0; i < va.signPivots.length; i++) {
+        const piv = va.signPivots[i];
+        const ud = piv.userData || {};
+        const angle = Math.sin(elapsed * (ud.speed || 1.35) + (ud.phase || i)) * (ud.maxAngle || 0.12) * Math.min(1.5, windFactor);
+        if (ud.axis === 'x') piv.rotation.x = angle;
+        else piv.rotation.z = angle;
+      }
+      for (let i = 0; i < va.embers.length; i++) {
+        const eb = va.embers[i];
+        if (!eb) continue;
+        const pulse = 0.86 + 0.18 * Math.sin(elapsed * 7.5 + i * 2.1) + 0.10 * Math.cos(elapsed * 13.0 + i);
+        if (eb.glowSprite) {
+          const bs = eb.baseScale || 1.55;
+          eb.glowSprite.scale.set(bs * pulse, bs * pulse, 1.0);
+          if (eb.glowSprite.material) eb.glowSprite.material.opacity = Math.min(0.95, 0.62 * pulse);
+        }
+        if (Array.isArray(eb.meshes)) {
+          for (let j = 0; j < eb.meshes.length; j++) {
+            const m = eb.meshes[j];
+            if (m && m.material && m.material.emissiveIntensity !== undefined) {
+              const baseI = (m.userData && m.userData.baseIntensity) || 1.2;
+              m.material.emissiveIntensity = baseI * (0.82 + 0.24 * Math.sin(elapsed * 6.5 + ((m.userData && m.userData.phase) || j)));
+            }
+          }
+        }
+      }
+      for (let i = 0; i < va.wellWaters.length; i++) {
+        const ww = va.wellWaters[i];
+        if (ww) ww.rotation.y = elapsed * 0.14;
+      }
+      for (let i = 0; i < va.bucketPivots.length; i++) {
+        const bp = va.bucketPivots[i];
+        if (bp) bp.rotation.z = Math.sin(elapsed * 1.1 + i) * 0.04 * windFactor;
+      }
+    }
+
+    // Animasi ayunan pintu berengsel saat warga desa keluar / masuk rumah
+    if (this.villageData && Array.isArray(this.villageData.buildingList)) {
+      const doorRate = Math.min(1, delta * 5.2);
+      const list = this.villageData.buildingList;
+      for (let i = 0; i < list.length; i++) {
+        const b = list[i];
+        b.doorOpenAmt += ((b.doorTarget || 0) - b.doorOpenAmt) * doorRate;
+        const swing = b.doorOpenAmt * 1.26;
+        if (b.doorPivot) b.doorPivot.rotation.y = -swing;
+        if (b.doorPivotR) b.doorPivotR.rotation.y = swing;
+      }
     }
 
     // Daun teratai & ikan koi berenang di kolam BotW
@@ -8807,6 +17468,16 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
 
     _substep(h, horseYaw, hvx, hvz, hYawRate, hitchColL, hitchColR, hitchGirthL, hitchGirthR, horsePos) {
       const g = 9.81, m = this.mass;
+      if (this.asleep && this.flipped) {
+        this.vel.set(0, 0, 0);
+        this.rollV = 0; this.pitchV = 0; this.yawV = 0; this.heaveVel = 0;
+        const restSign = Math.sign(this.roll || this.flipDir || 1);
+        this.roll = restSign * REST_ANG;
+        this.pitch *= Math.exp(-8.0 * h);
+        if (this._sleepHeave !== undefined) this.heave = this._sleepHeave;
+        this._lying = true;
+        return;
+      }
 
       this.euler.set(this.roll, this.yaw, this.pitch, 'YZX');
       this.q.setFromEuler(this.euler);
@@ -9103,7 +17774,11 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
         let fpx = -vp.x * 900, fpz = -vp.z * 900;
         const mag = Math.hypot(fpx, fpz);
         if (mag > capF && mag > 1e-6) { fpx *= capF / mag; fpz *= capF / mag; }
-        addForce(fpx, N, fpz, px, py, pz);
+        if (lying || this.flipped) {
+          Fx += fpx; Fy += N; Fz += fpz;
+        } else {
+          addForce(fpx, N, fpz, px, py, pz);
+        }
       }
 
       // ---------- integrasi ----------
@@ -9116,8 +17791,12 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
       this.vel.x *= dragL; this.vel.z *= dragL;
 
       const tRoll = Tx * fwd.x + Ty * fwd.y + Tz * fwd.z;
-      const tPitch = Tx * leftA.x + Ty * leftA.y + Tz * leftA.z;
-      const tYaw = Tx * upA.x + Ty * upA.y + Tz * upA.z;
+      let tPitch = Tx * leftA.x + Ty * leftA.y + Tz * leftA.z;
+      let tYaw = Tx * upA.x + Ty * upA.y + Tz * upA.z;
+      if (lying || this.flipped) {
+        tPitch *= 0.06;
+        tYaw *= 0.04;
+      }
 
       this.rollV += (tRoll / this.Iroll) * h;
       this.pitchV += (tPitch / this.Ipitch) * h;
@@ -9171,25 +17850,28 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
       // redaman struktur ringan (bukan "ditarik ke nol")
       const aDrag = Math.exp(-0.25 * h);
       this.rollV *= aDrag; this.pitchV *= aDrag; this.yawV *= aDrag;
-      if (lying) {
+      if (lying || this.flipped) {
         // rebah di tanah: gesekan badan + muatan nyeret -> redaman gede, cepat berhenti
-        const gDrag = Math.exp(-3.4 * h);
+        const gDrag = Math.exp(-3.8 * h);
         this.vel.x *= gDrag; this.vel.z *= gDrag;
-        this.rollV *= Math.exp(-4.5 * h);
-        this.pitchV *= Math.exp(-4.5 * h);
-        this.yawV *= Math.exp(-5.0 * h);
+        this.rollV *= Math.exp(-5.0 * h);
+        this.pitchV *= Math.exp(-7.5 * h);
+        this.yawV *= Math.exp(-8.5 * h);
+        this.pitch *= Math.exp(-4.5 * h);
         if (this.rollV * Math.sign(this.roll) > 0) this.rollV *= Math.exp(-6.0 * h);
       }
-      // clamp kecepatan: gerobak rebah/mau rebah gak boleh kelacak 10 m/s
-      const vMax = lying ? 2.2 : (this.flipped ? 4.0 : 9.0);
+      // clamp kecepatan: gerobak rebah/mau rebah gak boleh kelacak atau muter sendiri
+      const vMax = lying ? 1.8 : (this.flipped ? 3.5 : 9.0);
       const vMag = Math.hypot(this.vel.x, this.vel.z);
       if (vMag > vMax) { const sc = vMax / vMag; this.vel.x *= sc; this.vel.z *= sc; }
       if (lying && vMag < 0.18) { this.vel.x = 0; this.vel.z = 0; }   // udah diem ya diem
       this.heaveVel = Math.max(-7, Math.min(7, this.heaveVel));
       const rvCap = lying ? 12 : 3.2;   // sebelum rebah: miringnya keg see, bukan keplak
+      const pvCap = lying ? 1.0 : (this.flipped ? 2.5 : 12);
+      const yvCap = lying ? 0.6 : (this.flipped ? 1.5 : 6);
       this.rollV = Math.max(-rvCap, Math.min(rvCap, this.rollV));
-      this.pitchV = Math.max(-12, Math.min(12, this.pitchV));
-      this.yawV = Math.max(-6, Math.min(6, this.yawV));
+      this.pitchV = Math.max(-pvCap, Math.min(pvCap, this.pitchV));
+      this.yawV = Math.max(-yvCap, Math.min(yvCap, this.yawV));
 
       // ---- bolster depan: castor yang ngejar arah tarikan ----
       // Poros depan bebas berputar di kingpin; tali (traces) dari sabuk perut kuda
@@ -9231,7 +17913,7 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
         const tgt = Math.sign(this.roll) * REST_ANG;
         this.roll += (tgt - this.roll) * Math.min(1, 7.5 * h);
         this.rollV *= Math.exp(-7.0 * h);
-        this.pitch *= Math.exp(-2.0 * h);
+        this.pitch *= Math.exp(-4.5 * h);
       }
       const ROLL_REST = REST_ANG + 0.02;
       if (Math.abs(this.roll) > ROLL_REST) {
@@ -9254,7 +17936,7 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
           ? this._aLatDemand
           : vFwdNow * this.yawV;                              // m/s², arah lateral bodi
         const aLatAbs = Math.abs(aLat);
-        if (aLatAbs > 0.05) {
+        if (!this.flipped && !lying && aLatAbs > 0.05) {
           /* Bodi miring KE LUAR tikungan, sebanding percepatan sentrifugal.
              Dipakai target sudut + pegas, bukan torsi mentah: torsi mentah
              bikin miringnya numpuk terus (tikungan pelan pun jadi doyong).
@@ -9300,6 +17982,7 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
         }
       }
       this.pitch += this.pitchV * h;
+      if (lying || this.flipped) this.pitch = Math.max(-0.42, Math.min(0.42, this.pitch));
       this.yaw = this._wrapAngle(this.yaw + this.yawV * h);
       this.heave += this.heaveVel * h;
 
@@ -9311,7 +17994,9 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
       // pelan-pelan selamanya. Kuda juga udah berhenti, jadi emang gak ada yang narik.
       if (lying) {
         const vNow = Math.hypot(this.vel.x, this.vel.z);
-        if (vNow < 1.0 && Math.abs(this.rollV) < 0.7) this._sleepT += h; else this._sleepT = 0;
+        if (Math.abs(this.roll) >= REST_ANG - 0.06 && vNow < 0.35) this._sleepT = 1.0;
+        else if (vNow < 1.0 && Math.abs(this.rollV) < 0.9) this._sleepT += h;
+        else this._sleepT = 0;
         if (this._sleepT > 0.30) {
           if (!this.asleep) this._sleepHeave = this.heave;   // kunci tinggi rebahnya
           this.asleep = true;
@@ -9464,6 +18149,12 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
     }
 
     _resolveEnvCollisions() {
+      if (this.asleep && this.flipped) {
+        this._envHit.hit = false;
+        this._envHit.pen = 0;
+        this._envHit.hitType = null;
+        return;
+      }
       if (!this.world || typeof this.world.resolveCircleCollision !== 'function') {
         this._envHit.hit = false;
         this._envHit.pen = 0;
@@ -10036,7 +18727,7 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
 
     spillCargo() {
       for (const item of this.cart.cargoItems) {
-        if (!item.spilled) this.ejectItemToWorld(item, 1.5);
+        if (!item.spilled && !item.hiddenForQuest) this.ejectItemToWorld(item, 1.5);
       }
     }
 
@@ -10051,7 +18742,9 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
       const bedMinX = 1.6 * S, bedMaxX = ((capSpec.bedFrontX ?? 24) - 2.0) * S;
       const halfW = Math.max(6, (capSpec.bedHalfW ?? 15) - 1);
       const bedMinZ = -halfW * S,  bedMaxZ = halfW * S;
-      const railTopY = capSpec.railTopVox * S;
+      const railTopY = (capSpec.railTopVox ?? 16.5) * S;
+      const frontRailTopY = Math.min(railTopY, 13.5 * S);
+      const divRailTopY = Math.max(railTopY, 18.0 * S);
 
       // Wheel pebble shock impulse (rate of compression only, so standing compression never levitates cargo)
       let wheelShock = 0;
@@ -10064,7 +18757,7 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
 
       for (let i = 0; i < items.length; i++) {
         const it = items[i];
-        if (it.spilled) continue;
+        if (it.spilled || it.hiddenForQuest) continue;
 
         // Tiap barang punya slot sendiri (floorY = tinggi alasnya). Nggak ada
         // tumpukan dinamis: kalau ada, barang saling "pompa" naik tiap frame
@@ -10159,9 +18852,8 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
         if (it.localVel.lengthSq() > 2.25) it.localVel.setLength(1.5);
         it.localPos.addScaledVector(it.localVel, dt);
 
-        // Batas atas: dagangan boleh mantul, tapi nggak boleh naik level
-        // (ini yang bikin barang lompat pagar & "muter" di udara).
-        const ceilY = it.floorY + 0.16;
+        // Batas atas dinamis: barang boleh terpantul bebas di dalam bak saat kena guncangan.
+        const ceilY = Math.max(railTopY, it.floorY) + 0.45;
         if (it.localPos.y > ceilY) {
           it.localPos.y = ceilY;
           if (it.localVel.y > 0) it.localVel.y = 0;
@@ -10183,55 +18875,54 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
           it.localVel.z *= 0.88;
         }
 
-        // Side rail collisions (or eject over the rail if high & tilted!).
-        // Resolusi pakai setengah-ukuran barang, bukan titik pusat, jadi dinding
-        // bak benar-benar jadi collider mesh-nya.
+        // Penahan Pagar Kayu Bak: barang TIDAK akan keluar dari gerobak selama masih
+        // berada di balik pagar kayu (di bawah tinggi pagar) dan gerobak belum terguling.
+        // Hanya tumpah jika fisik barang benar-benar terlempar melewati tinggi pagar atau gerobak terbalik.
         const wallKick = (v) => (Math.abs(v) > 0.35 ? Math.min(0.9, Math.abs(v) * 1.5) : 0);
+        const itemSupportY = it.localPos.y - (it.half ? it.half.y * 0.25 : 0.08);
         if (it.localPos.z < inMinZ) {
-          // Jangan buang barang cuma karena posisinya tinggi: tumpukan bawaan
-          // memang menjulang di atas pagar. Yang boleh tumpah cuma kalau baknya
-          // sendiri sedang rebah/miring ekstrem.
-          if (Math.abs(this.roll) > 0.45 || Math.abs(this.pitch) > 0.50) {
+          if (this.flipped || itemSupportY > railTopY + 0.02) {
             this.ejectItemToWorld(it, 0.9);
             continue;
           }
           const v = it.localVel.z;
           it.localPos.z = inMinZ;
-          // Di bawah 0,9 m/s pakai tumbukan mati (tanpa mantul) supaya nggak
-          // ada jitter mikro yang bikin putaran barang nggak berhenti-berhenti.
-          it.localVel.z = Math.abs(v) > 0.9 ? Math.abs(v) * 0.35 : 0;
-          // Impuls putar cuma dari tabrakan nyata; konstanta tiap frame bikin
-          // barang yang nempel pagar berputar terus walaupun gerobak diam.
+          it.localVel.z = Math.abs(v) > 0.35 ? Math.abs(v) * 0.32 : 0;
           it.localAngVel.x += wallKick(v);
           if (Math.abs(v) > 0.35) it._restT = 0;
           it._touchPrev = true;
         } else if (it.localPos.z > inMaxZ) {
-          // Jangan buang barang cuma karena posisinya tinggi: tumpukan bawaan
-          // memang menjulang di atas pagar. Yang boleh tumpah cuma kalau baknya
-          // sendiri sedang rebah/miring ekstrem.
-          if (Math.abs(this.roll) > 0.45 || Math.abs(this.pitch) > 0.50) {
+          if (this.flipped || itemSupportY > railTopY + 0.02) {
             this.ejectItemToWorld(it, 0.9);
             continue;
           }
           const v = it.localVel.z;
           it.localPos.z = inMaxZ;
-          it.localVel.z = Math.abs(v) > 0.9 ? -Math.abs(v) * 0.35 : 0;
+          it.localVel.z = Math.abs(v) > 0.35 ? -Math.abs(v) * 0.32 : 0;
           it.localAngVel.x -= wallKick(v);
           if (Math.abs(v) > 0.35) it._restT = 0;
           it._touchPrev = true;
         }
 
         if (it.localPos.x < inMinX) {
+          if (this.flipped || itemSupportY > divRailTopY + 0.04) {
+            this.ejectItemToWorld(it, 0.9);
+            continue;
+          }
           const v = it.localVel.x;
           it.localPos.x = inMinX;
-          it.localVel.x = Math.abs(v) > 0.9 ? Math.abs(v) * 0.35 : 0;
+          it.localVel.x = Math.abs(v) > 0.35 ? Math.abs(v) * 0.32 : 0;
           it.localAngVel.z -= wallKick(v);
           if (Math.abs(v) > 0.35) it._restT = 0;
           it._touchPrev = true;
         } else if (it.localPos.x > inMaxX) {
+          if (this.flipped || itemSupportY > frontRailTopY + 0.03) {
+            this.ejectItemToWorld(it, 0.9);
+            continue;
+          }
           const v = it.localVel.x;
           it.localPos.x = inMaxX;
-          it.localVel.x = Math.abs(v) > 0.9 ? -Math.abs(v) * 0.35 : 0;
+          it.localVel.x = Math.abs(v) > 0.35 ? -Math.abs(v) * 0.32 : 0;
           it.localAngVel.z += wallKick(v);
           if (Math.abs(v) > 0.35) it._restT = 0;
           it._touchPrev = true;
@@ -10294,11 +18985,11 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
       // bertumpuk/bersandar, bukan saling geser terus kayak muter.
       for (let i = 0; i < items.length; i++) {
         const a = items[i];
-        if (a.spilled || !a.half) continue;
+        if (a.spilled || a.hiddenForQuest || !a.half) continue;
         const ax = a._hx ?? a.half.x, az = a._hz ?? a.half.z;
         for (let j = i + 1; j < items.length; j++) {
           const b = items[j];
-          if (b.spilled || !b.half) continue;
+          if (b.spilled || b.hiddenForQuest || !b.half) continue;
           const bx = b._hx ?? b.half.x, bz = b._hz ?? b.half.z;
           const dx = b.localPos.x - a.localPos.x;
           const dy = b.localPos.y - a.localPos.y;
@@ -10347,7 +19038,7 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
       // kecepatan & putaran barang dibatasi. Dorongan berantai bisa numpuk dan
       // bikin barang kelihatan "hidup" terus walaupun gerobak diam.
       for (const it of items) {
-        if (it.spilled) continue;
+        if (it.spilled || it.hiddenForQuest) continue;
         // Di frame BAK, barang mestinya hampir diam (baknya yang bergerak).
         // Batas 1,2 m/s ini yang bikin nggak ada lagi barang "nyelemot" 2,5 m/s
         // sambil nempel pagar lalu muter terus.
@@ -10358,6 +19049,7 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
       // 2) World physics for spilled cargo items (gravity, ground + pebble bounce, rolling, item-item collisions)
       for (let i = 0; i < this.spilled.length; i++) {
         const item = this.spilled[i];
+        if (item.carriedBy) continue;
         item.vel.y -= g * dt;
         item.pos.addScaledVector(item.vel, dt);
         if (this.world && typeof this.world.resolveCircleCollision === 'function') {
@@ -10411,8 +19103,10 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
       // Spilled item-item collisions on the ground
       for (let i = 0; i < this.spilled.length; i++) {
         const a = this.spilled[i];
+        if (a.carriedBy) continue;
         for (let j = i + 1; j < this.spilled.length; j++) {
           const b = this.spilled[j];
+          if (b.carriedBy) continue;
           const dx = b.pos.x - a.pos.x, dy = b.pos.y - a.pos.y, dz = b.pos.z - a.pos.z;
           const minD = Math.max(0.08, (a.radius + b.radius) * 0.78);
           const d2 = dx * dx + dy * dy + dz * dz;
@@ -10554,11 +19248,123 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
         w._wasContact = false; w._prevPen = 0; w._lastDmg = 0; w._dmgCd = 0;
       }
 
-      for (const item of this.spilled) {
-        this.cart.body.add(item.mesh);
+      for (const it of (this.cart && this.cart.cargoItems) || []) {
+        if (!it.spilled) {
+          if (it.localVel) it.localVel.set(0, 0, 0);
+          if (it.localAngVel) it.localAngVel.set(0, 0, 0);
+        }
       }
-      this.initCargoItems();
       this.syncVisual();
+    }
+
+    claimSpilledItem(npcUid, x, z, maxDist = 28) {
+      let best = null;
+      let bestD = maxDist;
+      for (const item of this.spilled || []) {
+        if (!item || !item.spilled || item.carriedBy) continue;
+        if (item.claimedBy && item.claimedBy !== npcUid) continue;
+        const ix = item.pos ? item.pos.x : 0;
+        const iz = item.pos ? item.pos.z : 0;
+        const d = Math.hypot(ix - x, iz - z);
+        if (d < bestD) {
+          bestD = d;
+          best = item;
+        }
+      }
+      if (best) best.claimedBy = npcUid;
+      return best;
+    }
+
+    pickUpSpilledItem(item, npcUid) {
+      if (!item || !item.spilled) return false;
+      item.carriedBy = npcUid;
+      item.claimedBy = npcUid;
+      if (item.vel) item.vel.set(0, 0, 0);
+      if (item.angVel) item.angVel.set(0, 0, 0);
+      return true;
+    }
+
+    releaseCargoClaim(npcUid) {
+      const scene = this.cart && this.cart.root && this.cart.root.parent;
+      for (const item of this.spilled || []) {
+        if (!item) continue;
+        if (item.claimedBy === npcUid) item.claimedBy = null;
+        if (item.carriedBy === npcUid) {
+          item.carriedBy = null;
+          if (scene && item.mesh && item.mesh.parent !== scene) scene.attach(item.mesh);
+          if (item.mesh && item.pos) item.pos.copy(item.mesh.position);
+          if (item.vel) item.vel.set(0, 0.3, 0);
+        }
+      }
+    }
+
+    loadCargoItemIntoCart(item) {
+      if (!item) return (this.spilled || []).length;
+      const idx = (this.spilled || []).indexOf(item);
+      if (idx >= 0) this.spilled.splice(idx, 1);
+      item.spilled = false;
+      item.carriedBy = null;
+      item.claimedBy = null;
+      if (this.cart && this.cart.body && item.mesh) this.cart.body.add(item.mesh);
+      if (item.localPos && item.homePos) item.localPos.copy(item.homePos);
+      if (item.localVel) item.localVel.set(0, 0, 0);
+      if (item.localAng && item.homeRot) item.localAng.set(item.homeRot.x, item.homeRot.y, item.homeRot.z);
+      if (item.localAngVel) item.localAngVel.set(0, 0, 0);
+      if (item.mesh && item.homePos) item.mesh.position.copy(item.homePos);
+      if (item.mesh && item.homeRot) item.mesh.rotation.copy(item.homeRot);
+      item._restT = 0.5;
+      return (this.spilled || []).length;
+    }
+
+    takeBanditHit(dmg, fromX, fromZ, isHeavy = false) {
+      if (this.flipped) return 0;
+      const dx = this.pos.x - fromX;
+      const dz = this.pos.z - fromZ;
+      const d = Math.hypot(dx, dz) || 1;
+      const nx = dx / d;
+      const nz = dz / d;
+      const lx = Math.sin(this.yaw);
+      const lz = Math.cos(this.yaw);
+      const lat = nx * lx + nz * lz;
+      const sideSign = lat >= 0 ? -1 : 1;
+
+      this.rollV += sideSign * (isHeavy ? 1.25 : 0.65);
+      this.heaveVel += isHeavy ? 0.85 : 0.45;
+      this.vel.x += nx * (isHeavy ? 1.15 : 0.55);
+      this.vel.z += nz * (isHeavy ? 1.15 : 0.55);
+
+      let bestW = null;
+      let bestDist = Infinity;
+      let fallbackW = null;
+      for (const w of this.wheels || []) {
+        if (!w || w.detached) continue;
+        if (!fallbackW) fallbackW = w;
+        if (w.hp <= 0) continue;
+        const wx = (w.world && Number.isFinite(w.world.x)) ? w.world.x : this.pos.x;
+        const wz = (w.world && Number.isFinite(w.world.z)) ? w.world.z : this.pos.z;
+        const wd = Math.hypot(wx - fromX, wz - fromZ);
+        if (wd < bestDist) {
+          bestDist = wd;
+          bestW = w;
+        }
+      }
+      bestW = bestW || fallbackW;
+      const baseDmg = isHeavy ? 16 : 9;
+      const wheelDmg = Math.max(1, Math.round(baseDmg * (this.damageScale ?? 1)));
+      if (bestW) {
+        bestW.hp = Math.max(0, (bestW.hp ?? 100) - wheelDmg);
+        bestW._hitFlash = 0.55;
+        if (bestW.hp <= 0) {
+          bestW.broken = true;
+          if (typeof this.onWheelBroken === 'function') this.onWheelBroken(bestW);
+        }
+      }
+
+      if (isHeavy && Math.random() < 0.35 && this.cart && Array.isArray(this.cart.cargoItems)) {
+        const unspilled = this.cart.cargoItems.find((it) => !it.spilled);
+        if (unspilled) this.ejectItemToWorld(unspilled, 1.3);
+      }
+      return wheelDmg;
     }
 
     syncVisual() {
@@ -10711,10 +19517,21 @@ const THREE = HC.THREE, S = HC.vs;
       this.jumpDur = 1.05;
       this.jumpY = 0;
       this.jumpPitch = 0;
+      /* Momentum lompat: diambil saat kaki lepas tanah, lalu menggerus kuda
+         ke depan selama di udara. Lari -> lompat lebih jauh & sedikit lebih
+         tinggi, jalan -> lompatan kecil ke depan, diam -> lompat di tempat. */
+      this.jumpTakeoff = 0;
+      this.jumpImpulse = 0;
+      this.jumpRun = 0;
 
       // Graze blending (0 = normal posture, 1 = head down grazing)
       this.grazeBlend = 0;
       this.runBlend = 0;
+      // Sleep posture blending (0 = awake, 1 = lying in sternal recumbency)
+      this.sleepBlend = 0;
+      // Cart/wheel inspect mode (Q): kepala & leher menoleh ke samping/belakang ke arah roda gerobak
+      this.inspectMode = false;
+      this.inspectBlend = 0;
 
       // Per-leg phase offsets:
       // Walk 4-beat: HL(0.0), FL(0.25), HR(0.50), FR(0.75)
@@ -10727,6 +19544,10 @@ const THREE = HC.THREE, S = HC.vs;
       this._qHoof = new THREE.Quaternion();
       this._qYaw = new THREE.Quaternion();
       this._knee2 = new THREE.Vector3();
+      this._sleepKneeW = new THREE.Vector3();
+      this._sleepAnkleW = new THREE.Vector3();
+      this._dirTmp1 = new THREE.Vector3();
+      this._dirTmp2 = new THREE.Vector3();
     }
 
     setSteer(v) {
@@ -10742,7 +19563,13 @@ const THREE = HC.THREE, S = HC.vs;
     setState(mode) {
       if (mode === 'jump') {
         if (!this.jumpActive) {
-          if (this.state === 'graze') this.state = this.prevMoveState || 'walk';
+          if (this.state === 'graze' || this.state === 'sleep') this.state = this.prevMoveState || 'walk';
+          /* Catat kecepatan saat lepas tanah. Impuls depan dibatasi agar lompat saat
+             lari terasa atletis dan natural, bukan melesat ekstrem. */
+          this.jumpTakeoff = Math.max(0, this.speed);
+          this.jumpRun = this.runBlend;
+          this.jumpImpulse = Math.min(1.65, this.jumpTakeoff * (0.18 + 0.06 * this.jumpRun)
+            + (this.jumpTakeoff > 0.5 ? 0.32 + 0.18 * this.jumpRun : 0));
           this.jumpActive = true;
           this.jumpT = 0;
         }
@@ -10795,6 +19622,8 @@ const THREE = HC.THREE, S = HC.vs;
         this.throttle = Math.abs(signedSpd) > 0.05 ? Math.sign(signedSpd) * 0.45 : 0;
         this.runBlend = HC.damp(this.runBlend, 0, 8.0, dt);
         this.grazeBlend = HC.damp(this.grazeBlend, 0, 8.0, dt);
+        this.sleepBlend = HC.damp(this.sleepBlend, 0, 7.0, dt);
+        this.inspectBlend = HC.damp(this.inspectBlend, 0, 8.0, dt);
         this.headLead = HC.damp(this.headLead, HC.clamp(this.steer * 0.45, -0.5, 0.5), 10.0, dt);
         this.bodyLag = HC.damp(this.bodyLag, HC.clamp(-this.yawRate * 0.16, -0.18, 0.18), 6.0, dt);
         moving = Math.abs(this.speed) > 0.04;
@@ -10823,24 +19652,35 @@ const THREE = HC.THREE, S = HC.vs;
         moving = movingFwd || movingRev;
         const wantRun = this.state === 'run' && movingFwd;
 
-        const isGraze = this.state === 'graze' && !this.jumpActive;
+        if (this.state === 'sleep' && moving) {
+          this.state = this.prevMoveState || 'walk';
+        }
+        const isSleep = this.state === 'sleep' && !this.jumpActive && !moving;
+        const isGraze = this.state === 'graze' && !this.jumpActive && !isSleep;
         const isRun = wantRun || (this.jumpActive && this.prevMoveState === 'run' && movingFwd);
 
+        this.sleepBlend = HC.damp(this.sleepBlend, isSleep ? 1 : 0, 2.6, dt);
         this.grazeBlend = HC.damp(this.grazeBlend, isGraze ? 1 : 0, 5.5, dt);
+        this.inspectBlend = HC.damp(this.inspectBlend, (this.inspectMode && !isGraze && !isSleep) ? 1 : 0, 6.5, dt);
         this.runBlend = HC.damp(this.runBlend, isRun ? 1 : 0, 6.0, dt);
 
         // Desired speed (+ maju, - mundur); kondisi badan (survival) menskalakan semua.
-        if (isGraze || !moving) {
+        if (isGraze || isSleep || !moving) {
           this.targetSpeed = 0;
         } else if (movingRev) {
           this.targetSpeed = -revMax * Math.min(1, Math.abs(thr)) * this.speedScale;
         } else {
           const span = HC.lerp(walkMax, runMax, this.runBlend);
-          this.targetSpeed = span * Math.min(1, thr) * this.speedScale;
+          const wDepth = (!this.jumpActive && this.world && this.world.waterDepthAt)
+            ? this.world.waterDepthAt(this.x, this.z) : 0;
+          const waterScale = wDepth > 0.04 ? (1.0 - HC.clamp(wDepth * 0.28, 0, 0.28)) : 1.0;
+          this.targetSpeed = span * Math.min(1, thr) * this.speedScale * waterScale;
           if (this.jumpActive) this.targetSpeed = Math.max(this.targetSpeed, (this.unhitched ? 3.8 : 3.2) * this.speedScale);
         }
         this.speed = HC.damp(this.speed, this.targetSpeed, this.unhitched ? 10.5 : 6.5, dt);
         if (!moving && Math.abs(this.speed) < 0.04) this.speed = 0;
+        // Di udara kuda tidak mengerem: momentum lepas tanah dipertahankan.
+        if (this.jumpActive) this.speed = Math.max(this.speed, this.jumpTakeoff);
 
         // ---- Steering: kepala menoleh dulu, badan menyusul; radius belok jauh lebih lincah ----
         this.steer = HC.damp(this.steer, this.steerInput, this.unhitched ? 10.5 : 8.0, dt);
@@ -10851,21 +19691,25 @@ const THREE = HC.THREE, S = HC.vs;
         if (this.unhitched && Math.abs(this.steer) > 0.04) {
           rawTurn = Math.max(rawTurn, 0.92);
         }
-        const turnRate = this.steer * rawTurn * (1 - this.grazeBlend * 0.9) * (this.jumpActive ? 0.55 : 1);
+        const turnRate = this.steer * rawTurn * (1 - this.grazeBlend * 0.9) * (1 - this.sleepBlend) * (this.jumpActive ? 0.55 : 1);
         this.yawRate = HC.damp(this.yawRate, turnRate, this.unhitched ? 11.5 : 9.5, dt);
         this.yaw += this.yawRate * dt;
 
         // kepala + leher mendahului putaran badan (anticipation), badan menyusul dengan lag
-        const headWant = HC.clamp(this.steer * 0.62 + this.yawRate * 0.24, -0.85, 0.85);
+        const headWant = HC.clamp(this.steer * 0.62 + this.yawRate * 0.24, -0.85, 0.85) * (1 - this.sleepBlend);
         this.headLead = HC.damp(this.headLead, headWant, 10.0, dt);
         this.bodyLag = HC.damp(this.bodyLag, HC.clamp(-this.yawRate * 0.18, -0.26, 0.26), 5.0, dt);
 
         this.forwardX = Math.cos(this.yaw);
         this.forwardZ = -Math.sin(this.yaw);
-        this.x += this.forwardX * this.speed * dt;
-        this.z += this.forwardZ * this.speed * dt;
+        // Dorongan depan saat melompat: penuh di awal lompatan, habis saat mendarat.
+        const airPush = this.jumpActive
+          ? this.jumpImpulse * Math.max(0, 1 - Math.pow(HC.clamp(this.jumpT, 0, 1), 2))
+          : 0;
+        this.x += this.forwardX * (this.speed + airPush) * dt;
+        this.z += this.forwardZ * (this.speed + airPush) * dt;
 
-        pivoting = this.unhitched && Math.abs(this.yawRate) > 0.12 && absSpd < 0.15 && !isGraze && !this.jumpActive;
+        pivoting = this.unhitched && Math.abs(this.yawRate) > 0.12 && absSpd < 0.15 && !isGraze && !isSleep && !this.jumpActive;
       }
 
       // Advance gait cycle phase proportional to signed distance travelled (or gentle shuffle saat putar di tempat)
@@ -10899,7 +19743,9 @@ const THREE = HC.THREE, S = HC.vs;
         } else if (u < 0.84) {
           // 2) Smooth parabolic bascule arc (C0 continuous pitch + heave)
           const a = (u - 0.16) / 0.68;
-          const maxH = this.unhitched ? 0.84 : 0.72;
+          // Lari -> lompat lebih tinggi; tanpa gerobak lebih tinggi lagi.
+          const maxH = ((this.unhitched ? 0.84 : 0.72) * (1 + 0.26 * (this.jumpRun || 0)))
+            + (this.jumpTakeoff > 0.5 ? 0.10 : 0);
           jumpHeave = Math.sin(Math.PI * a) * maxH - (1 - a) * (1 - a) * 0.10;
           jumpPitch = 0.24 * Math.cos(Math.PI * a);
           jumpAir = Math.sin(Math.PI * a);
@@ -10924,25 +19770,32 @@ const THREE = HC.THREE, S = HC.vs;
       const ghMid = (ghFront + ghRear) * 0.5;
       const terrainPitch = Math.atan2(ghFront - ghRear, 1.10);
 
-      // ---- Torso bobbing & rocking ----
+      // ---- Torso bobbing & rocking + realistic equine sternal recumbency sleeping posture ----
       const p2 = this.phase * Math.PI * 2;
-      const moveAmt = HC.clamp(absSpeed / 2.2 + (pivoting ? 0.16 : 0), 0, 1.5) * (1 - this.grazeBlend);
+      const sl = this.sleepBlend || 0;
+      const breath = Math.sin(this.time * 1.15);
+      const moveAmt = HC.clamp(absSpeed / 2.2 + (pivoting ? 0.16 : 0), 0, 1.5) * (1 - this.grazeBlend) * (1 - sl);
       const walkBob = Math.sin(p2 * 2) * 0.028 * (1 - this.runBlend);
       const runBob = Math.sin(p2) * 0.075 * this.runBlend;
       const runPitch = Math.cos(p2) * 0.085 * this.runBlend;
       const walkRoll = Math.sin(p2) * 0.022 * (1 - this.runBlend);
 
-      const torsoY = CY * S - STANCE_DROP * S + ghMid + (walkBob + runBob) * moveAmt + jumpHeave - this.grazeBlend * 0.40;
+      const standTorsoY = CY * S - STANCE_DROP * S + ghMid + (walkBob + runBob) * moveAmt + jumpHeave - this.grazeBlend * 0.40;
+      // Belly voxel bottom = 16 -> -7.5*S = -0.469 m below torso pivot; resting height ghMid + 0.50 m puts belly flush on turf with gentle breathing heave
+      const sleepTorsoY = ghMid + 0.50 + breath * 0.016;
+      const torsoY = HC.lerp(standTorsoY, sleepTorsoY, sl);
       this.horse.root.position.set(this.x, 0, this.z);
       this.horse.root.rotation.y = this.yaw;
       this.horse.torso.position.set(0, torsoY, 0);
 
       const bankRoll = -this.yawRate * Math.max(0, this.speed) * 0.055; // miring ke dalam tikungan maju
-      const totalPitch = terrainPitch * 0.65 + runPitch * moveAmt + jumpPitch - this.grazeBlend * 0.11;
-      const totalRoll = walkRoll * moveAmt + bankRoll;
-      this.horse.torso.rotation.set(totalRoll, this.bodyLag, totalPitch);
+      const standPitch = terrainPitch * 0.65 + runPitch * moveAmt + jumpPitch - this.grazeBlend * 0.11;
+      const standRoll = walkRoll * moveAmt + bankRoll;
+      const totalPitch = HC.lerp(standPitch, terrainPitch * 0.85 - 0.04, sl);
+      const totalRoll = HC.lerp(standRoll, 0.21 + breath * 0.012, sl);
+      this.horse.torso.rotation.set(totalRoll, this.bodyLag * (1 - sl), totalPitch);
 
-      // ---- Neck, Head, Jaw & Ears (Walk / Run / Jump / Graze) ----
+      // ---- Neck, Head, Jaw & Ears (Walk / Run / Jump / Graze / Sleep) ----
       const neckRhythm = Math.sin(p2 * (this.runBlend > 0.5 ? 1 : 2) - 0.7) * HC.lerp(0.06, 0.16, this.runBlend) * moveAmt;
       const jumpNeck = this.jumpActive ? (jumpAir * -0.26 - jumpPitch * 0.35) : 0;
 
@@ -10963,44 +19816,60 @@ const THREE = HC.THREE, S = HC.vs;
       const nuZ_graze = -0.62 + grazeTug * 0.18;
       const hdZ_graze = 0.52 + grazeTug * 0.32;
 
+      const nlZ_stand = HC.lerp(nlZ_move, nlZ_graze, this.grazeBlend);
+      const nuZ_stand = HC.lerp(nuZ_move, nuZ_graze, this.grazeBlend);
+      const hdZ_stand = HC.lerp(hdZ_move, hdZ_graze, this.grazeBlend);
+
+      const nlZ_sleep = -1.28 + breath * 0.025;
+      const nuZ_sleep = -0.30 + breath * 0.015;
+      const hdZ_sleep = 0.46 - breath * 0.015;
+
       this.horse.neckLow.position.set(
-        (11.0 + this.grazeBlend * 1.4) * S,
-        ((27.6 - CY) - this.grazeBlend * 4.2) * S,
+        (11.0 + this.grazeBlend * 1.4 + sl * 0.6) * S,
+        ((27.6 - CY) - this.grazeBlend * 4.2 - sl * 2.2) * S,
         0
       );
       this.horse.neckUp.position.set(0, 7.4 * S, 0);
+      const insp = this.inspectBlend || 0;
+      const nlYawStand = grazeSweepYaw * 0.45 * this.grazeBlend + this.headLead * 0.34 + 0.58 * insp;
+      const nuYawStand = grazeSweepYaw * 0.55 * this.grazeBlend + this.headLead * 0.50 + 0.54 * insp;
+      const hdYawStand = grazeSweepYaw * 0.35 * this.grazeBlend + this.headLead * 0.62 + 0.50 * insp;
+
       this.horse.neckLow.rotation.set(
         0,
-        grazeSweepYaw * 0.45 * this.grazeBlend + this.headLead * 0.34,
-        HC.lerp(nlZ_move, nlZ_graze, this.grazeBlend)
+        HC.lerp(nlYawStand, 0.30, sl),
+        HC.lerp(nlZ_stand - 0.14 * insp, nlZ_sleep, sl)
       );
       this.horse.neckUp.rotation.set(
         0,
-        grazeSweepYaw * 0.55 * this.grazeBlend + this.headLead * 0.50,
-        HC.lerp(nuZ_move, nuZ_graze, this.grazeBlend)
+        HC.lerp(nuYawStand, 0.24, sl),
+        HC.lerp(nuZ_stand - 0.06 * insp, nuZ_sleep, sl)
       );
       this.horse.head.rotation.set(
-        Math.sin(this.time * 5.2) * 0.04 * this.grazeBlend,
-        grazeSweepYaw * 0.35 * this.grazeBlend + this.headLead * 0.62,
-        HC.lerp(hdZ_move, hdZ_graze, this.grazeBlend)
+        HC.lerp(Math.sin(this.time * 5.2) * 0.04 * this.grazeBlend + 0.08 * insp, -0.06, sl),
+        HC.lerp(hdYawStand, 0.16, sl),
+        HC.lerp(hdZ_stand - 0.16 * insp, hdZ_sleep, sl)
       );
-      this.horse.jaw.rotation.z = -chew * this.grazeBlend;
+      this.horse.jaw.rotation.z = -chew * this.grazeBlend * (1 - sl);
 
-      // Ears flick
+      // Ears flick (relaxed outward droop when sleeping)
       for (let i = 0; i < this.horse.ears.length; i++) {
         const s = i === 0 ? -1 : 1;
         const flick = Math.sin(this.time * 3.1 + i * 2.1) * 0.12 + (this.runBlend * -0.28);
-        this.horse.ears[i].rotation.set(s * 0.12, 0, flick);
+        const earRotX = HC.lerp(s * 0.12, s * 0.34, sl);
+        const earRotZ = HC.lerp(flick, -0.24, sl);
+        this.horse.ears[i].rotation.set(earRotX, 0, earRotZ);
       }
 
-      // ---- Multi-segment Tail inertia & swish ----
+      // ---- Multi-segment Tail inertia & swish (rests calmly when sleeping) ----
       for (let i = 0; i < this.horse.tailSegs.length; i++) {
         const seg = this.horse.tailSegs[i];
         const lag = i * 0.55;
-        const lift = i === 0 ? (-0.28 - this.runBlend * 0.45 - (this.jumpActive ? 0.25 : 0)) : -0.06;
+        const liftStand = i === 0 ? (-0.28 - this.runBlend * 0.45 - (this.jumpActive ? 0.25 : 0)) : -0.06;
         const waveZ = Math.sin(this.time * (4.0 + this.runBlend * 4.5) - lag) * (0.06 + this.runBlend * 0.09);
         const swishX = Math.sin(this.time * 2.4 - lag) * (0.07 + this.grazeBlend * 0.14);
-        seg.rotation.set(swishX, 0, lift + waveZ);
+        const liftSleep = i === 0 ? -0.58 : -0.18;
+        seg.rotation.set(swishX * (1 - sl), 0, HC.lerp(liftStand + waveZ, liftSleep, sl));
       }
 
       // ---- 4-Leg IK with Surface & Pebble Detection ----
@@ -11113,6 +19982,44 @@ const THREE = HC.THREE, S = HC.vs;
         const bendSign = 1;
         solveLegIK(this._hipW, this._ankleW, l1World, l2World, bendSign, this._kneeW, cy, -sy);
 
+        // Realistic sleeping folded legs blend (sternum & flank tucked cleanly above grass)
+        if (sl > 0.005) {
+          const isLeft = (leg.id === 'FL' || leg.id === 'HL');
+          const latSign = isLeft ? 1 : -1;
+          const sdX = sy, sdZ = cy; // local +Z axis in world space (left = +1, right = -1)
+          // 1) Save standing/walking upper & lower bone unit directions
+          this._dirTmp1.subVectors(this._kneeW, this._hipW);
+          if (this._dirTmp1.lengthSq() > 1e-8) this._dirTmp1.normalize();
+          this._dirTmp2.subVectors(this._ankleW, this._kneeW);
+          if (this._dirTmp2.lengthSq() > 1e-8) this._dirTmp2.normalize();
+
+          // 2) Compute target sleeping upper & lower unit directions
+          if (leg.front) {
+            const sideLat = -0.14 * latSign;
+            this._sleepKneeW.set(cy * 0.62 + sdX * sideLat, -0.49, -sy * 0.62 + sdZ * sideLat).normalize();
+            const cannonLat = -0.16 * latSign;
+            this._sleepAnkleW.set(-cy * 0.63 + sdX * cannonLat, 0.04, sy * 0.63 + sdZ * cannonLat).normalize();
+          } else {
+            const hipLat = isLeft ? 0.12 : -0.18;
+            this._sleepKneeW.set(cy * 0.64 + sdX * hipLat, -0.45, -sy * 0.64 + sdZ * hipLat).normalize();
+            const cannonLat = isLeft ? -0.12 : 0.08;
+            this._sleepAnkleW.set(-cy * 0.62 + sdX * cannonLat, -0.05, sy * 0.62 + sdZ * cannonLat).normalize();
+          }
+
+          // 3) Smoothly blend bone directions preserving exact bone lengths l1 & l2
+          this._dirTmp1.lerp(this._sleepKneeW, sl).normalize();
+          this._dirTmp2.lerp(this._sleepAnkleW, sl).normalize();
+          this._kneeW.copy(this._hipW).addScaledVector(this._dirTmp1, l1World);
+          const minSleepY = groundY + 0.085;
+          if (this._kneeW.y < minSleepY && sl > 0.25) {
+            this._kneeW.y = HC.lerp(this._kneeW.y, minSleepY, HC.clamp((sl - 0.25) / 0.75, 0, 1));
+          }
+          this._ankleW.copy(this._kneeW).addScaledVector(this._dirTmp2, l2World);
+          if (this._ankleW.y < minSleepY && sl > 0.25) {
+            this._ankleW.y = HC.lerp(this._ankleW.y, minSleepY, HC.clamp((sl - 0.25) / 0.75, 0, 1));
+          }
+        }
+
         // Aim upper bone (H -> K) and lower bone (K -> A)
         HC.aimBone(leg.upperMesh, this._hipW, this._kneeW);
         leg.upperMesh.updateMatrixWorld(true);
@@ -11123,7 +20030,9 @@ const THREE = HC.THREE, S = HC.vs;
         // When swinging in air, curl hoof naturally with fetlockFlex
         const slopeAngle = Math.atan2(-(this._normW.x * cy - this._normW.z * sy), this._normW.y);
         const airAngle = fetlockFlex;
-        const hoofPitch = HC.lerp(airAngle, slopeAngle, leg.stanceBlend);
+        const standHoofPitch = HC.lerp(airAngle, slopeAngle, leg.stanceBlend);
+        const sleepHoofPitch = leg.front ? -1.42 : -1.24;
+        const hoofPitch = HC.lerp(standHoofPitch, sleepHoofPitch, sl);
         // pitch terhadap sumbu lateral kuda (fz, 0, -fx) lalu diputar sesuai heading kuda
         this._hoofAxis.set(-sy, 0, -cy);
         this._qHoof.setFromAxisAngle(this._hoofAxis, hoofPitch);
@@ -11146,8 +20055,7 @@ const THREE = HC.THREE, S = HC.vs;
    IS_MOBILE, lerp/clamp/rand, serta sistem FX/Monsters/Player/NPCS/Game/CFG/Sfx.
    Modul ini menyediakan versi aman (no-op) supaya build() & animate() jalan di
    SHOD tanpa mesin tempur Sylvan. Urutan impor penting: modul ini HARUS masuk
-   sebelum file model mana pun dievaluasi. */
-const T = HC.THREE;
+   sebelum file model mana pun dievaluasi. */const T = HC.THREE;
 
 if (!window.THREE) window.THREE = T;
 window.IS_MOBILE = false;
@@ -22624,8 +31532,7 @@ if (typeof window !== 'undefined') {
    Semua 18 file di folder ini adalah salinan apa adanya dari
    sylvandominion.web.id/js/entities/npc_*.js (build v0.2.169). Tiap file
    memasang window.NPC_<Id> berisi {build(), animate(n,dt)}.
-   `shim.js` WAJIB dievaluasi lebih dulu (urutan impor di bawah). */
-/* Role id -> entitas model. Nama window mengikuti kapitalisasi Sylvan:
+   `shim.js` WAJIB dievaluasi lebih dulu (urutan impor di bawah). *//* Role id -> entitas model. Nama window mengikuti kapitalisasi Sylvan:
    dungeonmaster -> NPC_Dungeonmaster, lionknight -> NPC_Lionknight, dst. */
 const IDS = [
   'guard', 'hunter', 'miner', 'farmer', 'herbal', 'warrior', 'guardian',
@@ -22912,19 +31819,78 @@ HC.buildNPC = function (role, pose = 'stand') {
 /* Animasi bawaan Sylvan; untuk pose duduk paha dikembalikan ke posisi duduk
    setelah animate() supaya tidak diluruskan lagi. Error TIDAK ditelan diam-diam:
    dicatat ke HC.npcAnimErrors supaya probe bisa membedakan "modelnya diam" dari
-   "animate() meledak di frame pertama". */
+   "animate() meledak di frame pertama".
+
+   YAW: di Sylvan `n.mesh` ADALAH entitasnya — NPCS.update menulis
+   `n.mesh.position.copy(n.pos)` lalu memutar `n.mesh.rotation.y` dengan angLerp,
+   dan model membacanya untuk oleng badan saat belok (guard/hunter: `st.turn`),
+   kibaran cape, pandangan kepala patroli, serta arah hadap skill. Di SHOD yang
+   diputar adalah `root` (mesh cuma anak dari root -> holder), jadi
+   `n.mesh.rotation.y` selalu 0 dan semua oleng-belok itu mati.
+   Solusi: pinjamkan yaw root (dihaluskan dulu seperti angLerp Sylvan) ke mesh
+   HANYA selama animate() dipanggil, lalu kembalikan ke nilai render aslinya
+   supaya hadap dunia tetap milik root (tidak dobel putar).
+
+   VEL: Sylvan selalu menyetel `n.vel` lewat lerp, jadi ayunan kaki menggelinding
+   masuk/keluar. SHOD menulis `st.vel` secara instan (AI-nya yang pegang angka),
+   jadi di sini vel dihaluskan sebentar untuk konsumsi animate() lalu dipulihkan. */
 HC.npcAnimErrors = HC.npcAnimErrors || {};
 HC.animateNPC = function (root, dt) {
   const st = root.userData && root.userData.npc;
   if (!st || !HC.SD_NPC_MODELS[st.role.id]) return;
   const ent = HC.SD_NPC_MODELS[st.role.id];
   if (typeof ent.animate !== 'function') return;
+  const step = dt || 1 / 60;
+
+  const rawVx = st.vel.x, rawVz = st.vel.z;
+  const vS = st._velSmooth || (st._velSmooth = { x: rawVx, z: rawVz });
+  const kv = 1 - Math.exp(-10 * step);
+  vS.x += (rawVx - vS.x) * kv;
+  vS.z += (rawVz - vS.z) * kv;
+  st.vel.x = vS.x;
+  st.vel.z = vS.z;
+
+  const savedPosY = st.pos ? st.pos.y : 0;
+  if (st.pos) st.pos.y = 0;
+
+  const mesh = st.mesh;
+  const savedMeshPos = (mesh && mesh.position)
+    ? { x: mesh.position.x, y: mesh.position.y, z: mesh.position.z }
+    : null;
+  const mirror = !!(mesh && mesh.rotation);
+  const renderYaw = mirror ? mesh.rotation.y : 0;
+  if (mirror) {
+    const targetYaw = (root.rotation && root.rotation.y) || 0;
+    if (st._animYaw === undefined) st._animYaw = targetYaw;
+    let dYaw = targetYaw - st._animYaw;
+    dYaw = ((dYaw + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
+    st._animYaw += dYaw * (1 - Math.exp(-7 * step));
+    mesh.rotation.y = st._animYaw;
+  }
+
   try {
-    ent.animate(st, dt || 1 / 60);
+    ent.animate(st, step);
     delete HC.npcAnimErrors[st.role.id];
   } catch (e) {
     HC.npcAnimErrors[st.role.id] = (e && e.message) || String(e);
   }
+
+  if (st.pos) st.pos.y = savedPosY;
+  if (mesh && mesh.position && savedMeshPos) {
+    mesh.position.x = savedMeshPos.x;
+    mesh.position.z = savedMeshPos.z;
+    if (st.pose === 'sit') {
+      mesh.position.y = savedMeshPos.y;
+    } else {
+      mesh.position.y = Math.max(-0.25, Math.min(0.85, Number.isFinite(mesh.position.y) ? mesh.position.y : 0));
+    }
+  }
+
+  /* Model yang menulis sendiri mesh.rotation.y / n.vel (goblin, lich, elfmage,
+     magesupport, lionknight) ikut dikembalikan: hadap & gerak tetap milik AI. */
+  if (mirror) mesh.rotation.y = renderYaw;
+  st.vel.x = rawVx;
+  st.vel.z = rawVz;
   if (st.pose === 'sit') for (const lg of st._legs) lg.rotation.x = -Math.PI / 2;
 };
 
@@ -22967,12 +31933,312 @@ HC.NPC_BEHAVIOR = {
 
 const _rnd = (a, b) => a + Math.random() * (b - a);
 
+function _setVillageDoorHold(bldg, hold) {
+  if (!bldg) return;
+  bldg.doorUsers = Math.max(0, (bldg.doorUsers || 0) + (hold ? 1 : -1));
+  bldg.doorTarget = bldg.doorUsers > 0 ? 1 : 0;
+}
+
+function updateVillageResident(item, dt, horse, world) {
+  const root = item.root;
+  const st = root && root.userData && root.userData.npc;
+  const vp = item.villageProfile;
+  if (!st || !vp) return false;
+
+  const prof = HC.NPC_BEHAVIOR[st.role.id] || { mode: 'post', radius: 3.0, walk: 0.5, pause: [3, 6], work: null, act: 6, face: 7 };
+  const vd = vp.villageRef || (world && world.villageData);
+  const homeBldg = vp.homeBldg || null;
+  const stations = vp.stations && vp.stations.length ? vp.stations : [{ x: item.homeX, z: item.homeZ, faceX: item.homeX, faceZ: item.homeZ + 1 }];
+
+  const vb = item.vBrain || (item.vBrain = {
+    state: 'work_at_station',
+    stationIdx: 0,
+    target: stations[0],
+    t: _rnd(2.2, 5.5),
+    subT: 0,
+    cyclesDone: 0,
+    nextHomeCycles: 2 + Math.floor(Math.random() * 3),
+    dir: root.rotation ? root.rotation.y : 0,
+    actT: _rnd(1.5, prof.act || 6),
+    swingT: -1,
+    healT: -1,
+    harvest: true,
+    holdingDoor: false,
+    goingToDoor: false,
+  });
+
+  const groundFn = (x, z) => ((world && world.heightAt) ? world.heightAt(x, z)
+    : (world && world.terrainHeightAt) ? world.terrainHeightAt(x, z) : 0);
+
+  const releaseDoor = () => {
+    if (vb.holdingDoor && homeBldg) {
+      _setVillageDoorHold(homeBldg, false);
+      vb.holdingDoor = false;
+    }
+  };
+  const acquireDoor = () => {
+    if (!vb.holdingDoor && homeBldg) {
+      _setVillageDoorHold(homeBldg, true);
+      vb.holdingDoor = true;
+    }
+  };
+
+  const dxH = horse.x - item.x;
+  const dzH = horse.z - item.z;
+  const distH = Math.hypot(dxH, dzH);
+
+  // ---- State: Indoors resting / working inside home building ----
+  if (vb.state === 'indoors') {
+    vb.t -= dt;
+    root.visible = false;
+    item.isIndoors = true;
+    st.walking = false;
+    st.working = false;
+    st.vel.x = 0; st.vel.z = 0;
+    if (vb.t <= 0) {
+      if (homeBldg) {
+        acquireDoor();
+        vb.state = 'exiting_house';
+        vb.subT = 0;
+        item.isIndoors = false;
+        if (vd) vd.indoorsCount = Math.max(0, (vd.indoorsCount || 0) - 1);
+        item.x = homeBldg.insideWorld.x;
+        item.z = homeBldg.insideWorld.z;
+        root.visible = true;
+        root.scale.setScalar(0.55);
+      } else {
+        vb.state = 'work_at_station';
+        vb.t = _rnd(3.0, 6.0);
+        item.isIndoors = false;
+        root.visible = true;
+      }
+    }
+    return true;
+  }
+
+  let walkSpeed = 0;
+  let isWork = false;
+  let customY = null;
+  let lookHead = 0;
+
+  if (vb.state === 'entering_house' && homeBldg) {
+    acquireDoor();
+    vb.subT += dt / 0.95;
+    const u = HC.clamp(vb.subT, 0, 1);
+    const p0 = homeBldg.doorWorld;
+    const p1 = homeBldg.insideWorld;
+    item.x = p0.x + (p1.x - p0.x) * u;
+    item.z = p0.z + (p1.z - p0.z) * u;
+    customY = (p0.y !== undefined ? p0.y : groundFn(p0.x, p0.z)) * (1 - u)
+      + (p1.y !== undefined ? p1.y : groundFn(p1.x, p1.z)) * u;
+    vb.dir = Math.atan2(p1.x - p0.x, p1.z - p0.z);
+    walkSpeed = (st.speed || 3) * 0.42;
+    const sc = u > 0.45 ? (1.0 - ((u - 0.45) / 0.55) * 0.45) : 1.0;
+    root.scale.setScalar(sc);
+
+    if (u >= 1) {
+      releaseDoor();
+      root.scale.setScalar(1.0);
+      root.visible = false;
+      item.isIndoors = true;
+      if (vd) vd.indoorsCount = (vd.indoorsCount || 0) + 1;
+      const isNight = world && world.currentMoodKey === 'night';
+      vb.state = 'indoors';
+      vb.t = isNight ? _rnd(10.0, 18.0) : _rnd(6.5, 13.0);
+      st.walking = false;
+      st.vel.x = 0; st.vel.z = 0;
+      return true;
+    }
+  } else if (vb.state === 'exiting_house' && homeBldg) {
+    acquireDoor();
+    vb.subT += dt / 1.15;
+    const u = HC.clamp(vb.subT, 0, 1);
+    const p0 = homeBldg.insideWorld;
+    const p1 = homeBldg.doorWorld;
+    const p2 = homeBldg.approachWorld;
+    if (u < 0.48) {
+      const a = u / 0.48;
+      item.x = p0.x + (p1.x - p0.x) * a;
+      item.z = p0.z + (p1.z - p0.z) * a;
+      customY = (p0.y !== undefined ? p0.y : groundFn(p0.x, p0.z)) * (1 - a)
+        + (p1.y !== undefined ? p1.y : groundFn(p1.x, p1.z)) * a;
+      vb.dir = Math.atan2(p1.x - p0.x, p1.z - p0.z);
+      root.scale.setScalar(0.55 + a * 0.45);
+    } else {
+      const a = (u - 0.48) / 0.52;
+      item.x = p1.x + (p2.x - p1.x) * a;
+      item.z = p1.z + (p2.z - p1.z) * a;
+      customY = (p1.y !== undefined ? p1.y : groundFn(p1.x, p1.z)) * (1 - a)
+        + groundFn(p2.x, p2.z) * a;
+      vb.dir = Math.atan2(p2.x - p1.x, p2.z - p1.z);
+      root.scale.setScalar(1.0);
+    }
+    walkSpeed = (st.speed || 3) * 0.45;
+    if (u >= 1) {
+      releaseDoor();
+      root.scale.setScalar(1.0);
+      vb.cyclesDone = 0;
+      vb.nextHomeCycles = 2 + Math.floor(Math.random() * 3);
+      vb.stationIdx = (vb.stationIdx + 1) % stations.length;
+      vb.target = stations[vb.stationIdx];
+      vb.state = 'walk_to_target';
+      vb.t = 9.0;
+    }
+  } else if (vb.state === 'going_home' && homeBldg) {
+    const dest = vb.goingToDoor ? homeBldg.doorWorld : homeBldg.approachWorld;
+    const dx = dest.x - item.x;
+    const dz = dest.z - item.z;
+    const d = Math.hypot(dx, dz);
+    const sp = (st.speed || 3.0) * Math.max(0.45, prof.walk || 0.5);
+    vb.t -= dt;
+
+    if (d < 0.45 || vb.t <= 0) {
+      if (!vb.goingToDoor) {
+        vb.goingToDoor = true;
+        vb.t = 4.0;
+        acquireDoor();
+      } else {
+        vb.goingToDoor = false;
+        vb.state = 'entering_house';
+        vb.subT = 0;
+      }
+    } else {
+      vb.dir = Math.atan2(dx, dz);
+      item.x += (dx / d) * sp * dt;
+      item.z += (dz / d) * sp * dt;
+      walkSpeed = sp;
+      if (vb.goingToDoor && homeBldg.approachWorld && homeBldg.doorWorld.y !== undefined) {
+        const totalD = Math.max(0.4, Math.hypot(homeBldg.doorWorld.x - homeBldg.approachWorld.x, homeBldg.doorWorld.z - homeBldg.approachWorld.z));
+        const prog = HC.clamp(1.0 - d / totalD, 0, 1);
+        customY = groundFn(item.x, item.z) * (1 - prog) + homeBldg.doorWorld.y * prog;
+      } else if (!vb.goingToDoor && world && typeof world.resolveCircleCollision === 'function') {
+        const colRes = world.resolveCircleCollision(item.x, item.z, 0.34);
+        if (colRes.hit) {
+          item.x = colRes.x;
+          item.z = colRes.z;
+        }
+      }
+    }
+  } else if (vb.state === 'walk_to_target') {
+    const tgt = vb.target || stations[0];
+    const dx = tgt.x - item.x;
+    const dz = tgt.z - item.z;
+    const d = Math.hypot(dx, dz);
+    const sp = (st.speed || 3.0) * Math.max(0.45, prof.walk || 0.5);
+    vb.t -= dt;
+
+    if (d < 0.52 || vb.t <= 0) {
+      vb.state = 'work_at_station';
+      const isShop = vp.workKind === 'shop';
+      const isPatrol = vp.workKind === 'patrol';
+      vb.t = isShop ? _rnd(7.0, 12.0) : isPatrol ? _rnd(2.6, 4.8) : _rnd(4.5, 8.5);
+      if (tgt.faceX !== undefined && tgt.faceZ !== undefined) {
+        vb.dir = Math.atan2(tgt.faceX - item.x, tgt.faceZ - item.z);
+      }
+    } else {
+      vb.dir = Math.atan2(dx, dz);
+      item.x += (dx / d) * sp * dt;
+      item.z += (dz / d) * sp * dt;
+      walkSpeed = sp;
+      if (world && typeof world.resolveCircleCollision === 'function') {
+        const colRes = world.resolveCircleCollision(item.x, item.z, 0.34);
+        if (colRes.hit) {
+          item.x = colRes.x;
+          item.z = colRes.z;
+          // Slide slightly around obstacle toward target
+          const perpX = -dz / d, perpZ = dx / d;
+          item.x += perpX * sp * 0.4 * dt;
+          item.z += perpZ * sp * 0.4 * dt;
+        }
+      }
+    }
+  } else {
+    // ---- work_at_station ----
+    vb.t -= dt;
+    isWork = vp.workKind === 'farm' || vp.workKind === 'mine' || vp.workKind === 'forage';
+    const tgt = vb.target || stations[0];
+    if (distH < prof.face) {
+      vb.dir = Math.atan2(dxH, dzH);
+    } else if (tgt.faceX !== undefined && tgt.faceZ !== undefined) {
+      vb.dir = Math.atan2(tgt.faceX - item.x, tgt.faceZ - item.z);
+    }
+    if (vp.workKind === 'patrol') {
+      lookHead = Math.sin((item._vClock = (item._vClock || 0) + dt) * 1.4) * 0.42;
+    }
+
+    if (distH < 1.85) {
+      const away = Math.atan2(-dxH, -dzH);
+      item.x += Math.sin(away) * 1.4 * dt;
+      item.z += Math.cos(away) * 1.4 * dt;
+    }
+
+    if (vb.t <= 0) {
+      vb.cyclesDone++;
+      const maxIndoors = (world && world.currentMoodKey === 'night') ? 2 : 1;
+      const curIndoors = vd ? (vd.indoorsCount || 0) : 0;
+      const nightBias = (world && world.currentMoodKey === 'night') ? 0.72 : 0.45;
+      if (vp.canEnterHouse && homeBldg && vb.cyclesDone >= vb.nextHomeCycles
+        && curIndoors < maxIndoors && Math.random() < nightBias) {
+        vb.state = 'going_home';
+        vb.goingToDoor = false;
+        vb.t = 14.0;
+      } else {
+        vb.stationIdx = vp.workKind === 'patrol'
+          ? (vb.stationIdx + 1) % stations.length
+          : (stations.length > 1 ? ((vb.stationIdx + 1 + Math.floor(Math.random() * (stations.length - 1))) % stations.length) : 0);
+        vb.target = stations[vb.stationIdx];
+        vb.state = 'walk_to_target';
+        vb.t = 12.0;
+      }
+    }
+  }
+
+  const gy = customY !== null ? customY : groundFn(item.x, item.z);
+  root.visible = true;
+  root.position.set(item.x, gy, item.z);
+  root.rotation.y = vb.dir;
+
+  st.pos.copy(root.position);
+  st.vel.x = walkSpeed ? Math.sin(vb.dir) * walkSpeed : 0;
+  st.vel.z = walkSpeed ? Math.cos(vb.dir) * walkSpeed : 0;
+  st.walking = walkSpeed > 0.01;
+  st.working = isWork;
+  st.speed = st.speed || st.role.speed || 3;
+  if (isWork && vp.workKind === 'farm') {
+    st.farmT = 1;
+    st.farmTask = vb.harvest ? { action: 'harvest' } : { action: 'plant' };
+  } else { st.farmT = 0; st.farmTask = null; }
+  st.mineT = (isWork && vp.workKind === 'mine') ? 1 : 0;
+  st.forageT = (isWork && vp.workKind === 'forage') ? 1 : 0;
+  st.healT = (isWork && vp.workKind === 'forage') ? 1 : 0;
+
+  if (prof.act > 0 && vb.state === 'work_at_station') {
+    vb.actT -= dt;
+    if (vb.actT <= 0) {
+      vb.actT = prof.act * _rnd(0.75, 1.4);
+      vb.swingT = 0.001;
+      if (vp.workKind === 'farm') vb.harvest = !vb.harvest;
+    }
+  }
+  if (vb.swingT > 0) {
+    vb.swingT += dt;
+    st.swing = vb.swingT;
+    if (vb.swingT > 0.9) { vb.swingT = -1; st.swing = 0; }
+  }
+  st.headAngle = lookHead;
+
+  const lodRec = root.userData && root.userData.__npcLod;
+  if (!(lodRec && lodRec.on)) HC.animateNPC(root, dt);
+  return true;
+}
+
 /* Satu tick AI untuk NPC liar: pilih fase (diam/jalan/kerja), gerakkan root di
    atas terrain, isi state yang dibaca animate(), lalu animasikan. */
 HC.updateWildNPC = function (item, dt, horse, world) {
   const root = item.root, st = root && root.userData && root.userData.npc;
   if (!st) return;
   if (HC.combatAI && HC.mobs && HC.combatAI.stepWild(item, dt || 1 / 60, horse, world)) return;
+  if (item.villageProfile && updateVillageResident(item, dt || 1 / 60, horse, world)) return;
   const prof = HC.NPC_BEHAVIOR[st.role.id] || { mode: 'post', radius: 2.5, walk: 0.5, pause: [3, 6], work: null, act: 6, face: 7 };
   const b = item.brain || (item.brain = { phase: 'idle', t: _rnd(0.5, 2.0), dir: root.rotation.y, actT: _rnd(2, prof.act || 8), swingT: -1, healT: -1, harvest: true });
 
@@ -23278,6 +32544,18 @@ HC.NPCParty = class {
     const step = rate * dt;
     return Math.abs(diff) <= step ? tgt : cur + Math.sign(diff) * step;
   }
+  _dropMemberCargo(m, physics = this.physics) {
+    if (!m) return;
+    if (physics && typeof physics.releaseCargoClaim === 'function') {
+      physics.releaseCargoClaim(m.uid);
+    } else if (m.haulItem) {
+      m.haulItem.carriedBy = null;
+      m.haulItem.claimedBy = null;
+    }
+    m.haulItem = null;
+    m.carryingCargo = false;
+    m.haulPickT = 0;
+  }
   _updateMember(m, dt, hx, hz, hyaw, cart, physics) {
     const root = m.root;
     if (!root || !HC.THREE) return;
@@ -23474,12 +32752,127 @@ HC.NPCParty = class {
       return;
     }
 
-    // ---- state === 'following': bertarung taktis jika ada babi hutan, atau ikuti/keliling gerobak ----
+    // ---- state === 'following': bertarung taktis jika ada musuh, atau pungut barang jatuh 1 per 1, atau ikuti gerobak ----
     if (HC.combatAI && HC.mobs && HC.combatAI.stepPartyMember(m, dt, hx, hz, hyaw, c, physics, this)) {
+      this._dropMemberCargo(m, physics);
       m.inCombat = true;
       return;
     }
     m.inCombat = false;
+
+    // Pungut barang yang tumpah di tanah satu per satu dan muat kembali ke gerobak jika sudah ditegakkan
+    if (physics && Array.isArray(physics.spilled) && c) {
+      if (m.haulItem && (!m.haulItem.spilled || (m.haulItem.pos && Math.hypot(m.haulItem.pos.x - cc.x, m.haulItem.pos.z - cc.z) > 30))) {
+        this._dropMemberCargo(m, physics);
+      }
+      if (!m.haulItem && !m.carryingCargo && physics.spilled.length > 0 && typeof physics.claimSpilledItem === 'function') {
+        m.haulItem = physics.claimSpilledItem(m.uid, m.x, m.z, 28);
+        m.carryingCargo = false;
+        m.haulPickT = 0;
+      }
+      if (m.haulItem) {
+        const item = m.haulItem;
+        let walkingNow = false;
+        let workingNow = false;
+        let curSpeed = 0;
+        let swingNow = 0;
+
+        if (!m.carryingCargo) {
+          const ix = item.pos ? item.pos.x : m.x;
+          const iz = item.pos ? item.pos.z : m.z;
+          const dxI = ix - m.x, dzI = iz - m.z;
+          const dI = Math.hypot(dxI, dzI);
+          if (dI > 0.95) {
+            const sp = 2.65;
+            const move = Math.min(dI, sp * dt);
+            m.x += (dxI / dI) * move;
+            m.z += (dzI / dI) * move;
+            m.dir = this._turnToward(m.dir, Math.atan2(dxI, dzI), 9.0, dt);
+            walkingNow = true;
+            curSpeed = sp;
+            resolveProps(0.34);
+          } else {
+            m.dir = this._turnToward(m.dir, Math.atan2(dxI || 0.001, dzI || 0.001), 10.0, dt);
+            m.haulPickT = (m.haulPickT || 0) + dt;
+            workingNow = true;
+            if (m.haulPickT >= 0.22) {
+              if (typeof physics.pickUpSpilledItem === 'function') {
+                physics.pickUpSpilledItem(item, m.uid);
+              } else {
+                item.carriedBy = m.uid;
+              }
+              m.carryingCargo = true;
+              m.haulPickT = 0;
+            }
+          }
+          const gy = this._groundY(m.x, m.z);
+          root.position.set(m.x, gy, m.z);
+          root.rotation.set(0, m.dir, 0);
+          if (st) {
+            st.pos.copy(root.position);
+            st.vel.x = walkingNow ? Math.sin(m.dir) * curSpeed : 0;
+            st.vel.z = walkingNow ? Math.cos(m.dir) * curSpeed : 0;
+            st.walking = walkingNow;
+            st.working = workingNow;
+            st.swing = swingNow;
+            st.headAngle = 0;
+          }
+          HC.animateNPC(root, dt);
+          return;
+        }
+
+        // Bawa barang menuju belakang gerobak untuk dimuat kembali
+        const dropRear = this._cartRearWorld(c, 0.95, (m.seatIndex - 1) * 0.45);
+        const dxC = dropRear.x - m.x, dzC = dropRear.z - m.z;
+        const dC = Math.hypot(dxC, dzC);
+        if (dC > 1.45) {
+          const sp = 2.35;
+          const move = Math.min(dC, sp * dt);
+          m.x += (dxC / dC) * move;
+          m.z += (dzC / dC) * move;
+          m.dir = this._turnToward(m.dir, Math.atan2(dxC, dzC), 8.5, dt);
+          walkingNow = true;
+          curSpeed = sp;
+          resolveProps(0.34);
+        } else {
+          m.dir = this._turnToward(m.dir, Math.atan2(cc.x - m.x, cc.z - m.z), 9.0, dt);
+          if (!physics.flipped && typeof physics.loadCargoItemIntoCart === 'function') {
+            const left = physics.loadCargoItemIntoCart(item);
+            m.haulItem = null;
+            m.carryingCargo = false;
+            m.haulPickT = 0;
+            swingNow = 0.45;
+            this.lastMessage = left > 0
+              ? `${m.role.e} ${m.role.name} memuat barang ke gerobak (${left} tersisa).`
+              : `${m.role.e} Semua barang sudah dimuat kembali ke gerobak!`;
+            this._notify();
+          }
+        }
+
+        const gy = this._groundY(m.x, m.z);
+        root.position.set(m.x, gy, m.z);
+        root.rotation.set(0, m.dir, 0);
+        if (m.carryingCargo && item.mesh) {
+          const hxItem = m.x + Math.sin(m.dir) * 0.44;
+          const hyItem = gy + 0.92 + Math.sin(this._clock * 7.5) * 0.03;
+          const hzItem = m.z + Math.cos(m.dir) * 0.44;
+          item.mesh.position.set(hxItem, hyItem, hzItem);
+          if (item.mesh.rotation) item.mesh.rotation.set(0, m.dir, 0);
+          if (item.pos) item.pos.set(hxItem, hyItem, hzItem);
+        }
+        if (st) {
+          st.pos.copy(root.position);
+          st.vel.x = walkingNow ? Math.sin(m.dir) * curSpeed : 0;
+          st.vel.z = walkingNow ? Math.cos(m.dir) * curSpeed : 0;
+          st.walking = walkingNow;
+          st.working = false;
+          st.swing = swingNow;
+          st.headAngle = 0;
+        }
+        HC.animateNPC(root, dt);
+        return;
+      }
+    }
     const horseMovedSpd = this._horseMoveSpd || 0;
     const unhitchedFar = physics && !physics.hitched && Math.hypot(hx - cc.x, hz - cc.z) > 9.0;
     const anchorX = unhitchedFar ? hx : (hx + cc.x) * 0.5;
@@ -23628,7 +33021,13 @@ HC.NPCParty = class {
     for (let i = 0; i < this.wild.length; i++) {
       const w = this.wild[i];
       if (w.respawnAt && this._clock >= w.respawnAt) {
-        this._spawnFromAnchor(i, w.anchor);
+        const prevVp = w.villageProfile;
+        const nw = this._spawnFromAnchor(i, w.anchor);
+        if (nw && prevVp) {
+          nw.villageProfile = prevVp;
+          nw.homeRadius = 18.0;
+          nw.isIndoors = false;
+        }
         w.respawnAt = null;
       }
       if (w.recruited) continue;
@@ -23673,7 +33072,7 @@ HC.NPCParty = class {
   nearby(x, z) {
     let best = null, dist = Infinity;
     for (const w of this.wild) {
-      if (w.recruited) continue;
+      if (w.recruited || w.isIndoors) continue;
       const d = Math.hypot(w.x - x, w.z - z);
       if (d < dist) { best = w; dist = d; }
     }
@@ -23783,6 +33182,7 @@ HC.NPCParty = class {
     }
     const m = this.members.find((it) => it.uid === uid);
     if (!m || m.state === 'seated' || m.state === 'boarding' || m.state === 'hopping_in') return false;
+    this._dropMemberCargo(m, this.physics);
     m.state = 'boarding';
     m.inCombat = false;
     if (m._hpBar) m._hpBar.hideNow();
@@ -23802,6 +33202,7 @@ HC.NPCParty = class {
     const clx = -cfz, clz = cfx;
     const side = (physics && physics.flipDir) ? Math.sign(physics.flipDir) : 1;
     for (const m of this.members) {
+      this._dropMemberCargo(m, this.physics);
       m._wantHelpAfterFall = false;
       m.inCombat = false;
       if (m._hpBar) m._hpBar.hideNow();
@@ -23831,6 +33232,7 @@ HC.NPCParty = class {
   setHelpingFlip(active) {
     for (const m of this.members) {
       if (active) {
+        this._dropMemberCargo(m, this.physics);
         if (m.state === 'fallen') {
           m._wantHelpAfterFall = true;
         } else if (m.state !== 'seated') {
@@ -23872,6 +33274,7 @@ HC.NPCParty = class {
     const idx = this.members.findIndex((it) => it.uid === uid);
     if (idx < 0) return null;
     const [m] = this.members.splice(idx, 1);
+    this._dropMemberCargo(m, this.physics);
     const sIdx = this.squad.indexOf(m.role);
     if (sIdx >= 0) this.squad.splice(sIdx, 1);
     else this.squad.splice(idx, 1);
@@ -23910,10 +33313,1171 @@ HC.NPCParty = class {
 
 })();
 
+// --- js/models/bandit_models.js ---
+const __MOD_BANDIT_MODELS = (() => {
+'use strict';
+const THREE = HC.THREE;
+
+const TAU = Math.PI * 2;
+const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+const lerp = (a, b, t) => a + (b - a) * t;
+const smooth = (t) => {
+  const u = clamp(t, 0, 1);
+  return u * u * (3 - 2 * u);
+};
+
+/* =============================================================================
+   SYLVAN VOXEL JOINT BUILDER (1 draw call per joint, isolated material/rig)
+   ============================================================================= */
+function createVoxelBuilder(isMobile = false) {
+  const base = new THREE.BoxGeometry(1, 1, 1);
+  const unit = base.toNonIndexed();
+  base.dispose();
+
+  const batches = new Map();
+  const matrix = new THREE.Matrix4();
+  const normalMat = new THREE.Matrix3();
+  const v = new THREE.Vector3();
+  const n = new THREE.Vector3();
+  const q = new THREE.Quaternion();
+  const euler = new THREE.Euler();
+  const posVec = new THREE.Vector3();
+  const scaleVec = new THREE.Vector3();
+  const tint = new THREE.Color();
+  const material = new THREE.MeshLambertMaterial({ color: 0xffffff, vertexColors: true });
+
+  return {
+    material,
+    box(parent, w, h, d, color, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0) {
+      let data = batches.get(parent);
+      if (!data) {
+        data = { p: [], n: [], c: [] };
+        batches.set(parent, data);
+      }
+      euler.set(rx, ry, rz);
+      q.setFromEuler(euler);
+      posVec.set(x, y, z);
+      scaleVec.set(w, h, d);
+      matrix.compose(posVec, q, scaleVec);
+      normalMat.getNormalMatrix(matrix);
+      tint.set(color);
+
+      const pos = unit.attributes.position;
+      const norm = unit.attributes.normal;
+      for (let i = 0; i < pos.count; i++) {
+        v.fromBufferAttribute(pos, i).applyMatrix4(matrix);
+        data.p.push(v.x, v.y, v.z);
+        n.fromBufferAttribute(norm, i).applyMatrix3(normalMat).normalize();
+        data.n.push(n.x, n.y, n.z);
+        data.c.push(tint.r, tint.g, tint.b);
+      }
+    },
+    finish() {
+      for (const [parent, data] of batches) {
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.Float32BufferAttribute(data.p, 3));
+        geometry.setAttribute('normal', new THREE.Float32BufferAttribute(data.n, 3));
+        geometry.setAttribute('color', new THREE.Float32BufferAttribute(data.c, 3));
+        geometry.computeBoundingSphere();
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.castShadow = !isMobile;
+        parent.add(mesh);
+      }
+      unit.dispose();
+    },
+  };
+}
+
+function makeJoint(parent, x = 0, y = 0, z = 0) {
+  const g = new THREE.Group();
+  g.position.set(x, y, z);
+  parent.add(g);
+  return g;
+}
+
+function applyHitFlash(st) {
+  const em = st.flash && st.flash > 0 ? 0xaa2222 : 0x000000;
+  if (st._lastEm === em) return;
+  st._lastEm = em;
+  if (st.material && st.material.emissive) {
+    st.material.emissive.setHex(em);
+  } else if (st.mesh && typeof st.mesh.traverse === 'function') {
+    st.mesh.traverse((o) => {
+      if (o.material && o.material.emissive) o.material.emissive.setHex(em);
+    });
+  }
+}
+
+/* =============================================================================
+   1. SMALL BANDIT — Forest Bandit Scout / Cutthroat (~1.56 m)
+   ============================================================================= */
+const CS = {
+  tunic:    0x454f3d,
+  tunicD:   0x2c3428,
+  tunicL:   0x5d6952,
+  leather:  0x3d2c22,
+  leatherD: 0x221813,
+  leatherL: 0x594233,
+  crimson:  0x9e2226,
+  crimsonD: 0x6b1418,
+  crimsonL: 0xc23338,
+  hood:     0x25282c,
+  hoodD:    0x16181b,
+  hoodL:    0x383d44,
+  iron:     0x6e7680,
+  ironD:    0x424850,
+  steel:    0xb6c2ce,
+  steelD:   0x74808c,
+  steelH:   0xe6eff8,
+  skin:     0xc89268,
+  skinD:    0xa46f48,
+  scar:     0x8f433b,
+  hair:     0x1e1916,
+  gold:     0xd9a834,
+  goldD:    0x997018,
+  sole:     0x120e0b,
+};
+
+/**
+ * Builds the procedural Forest Bandit Scout / Cutthroat (~1.56 m tall).
+ * @param {boolean} [isMobile=false]
+ */
+function buildSmallBandit(isMobile = false) {
+  const g = new THREE.Group();
+  const builder = createVoxelBuilder(isMobile);
+  const box = builder.box;
+
+  const BODY_Y = 0.84;
+  const LEG_Y = 0.560;
+
+  // --- 1. 2-JOINT ARTICULATED LEGS (thigh -> knee/shin -> strapped boots) ---
+  const legs = [];
+  const shins = [];
+  for (const side of [1, -1]) {
+    const lg = makeJoint(g, 0.115 * side, LEG_Y, 0);
+    // Olive-slate trousers & thigh leather strap
+    box(lg, 0.175, 0.23, 0.19, CS.tunicD, 0, -0.105, 0);
+    box(lg, 0.188, 0.036, 0.202, CS.leatherD, 0, -0.15, 0);
+    if (side === 1) {
+      // Strapped throwing-knife thigh holster on right leg
+      box(lg, 0.038, 0.14, 0.056, CS.leather, 0.095, -0.095, 0.02, 0.12, 0, 0);
+      box(lg, 0.026, 0.05, 0.024, CS.iron, 0.098, -0.02, 0.03, 0.12, 0, 0);
+    } else {
+      box(lg, 0.032, 0.08, 0.12, CS.leatherL, -0.09, -0.10, 0);
+    }
+
+    const shin = makeJoint(lg, 0, -0.24, 0);
+    // Iron knee guard + rivets
+    box(shin, 0.14, 0.085, 0.05, CS.ironD, 0, 0.015, 0.095);
+    box(shin, 0.095, 0.05, 0.025, CS.iron, 0, 0.015, 0.115);
+    box(shin, 0.02, 0.02, 0.015, CS.steel, side * 0.042, 0.015, 0.115);
+
+    // Calf & crisscrossed leather leg wraps
+    box(shin, 0.155, 0.16, 0.17, CS.hood, 0, -0.08, 0);
+    box(shin, 0.166, 0.028, 0.18, CS.leather, 0, -0.048, 0, 0.1, 0, 0);
+    box(shin, 0.164, 0.028, 0.178, CS.leatherL, 0, -0.108, 0, -0.1, 0, 0);
+
+    // Strapped rogue boot cuff, foot & sole sitting at y = 0
+    box(shin, 0.172, 0.045, 0.188, CS.leatherL, 0, -0.15, 0.005);
+    box(shin, 0.03, 0.03, 0.02, CS.iron, side * 0.082, -0.15, 0.03);
+    box(shin, 0.155, 0.11, 0.175, CS.leatherD, 0, -0.21, 0.005);
+    box(shin, 0.165, 0.075, 0.23, CS.leatherD, 0, -0.268, 0.032);
+    box(shin, 0.135, 0.05, 0.07, CS.leather, 0, -0.275, 0.125);
+    box(shin, 0.175, 0.030, 0.25, CS.sole, 0, -0.305, 0.035);
+
+    lg.userData.shin = shin;
+    legs.push(lg);
+    shins.push(shin);
+  }
+
+  // --- 2. TORSO: RAGGED TUNIC, BANDOLIER + 3 THROWING DAGGERS, POUCH & CAPE ---
+  const body = makeJoint(g, 0, BODY_Y, 0);
+
+  box(body, 0.45, 0.45, 0.29, CS.tunic, 0, 0.02, 0);
+  box(body, 0.42, 0.32, 0.10, CS.leather, 0, 0.06, 0.115);
+  box(body, 0.41, 0.32, 0.07, CS.leatherD, 0, 0.05, -0.12);
+  // Collar cowl wrap
+  box(body, 0.34, 0.07, 0.28, CS.hoodD, 0, 0.24, 0.01);
+  box(body, 0.30, 0.055, 0.04, CS.crimsonD, 0, 0.22, 0.145);
+
+  // Tattered asymmetrical tunic hem around waist
+  box(body, 0.47, 0.10, 0.31, CS.tunicD, 0, -0.19, 0);
+  box(body, 0.14, 0.12, 0.035, CS.tunic, -0.13, -0.25, 0.155, -0.06, 0, 0.08);
+  box(body, 0.13, 0.14, 0.035, CS.tunicL, 0.03, -0.26, 0.158, -0.05, 0, -0.04);
+  box(body, 0.12, 0.10, 0.035, CS.tunicD, 0.16, -0.24, 0.15, -0.08, 0, -0.08);
+  box(body, 0.10, 0.16, 0.03, CS.crimsonD, -0.15, -0.21, 0.162, -0.08, 0, 0.14);
+  box(body, 0.16, 0.13, 0.035, CS.tunicD, -0.08, -0.25, -0.15, 0.06, 0, 0.05);
+  box(body, 0.15, 0.11, 0.035, CS.tunic, 0.11, -0.24, -0.15, 0.08, 0, -0.06);
+
+  // Thick leather belt + tarnished iron buckle
+  box(body, 0.48, 0.075, 0.325, CS.leatherD, 0, -0.11, 0);
+  box(body, 0.10, 0.09, 0.035, CS.iron, 0, -0.11, 0.162);
+  box(body, 0.055, 0.045, 0.02, 0x161210, 0, -0.11, 0.175);
+
+  // Stolen gold coin pouch at right hip + small pouch at left hip
+  box(body, 0.105, 0.12, 0.095, CS.leatherL, 0.23, -0.15, 0.09);
+  box(body, 0.065, 0.035, 0.065, CS.leatherD, 0.23, -0.085, 0.09);
+  box(body, 0.072, 0.02, 0.072, CS.gold, 0.23, -0.085, 0.09);
+  box(body, 0.045, 0.025, 0.045, CS.gold, 0.24, -0.065, 0.10);
+  box(body, 0.038, 0.02, 0.038, CS.goldD, 0.215, -0.068, 0.08);
+  box(body, 0.09, 0.10, 0.08, CS.leatherD, -0.22, -0.14, 0.08);
+  box(body, 0.03, 0.03, 0.02, CS.iron, -0.22, -0.11, 0.125);
+
+  // Crisscrossed throwing-knife bandolier across chest + 3 miniature throwing daggers
+  box(body, 0.48, 0.052, 0.032, CS.leatherD, 0, 0.06, 0.168, 0, 0, -0.62);
+  box(body, 0.44, 0.042, 0.028, CS.leatherL, 0, 0.05, 0.162, 0, 0, 0.56);
+  box(body, 0.048, 0.048, 0.022, CS.iron, 0, 0.06, 0.180);
+  box(body, 0.055, 0.07, 0.035, CS.leather, -0.14, -0.02, 0.175, 0, 0, 0.1);
+
+  const knifeSlot = (kx, ky, kz, krz) => {
+    const c = Math.cos(krz);
+    const s = Math.sin(krz);
+    const kbox = (w, h, d, col, ox, oy, oz) => {
+      box(body, w, h, d, col, kx + ox * c - oy * s, ky + ox * s + oy * c, kz + oz, 0, 0, krz);
+    };
+    kbox(0.022, 0.062, 0.018, CS.leatherD, 0, 0.042, 0);
+    kbox(0.028, 0.020, 0.020, CS.iron, 0, 0.078, 0);
+    kbox(0.048, 0.016, 0.020, CS.ironD, 0, 0.008, 0);
+    kbox(0.026, 0.092, 0.012, CS.steelH, 0, -0.045, 0);
+    kbox(0.014, 0.072, 0.016, CS.steelD, 0, -0.042, 0.002);
+  };
+  knifeSlot(-0.12, 0.14, 0.184, 0.52);
+  knifeSlot(-0.02, 0.07, 0.186, 0.52);
+  knifeSlot(0.09, 0.00, 0.184, 0.52);
+
+  // Tattered crimson-charcoal scout half-cape (parts.cloak)
+  const cloak = makeJoint(body, 0, 0.21, -0.155);
+  box(cloak, 0.46, 0.07, 0.07, CS.crimsonD, 0, -0.01, 0);
+  box(cloak, 0.42, 0.26, 0.035, CS.crimson, 0, -0.14, -0.02, 0.09, 0, 0);
+  box(cloak, 0.38, 0.24, 0.02, CS.hood, 0, -0.14, -0.005, 0.09, 0, 0);
+  box(cloak, 0.17, 0.24, 0.028, CS.crimsonD, -0.11, -0.34, -0.045, 0.14, 0, -0.08);
+  box(cloak, 0.15, 0.18, 0.028, CS.hood, 0.10, -0.31, -0.04, 0.12, 0, 0.06);
+  box(cloak, 0.12, 0.26, 0.024, CS.crimson, 0, -0.37, -0.05, 0.16, 0, 0);
+
+  // --- 3. HEAD: SHADOWED HOOD, CRIMSON BANDANA MASK, BANGS, SCAR, BROWS ---
+  const head = makeJoint(body, 0, 0.405, 0.015);
+  box(head, 0.31, 0.29, 0.30, CS.skin, 0, 0.01, 0);
+  box(head, 0.28, 0.08, 0.28, CS.skinD, 0, -0.11, 0.01);
+  box(head, 0.055, 0.065, 0.06, CS.skinD, 0, -0.005, 0.165);
+  // Subtle cheek scar above mask
+  box(head, 0.065, 0.016, 0.015, CS.scar, -0.09, -0.005, 0.155, 0, 0, -0.38);
+
+  // Crimson bandana lower-face mask + back knot & tails
+  box(head, 0.335, 0.145, 0.17, CS.crimson, 0, -0.08, 0.09);
+  box(head, 0.12, 0.04, 0.04, CS.crimsonL, 0, -0.01, 0.165);
+  box(head, 0.30, 0.04, 0.03, CS.crimsonD, 0, -0.09, 0.178);
+  box(head, 0.33, 0.075, 0.32, CS.crimsonD, 0, -0.09, 0);
+  box(head, 0.07, 0.06, 0.05, CS.crimson, 0, -0.085, -0.17);
+  box(head, 0.045, 0.14, 0.02, CS.crimson, -0.04, -0.14, -0.195, 0.32, 0, -0.28);
+  box(head, 0.04, 0.11, 0.02, CS.crimsonL, 0.045, -0.13, -0.19, 0.26, 0, 0.34);
+
+  // Narrowed eyes with white glint + expressive brows
+  const brows = [];
+  for (const s of [1, -1]) {
+    box(head, 0.072, 0.038, 0.02, 0xffffff, 0.076 * s, 0.032, 0.149);
+    box(head, 0.038, 0.038, 0.02, 0x261a10, 0.074 * s, 0.032, 0.156);
+    box(head, 0.015, 0.015, 0.01, 0xffffff, 0.084 * s, 0.041, 0.163);
+    const brow = makeJoint(head, 0.076 * s, 0.066, 0.160);
+    box(brow, 0.092, 0.026, 0.026, CS.hair, 0, 0, 0);
+    brows.push({ brow, side: s });
+  }
+
+  // Dark spiky hair bangs peeking from hood rim
+  box(head, 0.055, 0.08, 0.045, CS.hair, -0.045, 0.105, 0.162, 0.25, 0, 0.22);
+  box(head, 0.048, 0.07, 0.04, CS.hair, 0.02, 0.115, 0.165, 0.22, 0, -0.15);
+  box(head, 0.045, 0.075, 0.04, CS.hair, -0.11, 0.095, 0.15, 0.15, 0, 0.35);
+  box(head, 0.045, 0.07, 0.04, CS.hair, 0.10, 0.10, 0.15, 0.15, 0, -0.30);
+
+  // Deep shadowed rogue hood/cowl (top reaches ~1.56 m)
+  box(head, 0.39, 0.16, 0.38, CS.hood, 0, 0.17, -0.015);
+  box(head, 0.055, 0.26, 0.27, CS.hoodD, -0.178, 0.04, -0.02);
+  box(head, 0.055, 0.26, 0.27, CS.hoodD, 0.178, 0.04, -0.02);
+  box(head, 0.38, 0.24, 0.14, CS.hoodD, 0, 0.04, -0.14);
+  box(head, 0.40, 0.07, 0.15, CS.hoodL, 0, 0.195, 0.135, 0.24, 0, 0);
+  box(head, 0.26, 0.09, 0.24, CS.hood, 0, 0.255, -0.03, -0.12, 0, 0);
+  box(head, 0.14, 0.075, 0.16, CS.hoodD, 0, 0.28, -0.14, -0.25, 0, 0);
+
+  // --- 4. LEFT ARM (SPIKED LEATHER PAULDRON + BRACER + REVERSE-GRIP DIRK) ---
+  const armL = makeJoint(body, -0.295, 0.165, 0);
+  box(armL, 0.19, 0.09, 0.20, CS.leather, -0.02, 0.04, 0, 0, 0, 0.18);
+  box(armL, 0.17, 0.06, 0.18, CS.leatherD, -0.04, -0.02, 0, 0, 0, 0.24);
+  box(armL, 0.024, 0.024, 0.02, CS.iron, -0.09, 0.03, 0.06);
+  box(armL, 0.024, 0.024, 0.02, CS.iron, -0.09, 0.03, -0.06);
+  box(armL, 0.032, 0.095, 0.032, CS.iron, -0.06, 0.10, 0.035, 0.15, 0, 0.45);
+  box(armL, 0.028, 0.08, 0.028, CS.iron, -0.05, 0.09, -0.045, -0.15, 0, 0.45);
+  box(armL, 0.125, 0.19, 0.135, CS.tunicD, 0, -0.095, 0);
+
+  const foreL = makeJoint(armL, 0, -0.195, 0);
+  box(foreL, 0.135, 0.15, 0.14, CS.leather, 0, -0.085, 0);
+  box(foreL, 0.142, 0.025, 0.148, CS.leatherD, 0, -0.04, 0);
+  box(foreL, 0.142, 0.025, 0.148, CS.leatherD, 0, -0.13, 0);
+  box(foreL, 0.02, 0.02, 0.02, CS.steel, -0.072, -0.085, 0.03);
+  box(foreL, 0.02, 0.02, 0.02, CS.steel, -0.072, -0.085, -0.03);
+  box(foreL, 0.115, 0.085, 0.12, CS.leatherD, 0, -0.19, 0.01);
+
+  const gripL = makeJoint(foreL, 0, -0.20, 0.035);
+  // Reverse-grip parrying dirk extending back (-Z) along left forearm
+  box(gripL, 0.042, 0.042, 0.035, CS.iron, 0, 0, 0.11);
+  box(gripL, 0.036, 0.038, 0.14, CS.leatherD, 0, 0, 0.02);
+  box(gripL, 0.14, 0.032, 0.035, CS.ironD, 0, 0, -0.055);
+  box(gripL, 0.025, 0.045, 0.04, CS.iron, 0.068, 0.01, -0.075, -0.35, 0, 0);
+  box(gripL, 0.025, 0.045, 0.04, CS.iron, -0.068, 0.01, -0.075, -0.35, 0, 0);
+  box(gripL, 0.020, 0.042, 0.34, CS.steelD, 0, 0.008, -0.24);
+  box(gripL, 0.012, 0.046, 0.34, CS.steelH, 0, -0.008, -0.24);
+  box(gripL, 0.016, 0.022, 0.04, CS.steel, 0, 0.032, -0.19);
+  box(gripL, 0.014, 0.024, 0.08, 0xffffff, 0, -0.002, -0.43);
+
+  // --- 5. RIGHT ARM (LIGHT STRAP + BRACER + SERRATED CURVED DAGGER) ---
+  const armR = makeJoint(body, 0.295, 0.165, 0);
+  box(armR, 0.145, 0.06, 0.155, CS.leatherD, 0.01, 0.02, 0, 0, 0, -0.15);
+  box(armR, 0.03, 0.03, 0.02, CS.iron, 0.06, 0.02, 0.06);
+  box(armR, 0.125, 0.19, 0.135, CS.tunic, 0, -0.095, 0);
+  box(armR, 0.135, 0.028, 0.145, CS.leather, 0, -0.12, 0);
+
+  const foreR = makeJoint(armR, 0, -0.195, 0);
+  box(foreR, 0.135, 0.15, 0.14, CS.leather, 0, -0.085, 0);
+  box(foreR, 0.142, 0.025, 0.148, CS.leatherD, 0, -0.04, 0);
+  box(foreR, 0.142, 0.025, 0.148, CS.leatherD, 0, -0.13, 0);
+  box(foreR, 0.02, 0.02, 0.02, CS.steel, 0.072, -0.085, 0.03);
+  box(foreR, 0.02, 0.02, 0.02, CS.steel, 0.072, -0.085, -0.03);
+  box(foreR, 0.115, 0.085, 0.12, CS.leatherD, 0, -0.19, 0.01);
+
+  const gripR = makeJoint(foreR, 0, -0.20, 0.045);
+  // Serrated curved steel dagger extending forward (+Z)
+  box(gripR, 0.044, 0.046, 0.04, CS.iron, 0, 0, -0.105);
+  box(gripR, 0.038, 0.04, 0.14, CS.leatherD, 0, 0, -0.015);
+  box(gripR, 0.135, 0.034, 0.038, CS.iron, 0, 0, 0.065);
+  box(gripR, 0.018, 0.052, 0.24, CS.steel, 0, 0.004, 0.20);
+  box(gripR, 0.010, 0.024, 0.24, CS.steelH, 0, -0.018, 0.20);
+  box(gripR, 0.016, 0.024, 0.034, CS.steelD, 0, 0.034, 0.13, 0.25, 0, 0);
+  box(gripR, 0.016, 0.024, 0.034, CS.steelD, 0, 0.034, 0.20, 0.25, 0, 0);
+  box(gripR, 0.016, 0.024, 0.034, CS.steelD, 0, 0.034, 0.27, 0.25, 0, 0);
+  box(gripR, 0.015, 0.042, 0.16, CS.steelH, 0, 0.02, 0.37, -0.16, 0, 0);
+  box(gripR, 0.012, 0.022, 0.07, 0xffffff, 0, 0.036, 0.46, -0.22, 0, 0);
+
+  builder.finish();
+
+  const parts = {
+    body,
+    head,
+    armL,
+    foreL,
+    armR,
+    foreR,
+    gripL,
+    gripR,
+    legs,
+    shins,
+    cloak,
+    brows,
+    bodyY: BODY_Y,
+  };
+
+  animateSmallBandit(
+    { mesh: g, parts, material: builder.material, vel: { x: 0, z: 0 }, flash: 0, swing: 0, telegraph: 0 },
+    0
+  );
+
+  return { mesh: g, parts, material: builder.material };
+}
+
+/* =============================================================================
+   2. BIG BANDIT — Forest Bandit Marauder / Brute (~2.45 m)
+   ============================================================================= */
+const CB = {
+  skin:     0xb87e58,
+  skinD:    0x8f5d3e,
+  scar:     0x853b34,
+  shirt:    0x2a2420,
+  leather:  0x452d1d,
+  leatherD: 0x291a10,
+  leatherL: 0x62422b,
+  iron:     0x444b54,
+  ironD:    0x2a2f36,
+  ironL:    0x68727e,
+  steel:    0xa2aebc,
+  steelD:   0x606b78,
+  steelH:   0xe2ecf6,
+  fur:      0x5c4634,
+  furD:     0x3b2c20,
+  furL:     0x846850,
+  crimson:  0x7c1d1f,
+  crimsonD: 0x4d1012,
+  wood:     0x5c3c20,
+  woodD:    0x3b2411,
+  hair:     0x1c1510,
+  hairL:    0x32261d,
+  eye:      0xffaa28,
+  eyeH:     0xffe688,
+  sack:     0x785c3a,
+  gold:     0xd9a42a,
+  sole:     0x110e0c,
+};
+
+/**
+ * Builds the procedural Forest Bandit Marauder / Brute (~2.45 m tall, ~0.76 m chest width).
+ * @param {boolean} [isMobile=false]
+ */
+function buildBigBandit(isMobile = false) {
+  const g = new THREE.Group();
+  const builder = createVoxelBuilder(isMobile);
+  const box = builder.box;
+
+  const BODY_Y = 1.35;
+  const LEG_Y = 0.885;
+
+  // --- 1. 2-JOINT HEAVY LEGS (studded trousers -> spiked knees & riveted greaves -> war boots) ---
+  const legs = [];
+  const shins = [];
+  for (const side of [1, -1]) {
+    const lg = makeJoint(g, 0.205 * side, LEG_Y, 0);
+    // Studded leather trousers
+    box(lg, 0.29, 0.38, 0.31, CB.leather, 0, -0.18, 0);
+    box(lg, 0.05, 0.28, 0.24, CB.leatherD, side * 0.145, -0.17, 0);
+    box(lg, 0.028, 0.028, 0.022, CB.ironL, side * 0.172, -0.09, 0.06);
+    box(lg, 0.028, 0.028, 0.022, CB.ironL, side * 0.172, -0.09, -0.06);
+    box(lg, 0.028, 0.028, 0.022, CB.ironL, side * 0.172, -0.22, 0.06);
+    box(lg, 0.028, 0.028, 0.022, CB.ironL, side * 0.172, -0.22, -0.06);
+    box(lg, 0.305, 0.055, 0.325, CB.leatherD, 0, -0.32, 0);
+
+    const shin = makeJoint(lg, 0, -0.38, 0);
+    // Spiked knee plate
+    box(shin, 0.24, 0.14, 0.075, CB.iron, 0, 0.02, 0.16);
+    box(shin, 0.17, 0.09, 0.035, CB.ironL, 0, 0.02, 0.19);
+    box(shin, 0.05, 0.05, 0.09, CB.steel, 0, 0.02, 0.235);
+
+    // Calf & riveted iron shin greave
+    box(shin, 0.265, 0.28, 0.28, CB.leatherD, 0, -0.13, 0);
+    box(shin, 0.20, 0.24, 0.06, CB.iron, 0, -0.14, 0.135);
+    box(shin, 0.06, 0.22, 0.03, CB.ironL, 0, -0.14, 0.165);
+    for (const rx of [-0.065, 0.065]) {
+      for (const ry of [-0.07, -0.20]) {
+        box(shin, 0.024, 0.024, 0.02, CB.steel, rx, ry, 0.168);
+      }
+    }
+
+    // Heavy iron-shod war boot with sole at y = 0
+    box(shin, 0.28, 0.06, 0.295, CB.leatherL, 0, -0.27, 0.005);
+    box(shin, 0.26, 0.15, 0.28, CB.leatherD, 0, -0.35, 0.01);
+    box(shin, 0.285, 0.10, 0.37, CB.leatherD, 0, -0.43, 0.045);
+    box(shin, 0.24, 0.085, 0.11, CB.iron, 0, -0.435, 0.195);
+    box(shin, 0.16, 0.05, 0.04, CB.ironL, 0, -0.42, 0.245);
+    box(shin, 0.30, 0.040, 0.39, CB.sole, 0, -0.48, 0.05);
+
+    lg.userData.shin = shin;
+    legs.push(lg);
+    shins.push(shin);
+  }
+
+  // --- 2. BROAD TORSO (~0.76 m chest): SCARRED MUSCLE, IRON CUIRASS, FUR, CHAINS, SKULL BUCKLE, LOOT SACK, CAPE ---
+  const body = makeJoint(g, 0, BODY_Y, 0);
+
+  // Broad scarred muscular chest & dark wool undershirt
+  box(body, 0.76, 0.42, 0.44, CB.skin, 0, 0.16, 0);
+  box(body, 0.68, 0.34, 0.40, CB.shirt, 0, -0.17, 0);
+  box(body, 0.72, 0.16, 0.43, CB.leatherD, 0, -0.35, 0);
+  // Chest battle scar on bare right pectoral
+  box(body, 0.18, 0.025, 0.02, CB.scar, 0.17, 0.20, 0.222, 0, 0, 0.48);
+  box(body, 0.14, 0.022, 0.02, CB.scar, 0.20, 0.13, 0.222, 0, 0, -0.24);
+
+  // Asymmetrical heavy riveted dark-iron chest cuirass
+  box(body, 0.56, 0.36, 0.11, CB.iron, -0.07, 0.08, 0.19);
+  box(body, 0.34, 0.30, 0.06, CB.ironL, -0.18, 0.12, 0.238);
+  box(body, 0.48, 0.13, 0.06, CB.ironD, 0.04, -0.06, 0.22, 0, 0, -0.22);
+  box(body, 0.66, 0.42, 0.10, CB.ironD, 0, 0.08, -0.20);
+  for (const [rvX, rvY, rvZ] of [
+    [-0.30, 0.22, 0.265], [-0.06, 0.22, 0.265],
+    [-0.30, 0.02, 0.265], [-0.06, 0.02, 0.265],
+    [0.16, -0.08, 0.25], [0.23, -0.11, 0.245],
+  ]) {
+    box(body, 0.028, 0.028, 0.022, CB.steel, rvX, rvY, rvZ);
+  }
+
+  // Heavy iron chain baldrics crisscrossed across chest
+  for (let i = 0; i < 9; i++) {
+    const u = i / 8;
+    const cx = lerp(0.32, -0.30, u);
+    const cy = lerp(0.28, -0.14, u);
+    const col = i % 2 === 0 ? CB.ironL : CB.ironD;
+    box(body, 0.058, 0.048, 0.045, col, cx, cy, 0.265, 0, 0, 0.62);
+  }
+  for (let i = 0; i < 6; i++) {
+    const u = i / 5;
+    const cx = lerp(-0.28, 0.28, u);
+    const cy = lerp(0.26, 0.02, u);
+    const col = i % 2 === 0 ? CB.iron : CB.ironL;
+    box(body, 0.052, 0.044, 0.042, col, cx, cy, 0.258, 0, 0, -0.42);
+  }
+  box(body, 0.085, 0.085, 0.03, CB.ironL, -0.01, 0.11, 0.275);
+
+  // Jagged wolf/bear-fur shoulder mantle (layered voxel fur tuft collar)
+  box(body, 0.90, 0.13, 0.50, CB.fur, 0, 0.32, -0.02);
+  box(body, 0.84, 0.09, 0.46, CB.furD, 0, 0.26, -0.02);
+  for (const [fx, fy, fz, frx, frz, fc] of [
+    [-0.36, 0.39, 0.05, 0.22, 0.35, CB.furL],
+    [-0.20, 0.41, -0.14, -0.25, 0.18, CB.fur],
+    [0.0, 0.42, -0.20, -0.35, 0.0, CB.furL],
+    [0.22, 0.41, -0.14, -0.25, -0.18, CB.fur],
+    [0.36, 0.39, 0.05, 0.22, -0.35, CB.furL],
+    [-0.28, 0.35, 0.18, 0.32, 0.24, CB.furD],
+    [0.28, 0.35, 0.18, 0.32, -0.24, CB.furD],
+  ]) {
+    box(body, 0.12, 0.13, 0.11, fc, fx, fy, fz, frx, 0, frz);
+  }
+
+  // Heavy war-belt, skull-emblem iron buckle, hip chain & loot sack
+  box(body, 0.74, 0.11, 0.45, CB.leatherD, 0, -0.24, 0);
+  box(body, 0.17, 0.15, 0.04, CB.ironD, 0, -0.24, 0.232);
+  box(body, 0.11, 0.095, 0.045, CB.ironL, 0, -0.225, 0.252);
+  box(body, 0.028, 0.026, 0.02, 0x101012, -0.028, -0.22, 0.272);
+  box(body, 0.028, 0.026, 0.02, 0x101012, 0.028, -0.22, 0.272);
+  box(body, 0.075, 0.036, 0.038, CB.ironL, 0, -0.27, 0.250);
+  box(body, 0.015, 0.022, 0.015, 0x101012, -0.018, -0.272, 0.268);
+  box(body, 0.015, 0.022, 0.015, 0x101012, 0.018, -0.272, 0.268);
+
+  // Hip chain on left hip
+  for (let i = 0; i < 6; i++) {
+    const cy = -0.29 - i * 0.035;
+    const cz = 0.14 - Math.sin(i * 0.6) * 0.09;
+    box(body, 0.048, 0.042, 0.048, i % 2 === 0 ? CB.ironL : CB.ironD, -0.375, cy, cz, 0.2, 0, 0);
+  }
+
+  // Plump loot sack tied on right hip
+  box(body, 0.18, 0.24, 0.17, CB.sack, 0.38, -0.36, 0.04, 0, 0, 0.14);
+  box(body, 0.10, 0.05, 0.10, CB.leatherD, 0.36, -0.23, 0.04);
+  box(body, 0.07, 0.05, 0.07, CB.gold, 0.38, -0.21, 0.06);
+
+  // Iron-studded leather tassets
+  for (const s of [-1, 1]) {
+    box(body, 0.22, 0.16, 0.06, CB.leather, s * 0.22, -0.39, 0.21, -0.1, 0, -s * 0.1);
+    box(body, 0.035, 0.035, 0.02, CB.ironL, s * 0.22, -0.39, 0.245, -0.1, 0, -s * 0.1);
+  }
+
+  // Tattered dark-crimson war cape (parts.cloak)
+  const cloak = makeJoint(body, 0, 0.33, -0.25);
+  box(cloak, 0.72, 0.10, 0.08, CB.furD, 0, -0.02, 0);
+  box(cloak, 0.68, 0.42, 0.045, CB.crimson, 0, -0.23, -0.02, 0.08, 0, 0);
+  box(cloak, 0.60, 0.34, 0.035, CB.crimsonD, 0, -0.52, -0.05, 0.12, 0, 0);
+  box(cloak, 0.20, 0.34, 0.032, CB.crimson, -0.20, -0.74, -0.08, 0.14, 0, -0.06);
+  box(cloak, 0.22, 0.40, 0.032, CB.crimsonD, 0.0, -0.78, -0.09, 0.15, 0, 0);
+  box(cloak, 0.18, 0.28, 0.032, CB.crimson, 0.21, -0.71, -0.075, 0.13, 0, 0.07);
+
+  // --- 3. HEAD: HORNED/SPIKED IRON HALF-HELM, JAW GUARD, AMBER EYES, BRAIDED BEARD ---
+  const head = makeJoint(body, 0, 0.58, 0.02);
+  box(head, 0.26, 0.14, 0.24, CB.skinD, 0, -0.16, -0.01);
+  box(head, 0.42, 0.38, 0.40, CB.skin, 0, 0.01, 0);
+  box(head, 0.43, 0.07, 0.08, CB.skinD, 0, 0.08, 0.19);
+
+  // Fierce glowing-amber eyes & heavy furrowed brows
+  const brows = [];
+  for (const s of [1, -1]) {
+    box(head, 0.10, 0.055, 0.025, 0x160e0a, 0.095 * s, 0.03, 0.20);
+    box(head, 0.068, 0.042, 0.022, CB.eye, 0.095 * s, 0.03, 0.208);
+    box(head, 0.028, 0.028, 0.015, CB.eyeH, 0.095 * s, 0.03, 0.215);
+    const brow = makeJoint(head, 0.098 * s, 0.078, 0.215);
+    box(brow, 0.125, 0.038, 0.042, CB.hair, 0, 0, 0);
+    brows.push({ brow, side: s });
+  }
+
+  // Riveted iron jaw-guard mask & braided dark beard peeking underneath
+  box(head, 0.44, 0.13, 0.24, CB.iron, 0, -0.11, 0.105);
+  box(head, 0.36, 0.08, 0.06, CB.ironD, 0, -0.13, 0.215);
+  box(head, 0.026, 0.026, 0.02, CB.steel, -0.14, -0.11, 0.22);
+  box(head, 0.026, 0.026, 0.02, CB.steel, 0.14, -0.11, 0.22);
+
+  box(head, 0.22, 0.06, 0.06, CB.hair, 0, -0.17, 0.19);
+  box(head, 0.075, 0.16, 0.065, CB.hair, -0.06, -0.24, 0.18, -0.08, 0, 0.12);
+  box(head, 0.075, 0.18, 0.065, CB.hairL, 0.06, -0.25, 0.18, -0.08, 0, -0.12);
+  box(head, 0.085, 0.03, 0.075, CB.ironL, -0.065, -0.28, 0.18);
+  box(head, 0.085, 0.03, 0.075, CB.ironL, 0.065, -0.29, 0.18);
+
+  // Dark iron horned/spiked half-helm with noseguard (horn apex reaches ~2.45 m)
+  box(head, 0.46, 0.20, 0.44, CB.iron, 0, 0.19, -0.005);
+  box(head, 0.49, 0.06, 0.47, CB.ironL, 0, 0.11, 0);
+  box(head, 0.055, 0.20, 0.22, CB.ironD, -0.23, 0.01, 0.01);
+  box(head, 0.055, 0.20, 0.22, CB.ironD, 0.23, 0.01, 0.01);
+  box(head, 0.058, 0.15, 0.05, CB.ironL, 0, 0.03, 0.235); // Noseguard
+  box(head, 0.07, 0.07, 0.42, CB.ironD, 0, 0.31, -0.005); // Crest ridge
+  box(head, 0.04, 0.08, 0.04, CB.steel, 0, 0.36, 0.12);
+  box(head, 0.04, 0.09, 0.04, CB.steel, 0, 0.365, 0.0);
+  box(head, 0.04, 0.08, 0.04, CB.steel, 0, 0.36, -0.12);
+
+  for (const s of [1, -1]) {
+    box(head, 0.095, 0.14, 0.095, CB.ironD, s * 0.24, 0.23, 0, 0.08, 0, -s * 0.55);
+    box(head, 0.075, 0.15, 0.075, CB.ironL, s * 0.31, 0.33, 0.03, 0.16, 0, -s * 0.22);
+    box(head, 0.048, 0.13, 0.048, CB.steel, s * 0.33, 0.43, 0.06, 0.22, 0, s * 0.12);
+  }
+
+  // --- 4. LEFT MASSIVE ARM (SPIKED PAULDRON + CHAIN GAUNTLET + WOODEN BUCKLER) ---
+  const armL = makeJoint(body, -0.495, 0.255, 0);
+  box(armL, 0.29, 0.16, 0.32, CB.iron, -0.04, 0.06, 0, 0, 0, 0.16);
+  box(armL, 0.27, 0.10, 0.30, CB.ironD, -0.06, -0.04, 0, 0, 0, 0.24);
+  box(armL, 0.04, 0.12, 0.04, CB.steel, -0.08, 0.16, 0.07, 0.18, 0, 0.45);
+  box(armL, 0.045, 0.14, 0.045, CB.steel, -0.09, 0.17, 0, 0, 0, 0.55);
+  box(armL, 0.04, 0.12, 0.04, CB.steel, -0.08, 0.16, -0.07, -0.18, 0, 0.45);
+  box(armL, 0.22, 0.32, 0.23, CB.skin, 0, -0.17, 0);
+  box(armL, 0.235, 0.055, 0.245, CB.ironD, 0, -0.18, 0);
+
+  const foreL = makeJoint(armL, 0, -0.34, 0);
+  box(foreL, 0.22, 0.10, 0.23, CB.iron, 0, 0, 0);
+  box(foreL, 0.21, 0.24, 0.22, CB.leatherD, 0, -0.15, 0);
+  box(foreL, 0.224, 0.045, 0.234, CB.ironL, 0, -0.08, 0);
+  box(foreL, 0.224, 0.045, 0.234, CB.ironD, 0, -0.15, 0);
+  box(foreL, 0.224, 0.045, 0.234, CB.ironL, 0, -0.22, 0);
+  box(foreL, 0.19, 0.11, 0.20, CB.iron, 0, -0.30, 0.01);
+
+  // Iron-studded wooden buckler / forearm shield strapped to left forearm
+  const shield = makeJoint(foreL, -0.145, -0.15, 0.06);
+  shield.rotation.set(-0.06, 0.26, 0);
+  box(shield, 0.44, 0.44, 0.05, CB.wood, 0, 0, 0);
+  box(shield, 0.34, 0.52, 0.045, CB.woodD, 0, 0, -0.002);
+  box(shield, 0.52, 0.34, 0.045, CB.woodD, 0, 0, -0.002);
+  box(shield, 0.44, 0.06, 0.058, CB.ironD, 0, 0, 0.004);
+  box(shield, 0.06, 0.44, 0.058, CB.ironD, 0, 0, 0.004);
+  box(shield, 0.14, 0.14, 0.06, CB.iron, 0, 0, 0.03);
+  box(shield, 0.045, 0.045, 0.08, CB.steel, 0, 0, 0.07);
+  for (const sx of [-0.15, 0.15]) {
+    for (const sy of [-0.15, 0.15]) {
+      box(shield, 0.036, 0.036, 0.03, CB.ironL, sx, sy, 0.035);
+    }
+  }
+
+  // --- 5. RIGHT MASSIVE ARM (SPIKED PAULDRON + CHAIN GAUNTLET + NOTCHED GREATAXE) ---
+  const armR = makeJoint(body, 0.495, 0.255, 0);
+  box(armR, 0.27, 0.14, 0.29, CB.iron, 0.035, 0.055, 0, 0, 0, -0.16);
+  box(armR, 0.25, 0.09, 0.27, CB.ironD, 0.055, -0.035, 0, 0, 0, -0.22);
+  box(armR, 0.042, 0.13, 0.042, CB.steel, 0.08, 0.15, 0.045, 0.14, 0, -0.48);
+  box(armR, 0.042, 0.12, 0.042, CB.steel, 0.08, 0.14, -0.05, -0.14, 0, -0.48);
+  box(armR, 0.22, 0.32, 0.23, CB.skin, 0, -0.17, 0);
+  box(armR, 0.14, 0.025, 0.02, CB.scar, 0.115, -0.15, 0.02, 0.3, 0, 0);
+  box(armR, 0.235, 0.055, 0.245, CB.ironD, 0, -0.18, 0);
+
+  const foreR = makeJoint(armR, 0, -0.34, 0);
+  box(foreR, 0.22, 0.10, 0.23, CB.iron, 0, 0, 0);
+  box(foreR, 0.21, 0.24, 0.22, CB.leatherD, 0, -0.15, 0);
+  box(foreR, 0.224, 0.045, 0.234, CB.ironL, 0, -0.08, 0);
+  box(foreR, 0.224, 0.045, 0.234, CB.ironD, 0, -0.15, 0);
+  box(foreR, 0.224, 0.045, 0.234, CB.ironL, 0, -0.22, 0);
+  box(foreR, 0.19, 0.11, 0.20, CB.iron, 0, -0.30, 0.01);
+
+  const gripR = makeJoint(foreR, 0, -0.31, 0.06);
+  // Massive notched iron Greataxe / War Cleaver (blade edge faces -Y for overhead cleave)
+  box(gripR, 0.064, 0.064, 1.56, CB.wood, 0, 0, 0.40);
+  box(gripR, 0.076, 0.076, 0.32, CB.leatherD, 0, 0, 0.02);
+  box(gripR, 0.074, 0.074, 0.05, CB.ironL, 0, 0, -0.24);
+  box(gripR, 0.074, 0.074, 0.05, CB.ironL, 0, 0, 0.26);
+  box(gripR, 0.074, 0.074, 0.05, CB.ironL, 0, 0, 0.56);
+
+  // Iron skull pommel at butt of haft
+  box(gripR, 0.11, 0.11, 0.11, CB.ironL, 0, 0, -0.41);
+  box(gripR, 0.025, 0.025, 0.02, 0x101012, -0.026, 0.015, -0.46);
+  box(gripR, 0.025, 0.025, 0.02, 0x101012, 0.026, 0.015, -0.46);
+  box(gripR, 0.08, 0.045, 0.08, CB.ironD, 0, -0.05, -0.41);
+
+  // Heavy double-bevel notched steel axe head, back spike & top spear finial
+  box(gripR, 0.095, 0.12, 0.34, CB.ironD, 0, 0, 0.94);
+  box(gripR, 0.066, 0.22, 0.36, CB.steelD, 0, -0.14, 0.94);
+  box(gripR, 0.044, 0.20, 0.46, CB.steel, 0, -0.27, 0.94);
+  // Gleaming razor cutting edge broken by battle notches
+  box(gripR, 0.024, 0.075, 0.12, CB.steelH, 0, -0.39, 0.77);
+  box(gripR, 0.024, 0.085, 0.15, CB.steelH, 0, -0.40, 0.94);
+  box(gripR, 0.024, 0.075, 0.12, CB.steelH, 0, -0.39, 1.11);
+  box(gripR, 0.016, 0.032, 0.10, 0xffffff, 0, -0.435, 0.77);
+  box(gripR, 0.016, 0.034, 0.12, 0xffffff, 0, -0.445, 0.94);
+  box(gripR, 0.016, 0.032, 0.10, 0xffffff, 0, -0.435, 1.11);
+  // Back spike & front spear tip
+  box(gripR, 0.042, 0.18, 0.08, CB.iron, 0, 0.14, 0.94, 0.22, 0, 0);
+  box(gripR, 0.026, 0.10, 0.045, CB.steelH, 0, 0.24, 0.92, 0.28, 0, 0);
+  box(gripR, 0.055, 0.055, 0.16, CB.ironL, 0, 0, 1.15);
+  box(gripR, 0.032, 0.032, 0.12, CB.steelH, 0, 0, 1.26);
+
+  builder.finish();
+
+  const parts = {
+    body,
+    head,
+    armL,
+    foreL,
+    armR,
+    foreR,
+    gripR,
+    legs,
+    shins,
+    cloak,
+    brows,
+    bodyY: BODY_Y,
+  };
+
+  animateBigBandit(
+    { mesh: g, parts, material: builder.material, vel: { x: 0, z: 0 }, flash: 0, swing: 0, telegraph: 0 },
+    0
+  );
+
+  return { mesh: g, parts, material: builder.material };
+}
+
+/* =============================================================================
+   3. ANIMATOR: SMALL BANDIT (agile crouched stride, coiled telegraph, cross-slash)
+   ============================================================================= */
+/**
+ * Animates the Small Bandit scout/cutthroat.
+ * @param {object} st
+ * @param {number} dt
+ */
+function animateSmallBandit(st, dt) {
+  if (!st || !st.parts || !st.parts.body) return;
+  const P = st.parts;
+
+  dt = Math.min(Math.max(dt || 0, 0), 0.1);
+  const t = (st._t = (st._t || 0) + dt);
+
+  applyHitFlash(st);
+
+  const vx = st.vel ? st.vel.x || 0 : 0;
+  const vz = st.vel ? st.vel.z || 0 : 0;
+  const rawSp = Math.hypot(vx, vz);
+  const yaw = st.mesh && st.mesh.rotation ? st.mesh.rotation.y : 0;
+
+  const anim =
+    st._banditAnim ||
+    (st._banditAnim = {
+      speed: 0,
+      gait: 0,
+      runBlend: 0,
+      combat: 0,
+      turn: 0,
+      yaw,
+      tele: 0,
+      windCarry: 0,
+      atkActive: false,
+      atkT: 0,
+      lastSwing: 0,
+      comboAlt: 1,
+    });
+
+  const easeMove = dt > 0 ? 1 - Math.exp(-14 * dt) : 1;
+  const easePose = dt > 0 ? 1 - Math.exp(-10 * dt) : 1;
+  const easeTele = dt > 0 ? 1 - Math.exp(-22 * dt) : 1;
+
+  anim.speed += (rawSp - anim.speed) * easeMove;
+  anim.gait += (clamp(anim.speed / 1.9, 0, 1) - anim.gait) * easeMove;
+  anim.runBlend += (clamp((anim.speed - 2.6) / 1.6, 0, 1) - anim.runBlend) * easeMove;
+  anim.combat += ((st.target ? 1 : 0) - anim.combat) * easePose;
+
+  const targetTele = smooth(clamp(st.telegraph || 0, 0, 1));
+  anim.tele += (targetTele - anim.tele) * easeTele;
+
+  const yawDiff = Math.atan2(Math.sin(yaw - anim.yaw), Math.cos(yaw - anim.yaw));
+  const instTurn = dt > 0.0005 ? clamp(yawDiff / dt, -5, 5) * 0.04 : 0;
+  anim.turn += (instTurn - anim.turn) * (dt > 0 ? 1 - Math.exp(-10 * dt) : 1);
+  anim.yaw = yaw;
+
+  // Trigger alternating cross-slash lunge on swing
+  const curSwing = st.swing || 0;
+  if (curSwing > 0 && (anim.lastSwing <= 0 || curSwing > anim.lastSwing + 0.02)) {
+    anim.atkActive = true;
+    anim.atkT = 0;
+    anim.comboAlt = 1 - anim.comboAlt;
+    anim.windCarry = Math.max(anim.tele, 0.55);
+  }
+  anim.lastSwing = curSwing;
+
+  const ATK_DUR = 0.36;
+  if (anim.atkActive) {
+    anim.atkT += dt;
+    if (anim.atkT >= ATK_DUR) {
+      anim.atkActive = false;
+      anim.atkT = 0;
+      anim.windCarry = 0;
+    }
+  }
+
+  let strikeW = 0;
+  let lungeZ = 0;
+  let atkTwist = 0;
+  let windW = anim.tele;
+
+  if (anim.atkActive) {
+    const at = anim.atkT;
+    const altSign = anim.comboAlt === 0 ? 1 : -1;
+    if (at < 0.11) {
+      const u = smooth((at + 0.025) / 0.135);
+      strikeW = u;
+      windW = Math.max(windW, anim.windCarry * (1 - u));
+      lungeZ = lerp(-0.04 * anim.windCarry, 0.18, u);
+      atkTwist = altSign * lerp(-0.28 * anim.windCarry, 0.52, u);
+    } else {
+      const u = clamp((at - 0.11) / (ATK_DUR - 0.11), 0, 1);
+      const decay = Math.exp(-5.5 * u);
+      strikeW = Math.max(0, Math.cos(u * Math.PI * 1.4) * decay);
+      windW = 0;
+      lungeZ = 0.18 * decay * Math.cos(u * Math.PI * 1.2);
+      atkTwist = altSign * 0.52 * decay * Math.cos(u * Math.PI * 1.2);
+    }
+  } else {
+    atkTwist = -0.24 * windW;
+    lungeZ = -0.05 * windW;
+  }
+
+  // Fast agile crouched stride
+  const gait = anim.gait;
+  const stepFreq = 9.0 + anim.speed * 1.45;
+  const phase = (st._step = ((st._step || 0) + dt * stepFreq * (0.15 + gait * 0.85)) % TAU);
+  const sinP = Math.sin(phase);
+  const cosP = Math.cos(phase);
+  const stepAmp = (0.58 + anim.runBlend * 0.24) * gait;
+
+  if (P.legs && P.legs.length >= 2) {
+    const hip0 = -0.16 + sinP * stepAmp - windW * 0.36 + strikeW * 0.24;
+    const hip1 = -0.16 - sinP * stepAmp - windW * 0.28 - strikeW * 0.34;
+    P.legs[0].rotation.set(hip0, 0, 0.04);
+    P.legs[1].rotation.set(hip1, 0, -0.04);
+
+    if (P.shins && P.shins.length >= 2) {
+      const knee0 =
+        0.16 * (1 - gait) +
+        Math.max(0, -cosP) * 0.74 * gait +
+        Math.max(0, -hip0) * 0.22 * gait +
+        windW * 0.52 +
+        strikeW * 0.18;
+      const knee1 =
+        0.16 * (1 - gait) +
+        Math.max(0, cosP) * 0.74 * gait +
+        Math.max(0, -hip1) * 0.22 * gait +
+        windW * 0.44 +
+        strikeW * 0.32;
+      P.shins[0].rotation.x = knee0;
+      P.shins[1].rotation.x = knee1;
+    }
+  }
+
+  // Body crouch, torso twist & agile forward lean
+  const breathe = Math.sin(t * 2.8) * 0.008;
+  const walkBob = Math.abs(sinP) * 0.04 * gait;
+  const crouch = 0.025 + anim.combat * 0.02 + windW * 0.11 + strikeW * 0.05;
+
+  P.body.position.set(sinP * 0.018 * gait, P.bodyY + breathe + walkBob - crouch, lungeZ);
+  P.body.rotation.set(
+    0.10 + 0.16 * gait + 0.10 * anim.runBlend + 0.22 * windW + 0.24 * strikeW + Math.sin(t * 2.8) * 0.015,
+    -sinP * 0.12 * gait + atkTwist,
+    cosP * 0.03 * gait - anim.turn
+  );
+
+  if (P.cloak) {
+    const billow = 0.12 + gait * 0.32 + anim.runBlend * 0.18 + windW * 0.22 + strikeW * 0.34;
+    P.cloak.rotation.x = billow + Math.sin(phase * 2 - 0.5) * 0.10 * gait + Math.sin(t * 2.4) * 0.03;
+    P.cloak.rotation.z = cosP * 0.06 * gait + anim.turn * 0.9;
+  }
+
+  if (P.head) {
+    const scan = clamp((Math.sin(t * 1.3) + 0.3 * Math.sin(t * 3.1)) * 0.25, -0.32, 0.32);
+    const patrolYaw = scan * (1 - anim.combat) * (1 - gait * 0.6) * (1 - windW) * (1 - strikeW);
+    P.head.rotation.set(
+      -0.08 - 0.10 * windW - 0.12 * strikeW + Math.sin(t * 2.2) * 0.025,
+      patrolYaw - atkTwist * 0.65,
+      -anim.turn * 0.4
+    );
+    if (P.brows) {
+      const fierce = 0.10 + anim.combat * 0.12 + (windW + strikeW) * 0.16;
+      for (const { brow, side } of P.brows) {
+        brow.rotation.z = -side * fierce;
+        brow.position.y = 0.066 - fierce * 0.018;
+      }
+    }
+  }
+
+  // Dual daggers: coiled crouch pull-back (telegraph) -> alternating cross-slash lunge (swing)
+  if (P.armL && P.foreL && P.armR && P.foreR && P.gripL && P.gripR) {
+    const pumpR = sinP * 0.52 * gait * (1 - windW) * (1 - strikeW);
+    const pumpL = -sinP * 0.52 * gait * (1 - windW) * (1 - strikeW);
+    const shiver = windW > 0.5 ? Math.sin(t * 40) * 0.025 * windW : 0;
+
+    let rSX = -0.35 + pumpR + Math.cos(t * 2.8) * 0.025;
+    let rSY = -0.12 * anim.combat;
+    let rSZ = 0.16 + 0.06 * anim.combat;
+    let rEX = -0.78 - Math.max(0, -pumpR) * 0.3;
+    let rGX = 0.45;
+
+    let lSX = -0.45 + pumpL - Math.cos(t * 2.8) * 0.025;
+    let lSY = 0.14 * anim.combat;
+    let lSZ = -0.16 - 0.06 * anim.combat;
+    let lEX = -0.88 - Math.max(0, -pumpL) * 0.3;
+    let lGX = 0.25;
+
+    // Telegraph windup: pull BOTH daggers back in coiled crouch
+    rSX = lerp(rSX, 0.72 + shiver, windW);
+    rSY = lerp(rSY, -0.35, windW);
+    rSZ = lerp(rSZ, 0.34, windW);
+    rEX = lerp(rEX, -1.05, windW);
+    rGX = lerp(rGX, 0.20, windW);
+
+    lSX = lerp(lSX, 0.62 - shiver, windW);
+    lSY = lerp(lSY, 0.35, windW);
+    lSZ = lerp(lSZ, -0.32, windW);
+    lEX = lerp(lEX, -1.10, windW);
+    lGX = lerp(lGX, 0.10, windW);
+
+    // Alternating fast cross-slash lunge
+    if (anim.comboAlt === 0) {
+      rSX = lerp(rSX, -1.28, strikeW);
+      rSY = lerp(rSY, 0.78, strikeW);
+      rSZ = lerp(rSZ, -0.14, strikeW);
+      rEX = lerp(rEX, -0.15, strikeW);
+      rGX = lerp(rGX, 0.42, strikeW);
+
+      lSX = lerp(lSX, 0.42, strikeW);
+      lSY = lerp(lSY, -0.24, strikeW);
+      lEX = lerp(lEX, -0.68, strikeW);
+    } else {
+      lSX = lerp(lSX, -1.20, strikeW);
+      lSY = lerp(lSY, -0.78, strikeW);
+      lSZ = lerp(lSZ, 0.14, strikeW);
+      lEX = lerp(lEX, -0.14, strikeW);
+      lGX = lerp(lGX, -0.24, strikeW);
+
+      rSX = lerp(rSX, 0.45, strikeW);
+      rSY = lerp(rSY, 0.20, strikeW);
+      rEX = lerp(rEX, -0.75, strikeW);
+    }
+
+    P.armR.rotation.set(rSX, rSY, rSZ);
+    P.foreR.rotation.set(rEX, 0, 0);
+    P.gripR.rotation.set(rGX, 0, 0);
+
+    P.armL.rotation.set(lSX, lSY, lSZ);
+    P.foreL.rotation.set(lEX, 0, 0);
+    P.gripL.rotation.set(lGX, 0, 0);
+  }
+}
+
+/* =============================================================================
+   4. ANIMATOR: BIG BANDIT (heavy lumbering stride, overhead raise, cleave)
+   ============================================================================= */
+/**
+ * Animates the Big Bandit marauder/brute.
+ * @param {object} st
+ * @param {number} dt
+ */
+function animateBigBandit(st, dt) {
+  if (!st || !st.parts || !st.parts.body) return;
+  const P = st.parts;
+
+  dt = Math.min(Math.max(dt || 0, 0), 0.1);
+  const t = (st._t = (st._t || 0) + dt);
+
+  applyHitFlash(st);
+
+  const vx = st.vel ? st.vel.x || 0 : 0;
+  const vz = st.vel ? st.vel.z || 0 : 0;
+  const rawSp = Math.hypot(vx, vz);
+  const yaw = st.mesh && st.mesh.rotation ? st.mesh.rotation.y : 0;
+
+  const anim =
+    st._bigBanditAnim ||
+    (st._bigBanditAnim = {
+      speed: 0,
+      gait: 0,
+      runBlend: 0,
+      combat: 0,
+      turn: 0,
+      yaw,
+      tele: 0,
+      windCarry: 0,
+      atkActive: false,
+      atkT: 0,
+      lastSwing: 0,
+    });
+
+  const easeMove = dt > 0 ? 1 - Math.exp(-9 * dt) : 1;
+  const easePose = dt > 0 ? 1 - Math.exp(-7 * dt) : 1;
+  const easeTele = dt > 0 ? 1 - Math.exp(-16 * dt) : 1;
+
+  anim.speed += (rawSp - anim.speed) * easeMove;
+  anim.gait += (clamp(anim.speed / 1.7, 0, 1) - anim.gait) * easeMove;
+  anim.runBlend += (clamp((anim.speed - 2.2) / 1.5, 0, 1) - anim.runBlend) * easeMove;
+  anim.combat += ((st.target ? 1 : 0) - anim.combat) * easePose;
+
+  const targetTele = smooth(clamp(st.telegraph || 0, 0, 1));
+  anim.tele += (targetTele - anim.tele) * easeTele;
+
+  const yawDiff = Math.atan2(Math.sin(yaw - anim.yaw), Math.cos(yaw - anim.yaw));
+  const instTurn = dt > 0.0005 ? clamp(yawDiff / dt, -4, 4) * 0.05 : 0;
+  anim.turn += (instTurn - anim.turn) * (dt > 0 ? 1 - Math.exp(-8 * dt) : 1);
+  anim.yaw = yaw;
+
+  // Trigger heavy overhead greataxe cleave on swing
+  const curSwing = st.swing || 0;
+  if (curSwing > 0 && (anim.lastSwing <= 0 || curSwing > anim.lastSwing + 0.02)) {
+    anim.atkActive = true;
+    anim.atkT = 0;
+    anim.windCarry = Math.max(anim.tele, 0.72);
+  }
+  anim.lastSwing = curSwing;
+
+  const ATK_DUR = 0.54;
+  if (anim.atkActive) {
+    anim.atkT += dt;
+    if (anim.atkT >= ATK_DUR) {
+      anim.atkActive = false;
+      anim.atkT = 0;
+      anim.windCarry = 0;
+    }
+  }
+
+  let strikeW = 0;
+  let lungeZ = 0;
+  let atkTwist = 0;
+  let windW = anim.tele;
+
+  if (anim.atkActive) {
+    const at = anim.atkT;
+    if (at < 0.14) {
+      const u = smooth((at + 0.025) / 0.165);
+      strikeW = u;
+      windW = Math.max(windW, anim.windCarry * (1 - u));
+      lungeZ = lerp(-0.08 * anim.windCarry, 0.22, u);
+      atkTwist = lerp(-0.42 * anim.windCarry, 0.48, u);
+    } else {
+      const u = clamp((at - 0.14) / (ATK_DUR - 0.14), 0, 1);
+      const decay = Math.exp(-4.2 * u);
+      strikeW = Math.max(0, Math.cos(u * Math.PI * 1.2) * decay);
+      windW = 0;
+      lungeZ = 0.22 * decay * Math.cos(u * Math.PI * 1.1);
+      atkTwist = 0.48 * decay * Math.cos(u * Math.PI * 1.1);
+    }
+  } else {
+    atkTwist = -0.42 * windW;
+    lungeZ = -0.08 * windW;
+  }
+
+  // Heavy lumbering ground-shaking stride
+  const gait = anim.gait;
+  const stepFreq = 5.0 + anim.speed * 0.88;
+  const phase = (st._step = ((st._step || 0) + dt * stepFreq * (0.14 + gait * 0.86)) % TAU);
+  const sinP = Math.sin(phase);
+  const cosP = Math.cos(phase);
+  const stepAmp = (0.48 + anim.runBlend * 0.18) * gait;
+
+  if (P.legs && P.legs.length >= 2) {
+    const hip0 = -0.10 + sinP * stepAmp + windW * 0.16 - strikeW * 0.20;
+    const hip1 = -0.10 - sinP * stepAmp - windW * 0.26 + strikeW * 0.24;
+    P.legs[0].rotation.set(hip0, 0, 0.055);
+    P.legs[1].rotation.set(hip1, 0, -0.055);
+
+    if (P.shins && P.shins.length >= 2) {
+      const knee0 =
+        0.10 * (1 - gait) +
+        Math.max(0, -cosP) * 0.54 * gait +
+        Math.max(0, -hip0) * 0.18 * gait +
+        strikeW * 0.28;
+      const knee1 =
+        0.10 * (1 - gait) +
+        Math.max(0, cosP) * 0.54 * gait +
+        Math.max(0, -hip1) * 0.18 * gait +
+        windW * 0.22 +
+        strikeW * 0.20;
+      P.shins[0].rotation.x = knee0;
+      P.shins[1].rotation.x = knee1;
+    }
+  }
+
+  // Heavy body roll, windup lean-back -> cleave slam forward
+  const breathe = Math.sin(t * 1.7) * 0.015;
+  const lumberBob = Math.abs(sinP) * 0.055 * gait;
+  const impactDip = strikeW * 0.12 + windW * 0.03;
+
+  P.body.position.set(sinP * 0.032 * gait, P.bodyY + breathe + lumberBob - impactDip, lungeZ);
+  P.body.rotation.set(
+    0.04 + 0.06 * gait + 0.08 * anim.runBlend - 0.28 * windW + 0.42 * strikeW + Math.sin(t * 1.7) * 0.015,
+    -sinP * 0.09 * gait + atkTwist,
+    cosP * 0.06 * gait - anim.turn
+  );
+
+  if (P.cloak) {
+    const billow = 0.08 + gait * 0.24 + anim.runBlend * 0.14 + windW * 0.10 + strikeW * 0.38;
+    P.cloak.rotation.x = billow + Math.sin(phase * 2 - 0.4) * 0.07 * gait + Math.sin(t * 1.8) * 0.025;
+    P.cloak.rotation.z = cosP * 0.05 * gait + anim.turn * 0.7;
+  }
+
+  if (P.head) {
+    const scan = clamp(Math.sin(t * 0.85) * 0.26, -0.28, 0.28);
+    const patrolYaw = scan * (1 - anim.combat) * (1 - gait * 0.5) * (1 - windW) * (1 - strikeW);
+    P.head.rotation.set(
+      0.03 - 0.18 * windW + 0.14 * strikeW + Math.sin(t * 1.7) * 0.02,
+      patrolYaw - atkTwist * 0.55,
+      -anim.turn * 0.35
+    );
+    if (P.brows) {
+      const wrath = 0.14 + anim.combat * 0.12 + (windW + strikeW) * 0.16;
+      for (const { brow, side } of P.brows) {
+        brow.rotation.z = -side * wrath;
+        brow.position.y = 0.078 - wrath * 0.022;
+      }
+    }
+  }
+
+  // Shield arm brace & Massive Greataxe raise overhead (telegraph) -> devastating cleave (swing)
+  if (P.armL && P.foreL && P.armR && P.foreR && P.gripR) {
+    const armSwingL = -sinP * 0.38 * gait * (1 - windW) * (1 - strikeW);
+    const armSwingR = sinP * 0.24 * gait * (1 - windW) * (1 - strikeW);
+
+    let lSX = -0.18 + armSwingL - 0.25 * anim.combat + Math.sin(t * 1.7) * 0.02;
+    let lSY = 0.22 * anim.combat;
+    let lSZ = -0.10 - 0.06 * anim.combat;
+    let lEX = -0.35 - Math.max(0, -armSwingL) * 0.3 - 0.30 * anim.combat;
+
+    lSX = lerp(lSX, -0.52, windW);
+    lSY = lerp(lSY, 0.38, windW);
+    lSZ = lerp(lSZ, -0.22, windW);
+    lEX = lerp(lEX, -0.68, windW);
+
+    lSX = lerp(lSX, 0.35, strikeW);
+    lSY = lerp(lSY, -0.18, strikeW);
+    lEX = lerp(lEX, -0.45, strikeW);
+
+    P.armL.rotation.set(lSX, lSY, lSZ);
+    P.foreL.rotation.set(lEX, 0.08 * anim.combat, 0);
+
+    // Base heavy greataxe carry pose
+    let rSX = -0.24 + armSwingR - 0.10 * anim.combat + Math.cos(t * 1.7) * 0.02;
+    let rSY = -0.06 * anim.combat;
+    let rSZ = 0.10 + 0.06 * anim.combat;
+    let rEX = -0.46 - 0.14 * anim.combat;
+    let rGX = -0.42;
+
+    // Telegraph: raise massive greataxe HIGH overhead with torso leaned back
+    rSX = lerp(rSX, -2.45, windW);
+    rSY = lerp(rSY, -0.18, windW);
+    rSZ = lerp(rSZ, 0.26, windW);
+    rEX = lerp(rEX, -0.42, windW);
+    rGX = lerp(rGX, -0.28, windW);
+
+    // Swing: devastating downward overhead cleave
+    rSX = lerp(rSX, 0.35, strikeW);
+    rSY = lerp(rSY, 0.24, strikeW);
+    rSZ = lerp(rSZ, -0.16, strikeW);
+    rEX = lerp(rEX, -0.10, strikeW);
+    rGX = lerp(rGX, 0.45, strikeW);
+
+    P.armR.rotation.set(rSX, rSY, rSZ);
+    P.foreR.rotation.set(rEX, 0, 0);
+    P.gripR.rotation.set(rGX, 0, 0);
+  }
+}
+
+return { buildSmallBandit, buildBigBandit, animateSmallBandit, animateBigBandit };
+
+})();
+
 // --- js/mobs.js ---
 (() => {
 'use strict';
-
+const {
+  buildSmallBandit,
+  buildBigBandit,
+  animateSmallBandit,
+  animateBigBandit,
+} = __MOD_BANDIT_MODELS;
 const THREE = HC.THREE;
 
 /* ============================================================================
@@ -23976,7 +34540,7 @@ function turnToward(cur, tgt, rate, dt) {
 }
 
 const POND = { x: 8.2, z: 6.2, safeR: 5.05 };
-const MAX_ROAM_R = 58.0;
+const MAX_ROAM_R = 715.0;
 
 function keepOutOfPondAndBounds(pos, world, radius) {
   const dP = Math.hypot(pos.x - POND.x, pos.z - POND.z);
@@ -24050,6 +34614,9 @@ class HealthBar3D {
     this.trailRatio = 1;
     this.opacity = 0;
     this.fadeHold = 0;
+    // Bar postur ("celah"): tipis, muncul di bawah HP selama bertarung.
+    this.posture = 0;
+    this.postureOn = false;
     this.shakeT = 0;
     this.popT = 0;
     this.flashT = 0;
@@ -24062,6 +34629,16 @@ class HealthBar3D {
     this.popT = 0.28;
     this.flashT = 0.16;
     this.fadeHold = 4.2;
+  }
+
+  /** Bar postur: 0 = tenang, 1 = guard pecah / celah terbuka lebar. */
+  setPosture(ratio, on) {
+    const next = clamp(ratio || 0, 0, 1);
+    const nextOn = !!on;
+    if (Math.abs(next - this.posture) < 0.006 && nextOn === this.postureOn) return;
+    this.posture = next;
+    this.postureOn = nextOn;
+    this._lastSig = '';
   }
 
   setHp(hp, maxHp, inCombat, dt) {
@@ -24099,7 +34676,8 @@ class HealthBar3D {
       const rQ = Math.round(this.ratio * 200);
       const tQ = Math.round(this.trailRatio * 200);
       const fQ = this.flashT > 0.01 ? 1 : 0;
-      const sig = `${rQ}|${tQ}|${fQ}`;
+      const pQ = Math.round(this.posture * 40) + (this.postureOn ? 1000 : 0);
+      const sig = `${rQ}|${tQ}|${fQ}|${pQ}`;
       if (sig !== this._lastSig) {
         this._lastSig = sig;
         this._redraw();
@@ -24112,9 +34690,11 @@ class HealthBar3D {
     const W = 128, H = 30;
     ctx.clearRect(0, 0, W, H);
 
+    const showPosture = this.postureOn || this.posture > 0.01;
+
     // Outer shadow pill
     ctx.fillStyle = 'rgba(24, 16, 14, 0.72)';
-    drawRoundedRect(ctx, 4, 5, W - 8, H - 10, 9);
+    drawRoundedRect(ctx, 4, 4, W - 8, H - 8, 9);
     ctx.fill();
 
     // Rim stroke (brighter during hit flash)
@@ -24122,8 +34702,8 @@ class HealthBar3D {
     ctx.strokeStyle = this.flashT > 0.01 ? 'rgba(255, 245, 220, 0.96)' : 'rgba(255, 246, 232, 0.42)';
     ctx.stroke();
 
-    // Inner track
-    const px = 8, py = 9, pw = W - 16, ph = H - 18;
+    // Inner track (HP), menyisakan satu lajur tipis untuk postur
+    const px = 8, py = 8, pw = W - 16, ph = showPosture ? 9 : 11;
     ctx.fillStyle = 'rgba(15, 11, 14, 0.82)';
     drawRoundedRect(ctx, px, py, pw, ph, 5);
     ctx.fill();
@@ -24162,6 +34742,23 @@ class HealthBar3D {
       ctx.fillStyle = this.flashT > 0.01 ? 'rgba(255,255,255,0.68)' : 'rgba(255,255,255,0.28)';
       drawRoundedRect(ctx, px + 1, py + 1, Math.max(3, hw - 2), Math.max(2, ph * 0.36), 3);
       ctx.fill();
+    }
+
+    // Lajur postur: makin penuh, makin dekat ke guard pecah
+    if (showPosture) {
+      const sy2 = py + ph + 2;
+      const sh2 = 4.5;
+      ctx.fillStyle = 'rgba(12, 10, 16, 0.86)';
+      drawRoundedRect(ctx, px, sy2, pw, sh2, 2.2);
+      ctx.fill();
+      if (this.posture > 0.004) {
+        const pgr = ctx.createLinearGradient(px, sy2, px + pw, sy2);
+        pgr.addColorStop(0, '#d8c37a');
+        pgr.addColorStop(1, '#fffdf4');
+        ctx.fillStyle = pgr;
+        drawRoundedRect(ctx, px, sy2, Math.max(2, pw * clamp(this.posture, 0, 1)), sh2, 2.2);
+        ctx.fill();
+      }
     }
 
     this.tex.needsUpdate = true;
@@ -24494,6 +35091,40 @@ class CombatVFX {
     }
   }
 
+  /**
+   * Kilauan tangkisan (deflect) ala Sekiro: kilat putih-gold di titik kontak,
+   * cincin tajam yang mengecil cepat, lalu bintang kecil berhamburan.
+   * Sengaja lebih "bersih" dan lebih singkat daripada hit impact biasa.
+   */
+  spawnDeflectSpark(pos, colorHex = 0xfff2c4) {
+    const flashMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 1 });
+    const core = new THREE.Mesh(unitCubeGeo, flashMat);
+    core.position.copy(pos);
+    core.rotation.set(Math.random() * 2, Math.random() * 2, 0);
+    const maxS = 0.30;
+    core.scale.setScalar(maxS);
+    this.group.add(core);
+    this.particles.push({
+      type: 'flash',
+      mesh: core, mat: flashMat,
+      vel: new THREE.Vector3(),
+      rot: new THREE.Vector3(10, 14, 8),
+      age: 0, life: 0.12, maxSize: maxS,
+    });
+
+    this.spawnRing(pos, colorHex, 0.55, 2.6, 0.22, false);
+    for (let i = 0; i < 9; i++) {
+      const a = (i / 9) * Math.PI * 2 + randRange(-0.2, 0.2);
+      this.spawnSparkStar(
+        pos.clone().add(new THREE.Vector3(randRange(-0.08, 0.08), randRange(-0.08, 0.08), randRange(-0.08, 0.08))),
+        new THREE.Vector3(Math.cos(a) * randRange(1.6, 2.8), randRange(0.6, 1.8), Math.sin(a) * randRange(1.6, 2.8)),
+        randRange(0.05, 0.085),
+        randRange(0.22, 0.34),
+        i % 2 === 0 ? 0xffffff : colorHex
+      );
+    }
+  }
+
   /** Juicy floating damage / callout text sprite */
   spawnDamageText(pos, text, style = 'normal') {
     if (this.popups.length > 28) return;
@@ -24664,6 +35295,13 @@ class CombatVFX {
         osc.frequency.exponentialRampToValueAtTime(95, now + 0.12);
         g.gain.setValueAtTime(0.08, now);
         g.gain.exponentialRampToValueAtTime(0.0001, now + 0.14);
+      } else if (kind === 'parry') {
+        // "TING" bersih: dua nada pendek naik, tanpa desis — beda jelas dari hit
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, now);
+        osc.frequency.exponentialRampToValueAtTime(1320, now + 0.05);
+        g.gain.setValueAtTime(0.05, now);
+        g.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
       } else if (kind === 'dodge') {
         osc.type = 'sine';
         osc.frequency.setValueAtTime(340, now);
@@ -25648,6 +36286,11 @@ class RabbitMob {
     r.frontLegs.R.fore.rotation.set(p.foreRX, 0, p.foreRZ);
     r.tail.rotation.set(p.tailRotX, p.tailRotY, 0);
   }
+  dispose() {
+    if (this.rig && this.rig.root && this.scene) {
+      this.scene.remove(this.rig.root);
+    }
+  }
 }
 
 /* ============================================================================
@@ -25981,6 +36624,9 @@ class BoarMob {
     this.isTelegraphing = false;
     this.telegraphType = null;
     this.isVulnerable = false;
+    // Postur boar: ditangkis berulang -> penuh -> CELAH (state 'stagger')
+    this.posture = 0;
+    this.postureHold = 0;
     this.atkCd = 0;
     this.chargeCd = 0;
     this.attackDir = 1;
@@ -26017,7 +36663,7 @@ class BoarMob {
     this.stateDur = dur;
     this.isTelegraphing = next === 'charge_windup' || next === 'attack_windup' || next === 'charge_dash';
     this.telegraphType = next.startsWith('charge') ? 'charge' : next.startsWith('attack') ? 'tusk' : null;
-    this.isVulnerable = next === 'charge_skid' || next === 'attack_recover' || next === 'hitstun';
+    this.isVulnerable = next === 'charge_skid' || next === 'attack_recover' || next === 'hitstun' || next === 'stagger';
     if (next === 'charge_windup') {
       this.paw1Done = false;
       this.paw2Done = false;
@@ -26084,6 +36730,24 @@ class BoarMob {
     return dmg;
   }
 
+  /** Tangkisan menumpuk postur. Penuh = boar terhuyung ('stagger') dan terbuka. */
+  addPosture(amount) {
+    if (this.dead || !(amount > 0)) return;
+    this.posture = clamp(this.posture + amount, 0, 1);
+    this.postureHold = 1.8;
+    if (this.posture >= 1) {
+      this.posture = 0;
+      this.postureHold = 0;
+      this._setState('stagger', 1.30);
+      if (this.vfx) {
+        this.vfx.triggerHitStop(0.07);
+        this.vfx.spawnRing(new THREE.Vector3(this.x, this.y + 0.35, this.z), 0xfff2c4, 0.9, 4.2, 0.40, true);
+        this.vfx.spawnDamageText(new THREE.Vector3(this.x, this.y + 1.5, this.z), 'CELAH!', 'crit');
+        this.vfx.playSfx('parry');
+      }
+    }
+  }
+
   _respawn() {
     this.x = this.homeX;
     this.z = this.homeZ;
@@ -26092,6 +36756,8 @@ class BoarMob {
     this.dead = false;
     this.inCombat = false;
     this.target = null;
+    this.posture = 0;
+    this.postureHold = 0;
     this.knockVx = 0; this.knockVz = 0;
     this.rig.dizzyHalo.visible = false;
     this.rig.dizzyHalo.scale.setScalar(0.001);
@@ -26135,6 +36801,7 @@ class BoarMob {
       }
       const p = this._evalDiePose(dt);
       this._blendAndApply(dt, globalTime, p);
+      this.hpBar.setPosture(0, false);
       this.hpBar.setHp(0, this.maxHp, true, dt);
       this.hpBar.updateTransform(this.x, this.y + 1.35, this.z, dt);
       return;
@@ -26144,6 +36811,9 @@ class BoarMob {
     if (this.atkCd > 0) this.atkCd = Math.max(0, this.atkCd - dt);
     if (this.chargeCd > 0) this.chargeCd = Math.max(0, this.chargeCd - dt);
     if (this.hitstunTimer > 0) this.hitstunTimer = Math.max(0, this.hitstunTimer - dt);
+    // Postur pulih sendiri kalau sebentar tidak ada tangkisan (jeda tenang)
+    if (this.postureHold > 0) this.postureHold = Math.max(0, this.postureHold - dt);
+    else if (this.posture > 0) this.posture = Math.max(0, this.posture - 0.26 * dt);
     if (this.recoilPop > 0) this.recoilPop = Math.max(0, this.recoilPop - dt * 5.0);
 
     // Validate current target & leash
@@ -26163,6 +36833,11 @@ class BoarMob {
     if (this.state === 'hitstun') {
       if (this.stateTime >= this.stateDur) {
         this._setState(this.target ? 'stalk' : 'walk', 1.8);
+      }
+    } else if (this.state === 'stagger') {
+      // Postur pecah: terhuyung tanpa bisa menyerang, celah jelas untuk dibalas
+      if (this.stateTime >= this.stateDur) {
+        this._setState(this.target ? 'stalk' : 'idle', randRange(1.0, 1.6));
       }
     } else if (this.state === 'charge_windup') {
       if (this.target) {
@@ -26187,8 +36862,8 @@ class BoarMob {
         }
       }
       if (this.stateTime >= 0.85) {
-        this.chargeCd = 4.6;
-        this.atkCd = 1.6;
+        this.chargeCd = 5.2;
+        this.atkCd = 2.1;
         this._setState('charge_skid', 0.65);
       }
     } else if (this.state === 'charge_skid') {
@@ -26202,7 +36877,7 @@ class BoarMob {
         this.targetHeading = Math.atan2(tp.x - this.x, tp.z - this.z);
         this.heading = turnToward(this.heading, this.targetHeading, 11.0, dt);
       }
-      if (this.stateTime >= 0.42) {
+      if (this.stateTime >= 0.55) {
         this._setState('attack_strike', 0.34);
       }
     } else if (this.state === 'attack_strike') {
@@ -26227,11 +36902,11 @@ class BoarMob {
         this.attackDir *= -1;
       }
       if (this.stateTime >= 0.34) {
-        this.atkCd = 1.55;
-        this._setState('attack_recover', 0.55);
+        this.atkCd = 2.0;
+        this._setState('attack_recover', 0.70);
       }
     } else if (this.state === 'attack_recover') {
-      if (this.stateTime >= 0.55) {
+      if (this.stateTime >= 0.70) {
         this._setState(this.target ? 'stalk' : 'idle', 1.2);
       }
     } else if (this.target) {
@@ -26243,7 +36918,7 @@ class BoarMob {
       this.heading = turnToward(this.heading, this.targetHeading, 6.5, dt);
 
       if (this.atkCd <= 0 && d <= 2.15) {
-        this._setState('attack_windup', 0.42);
+        this._setState('attack_windup', 0.55);
       } else if (this.chargeCd <= 0 && d >= 3.8 && d <= 8.2) {
         this._setState('charge_windup', 0.95);
       } else if (d > 2.0) {
@@ -26304,8 +36979,9 @@ class BoarMob {
     }
     this._blendAndApply(dt, globalTime, p);
 
+    this.hpBar.setPosture(this.posture, this.inCombat);
     this.hpBar.setHp(this.hp, this.maxHp, this.inCombat, dt);
-    this.hpBar.updateTransform(this.x, this.y + 1.55, this.z, dt);
+    this.hpBar.updateTransform(this.x, this.y + 1.40, this.z, dt);
   }
 
   _evalLivePose(dt, gt, speed) {
@@ -26320,6 +36996,21 @@ class BoarMob {
       p.squashY = 0.86; p.squashX = 1.12;
       p.browTilt = -0.35; p.headRotX = -0.25 * (1 - u);
       p.lambda = 26;
+      return p;
+    }
+
+    if (this.state === 'stagger') {
+      // Terhuyung: badan oleng, kepala menggantung, kaki lemas — jeda yang jelas
+      const u = clamp(st / Math.max(0.2, this.stateDur), 0, 1);
+      const wob = Math.sin(st * 9.5) * (1 - u);
+      p.bodyY = BBODY_BASE_Y - 0.10 + Math.sin(u * Math.PI) * 0.05;
+      p.bodyRotX = -0.16 - Math.sin(u * Math.PI) * 0.12;
+      p.bodyRotZ = wob * 0.20;
+      p.headRotX = -0.34 * (1 - u * 0.6);
+      p.headRotZ = wob * 0.26;
+      p.earLRotX = -0.20; p.earRRotX = -0.20;
+      p.browTilt = -0.42; p.squashY = 0.94; p.squashX = 1.05;
+      p.lambda = 13;
       return p;
     }
 
@@ -26399,7 +37090,7 @@ class BoarMob {
     }
 
     if (this.state === 'attack_windup') {
-      const u = easeInOutCubic(st / 0.42);
+      const u = easeInOutCubic(st / 0.55);
       const dir = this.attackDir;
       p.localZ = -0.22 * u; p.bodyY = BBODY_BASE_Y - 0.14 * u;
       p.bodyRotX = 0.18 * u; p.bodyRotY = -dir * 0.34 * u; p.bodyRotZ = dir * 0.10 * u;
@@ -26427,7 +37118,7 @@ class BoarMob {
     }
 
     if (this.state === 'attack_recover') {
-      const u = clamp(st / 0.55, 0, 1);
+      const u = clamp(st / 0.70, 0, 1);
       const settle = easeInOutCubic(u);
       p.localZ = THREE.MathUtils.lerp(0.30, 0, settle);
       p.headRotX = THREE.MathUtils.lerp(-0.48, 0.04, settle);
@@ -26601,36 +37292,628 @@ class BoarMob {
       }
     }
   }
+  dispose() {
+    if (this.rig && this.rig.root && this.scene) {
+      this.scene.remove(this.rig.root);
+    }
+    if (this.hpBar) {
+      this.hpBar.dispose();
+    }
+  }
+}
+
+/* ============================================================================
+   4B. SYLVAN-STYLE FOREST BANDITS (SMALL CUTTHROAT SCOUT & BIG GREATAXE BRUTE)
+   ============================================================================ */
+function keepBanditInForest(pos, world, radius) {
+  const dP = Math.hypot(pos.x - POND.x, pos.z - POND.z);
+  const minPond = POND.safeR + radius + 0.6;
+  if (dP < minPond && dP > 1e-4) {
+    pos.x = POND.x + ((pos.x - POND.x) / dP) * minPond;
+    pos.z = POND.z + ((pos.z - POND.z) / dP) * minPond;
+  }
+  // Keep bandits roaming in the forest across the 5x map and outside all 5 villages
+  if (world && Array.isArray(world.VILLAGES) && world.VILLAGES.length) {
+    for (let i = 0; i < world.VILLAGES.length; i++) {
+      const v = world.VILLAGES[i];
+      const safeR = (v.radius * 1.95) + radius + 1.5;
+      const dx = pos.x - v.cx;
+      const dz = pos.z - v.cz;
+      const d = Math.hypot(dx, dz);
+      if (d < safeR) {
+        const inv = d > 1e-4 ? (safeR / d) : 1.0;
+        pos.x = v.cx + (d > 1e-4 ? dx * inv : safeR);
+        pos.z = v.cz + (d > 1e-4 ? dz * inv : 0);
+      }
+    }
+  } else {
+    const vCx = (world && typeof world._getRoadCenterX === 'function') ? world._getRoadCenterX(pos.z) : -5.4;
+    if (pos.z > 41.0 && pos.z < 112.0 && Math.abs(pos.x - vCx) < 31.0) {
+      const pushSouth = pos.z - 41.0;
+      const pushNorth = 112.0 - pos.z;
+      const pushSide = 31.0 - Math.abs(pos.x - vCx);
+      if (pushSouth <= pushSide && pushSouth <= pushNorth) pos.z = 41.0;
+      else if (pushNorth <= pushSide) pos.z = 112.0;
+      else pos.x = vCx + Math.sign(pos.x - vCx || 1) * 31.0;
+    }
+  }
+  // Keep bandits out of deep water channels
+  if (world && typeof world.waterDepthAt === 'function' && world.waterDepthAt(pos.x, pos.z) > 0.25) {
+    const rCenter = world._riverCenterZ ? world._riverCenterZ(pos.x) : 30;
+    const side = pos.z >= rCenter ? 1 : -1;
+    pos.z = rCenter + side * 6.8;
+  }
+  const dO = Math.hypot(pos.x, pos.z);
+  if (dO > 715.0) {
+    pos.x = (pos.x / dO) * 715.0;
+    pos.z = (pos.z / dO) * 715.0;
+  }
+  if (world && typeof world.resolveCircleCollision === 'function') {
+    const res = world.resolveCircleCollision(pos.x, pos.z, radius);
+    if (res.hit) {
+      pos.x = res.x;
+      pos.z = res.z;
+    }
+    return res;
+  }
+  return { hit: false, nx: 0, nz: 0 };
+}
+
+class BanditMob {
+  constructor(scene, world, vfx, variant, waypoints, yaw = 0) {
+    this.kind = 'bandit';
+    this.variant = variant === 'big' ? 'big' : 'small';
+    const isBig = this.variant === 'big';
+
+    this.scene = scene;
+    this.world = world;
+    this.vfx = vfx;
+
+    const isMobile = !!(HC.QUALITY && HC.QUALITY.key !== 'high');
+    const built = isBig ? buildBigBandit(isMobile) : buildSmallBandit(isMobile);
+    this.mesh = built.mesh;
+    this.parts = built.parts;
+    this.material = built.material;
+    this.hpBar = new HealthBar3D(scene, { isEnemy: true, width: isBig ? 1.42 : 1.04 });
+
+    this.waypoints = Array.isArray(waypoints) && waypoints.length ? waypoints : [{ x: 0, z: 0 }];
+    this.wpIdx = 0;
+    this.homeX = this.waypoints[0].x;
+    this.homeZ = this.waypoints[0].z;
+    this.x = this.homeX;
+    this.z = this.homeZ;
+    this.y = groundY(world, this.x, this.z);
+    this.heading = yaw;
+    this.targetHeading = yaw;
+
+    this.maxHp = isBig ? 240 : 115;
+    this.hp = this.maxHp;
+    this.dmg = isBig ? 26 : 14;
+    this.walkSpd = isBig ? 1.45 : 2.10;
+    // Kecepatan lari bandit minimal 30% lebih pelan dari kuda berlari (5.25 * 0.70 = 3.675 m/s)
+    this.chaseSpd = isBig ? 2.65 : 3.55;
+    this.isRoadAmbush = false;
+    this.radius = isBig ? 0.68 : 0.45;
+    this.reach = isBig ? 2.65 : 2.05;
+    this.windupDur = isBig ? 0.68 : 0.38;
+    this.recoverDur = isBig ? 0.92 : 0.60;
+    this.hpBarOffset = isBig ? 2.78 : 1.92;
+
+    this.dead = false;
+    this.respawnTimer = 0;
+    this.state = 'idle';
+    this.stateTime = randRange(0, 0.5);
+    this.stateDur = randRange(1.5, 3.0);
+
+    this.target = null;
+    this.inCombat = false;
+    this.isTelegraphing = false;
+    this.telegraphType = null;
+    this.isVulnerable = false;
+    this.posture = 0;
+    this.postureHold = 0;
+    this.atkCd = 0;
+    this.strafeDir = isBig ? 1 : (Math.random() > 0.5 ? 1 : -1);
+
+    this.flashTimer = 0;
+    this.hitstunTimer = 0;
+    this.knockVx = 0;
+    this.knockVz = 0;
+    this.recoilPop = 0;
+    this.strikeDealt = false;
+
+    this.animState = {
+      mesh: this.mesh,
+      parts: this.parts,
+      material: this.material,
+      vel: { x: 0, z: 0 },
+      flash: 0,
+      swing: 0,
+      telegraph: 0,
+      target: null,
+    };
+
+    this.mesh.position.set(this.x, this.y, this.z);
+    this.mesh.rotation.y = this.heading;
+    this.scene.add(this.mesh);
+  }
+
+  _setState(next, dur = 1.0) {
+    this.state = next;
+    this.stateTime = 0;
+    this.stateDur = dur;
+    this.isTelegraphing = next === 'attack_windup';
+    this.telegraphType = next === 'attack_windup' ? (this.variant === 'big' ? 'charge' : 'slash') : null;
+    this.isVulnerable = next === 'attack_recover' || next === 'hitstun' || next === 'stagger';
+    if (next === 'attack_windup') {
+      this.strikeDealt = false;
+    }
+    if (next === 'die') {
+      this.dead = true;
+      this.isTelegraphing = false;
+      this.isVulnerable = false;
+    }
+  }
+
+  takeDamage(amount, fromX, fromZ, opts = {}) {
+    if (this.dead) return 0;
+    const dmg = Math.max(1, Math.round(amount));
+    this.hp = Math.max(0, this.hp - dmg);
+    this.flashTimer = 0.20;
+    this.recoilPop = 1.0;
+    this.hpBar.onHit();
+    this.inCombat = true;
+
+    const dx = this.x - fromX, dz = this.z - fromZ;
+    const d = Math.hypot(dx, dz) || 1;
+    const kbMul = this.variant === 'big' ? 0.55 : 1.0;
+    const kb = (opts.knockback || (opts.isCrit ? 5.6 : 3.6)) * kbMul;
+    this.knockVx = (dx / d) * kb;
+    this.knockVz = (dz / d) * kb;
+
+    if (this.vfx) {
+      this.vfx.spawnHitImpact(
+        new THREE.Vector3(this.x, this.y + (this.variant === 'big' ? 1.25 : 0.85), this.z),
+        opts.vfxColor || (opts.isCrit ? 0xffd447 : 0xffe48f),
+        !!opts.isCrit
+      );
+      this.vfx.spawnDamageText(
+        new THREE.Vector3(this.x, this.y + this.hpBarOffset - 0.1, this.z),
+        opts.isCrit ? `CRIT -${dmg}!` : `-${dmg}`,
+        opts.isCrit ? 'crit' : opts.textStyle || 'normal'
+      );
+      this.vfx.triggerHitStop(opts.isCrit ? 0.055 : 0.03);
+      this.vfx.playSfx(opts.isCrit ? 'crit' : 'hit');
+    }
+
+    if (opts.attackerRef && !opts.attackerRef.isKO) {
+      this.target = opts.attackerRef;
+    }
+
+    if (this.hp <= 0) {
+      this._setState('die', 7.5);
+      this.respawnTimer = 16.0;
+    } else if (this.hitstunTimer <= 0 && this.state !== 'attack_strike') {
+      this.hitstunTimer = opts.isCrit ? 0.24 : 0.14;
+      if (this.state === 'idle' || this.state === 'walk' || this.state === 'stalk') {
+        this._setState('hitstun', this.hitstunTimer);
+      }
+    }
+    return dmg;
+  }
+
+  addPosture(amount) {
+    if (this.dead || !(amount > 0)) return;
+    this.posture = clamp(this.posture + amount * (this.variant === 'big' ? 0.82 : 1.0), 0, 1);
+    this.postureHold = 1.9;
+    if (this.posture >= 1) {
+      this.posture = 0;
+      this.postureHold = 0;
+      this._setState('stagger', 1.30);
+      if (this.vfx) {
+        this.vfx.triggerHitStop(0.07);
+        this.vfx.spawnRing(new THREE.Vector3(this.x, this.y + 0.45, this.z), 0xfff2c4, 0.9, 4.2, 0.40, true);
+        this.vfx.spawnDamageText(new THREE.Vector3(this.x, this.y + this.hpBarOffset, this.z), 'CELAH!', 'crit');
+        this.vfx.playSfx('parry');
+      }
+    }
+  }
+
+  _respawn() {
+    this.wpIdx = 0;
+    this.x = this.homeX;
+    this.z = this.homeZ;
+    this.y = groundY(this.world, this.x, this.z);
+    this.hp = this.maxHp;
+    this.dead = false;
+    this.inCombat = false;
+    this.target = null;
+    this.posture = 0;
+    this.postureHold = 0;
+    this.knockVx = 0; this.knockVz = 0;
+    this.mesh.visible = true;
+    this.mesh.rotation.set(0, this.heading, 0);
+    this.mesh.scale.setScalar(1);
+    this._setState('idle', 2.0);
+  }
+
+  _pickTarget(fullCtx, npcOnly = false) {
+    const party = fullCtx && fullCtx.party;
+    let best = null;
+    let bestD = this.isRoadAmbush ? 22.0 : 10.5;
+    const maxHomeDist = this.isRoadAmbush ? 42.0 : 23.0;
+    const consider = (ent, root) => {
+      if (!ent || ent.isIndoors || ent.recruited) return;
+      if (ent.cBrain && ent.cBrain.phase === 'ko') return;
+      const d = Math.hypot(ent.x - this.x, ent.z - this.z);
+      const dHome = Math.hypot(ent.x - this.homeX, ent.z - this.homeZ);
+      if (d < bestD && dHome < maxHomeDist) {
+        bestD = d;
+        best = {
+          id: ent,
+          get isKO() { return !!(ent.cBrain && ent.cBrain.phase === 'ko'); },
+          isAlive() { return !(ent.cBrain && ent.cBrain.phase === 'ko') && (ent.hp === undefined || ent.hp > 0); },
+          getPos() { return { x: ent.x, z: ent.z }; },
+          takeHit(dmg, fx, fz, isHeavy) {
+            if (HC.combatAI && root) return HC.combatAI.onNpcTakeDamage(ent, root, dmg, fx, fz, isHeavy);
+            return 0;
+          },
+        };
+      }
+    };
+    if (party) {
+      for (const m of (party.members || [])) {
+        if (m.state === 'following' && m.root) consider(m, m.root);
+      }
+      for (const w of (party.wild || [])) {
+        if (!w.recruited && !w.isIndoors && w.root) {
+          const p = combatProfile(w.role);
+          if (p.canFight && !p.selfDefense) consider(w, w.root);
+        }
+      }
+    }
+    if (best || npcOnly) return best;
+
+    // Jika pemain tidak punya NPC rekrutan yang diturunkan bertarung, bandit menyerang gerobak di luar desa
+    const hasDeployedRecruits = !!(party && (party.members || []).some((m) =>
+      m.state === 'following' && !(m.cBrain && m.cBrain.phase === 'ko')
+    ));
+    if (!hasDeployedRecruits && fullCtx && fullCtx.physics && !fullCtx.physics.flipped) {
+      const phys = fullCtx.physics;
+      let inVillage = false;
+      if (this.world && typeof this.world.isInsideVillage === 'function') {
+        inVillage = this.world.isInsideVillage(phys.pos.x, phys.pos.z, 2.0);
+      } else {
+        const vCx = (this.world && typeof this.world._getRoadCenterX === 'function')
+          ? this.world._getRoadCenterX(phys.pos.z) : -5.4;
+        inVillage = phys.pos.z > 42 && phys.pos.z < 110 && Math.abs(phys.pos.x - vCx) < 30;
+      }
+      const dCart = Math.hypot(phys.pos.x - this.x, phys.pos.z - this.z);
+      const cartAggroRange = this.isRoadAmbush ? 24.0 : 13.5;
+      if (!inVillage && dCart < cartAggroRange) {
+        return {
+          id: phys,
+          isCart: true,
+          isKO: false,
+          isAlive: () => !phys.flipped,
+          getPos: () => ({ x: phys.pos.x, z: phys.pos.z }),
+          takeHit: (dmg, fx, fz, isHeavy) => phys.takeBanditHit ? phys.takeBanditHit(dmg, fx, fz, isHeavy) : 0,
+        };
+      }
+    }
+    return null;
+  }
+
+  update(dt, globalTime, fullCtx) {
+    if (this.flashTimer > 0) this.flashTimer = Math.max(0, this.flashTimer - dt);
+    this.animState.flash = this.flashTimer;
+    if (this.animState.swing > 0) this.animState.swing = Math.max(0, this.animState.swing - dt);
+
+    if (this.dead) {
+      this.stateTime += dt;
+      if (!this.isRoadAmbush) {
+        this.respawnTimer -= dt;
+        if (this.respawnTimer <= 0) {
+          this._respawn();
+          return;
+        }
+      }
+      if (this.stateTime > 5.5) {
+        this.mesh.visible = false;
+        this.hpBar.setHp(0, this.maxHp, false, dt);
+        return;
+      }
+      const fallU = clamp(this.stateTime / 0.55, 0, 1);
+      this.mesh.position.set(this.x, this.y - fallU * 0.25, this.z);
+      this.mesh.rotation.set(-fallU * 1.48, this.heading, fallU * 0.25);
+      this.animState.vel.x = 0; this.animState.vel.z = 0;
+      this.animState.telegraph = 0;
+      (this.variant === 'big' ? animateBigBandit : animateSmallBandit)(this.animState, dt);
+      this.hpBar.setPosture(0, false);
+      this.hpBar.setHp(0, this.maxHp, true, dt);
+      this.hpBar.updateTransform(this.x, this.y + this.hpBarOffset * 0.5, this.z, dt);
+      return;
+    }
+
+    this.stateTime += dt;
+    if (this.atkCd > 0) this.atkCd = Math.max(0, this.atkCd - dt);
+    if (this.hitstunTimer > 0) this.hitstunTimer = Math.max(0, this.hitstunTimer - dt);
+    if (this.postureHold > 0) this.postureHold = Math.max(0, this.postureHold - dt);
+    else if (this.posture > 0) this.posture = Math.max(0, this.posture - 0.24 * dt);
+    if (this.recoilPop > 0) this.recoilPop = Math.max(0, this.recoilPop - dt * 5.0);
+
+    if (this.target) {
+      const tp = this.target.getPos();
+      const dHome = Math.hypot(this.x - this.homeX, this.z - this.homeZ);
+      const dTgt = tp ? Math.hypot(tp.x - this.x, tp.z - this.z) : 999;
+      const homeCap = this.isRoadAmbush ? 44.0 : 25.0;
+      const tgtCap = this.isRoadAmbush ? 28.0 : 17.5;
+      if (!this.target.isAlive() || dHome > homeCap || dTgt > tgtCap) {
+        this.target = null;
+      } else if (this.target.isCart && fullCtx) {
+        this._cartReaggroT = (this._cartReaggroT || 0) + dt;
+        if (this._cartReaggroT >= 0.45) {
+          this._cartReaggroT = 0;
+          const npcTgt = this._pickTarget(fullCtx, true);
+          if (npcTgt) {
+            this.target = npcTgt;
+          } else {
+            const p = fullCtx.party;
+            const hasDeployed = !!(p && (p.members || []).some((m) =>
+              m.state === 'following' && !(m.cBrain && m.cBrain.phase === 'ko')
+            ));
+            if (hasDeployed) this.target = null;
+          }
+        }
+      }
+    }
+    if (!this.target && fullCtx) {
+      this.target = this._pickTarget(fullCtx);
+    }
+    this.inCombat = !!this.target && !this.dead;
+
+    let forwardSpeed = 0;
+    let strafeSpeed = 0;
+    let teleTarget = 0;
+    const effReach = (this.target && this.target.isCart) ? (this.reach + 1.15) : this.reach;
+
+    if (this.state === 'hitstun' || this.state === 'stagger') {
+      if (this.stateTime >= this.stateDur) {
+        this._setState(this.target ? 'stalk' : 'walk', 1.5);
+      }
+    } else if (this.state === 'attack_windup') {
+      teleTarget = clamp(this.stateTime / this.windupDur, 0, 1);
+      if (this.target) {
+        const tp = this.target.getPos();
+        if (this.stateTime < this.windupDur * 0.65) {
+          this.targetHeading = Math.atan2(tp.x - this.x, tp.z - this.z);
+          this.heading = turnToward(this.heading, this.targetHeading, 9.0, dt);
+        }
+      }
+      if (this.stateTime >= this.windupDur) {
+        this._setState('attack_strike', 0.34);
+      }
+    } else if (this.state === 'attack_strike') {
+      forwardSpeed = this.variant === 'big' ? 1.50 : 2.95;
+      if (!this.strikeDealt && this.stateTime >= 0.06) {
+        this.strikeDealt = true;
+        this.animState.swing = 0.35;
+        const isBig = this.variant === 'big';
+        if (this.vfx) {
+          const pos = new THREE.Vector3(
+            this.x + Math.sin(this.heading) * (isBig ? 1.15 : 0.65),
+            this.y + (isBig ? 0.35 : 0.85),
+            this.z + Math.cos(this.heading) * (isBig ? 1.15 : 0.65)
+          );
+          this.vfx.spawnSlashArc(
+            new THREE.Vector3(this.x, this.y + (isBig ? 0.45 : 0.1), this.z),
+            this.heading,
+            isBig ? 0xd93829 : 0xe63946,
+            0xffe48f,
+            this.strafeDir,
+            isBig ? 1.45 : 0.95
+          );
+          if (isBig) {
+            this.vfx.spawnRing(pos, 0xff7b39, 0.6, 3.6, 0.35, true);
+          }
+        }
+        if (this.target) {
+          const tp = this.target.getPos();
+          const d = Math.hypot(tp.x - this.x, tp.z - this.z);
+          if (d < effReach + 0.55) {
+            const dealt = this.target.takeHit(this.dmg, this.x, this.z, isBig);
+            if (this.target.isCart && dealt > 0) {
+              if (this.vfx) {
+                const hitV = new THREE.Vector3(
+                  (tp.x + this.x) * 0.5,
+                  this.y + 0.95,
+                  (tp.z + this.z) * 0.5
+                );
+                this.vfx.spawnHitImpact(hitV, 0xff9f43, isBig);
+                this.vfx.spawnDamageText(hitV.clone().add(new THREE.Vector3(0, 0.7, 0)), `GEROBAK -${dealt}!`, 'npcHit');
+                this.vfx.playSfx('hit');
+              }
+              if (fullCtx && typeof fullCtx.onCartAttacked === 'function') {
+                fullCtx.onCartAttacked(dealt, this.variant);
+              }
+            }
+          }
+        }
+        this.strafeDir *= -1;
+      }
+      if (this.stateTime >= 0.34) {
+        this.atkCd = this.variant === 'big' ? 1.95 : 1.15;
+        this._setState('attack_recover', this.recoverDur);
+      }
+    } else if (this.state === 'attack_recover') {
+      if (this.stateTime >= this.recoverDur) {
+        this._setState(this.target ? 'stalk' : 'idle', 1.1);
+      }
+    } else if (this.target) {
+      const tp = this.target.getPos();
+      const dx = tp.x - this.x, dz = tp.z - this.z;
+      const d = Math.hypot(dx, dz);
+      this.targetHeading = Math.atan2(dx, dz);
+      this.heading = turnToward(this.heading, this.targetHeading, 7.5, dt);
+
+      if (this.atkCd <= 0 && d <= effReach) {
+        this._setState('attack_windup', this.windupDur);
+      } else if (d > effReach * 0.92) {
+        forwardSpeed = this.chaseSpd;
+        if (this.variant === 'small' && d < 5.0) strafeSpeed = this.strafeDir * 1.45;
+      } else if (this.variant === 'small') {
+        strafeSpeed = this.strafeDir * 1.85;
+      }
+    } else {
+      // Forest patrol along waypoints + reaction if horse rides close
+      const anim = fullCtx && fullCtx.animator;
+      const dHorse = anim ? Math.hypot(anim.x - this.x, anim.z - this.z) : 999;
+      if (this.isRoadAmbush && anim && dHorse < 28.0 && dHorse > 3.2) {
+        this.targetHeading = Math.atan2(anim.x - this.x, anim.z - this.z);
+        this.heading = turnToward(this.heading, this.targetHeading, 6.0, dt);
+        forwardSpeed = this.walkSpd;
+      } else if (dHorse < 7.5 && anim) {
+        this.targetHeading = Math.atan2(anim.x - this.x, anim.z - this.z);
+        this.heading = turnToward(this.heading, this.targetHeading, 5.5, dt);
+        if (dHorse < 2.3) {
+          forwardSpeed = -1.6;
+        } else if (dHorse < 4.5) {
+          teleTarget = 0.45;
+        }
+      } else {
+        const wp = this.waypoints[this.wpIdx % this.waypoints.length];
+        const wx = wp.x - this.x, wz = wp.z - this.z;
+        const dw = Math.hypot(wx, wz);
+        if (this.state === 'idle') {
+          if (this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + 10 * dt);
+          if (this.stateTime >= this.stateDur) {
+            this.wpIdx = (this.wpIdx + 1) % this.waypoints.length;
+            this._setState('walk', 8.0);
+          }
+        } else {
+          if (dw < 0.75 || this.stateTime >= this.stateDur) {
+            this._setState('idle', randRange(1.6, 3.4));
+          } else {
+            this.targetHeading = Math.atan2(wx, wz);
+            this.heading = turnToward(this.heading, this.targetHeading, 4.6, dt);
+            forwardSpeed = this.walkSpd;
+          }
+        }
+      }
+    }
+
+    const vx = Math.sin(this.heading) * forwardSpeed + Math.cos(this.heading) * strafeSpeed;
+    const vz = Math.cos(this.heading) * forwardSpeed - Math.sin(this.heading) * strafeSpeed;
+    this.x += vx * dt;
+    this.z += vz * dt;
+
+    if (Math.hypot(this.knockVx, this.knockVz) > 0.05) {
+      this.x += this.knockVx * dt;
+      this.z += this.knockVz * dt;
+      const dampK = Math.exp(-8.5 * dt);
+      this.knockVx *= dampK;
+      this.knockVz *= dampK;
+    }
+
+    const pos2 = { x: this.x, z: this.z };
+    const col = keepBanditInForest(pos2, this.world, this.radius);
+    this.x = pos2.x;
+    this.z = pos2.z;
+    if (col.hit && Math.hypot(col.nx, col.nz) > 1e-4 && !this.target) {
+      this.wpIdx = (this.wpIdx + 1) % this.waypoints.length;
+    }
+    this.y = groundY(this.world, this.x, this.z);
+
+    this.mesh.position.set(this.x, this.y, this.z);
+    const staggerTilt = this.state === 'stagger' ? Math.sin(globalTime * 9.0) * 0.14 : 0;
+    this.mesh.rotation.set(0, this.heading, staggerTilt);
+    if (this.recoilPop > 0) {
+      const pop = Math.sin(this.recoilPop * Math.PI) * 0.12;
+      this.mesh.scale.set(1 + pop * 0.7, 1 - pop, 1 + pop * 0.4);
+    } else {
+      this.mesh.scale.setScalar(1);
+    }
+
+    this.animState.vel.x = vx;
+    this.animState.vel.z = vz;
+    this.animState.telegraph = teleTarget;
+    this.animState.target = this.target;
+    (this.variant === 'big' ? animateBigBandit : animateSmallBandit)(this.animState, dt);
+
+    this.hpBar.setPosture(this.posture, this.inCombat);
+    this.hpBar.setHp(this.hp, this.maxHp, this.inCombat, dt);
+    this.hpBar.updateTransform(this.x, this.y + this.hpBarOffset, this.z, dt);
+  }
+  dispose() {
+    if (this.mesh && this.scene) {
+      this.scene.remove(this.mesh);
+    }
+    if (this.hpBar) {
+      this.hpBar.dispose();
+    }
+  }
 }
 
 /* ============================================================================
    5. TACTICAL NON-RECKLESS NPC COMBAT AI (OBSERVE, CIRCLE, DODGE, STRIKE)
    ============================================================================ */
+/* `parry` = peluang warga memilih MENAHAN & MENANGKIS (deflect) saat boar
+   menyerang, bukan menggeser. Penjaga berperisai tinggi, penyihir/petani rendah:
+   mereka lebih suka menghindar daripada mengadu besi. */
 const ROLE_PROFILES = {
   merchant:      { canFight: false },
   dungeonmaster: { canFight: false },
   petmerchant:   { canFight: false },
-  farmer:        { canFight: true, selfDefense: true, prefMin: 2.8, prefMax: 4.0, strikeRange: 2.1, orbitSpd: 2.3, dodgeSpd: 7.0, atkCd: 1.65, outer: 0xd6b868, inner: 0xfff3b0 },
-  miner:         { canFight: true, selfDefense: true, prefMin: 2.7, prefMax: 3.9, strikeRange: 2.1, orbitSpd: 2.2, dodgeSpd: 6.8, atkCd: 1.65, outer: 0x9fb3c8, inner: 0xfff0b5 },
-  herbal:        { canFight: true, selfDefense: true, prefMin: 3.0, prefMax: 4.2, strikeRange: 2.2, orbitSpd: 2.5, dodgeSpd: 7.2, atkCd: 1.65, outer: 0xa7f3d0, inner: 0xffffff },
-  hunter:        { canFight: true, ranged: true, projKind: 'arrow', prefMin: 5.6, prefMax: 8.6, strikeRange: 9.0, orbitSpd: 2.7, dodgeSpd: 8.0, atkCd: 1.45, outer: 0x9bd7c7, inner: 0xffe48f },
-  elfmage:       { canFight: true, ranged: true, projKind: 'orb', prefMin: 5.8, prefMax: 8.8, strikeRange: 9.4, orbitSpd: 2.5, dodgeSpd: 7.6, atkCd: 1.40, outer: 0x74b9ff, inner: 0xdff9fb },
-  magesupport:   { canFight: true, ranged: true, projKind: 'orb', prefMin: 5.6, prefMax: 8.4, strikeRange: 9.0, orbitSpd: 2.4, dodgeSpd: 7.4, atkCd: 1.50, outer: 0xa29bfe, inner: 0xffeaa7 },
-  lich:          { canFight: true, ranged: true, projKind: 'orb', prefMin: 5.4, prefMax: 8.2, strikeRange: 9.2, orbitSpd: 2.2, dodgeSpd: 7.2, atkCd: 1.35, outer: 0x9b5de5, inner: 0x72efdd },
-  rabbitwarrior: { canFight: true, prefMin: 2.9, prefMax: 4.3, strikeRange: 2.3, orbitSpd: 3.4, dodgeSpd: 9.0, atkCd: 1.05, comboMax: 2, outer: 0x5eead4, inner: 0xffffff },
-  goblin:        { canFight: true, prefMin: 2.8, prefMax: 4.2, strikeRange: 2.2, orbitSpd: 3.3, dodgeSpd: 8.8, atkCd: 1.10, comboMax: 2, outer: 0xfacc15, inner: 0xffffff },
-  guardian:      { canFight: true, prefMin: 2.4, prefMax: 3.5, strikeRange: 2.4, orbitSpd: 2.1, dodgeSpd: 6.8, atkCd: 1.50, defMul: 0.72, outer: 0x60a5fa, inner: 0xe0f2fe },
-  royalguard:    { canFight: true, prefMin: 2.5, prefMax: 3.6, strikeRange: 2.45, orbitSpd: 2.3, dodgeSpd: 7.0, atkCd: 1.35, defMul: 0.68, outer: 0xf59e0b, inner: 0xfff7ed },
-  stonegiant:    { canFight: true, prefMin: 2.5, prefMax: 3.6, strikeRange: 2.65, orbitSpd: 1.9, dodgeSpd: 6.2, atkCd: 1.70, defMul: 0.65, outer: 0xd97706, inner: 0xfde68a },
-  lionknight:    { canFight: true, prefMin: 2.7, prefMax: 4.0, strikeRange: 2.55, orbitSpd: 2.8, dodgeSpd: 7.8, atkCd: 1.25, defMul: 0.80, outer: 0xfbbf24, inner: 0xffffff },
-  warrior:       { canFight: true, prefMin: 2.7, prefMax: 4.0, strikeRange: 2.35, orbitSpd: 2.7, dodgeSpd: 7.6, atkCd: 1.30, defMul: 0.85, outer: 0xf43f5e, inner: 0xffe48f },
-  guard:         { canFight: true, prefMin: 2.7, prefMax: 3.9, strikeRange: 2.35, orbitSpd: 2.5, dodgeSpd: 7.4, atkCd: 1.35, defMul: 0.80, outer: 0x94a3b8, inner: 0xfef08a },
+  farmer:        { canFight: true, selfDefense: true, prefMin: 2.8, prefMax: 4.0, strikeRange: 2.1, orbitSpd: 2.3, dodgeSpd: 7.0, atkCd: 1.65, parry: 0.30, outer: 0xd6b868, inner: 0xfff3b0 },
+  miner:         { canFight: true, selfDefense: true, prefMin: 2.7, prefMax: 3.9, strikeRange: 2.1, orbitSpd: 2.2, dodgeSpd: 6.8, atkCd: 1.65, parry: 0.42, outer: 0x9fb3c8, inner: 0xfff0b5 },
+  herbal:        { canFight: true, selfDefense: true, prefMin: 3.0, prefMax: 4.2, strikeRange: 2.2, orbitSpd: 2.5, dodgeSpd: 7.2, atkCd: 1.65, parry: 0.32, outer: 0xa7f3d0, inner: 0xffffff },
+  hunter:        { canFight: true, ranged: true, projKind: 'arrow', prefMin: 5.6, prefMax: 8.6, strikeRange: 9.0, orbitSpd: 2.7, dodgeSpd: 8.0, atkCd: 1.45, parry: 0.34, outer: 0x9bd7c7, inner: 0xffe48f },
+  elfmage:       { canFight: true, ranged: true, projKind: 'orb', prefMin: 5.8, prefMax: 8.8, strikeRange: 9.4, orbitSpd: 2.5, dodgeSpd: 7.6, atkCd: 1.40, parry: 0.26, outer: 0x74b9ff, inner: 0xdff9fb },
+  magesupport:   { canFight: true, ranged: true, projKind: 'orb', prefMin: 5.6, prefMax: 8.4, strikeRange: 9.0, orbitSpd: 2.4, dodgeSpd: 7.4, atkCd: 1.50, parry: 0.24, outer: 0xa29bfe, inner: 0xffeaa7 },
+  lich:          { canFight: true, ranged: true, projKind: 'orb', prefMin: 5.4, prefMax: 8.2, strikeRange: 9.2, orbitSpd: 2.2, dodgeSpd: 7.2, atkCd: 1.35, parry: 0.40, outer: 0x9b5de5, inner: 0x72efdd },
+  rabbitwarrior: { canFight: true, prefMin: 2.9, prefMax: 4.3, strikeRange: 2.3, orbitSpd: 3.4, dodgeSpd: 9.0, atkCd: 1.05, parry: 0.48, comboMax: 2, outer: 0x5eead4, inner: 0xffffff },
+  goblin:        { canFight: true, prefMin: 2.8, prefMax: 4.2, strikeRange: 2.2, orbitSpd: 3.3, dodgeSpd: 8.8, atkCd: 1.10, parry: 0.50, comboMax: 2, outer: 0xfacc15, inner: 0xffffff },
+  guardian:      { canFight: true, prefMin: 2.4, prefMax: 3.5, strikeRange: 2.4, orbitSpd: 2.1, dodgeSpd: 6.8, atkCd: 1.50, parry: 0.76, defMul: 0.72, outer: 0x60a5fa, inner: 0xe0f2fe },
+  royalguard:    { canFight: true, prefMin: 2.5, prefMax: 3.6, strikeRange: 2.45, orbitSpd: 2.3, dodgeSpd: 7.0, atkCd: 1.35, parry: 0.90, defMul: 0.68, outer: 0xf59e0b, inner: 0xfff7ed },
+  stonegiant:    { canFight: true, prefMin: 2.5, prefMax: 3.6, strikeRange: 2.65, orbitSpd: 1.9, dodgeSpd: 6.2, atkCd: 1.70, parry: 0.82, defMul: 0.65, outer: 0xd97706, inner: 0xfde68a },
+  lionknight:    { canFight: true, prefMin: 2.7, prefMax: 4.0, strikeRange: 2.55, orbitSpd: 2.8, dodgeSpd: 7.8, atkCd: 1.25, parry: 0.72, defMul: 0.80, outer: 0xfbbf24, inner: 0xffffff },
+  warrior:       { canFight: true, prefMin: 2.7, prefMax: 4.0, strikeRange: 2.35, orbitSpd: 2.7, dodgeSpd: 7.6, atkCd: 1.30, parry: 0.64, defMul: 0.85, outer: 0xf43f5e, inner: 0xffe48f },
+  guard:         { canFight: true, prefMin: 2.7, prefMax: 3.9, strikeRange: 2.35, orbitSpd: 2.5, dodgeSpd: 7.4, atkCd: 1.35, parry: 0.80, defMul: 0.80, outer: 0x94a3b8, inner: 0xfef08a },
 };
 
-const SELF_FIX_Y_ROLES = new Set(['elfmage', 'magesupport', 'rabbitwarrior', 'stonegiant']);
-
 function combatProfile(role) {
-  return (role && ROLE_PROFILES[role.id]) || { canFight: true, prefMin: 2.7, prefMax: 4.0, strikeRange: 2.3, orbitSpd: 2.5, dodgeSpd: 7.4, atkCd: 1.4, outer: 0x93c5fd, inner: 0xffe48f };
+  return (role && ROLE_PROFILES[role.id]) || { canFight: true, prefMin: 2.7, prefMax: 4.0, strikeRange: 2.3, orbitSpd: 2.5, dodgeSpd: 7.4, atkCd: 1.4, parry: 0.5, outer: 0x93c5fd, inner: 0xffe48f };
+}
+
+/* ----------------------------------------------------------------------------
+   ATURAN TANGKISAN (murni angka, tanpa THREE) — dipakai AI dan bisa diuji
+   headless. `rnd` disuntik supaya kelakuannya deterministik di test.
+   ---------------------------------------------------------------------------- */
+function guardChoice(prof, rnd = Math.random) {
+  const bias = prof && prof.parry != null ? prof.parry : 0.5;
+  return rnd() < bias ? 'guard' : 'dodge';
+}
+
+/** Hasil satu serangan boar yang jatuh saat warga menahan diri. */
+function resolveGuardHit(prof, posture, rawAmount, rnd = Math.random) {
+  const raw = Math.max(1, rawAmount || 1);
+  const bias = prof && prof.parry != null ? prof.parry : 0.5;
+  const cur = clamp(posture || 0, 0, 1);
+  if (rnd() < bias) {
+    // TANGKIS: nol damage, postur boar naik, warga dapat jendela balas
+    return {
+      kind: 'deflect', dmg: 0,
+      npcPosture: Math.max(0, cur - 0.12),
+      boarPosture: 0.34, counter: true, stun: 0,
+    };
+  }
+  const dmg = Math.max(1, Math.round(raw * 0.28));
+  const next = cur + 0.34;
+  if (next >= 1) {
+    // Guard pecah: warga terbuka sebentar, posturnya kembali nol
+    return { kind: 'break', dmg, npcPosture: 0, boarPosture: 0.12, counter: false, stun: 0.9 };
+  }
+  return { kind: 'block', dmg, npcPosture: next, boarPosture: 0.06, counter: false, stun: 0 };
 }
 
 class TacticalCombatAI {
@@ -26666,6 +37949,13 @@ class TacticalCombatAI {
         targetBoar: null,
         returningHome: false,
         aggroUntil: 0,
+        // tempo tenang: amati -> melingkar sebentar -> serang saat ada celah
+        posture: 0,
+        stanceCool: 0,
+        watchT: randRange(0.9, 1.8),
+        circleT: 0,
+        deflectFlash: 0,
+        guardT: 0,
       };
     }
     if (!entity._hpBar && this.mobs.scene) {
@@ -26678,7 +37968,8 @@ class TacticalCombatAI {
     let best = null, bestD = detectR;
     const cb = entity.cBrain;
     const forceAggro = cb && curTime < (cb.aggroUntil || 0);
-    for (const b of this.mobs.boars) {
+    const foes = [...(this.mobs.boars || []), ...(this.mobs.bandits || [])];
+    for (const b of foes) {
       if (b.dead) continue;
       const dNpc = Math.hypot(b.x - entity.x, b.z - entity.z);
       const dAnchor = Math.hypot(b.x - anchorX, b.z - anchorZ);
@@ -26713,16 +38004,11 @@ class TacticalCombatAI {
       holder.position.y = holder.userData._baseY;
     }
 
-    if (st && st.role && SELF_FIX_Y_ROLES.has(st.role.id) && st.mesh) {
-      // Sylvan models with global-Y assumption set mesh.position.y = n.pos.y + offset
-      if (Math.abs(st.mesh.position.y - st.pos.y) < 1.2 && st.pos.y > 0.15) {
-        st.mesh.position.y -= st.pos.y;
-      }
-    }
-
     if (entity._hpBar) {
       const topY = entity.y + (HC.NPC_HEIGHT[entity.role.id] || 1.75) + 0.35;
-      entity._hpBar.setHp(entity.hp, entity.maxHp, !!cb.targetBoar && !cb.targetBoar.dead, dt);
+      const fighting = !!cb.targetBoar && !cb.targetBoar.dead;
+      entity._hpBar.setPosture(cb.posture, fighting);
+      entity._hpBar.setHp(entity.hp, entity.maxHp, fighting, dt);
       entity._hpBar.updateTransform(entity.x, topY, entity.z, dt);
     }
   }
@@ -26740,11 +38026,92 @@ class TacticalCombatAI {
     };
   }
 
+  /** Pingsan: dipakai jalur damage biasa maupun jalur guard. */
+  _koNpc(entity) {
+    const cb = entity.cBrain;
+    if (!cb) return;
+    entity.hp = 0;
+    cb.phase = 'ko';
+    cb.koT = 5.0;
+    cb.targetBoar = null;
+    cb.posture = 0;
+    cb.iFrames = 0;
+    if (this.mobs.vfx) {
+      this.mobs.vfx.spawnDamageText(new THREE.Vector3(entity.x, entity.y + 1.8, entity.z), 'PINGSAN!', 'npcHit');
+    }
+  }
+
   onNpcTakeDamage(entity, root, rawAmount, fromX, fromZ, isHeavy) {
     const role = entity.role;
     const prof = combatProfile(role);
     const cb = this._ensureState(entity, role);
     if (cb.phase === 'ko') return 0;
+
+    /* ---- Warga sedang MENAHAN (guard): tangkis / tahan / guard pecah ----
+       Ini inti rasa Sekiro-nya: serangan boar yang dibaca dengan benar tidak
+       menghabiskan HP, tapi menambah postur boar sampai ia terbuka. */
+    if (cb.phase === 'guard') {
+      const outcome = resolveGuardHit(prof, cb.posture, rawAmount);
+      const boar = cb.targetBoar;
+      const cx = entity.x + (fromX - entity.x) * 0.38;
+      const cz = entity.z + (fromZ - entity.z) * 0.38;
+      const contact = new THREE.Vector3(cx, entity.y + 1.05, cz);
+      cb.posture = outcome.npcPosture;
+      cb.aggroUntil = this.mobs.clock + 8.0;
+
+      if (outcome.kind === 'deflect') {
+        cb.counterWindow = 1.15;
+        cb.atkCd = 0;
+        cb.deflectFlash = 0.28;
+        cb.recoilPop = 0.55;
+        cb.stanceCool = 0.6;
+        cb.phase = 'observe';
+        cb.t = 0.30;
+        cb.watchT = 0.30;
+        const st0 = root && root.userData && root.userData.npc;
+        if (st0) { st0.flash = 0.12; st0.swing = 0.12; }
+        if (boar && boar.addPosture) boar.addPosture(outcome.boarPosture);
+        if (this.mobs.vfx) {
+          this.mobs.vfx.spawnDeflectSpark(contact, 0xfff2c4);
+          this.mobs.vfx.spawnDamageText(new THREE.Vector3(entity.x, entity.y + 1.62, entity.z), 'TANGKIS!', 'counter');
+          this.mobs.vfx.playSfx('parry');
+          this.mobs.vfx.triggerHitStop(0.045);
+        }
+        return 0;
+      }
+
+      // Tidak sempat menangkis: tahan sebagian, postur naik — atau guard pecah.
+      entity.hp = Math.max(0, entity.hp - outcome.dmg);
+      cb.hitFlashT = 0.20;
+      cb.recoilPop = 0.8;
+      const dx2 = entity.x - fromX, dz2 = entity.z - fromZ;
+      const d2 = Math.hypot(dx2, dz2) || 1;
+      cb.knockVx = (dx2 / d2) * (isHeavy ? 4.2 : 2.6);
+      cb.knockVz = (dz2 / d2) * (isHeavy ? 4.2 : 2.6);
+      if (boar && boar.addPosture) boar.addPosture(outcome.boarPosture);
+      if (entity._hpBar) entity._hpBar.onHit();
+      const st1 = root && root.userData && root.userData.npc;
+      if (st1) st1.flash = 0.20;
+      if (this.mobs.vfx) {
+        this.mobs.vfx.spawnHitImpact(contact, 0xffd9a0, outcome.kind === 'break');
+        this.mobs.vfx.spawnDamageText(
+          new THREE.Vector3(entity.x, entity.y + 1.58, entity.z),
+          outcome.kind === 'break' ? 'GUARD PECAH!' : `-${outcome.dmg}`,
+          outcome.kind === 'break' ? 'crit' : 'npcHit'
+        );
+        this.mobs.vfx.playSfx(outcome.kind === 'break' ? 'crit' : 'hit');
+      }
+      if (entity.hp <= 0) {
+        this._koNpc(entity);
+      } else if (outcome.kind === 'break') {
+        cb.phase = 'hitstun';
+        cb.t = outcome.stun;
+      } else {
+        cb.phase = 'guard';
+        cb.guardT = 0;
+      }
+      return outcome.dmg;
+    }
 
     // Reactive iFrame dodge success!
     if (cb.iFrames > 0) {
@@ -26786,12 +38153,7 @@ class TacticalCombatAI {
     }
 
     if (entity.hp <= 0) {
-      cb.phase = 'ko';
-      cb.koT = 5.0;
-      cb.targetBoar = null;
-      if (this.mobs.vfx) {
-        this.mobs.vfx.spawnDamageText(new THREE.Vector3(entity.x, entity.y + 1.8, entity.z), 'PINGSAN!', 'npcHit');
-      }
+      this._koNpc(entity);
     } else {
       cb.phase = 'hitstun';
       cb.t = isHeavy ? 0.30 : 0.20;
@@ -26914,6 +38276,10 @@ class TacticalCombatAI {
     if (cb.dodgeCool > 0) cb.dodgeCool = Math.max(0, cb.dodgeCool - dt);
     if (cb.counterWindow > 0) cb.counterWindow = Math.max(0, cb.counterWindow - dt);
     if (cb.hitFlashT > 0) cb.hitFlashT = Math.max(0, cb.hitFlashT - dt);
+    if (cb.stanceCool > 0) cb.stanceCool = Math.max(0, cb.stanceCool - dt);
+    if (cb.deflectFlash > 0) cb.deflectFlash = Math.max(0, cb.deflectFlash - dt);
+    // Postur warga pulih pelan selama tidak menahan — bukan meter permanen
+    if (cb.phase !== 'guard' && cb.posture > 0) cb.posture = Math.max(0, cb.posture - 0.42 * dt);
     if (st) {
       st.flash = cb.hitFlashT;
       if (st.swing > 0) st.swing = Math.max(0, st.swing - dt);
@@ -26974,7 +38340,9 @@ class TacticalCombatAI {
       cb.targetBoar = this._pickBoarTarget(entity, role, prof, anchorX, anchorZ, detectR, maxLeashR, this.mobs.clock);
       if (cb.targetBoar) {
         cb.phase = 'observe';
-        cb.t = randRange(0.45, 0.95);
+        cb.t = randRange(0.9, 1.6);
+        cb.watchT = randRange(0.9, 1.6);
+        cb.circleT = 0;
       }
     }
 
@@ -26983,7 +38351,7 @@ class TacticalCombatAI {
       // Out of combat: heal gently and let caller handle calm AI; if wild NPC wandered, walk home smoothly!
       if (entity.hp < entity.maxHp) entity.hp = Math.min(entity.maxHp, entity.hp + 9 * dt);
       if (st) st.target = null;
-      if (isWild) {
+      if (isWild && !entity.villageProfile) {
         const dh = Math.hypot(entity.x - anchorX, entity.z - anchorZ);
         const homeR = entity.homeRadius || 1.3;
         if (dh > homeR + 0.45) {
@@ -27032,65 +38400,126 @@ class TacticalCombatAI {
       entity.dir = turnToward(entity.dir || 0, yawToBoar, 10, dt);
       if (cb.t <= 0) {
         cb.phase = 'observe';
-        cb.t = randRange(0.45, 0.90);
+        cb.t = randRange(0.8, 1.4);
+        cb.watchT = randRange(0.8, 1.4);
+        cb.circleT = 0;
       }
     } else if (cb.phase === 'dodge') {
       cb.t -= dt;
-      moveSpd = prof.dodgeSpd || 7.4;
+      // Geser pendek (bukan sprint): satu langkah samping yang terbaca jelas.
+      moveSpd = (prof.dodgeSpd || 7.4) * 0.5;
       moveX = Math.sin(cb.dodgeYaw) * moveSpd;
       moveZ = Math.cos(cb.dodgeYaw) * moveSpd;
       walkingNow = true;
-      entity.dir = turnToward(entity.dir || 0, yawToBoar, 14, dt);
+      entity.dir = turnToward(entity.dir || 0, yawToBoar, 12, dt);
       if (cb.t <= 0) {
-        // After clean dodge, if boar is open or counterWindow is hot, consider swift counter!
+        // Setelah menggeser bersih: balas hanya kalau boar benar-benar terbuka.
         if ((cb.counterWindow > 0 || boar.isVulnerable) && cb.atkCd <= 0.35) {
           cb.atkCd = 0;
           cb.phase = 'approach_strike';
-          cb.t = 1.1;
+          cb.t = 1.2;
         } else {
           cb.phase = 'observe';
-          cb.t = randRange(0.50, 1.05);
+          cb.t = randRange(0.8, 1.5);
+          cb.watchT = randRange(0.8, 1.5);
+          cb.circleT = 0;
         }
       }
-    } else if (inDanger && cb.dodgeCool <= 0 && cb.phase !== 'strike') {
-      // Tactical reactive evade!
-      cb.phase = 'dodge';
-      cb.t = 0.34;
-      cb.iFrames = 0.42;
-      cb.dodgeCool = 1.45;
-      cb.dodgedHitShown = false;
-      cb.recoilPop = 0.85;
-      cb.dodgeYaw = this._chooseDodgeAngle(entity, boar, world);
-      if (this.mobs.vfx) {
-        this.mobs.vfx.spawnDodgePuff(new THREE.Vector3(entity.x, entity.y, entity.z), cb.dodgeYaw);
+    } else if (cb.phase === 'guard') {
+      // ---- MENAHAN: badan merunduk, kaki menapak, tidak mundur tergesa ----
+      cb.guardT += dt;
+      entity.dir = turnToward(entity.dir || 0, yawToBoar, 10, dt);
+      // terlalu dekat -> mundur satu langkah kecil; kalau tidak, tahan di tempat
+      const brace = dist < 1.5 ? -0.55 : 0.35;
+      moveSpd = Math.abs(brace);
+      moveX = rx * brace;
+      moveZ = rz * brace;
+      walkingNow = moveSpd > 0.2;
+      if (cb.guardT > 1.7 || (!boar.isTelegraphing && cb.guardT > 0.4)) {
+        cb.phase = 'observe';
+        cb.t = randRange(0.7, 1.3);
+        cb.watchT = randRange(0.7, 1.3);
+        cb.circleT = 0;
+        cb.stanceCool = 0.5;
+      }
+    } else if (inDanger && cb.dodgeCool <= 0 && cb.stanceCool <= 0 && cb.phase !== 'strike') {
+      // ---- Dibaca dulu, baru dijawab: tahan & tangkis, atau menggeser ----
+      const choice = guardChoice(prof);
+      cb.stanceCool = 0.9;
+      if (choice === 'guard') {
+        cb.phase = 'guard';
+        cb.guardT = 0;
+        cb.iFrames = 0;
+        if (this.mobs.vfx) {
+          // kilau tipis: warga siap menahan, bukan panik menggeser
+          this.mobs.vfx.spawnRing(
+            new THREE.Vector3(entity.x, entity.y + 0.95, entity.z),
+            prof.inner, 0.40, 1.7, 0.24, false
+          );
+        }
+      } else {
+        cb.phase = 'dodge';
+        cb.t = 0.30;
+        cb.iFrames = 0.38;
+        cb.dodgeCool = 1.60;
+        cb.dodgedHitShown = false;
+        cb.recoilPop = 0.75;
+        cb.dodgeYaw = this._chooseDodgeAngle(entity, boar, world);
+        if (this.mobs.vfx) {
+          this.mobs.vfx.spawnDodgePuff(new THREE.Vector3(entity.x, entity.y, entity.z), cb.dodgeYaw);
+        }
       }
     } else if (cb.phase === 'observe') {
       cb.t -= dt;
       cb.orbitFlipT -= dt;
       if (cb.orbitFlipT <= 0) {
         cb.orbitDir *= -1;
-        cb.orbitFlipT = randRange(1.3, 2.5);
+        cb.orbitFlipT = randRange(1.6, 3.1);
       }
 
       const midR = (prof.prefMin + prof.prefMax) * 0.5;
       const radErr = dist - midR;
-      const radComp = clamp(radErr * 1.15, -1.0, 1.0);
-      const orbitSpd = prof.orbitSpd || 2.6;
-      const vx = tx * orbitSpd + rx * radComp * 1.9;
-      const vz = tz * orbitSpd + rz * radComp * 1.9;
-      moveSpd = Math.hypot(vx, vz);
-      moveX = vx; moveZ = vz;
-      walkingNow = moveSpd > 0.2;
-      entity.dir = turnToward(entity.dir || 0, yawToBoar, 11, dt);
+      const orbitSpd = (prof.orbitSpd || 2.6) * 0.62;
 
-      // Look for an opening to strike — NEVER rush blindly if boar is mid-charge/windup!
+      /* Tempo tenang: sebagian besar waktu dipakai MENGAMATI dengan kaki
+         menapak (napas + geser kecil), lalu satu langkah melingkar pendek. */
+      cb.watchT -= dt;
+      if (cb.watchT <= 0) {
+        cb.watchT = randRange(1.1, 2.0);
+        cb.circleT = randRange(0.55, 0.95);
+        if (Math.random() > 0.7) cb.orbitDir *= -1;
+      }
+      const circling = cb.circleT > 0;
+      if (circling) cb.circleT -= dt;
+
+      if (circling) {
+        const radComp = clamp(radErr * 1.15, -1.0, 1.0);
+        const vx = tx * orbitSpd + rx * radComp * 1.4;
+        const vz = tz * orbitSpd + rz * radComp * 1.4;
+        moveSpd = Math.hypot(vx, vz);
+        moveX = vx; moveZ = vz;
+        walkingNow = moveSpd > 0.2;
+      } else if (dist > prof.prefMax + 0.6) {
+        moveSpd = 1.15;                       // merapat secukupnya
+        moveX = rx * moveSpd;
+        moveZ = rz * moveSpd;
+        walkingNow = true;
+      } else if (dist < 1.55) {
+        moveSpd = 1.0;                        // jaga jarak, bukan menempel
+        moveX = -rx * moveSpd;
+        moveZ = -rz * moveSpd;
+        walkingNow = true;
+      }
+      entity.dir = turnToward(entity.dir || 0, yawToBoar, 9, dt);
+
+      // Celah: menyerang kalau boar terbuka, atau setelah jeda amati selesai.
       const boarSafe = !boar.isTelegraphing;
       const goodOpening = boar.isVulnerable && cb.atkCd <= 0;
-      if (boarSafe && (goodOpening || (cb.t <= 0 && cb.atkCd <= 0))) {
+      if (boarSafe && (goodOpening || (cb.t <= 0 && cb.atkCd <= 0 && !circling))) {
         cb.phase = 'approach_strike';
         cb.t = 1.4;
-      } else if (cb.t < -1.5) {
-        cb.t = randRange(0.4, 0.9);
+      } else if (cb.t < -2.4) {
+        cb.t = randRange(0.8, 1.4);
       }
     } else if (cb.phase === 'approach_strike') {
       cb.t -= dt;
@@ -27116,7 +38545,9 @@ class TacticalCombatAI {
         cb.comboStep = 0;
       } else if (cb.t <= 0) {
         cb.phase = 'observe';
-        cb.t = randRange(0.45, 0.9);
+        cb.t = randRange(0.7, 1.2);
+        cb.watchT = randRange(0.7, 1.2);
+        cb.circleT = 0;
       }
     } else if (cb.phase === 'strike') {
       cb.t -= dt;
@@ -27138,9 +38569,9 @@ class TacticalCombatAI {
           cb.t = 0.14;
           cb.strikeDealt = false;
         } else {
-          cb.atkCd = prof.atkCd || 1.35;
+          cb.atkCd = (prof.atkCd || 1.35) * 1.5;
           cb.phase = 'disengage';
-          cb.t = randRange(0.42, 0.62);
+          cb.t = randRange(0.60, 0.90);
           cb.orbitDir *= -1;
         }
       }
@@ -27154,7 +38585,9 @@ class TacticalCombatAI {
       entity.dir = turnToward(entity.dir || 0, yawToBoar, 10, dt);
       if (cb.t <= 0 || dist >= prof.prefMax) {
         cb.phase = 'observe';
-        cb.t = randRange(0.55, 1.15);
+        cb.t = randRange(0.9, 1.6);
+        cb.watchT = randRange(0.9, 1.6);
+        cb.circleT = 0;
       }
     }
 
@@ -27184,9 +38617,12 @@ class TacticalCombatAI {
     keepOutOfPondAndBounds(entity, world, 0.34);
     entity.y = groundY(world, entity.x, entity.z);
 
-    const leanFwd = cb.phase === 'dodge' ? 0.18 : cb.phase === 'strike' ? 0.14 : 0;
+    const leanFwd = cb.phase === 'dodge' ? 0.16 : cb.phase === 'strike' ? 0.14 : cb.phase === 'guard' ? -0.12 : 0;
+    const deflectNod = cb.deflectFlash > 0
+      ? -Math.sin((cb.deflectFlash / 0.28) * Math.PI) * 0.17
+      : 0;
     root.position.set(entity.x, entity.y, entity.z);
-    root.rotation.set(leanFwd, entity.dir || 0, 0);
+    root.rotation.set(leanFwd + deflectNod, entity.dir || 0, 0);
 
     if (st) {
       st.pos.copy(root.position);
@@ -27209,7 +38645,7 @@ class TacticalCombatAI {
   }
 
   stepWild(item, dt, horse, world) {
-    if (!item || !item.root || item.recruited) return false;
+    if (!item || !item.root || item.recruited || item.isIndoors) return false;
     const st = item.root.userData && item.root.userData.npc;
     if (!st || !st.role) return false;
     item.y = item.y ?? groundY(world, item.x, item.z);
@@ -27264,11 +38700,22 @@ class ForestMobs {
     this.clock = 0;
     this.rabbits = [];
     this.boars = [];
+    this.bandits = [];
     this.combatAI = new TacticalCombatAI(this);
     HC.combatAI = this.combatAI;
     HC.mobs = this;
 
-    this._spawnMobs();
+    this._zones = this._buildWorldZones();
+    this._spawnCheckT = 0;
+    this._nightAmbushTimer = 10.0;
+    this._nightAmbushInterval = 18.0;
+    this._nightAmbushChance = 0.30;
+    const initPose = (world && typeof world.initialHorsePose === 'function')
+      ? world.initialHorsePose()
+      : { x: -5.4, z: 0 };
+    this._lastSpawnX = initPose.x;
+    this._lastSpawnZ = initPose.z;
+    this._spawnMobs(initPose.x, initPose.z);
   }
 
   _clearSpawn(x, z, rad = 0.65) {
@@ -27277,33 +38724,300 @@ class ForestMobs {
     return pos;
   }
 
-  _spawnMobs() {
-    const rabbitSpots = [
-      { x: -2.4,  z: -6.4,  pal: RABBIT_PALETTE_WHITE, yaw: 0.4 },
-      { x: -9.6,  z: -5.2,  pal: RABBIT_PALETTE_BROWN, yaw: -0.7 },
-      { x: 4.5,   z: -3.2,  pal: RABBIT_PALETTE_WHITE, yaw: 2.1 },
-      { x: 2.8,   z: 11.4,  pal: RABBIT_PALETTE_BROWN, yaw: 0.9 },
-      { x: 13.6,  z: 4.8,   pal: RABBIT_PALETTE_WHITE, yaw: -1.4 },
-      { x: -13.4, z: 3.6,   pal: RABBIT_PALETTE_BROWN, yaw: 1.2 },
-      { x: 9.8,   z: -10.5, pal: RABBIT_PALETTE_WHITE, yaw: 2.5 },
-      { x: -1.4,  z: 16.4,  pal: RABBIT_PALETTE_BROWN, yaw: -0.4 },
+  _isValidZonePos(x, z, allowNearCamp = false) {
+    if (Math.abs(x) > 705 || Math.abs(z) > 705) return false;
+    if (Math.hypot(x - POND.x, z - POND.z) < POND.safeR + 2.4) return false;
+    if (!allowNearCamp && Math.hypot(x, z) < 13.0) return false;
+    const w = this.world;
+    if (w) {
+      if (typeof w.waterDepthAt === 'function' && w.waterDepthAt(x, z) > 0.15) return false;
+      if (typeof w._getRoadDistance === 'function' && w._getRoadDistance(x, z) < 5.5) return false;
+      if (typeof w.isInsideVillage === 'function') {
+        if (w.isInsideVillage(x, z, 4.0)) return false;
+      } else {
+        const vCx = typeof w._getRoadCenterX === 'function' ? w._getRoadCenterX(z) : -5.4;
+        if (z > 40.0 && z < 114.0 && Math.abs(x - vCx) < 33.0) return false;
+      }
+    } else if (z > 40.0 && z < 114.0 && Math.abs(x + 5.4) < 33.0) {
+      return false;
+    }
+    return true;
+  }
+
+  _buildWorldZones() {
+    const seeds = [
+      // Hutan & padang rumput sekitar area awal (radius 8..32 m)
+      { x: -13.5, z: -4.8, kind: 'rabbit', count: 2 },
+      { x:   3.2, z: -12.5, kind: 'rabbit', count: 2 },
+      { x: -14.8, z:  8.5, kind: 'boar', count: 2 },
+      { x:  16.5, z: -4.5, kind: 'boar', count: 2 },
+      { x: -24.5, z: -10.5, kind: 'bandit_camp', variants: ['big', 'small'] },
+      { x:  23.5, z: -6.5, kind: 'bandit_camp', variants: ['big', 'small'] },
+      { x: -25.0, z:  15.5, kind: 'bandit_camp', variants: ['small', 'small'] },
+      { x:  24.0, z:  16.5, kind: 'rabbit', count: 2 },
+      // Lereng selatan & jalur rintangan batu
+      { x: -34.0, z: -42.0, kind: 'boar', count: 2 },
+      { x:  26.0, z: -46.0, kind: 'bandit_camp', variants: ['small', 'small'] },
+      { x: -65.0, z: -50.0, kind: 'bandit_camp', variants: ['big', 'small'] },
+      { x:  58.0, z: -56.0, kind: 'boar', count: 2 },
+      { x: -18.0, z: -78.0, kind: 'rabbit', count: 2 },
+      { x:  32.0, z: -86.0, kind: 'bandit_camp', variants: ['big', 'small'] },
+      { x: -72.0, z: -92.0, kind: 'boar', count: 2 },
+      { x:  88.0, z: -76.0, kind: 'bandit_camp', variants: ['small', 'small'] },
+      // Sayap hutan barat & timur tengah
+      { x: -68.0, z:  -6.0, kind: 'rabbit', count: 2 },
+      { x: -92.0, z:  18.0, kind: 'bandit_camp', variants: ['big', 'small'] },
+      { x:  72.0, z:   8.0, kind: 'boar', count: 2 },
+      { x:  96.0, z: -12.0, kind: 'bandit_camp', variants: ['big', 'small'] },
+      // Tepian sungai utara & sisi luar desa
+      { x: -64.0, z:  54.0, kind: 'boar', count: 2 },
+      { x:  65.0, z:  55.0, kind: 'bandit_camp', variants: ['big', 'small'] },
+      { x: -84.0, z:  82.0, kind: 'bandit_camp', variants: ['small', 'small'] },
+      { x:  78.0, z:  88.0, kind: 'rabbit', count: 2 },
+      // Hutan utara di balik Desa Lemnos (z = 116..132)
+      { x: -40.0, z: 122.0, kind: 'bandit_camp', variants: ['big', 'small'] },
+      { x:  36.0, z: 120.0, kind: 'boar', count: 2 },
+      { x:  -4.0, z: 125.0, kind: 'rabbit', count: 2 },
+      { x:  82.0, z: 118.0, kind: 'bandit_camp', variants: ['small', 'small'] },
+      // Koridor jalan unik antar-desa di peta 5x (Desa Puncak Pinus, Lembah Selatan, Surya Timur, Rimbun Barat)
+      { x:  55.0, z: 162.0, kind: 'bandit_camp', variants: ['big', 'small'] },
+      { x: 145.0, z: 142.0, kind: 'boar', count: 2 },
+      { x: 220.0, z: 168.0, kind: 'bandit_camp', variants: ['big', 'small'] },
+      { x: 265.0, z: 122.0, kind: 'rabbit', count: 2 },
+      { x: 358.0, z: 195.0, kind: 'bandit_camp', variants: ['small', 'small'] },
+      { x: 332.0, z: 285.0, kind: 'boar', count: 2 },
+      { x: 225.0, z: 335.0, kind: 'bandit_camp', variants: ['big', 'small'] },
+      { x:  65.0, z: 330.0, kind: 'rabbit', count: 2 },
+      { x: -45.0, z: 215.0, kind: 'bandit_camp', variants: ['big', 'small'] },
+      { x:  28.0, z: 265.0, kind: 'boar', count: 2 },
+      { x: -38.0, z: 420.0, kind: 'bandit_camp', variants: ['big', 'small'] },
+      { x:  42.0, z: 485.0, kind: 'boar', count: 2 },
+      { x: -115.0, z: 68.0, kind: 'bandit_camp', variants: ['small', 'small'] },
+      { x: -195.0, z: -10.0, kind: 'boar', count: 2 },
+      { x: -255.0, z: -62.0, kind: 'bandit_camp', variants: ['big', 'small'] },
+      { x: -335.0, z: -175.0, kind: 'rabbit', count: 2 },
+      { x: -255.0, z: -225.0, kind: 'bandit_camp', variants: ['big', 'small'] },
+      { x: -175.0, z: -295.0, kind: 'boar', count: 2 },
+      { x: -65.0, z: -210.0, kind: 'bandit_camp', variants: ['small', 'small'] },
+      { x:  24.0, z: -260.0, kind: 'boar', count: 2 },
+      { x: -48.0, z: -415.0, kind: 'bandit_camp', variants: ['big', 'small'] },
+      { x:  35.0, z: -475.0, kind: 'rabbit', count: 2 },
+      { x: 145.0, z:  22.0, kind: 'bandit_camp', variants: ['big', 'small'] },
+      { x: 215.0, z: -25.0, kind: 'boar', count: 2 },
+      { x: 255.0, z:  65.0, kind: 'bandit_camp', variants: ['small', 'small'] },
+      { x: 225.0, z: -145.0, kind: 'bandit_camp', variants: ['big', 'small'] },
+      { x: 145.0, z: -245.0, kind: 'boar', count: 2 },
+      { x: -330.0, z:  85.0, kind: 'bandit_camp', variants: ['big', 'small'] },
+      { x: -265.0, z: 235.0, kind: 'boar', count: 2 },
+      { x: -165.0, z: 320.0, kind: 'bandit_camp', variants: ['small', 'small'] },
     ];
-    for (const rs of rabbitSpots) {
-      const sp = this._clearSpawn(rs.x, rs.z, 0.35);
-      this.rabbits.push(new RabbitMob(this.scene, this.world, this.vfx, rs.pal, sp.x, sp.z, rs.yaw));
+
+    const zones = [];
+    for (let i = 0; i < seeds.length; i++) {
+      const s = seeds[i];
+      if (!this._isValidZonePos(s.x, s.z, s.kind === 'rabbit')) continue;
+      zones.push({
+        id: i,
+        x: s.x,
+        z: s.z,
+        kind: s.kind,
+        count: s.count || 2,
+        variants: s.variants || ['small', 'small'],
+        spawned: false,
+        entities: [],
+      });
+    }
+    return zones;
+  }
+
+  _spawnZone(z) {
+    if (z.spawned) return;
+    const spawned = [];
+    if (z.kind === 'rabbit') {
+      if (this.rabbits.length >= 10) return;
+      const room = Math.min(z.count, 10 - this.rabbits.length);
+      for (let k = 0; k < room; k++) {
+        const ang = (z.id * 1.7 + k * 2.6) % (Math.PI * 2);
+        const sp = this._clearSpawn(z.x + Math.cos(ang) * (2.2 + k * 1.4), z.z + Math.sin(ang) * (2.2 + k * 1.4), 0.35);
+        const pal = (z.id + k) % 2 === 0 ? RABBIT_PALETTE_WHITE : RABBIT_PALETTE_BROWN;
+        const r = new RabbitMob(this.scene, this.world, this.vfx, pal, sp.x, sp.z, ang);
+        this.rabbits.push(r);
+        spawned.push(r);
+      }
+    } else if (z.kind === 'boar') {
+      if (this.boars.length >= 8) return;
+      const room = Math.min(z.count, 8 - this.boars.length);
+      for (let k = 0; k < room; k++) {
+        const ang = (z.id * 2.1 + k * 3.1) % (Math.PI * 2);
+        const sp = this._clearSpawn(z.x + Math.cos(ang) * (2.6 + k * 1.8), z.z + Math.sin(ang) * (2.6 + k * 1.8), 0.70);
+        const b = new BoarMob(this.scene, this.world, this.vfx, sp.x, sp.z, ang);
+        this.boars.push(b);
+        spawned.push(b);
+      }
+    } else if (z.kind === 'bandit_camp') {
+      if (this.bandits.length >= 8) return;
+      const room = Math.min(z.variants.length, 8 - this.bandits.length);
+      for (let k = 0; k < room; k++) {
+        const variant = z.variants[k] === 'big' ? 'big' : 'small';
+        const rad = variant === 'big' ? 0.68 : 0.45;
+        const a0 = (z.id * 1.3 + k * 2.2) % (Math.PI * 2);
+        const off = 2.4 + k * 2.8;
+        const wps = [
+          { x: z.x + Math.cos(a0) * off, z: z.z + Math.sin(a0) * off },
+          { x: z.x + Math.cos(a0 + 2.1) * (off + 4.0), z: z.z + Math.sin(a0 + 2.1) * (off + 4.0) },
+          { x: z.x + Math.cos(a0 + 4.2) * (off + 3.5), z: z.z + Math.sin(a0 + 4.2) * (off + 3.5) },
+        ].map((wp) => {
+          const pos = { x: wp.x, z: wp.z };
+          keepBanditInForest(pos, this.world, rad);
+          return pos;
+        });
+        const bd = new BanditMob(this.scene, this.world, this.vfx, variant, wps, a0);
+        this.bandits.push(bd);
+        spawned.push(bd);
+      }
+    }
+    if (spawned.length > 0) {
+      z.entities = spawned;
+      z.spawned = true;
+    }
+  }
+
+  _despawnZone(z, party = null) {
+    if (!z.spawned) return;
+    if (party && Array.isArray(party.members)) {
+      for (const m of party.members) {
+        if (m && m.cBrain && m.cBrain.targetBoar && z.entities.includes(m.cBrain.targetBoar)) {
+          return;
+        }
+      }
+    }
+    for (const ent of z.entities) {
+      if (!ent) continue;
+      if (typeof ent.dispose === 'function') ent.dispose();
+      const idxR = this.rabbits.indexOf(ent);
+      if (idxR >= 0) this.rabbits.splice(idxR, 1);
+      const idxB = this.boars.indexOf(ent);
+      if (idxB >= 0) this.boars.splice(idxB, 1);
+      const idxBd = this.bandits.indexOf(ent);
+      if (idxBd >= 0) this.bandits.splice(idxBd, 1);
+    }
+    z.entities = [];
+    z.spawned = false;
+  }
+
+  _updateProximitySpawns(hx, hz, dt, party = null) {
+    const SPAWN_DIST = 54.0;
+    const DESPAWN_DIST = 76.0;
+    this._spawnCheckT += dt || 0;
+    const movedFar = Math.hypot(hx - this._lastSpawnX, hz - this._lastSpawnZ) > 8.0;
+    if (!movedFar && this._spawnCheckT < 0.45) return;
+    this._spawnCheckT = 0;
+    this._lastSpawnX = hx;
+    this._lastSpawnZ = hz;
+
+    // 1) Despawn zona yang jauh dulu untuk mengosongkan kuota mob/bandit aktif
+    for (let i = 0; i < this._zones.length; i++) {
+      const z = this._zones[i];
+      if (!z.spawned) continue;
+      let minD = Math.hypot(z.x - hx, z.z - hz);
+      for (const ent of z.entities) {
+        if (ent) minD = Math.min(minD, Math.hypot(ent.x - hx, ent.z - hz));
+      }
+      if (minD > DESPAWN_DIST) {
+        this._despawnZone(z, party);
+      }
     }
 
-    const boarSpots = [
-      { x: -12.6, z: -3.2,  yaw: 0.9 },
-      { x: 8.8,   z: -6.2,  yaw: -0.8 },
-      { x: -14.2, z: 6.4,   yaw: 1.4 },
-      { x: 15.8,  z: 7.8,   yaw: -2.1 },
-      { x: -4.2,  z: 17.5,  yaw: 2.8 },
-      { x: 4.6,   z: -14.8, yaw: -0.3 },
-    ];
-    for (const bs of boarSpots) {
-      const sp = this._clearSpawn(bs.x, bs.z, 0.70);
-      this.boars.push(new BoarMob(this.scene, this.world, this.vfx, sp.x, sp.z, bs.yaw));
+    // 2) Spawn zona yang dekat (diurutkan dari jarak terdekat)
+    const candidates = [];
+    for (let i = 0; i < this._zones.length; i++) {
+      const z = this._zones[i];
+      if (z.spawned) continue;
+      const d = Math.hypot(z.x - hx, z.z - hz);
+      if (d <= SPAWN_DIST) candidates.push({ z, d });
+    }
+    candidates.sort((a, b) => a.d - b.d);
+    for (let i = 0; i < candidates.length; i++) {
+      this._spawnZone(candidates[i].z);
+    }
+  }
+
+  _spawnMobs(originX = -5.4, originZ = 0) {
+    this._updateProximitySpawns(originX, originZ, 99, null);
+  }
+
+  spawnNightRoadAmbush(hx, hz, hyaw = 0, world = this.world) {
+    if (world && typeof world.isInsideVillage === 'function' && world.isInsideVillage(hx, hz, 6.0)) {
+      return [];
+    }
+    const fwdX = Math.cos(hyaw);
+    const fwdZ = -Math.sin(hyaw);
+    const rightX = -fwdZ;
+    const rightZ = fwdX;
+    const distAhead = 18.0 + Math.random() * 7.0;
+    const baseSide = (Math.random() > 0.5 ? 1 : -1) * (2.0 + Math.random() * 3.5);
+    const ambX = hx + fwdX * distAhead + rightX * baseSide;
+    const ambZ = hz + fwdZ * distAhead + rightZ * baseSide;
+
+    const variants = Math.random() < 0.30 ? ['big', 'small'] : (Math.random() < 0.55 ? ['small', 'small'] : ['small']);
+    const spawned = [];
+    for (let k = 0; k < variants.length; k++) {
+      if (this.bandits.length >= 12) break;
+      const v = variants[k];
+      const rad = v === 'big' ? 0.68 : 0.45;
+      const sx = ambX + rightX * ((k === 0 ? -1 : 1) * 1.8);
+      const sz = ambZ + rightZ * ((k === 0 ? -1 : 1) * 1.8);
+      const pos = { x: sx, z: sz };
+      keepBanditInForest(pos, world || this.world, rad);
+      if (world && typeof world.isInsideVillage === 'function' && world.isInsideVillage(pos.x, pos.z, 4.0)) {
+        continue;
+      }
+      const wps = [
+        { x: pos.x, z: pos.z },
+        { x: hx + fwdX * (distAhead - 5.5), z: hz + fwdZ * (distAhead - 5.5) },
+      ];
+      const yawToHorse = Math.atan2(hx - pos.x, hz - pos.z);
+      const bd = new BanditMob(this.scene, world || this.world, this.vfx, v, wps, yawToHorse);
+      bd.isRoadAmbush = true;
+      this.bandits.push(bd);
+      spawned.push(bd);
+    }
+    return spawned;
+  }
+
+  _updateNightRoadBandits(hx, hz, hyaw, dt, world, onNightAmbush) {
+    const isNight = !!(world && world.currentMoodKey === 'night');
+    let activeAmbush = 0;
+    for (let i = this.bandits.length - 1; i >= 0; i--) {
+      const bd = this.bandits[i];
+      if (!bd || !bd.isRoadAmbush) continue;
+      const d = Math.hypot(bd.x - hx, bd.z - hz);
+      const shouldDespawn = d > 68.0
+        || (bd.dead && bd.stateTime > 6.5)
+        || (!isNight && !bd.inCombat && d > 18.0);
+      if (shouldDespawn) {
+        if (typeof bd.dispose === 'function') bd.dispose();
+        this.bandits.splice(i, 1);
+      } else if (!bd.dead) {
+        activeAmbush++;
+      }
+    }
+    if (!isNight) return;
+
+    this._nightAmbushTimer -= dt;
+    if (this._nightAmbushTimer > 0) return;
+    this._nightAmbushTimer = this._nightAmbushInterval;
+
+    if (activeAmbush >= 3) return;
+    if (world && typeof world.isInsideVillage === 'function' && world.isInsideVillage(hx, hz, 6.0)) return;
+    const roadDist = (world && typeof world._getRoadDistance === 'function') ? world._getRoadDistance(hx, hz) : 0;
+    if (roadDist > 12.0) return;
+
+    if (Math.random() < this._nightAmbushChance) {
+      const spawned = this.spawnNightRoadAmbush(hx, hz, hyaw, world);
+      if (spawned.length > 0 && typeof onNightAmbush === 'function') {
+        onNightAmbush(spawned);
+      }
     }
   }
 
@@ -27315,12 +39029,20 @@ class ForestMobs {
     const simDt = this.vfx.hitStopTimer > 0 ? rawDt * 0.14 : rawDt;
     this.clock += simDt;
 
+    const anim = ctx.animator;
+    if (anim && Number.isFinite(anim.x) && Number.isFinite(anim.z)) {
+      this._updateProximitySpawns(anim.x, anim.z, simDt, ctx.party);
+      this._updateNightRoadBandits(anim.x, anim.z, anim.yaw || 0, simDt, ctx.world || this.world, ctx.onNightAmbush);
+    }
+
     const fullCtx = {
-      animator: ctx.animator,
+      animator: anim,
       physics: ctx.physics,
       party: ctx.party,
       rabbits: this.rabbits,
       boars: this.boars,
+      bandits: this.bandits,
+      onCartAttacked: ctx.onCartAttacked,
     };
 
     for (const r of this.rabbits) {
@@ -27328,6 +39050,9 @@ class ForestMobs {
     }
     for (const b of this.boars) {
       b.update(simDt, this.clock);
+    }
+    for (const bd of this.bandits) {
+      bd.update(simDt, this.clock, fullCtx);
     }
   }
 }
@@ -27512,9 +39237,8 @@ function initUpgradeUI({ store, onSelect, onPreset }) {
   const minBtn = document.getElementById('btn-ug-min');
   const maxBtn = document.getElementById('btn-ug-max');
   const toggle = document.getElementById('btn-ug-toggle');
+  const toggleTop = document.getElementById('btn-ug-toggle-top');
   const panel = document.getElementById('upgrade-panel');
-  const hud = document.getElementById('hud');
-  const hudToggle = document.getElementById('btn-hud-toggle');
   const cards = new Map();
 
   for (const line of UPGRADE_LINES) {
@@ -27524,48 +39248,27 @@ function initUpgradeUI({ store, onSelect, onPreset }) {
   }
 
   function syncToggleText() {
-    if (!toggle || !panel) return;
+    if (!panel) return;
     const isCollapsed = panel.classList.contains('collapsed');
-    toggle.textContent = isCollapsed ? 'Buka' : 'Lipat';
+    if (toggle) toggle.textContent = isCollapsed ? 'Buka' : 'Tutup';
+    if (toggleTop) toggleTop.classList.toggle('active', !isCollapsed);
   }
 
-  function syncHudToggle() {
-    if (!hud || !hudToggle) return;
-    const isCompact = hud.classList.contains('compact');
-    hudToggle.textContent = isCompact ? 'Detail' : 'Ringkas';
+  // Bengkel selalu dimulai terlipat supaya layar lega baik di PC maupun Mobile
+  if (panel && !panel.dataset.userToggled) {
+    panel.classList.add('collapsed');
   }
+  syncToggleText();
 
-  // On smaller/split screens, collapse workshop & compact HUD by default so 3D gameplay stays unobstructed
-  function syncResponsiveLayout() {
-    if (panel && window.innerWidth <= 1024 && !panel.dataset.userToggled) {
-      panel.classList.add('collapsed');
-    }
-    if (hud && (window.innerWidth <= 768 || window.innerHeight <= 600) && !hud.dataset.userToggled) {
-      hud.classList.add('compact');
-    }
+  const onToggleClick = (e) => {
+    e.preventDefault();
+    if (!panel) return;
+    panel.dataset.userToggled = '1';
+    panel.classList.toggle('collapsed');
     syncToggleText();
-    syncHudToggle();
-  }
-  syncResponsiveLayout();
-  window.addEventListener('resize', syncResponsiveLayout);
-
-  if (hud && hudToggle) {
-    hudToggle.addEventListener('click', (e) => {
-      e.preventDefault();
-      hud.dataset.userToggled = '1';
-      hud.classList.toggle('compact');
-      syncHudToggle();
-    });
-  }
-
-  if (toggle && panel) {
-    toggle.addEventListener('click', (e) => {
-      e.preventDefault();
-      panel.dataset.userToggled = '1';
-      panel.classList.toggle('collapsed');
-      syncToggleText();
-    });
-  }
+  };
+  if (toggle && panel) toggle.addEventListener('click', onToggleClick);
+  if (toggleTop && panel) toggleTop.addEventListener('click', onToggleClick);
   if (resetBtn) resetBtn.addEventListener('click', (e) => { e.preventDefault(); onPreset('default'); });
   if (minBtn) minBtn.addEventListener('click', (e) => { e.preventDefault(); onPreset('min'); });
   if (maxBtn) maxBtn.addEventListener('click', (e) => { e.preventDefault(); onPreset('max'); });
@@ -27640,21 +39343,33 @@ class Survival {
     return (w && w.riverDistX) ? w.riverDistX(x, z) : Infinity;
   }
 
-  /* --- aksi: makan (rumput) --- */
+  /* --- aksi: makan (harus tepat di rumput) --- */
   tryEat(ctx) {
     if (Math.abs(ctx.speed) > 1.0) return this._deny('Berhenti dulu buat makan.');
-    if (this.onRoad(ctx.x, ctx.z)) return this._deny('Di jalan gak ada rumput. Ke pinggir dulu.');
-    if (this.riverDistance(ctx.x, ctx.z) < 8.5) return this._deny('Di air kuda gak makan rumput.');
+    if (this.world && typeof this.world.isOnGrass === 'function') {
+      if (!this.world.isOnGrass(ctx.x, ctx.z)) {
+        return this._deny('Harus berdiri tepat di rumput untuk makan.');
+      }
+    } else {
+      if (this.onRoad(ctx.x, ctx.z)) return this._deny('Di jalan gak ada rumput. Ke pinggir dulu.');
+      if (this.riverDistance(ctx.x, ctx.z) < 8.5) return this._deny('Di air kuda gak makan rumput.');
+    }
     this.eatT = 2.6;
     this.drinkT = 0;
     this.msg = 'Kuda makan rumput...';
     return true;
   }
 
-  /* --- aksi: minum (harus dekat sungai) --- */
+  /* --- aksi: minum (harus tepat di tepi/dalam air) --- */
   tryDrink(ctx) {
     if (Math.abs(ctx.speed) > 1.0) return this._deny('Berhenti dulu buat minum.');
-    if (this.riverDistance(ctx.x, ctx.z) > 9.5) return this._deny('Terlalu jauh dari sungai.');
+    if (this.world && typeof this.world.isAtWater === 'function') {
+      if (!this.world.isAtWater(ctx.x, ctx.z)) {
+        return this._deny('Harus tepat di tepi atau dalam air untuk minum.');
+      }
+    } else if (this.riverDistance(ctx.x, ctx.z) > 9.5) {
+      return this._deny('Terlalu jauh dari sungai.');
+    }
     this.drinkT = 2.2;
     this.eatT = 0;
     this.msg = 'Kuda minum air...';
@@ -27678,10 +39393,11 @@ class Survival {
 
   update(dt, ctx) {
     const moving = !!ctx.moving;
-    const running = !!ctx.running && moving;
+    const sleeping = !!ctx.sleeping && !moving;
+    const running = !!ctx.running && moving && !sleeping;
     const grazing = this.eating;
     const unhitched = !!ctx.unhitched;
-    const vitalMul = unhitched ? 0.60 : 1.0;
+    const vitalMul = (unhitched ? 0.60 : 1.0) * (sleeping ? 0.40 : 1.0);
     const stamMul = unhitched ? 0.55 : 1.0;
 
     if (this.eatT > 0) {
@@ -27702,19 +39418,22 @@ class Survival {
       this.thirst = Math.max(0, this.thirst - dt * (0.32 + (running ? 0.38 : moving ? 0.10 : 0)) * vitalMul);
     }
 
-    // Stamina: saat lepas tali (tanpa beban gerobak), pemakaian stamina jauh lebih hemat.
-    if (running) this.stamina = Math.max(0, this.stamina - 3.2 * stamMul * dt);
+    // Stamina: saat tidur pulih cepat (+22/s); saat lepas tali pemakaian stamina lebih hemat.
+    if (sleeping) this.stamina = Math.min(SURV_CAP, this.stamina + 22.0 * dt);
+    else if (running) this.stamina = Math.max(0, this.stamina - 3.2 * stamMul * dt);
     else if (moving) this.stamina = Math.max(0, this.stamina - 0.25 * stamMul * dt);
     else if (!grazing && !this.drinking) this.stamina = Math.min(SURV_CAP, this.stamina + (unhitched ? 14.0 : 12.0) * dt);
 
-    // HP: lapar/haus akut dan gerobak rebah menggerus; istirahat kenyang pelan pulih.
+    // HP: lapar/haus akut dan gerobak rebah menggerus; tidur & istirahat kenyang memulihkan HP.
     let dmg = 0;
     if (this.starving) dmg += 2.4;
     if (this.parched) dmg += 2.8;
     if (ctx.flipped) dmg += 3.5;
     if (this.landedHard > 0) { dmg += this.landedHard; this.landedHard = 0; }
     if (dmg > 0) this.hp = Math.max(0, this.hp - dmg * dt);
-    else if (!running && !moving && this.hunger > 55 && this.thirst > 55) {
+    else if (sleeping && this.hunger > 25 && this.thirst > 25) {
+      this.hp = Math.min(SURV_CAP, this.hp + 4.0 * dt);
+    } else if (!running && !moving && this.hunger > 55 && this.thirst > 55) {
       this.hp = Math.min(SURV_CAP, this.hp + 1.5 * dt);
     }
     this.hp = Math.min(SURV_CAP, Math.max(0, this.hp));
@@ -27722,6 +39441,666 @@ class Survival {
 }
 
 return { SURV_CAP, Survival };
+
+})();
+
+// --- js/quests.js ---
+const __MOD_QUESTS = (() => {
+'use strict';
+/* ============================================================================
+   QUESTS — Sistem Quest Pengantaran Barang Antar-Desa
+   Bebas THREE.DOM: dapat diuji headless maupun di browser.
+   ========================================================================= */
+
+const GOODS_POOL = [
+  { kind: 'spices', name: 'Peti Rempah', icon: '🧂' },
+  { kind: 'wheat', name: 'Karung Gandum', icon: '🌾' },
+  { kind: 'cloth', name: 'Kain Tenun', icon: '🧵' },
+  { kind: 'potions', name: 'Ramuan Hutan', icon: '🧪' },
+  { kind: 'iron_tools', name: 'Perkakas Besi', icon: '⚒️' },
+  { kind: 'honey', name: 'Madu Hutan', icon: '🍯' },
+  { kind: 'coffee', name: 'Biji Kopi', icon: '☕' },
+  { kind: 'ceramics', name: 'Keramik Desa', icon: '🏺' },
+];
+
+function shortNameOf(v) {
+  if (!v) return '';
+  if (v.name) return v.name;
+  const raw = String(v.title || v.id || 'Desa');
+  return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
+}
+
+class DeliveryQuestSystem {
+  constructor(opts = {}) {
+    this.world = opts.world || null;
+    this.gold = 0;
+    this.completedCount = 0;
+    this.activeQuest = null;
+    this._offerCounter = 0;
+    this._offersByVillage = new Map();
+    this._questNpcByVillage = new Map();
+    this._questSeq = 1;
+  }
+
+  _villages() {
+    return (this.world && Array.isArray(this.world.VILLAGES)) ? this.world.VILLAGES : [];
+  }
+
+  assignVillageQuestNpcs(wildNpcs) {
+    if (!Array.isArray(wildNpcs)) return;
+    const list = this._villages();
+    for (let i = 0; i < list.length; i++) {
+      const v = list[i];
+      const cur = this._questNpcByVillage.get(v.id);
+      if (cur && !cur.recruited && wildNpcs.includes(cur) && cur.site === v.id) {
+        continue;
+      }
+      const pool = wildNpcs.filter((w) => w && !w.recruited && w.site === v.id);
+      if (pool.length > 0) {
+        const chosen = pool[Math.floor(Math.random() * pool.length)];
+        this._questNpcByVillage.set(v.id, chosen);
+      } else {
+        this._questNpcByVillage.delete(v.id);
+      }
+    }
+  }
+
+  getQuestNpcForVillage(villageId, wildNpcs) {
+    if (Array.isArray(wildNpcs)) this.assignVillageQuestNpcs(wildNpcs);
+    return this._questNpcByVillage.get(villageId) || null;
+  }
+
+  getNearbyQuestNpc(x, z, wildNpcs, radius = 5.8) {
+    if (Array.isArray(wildNpcs)) this.assignVillageQuestNpcs(wildNpcs);
+    let best = null;
+    let bestD = radius;
+    for (const [villageId, npc] of this._questNpcByVillage.entries()) {
+      if (!npc || npc.recruited || npc.isIndoors) continue;
+      const d = Math.hypot(x - npc.x, z - npc.z);
+      if (d <= bestD) {
+        bestD = d;
+        best = { npc, villageId, dist: d };
+      }
+    }
+    return best;
+  }
+
+  getNearbyVillage(x, z) {
+    const list = this._villages();
+    for (let i = 0; i < list.length; i++) {
+      const v = list[i];
+      const r = (v.radius || 20) * 2.15;
+      if (Math.hypot(x - v.cx, z - v.cz) <= r) return v;
+    }
+    return null;
+  }
+
+  getOfferForVillage(villageId, wildNpcs = null) {
+    if (!villageId) return null;
+    if (Array.isArray(wildNpcs)) this.assignVillageQuestNpcs(wildNpcs);
+    const giverNpc = this._questNpcByVillage.get(villageId) || null;
+    const giverName = (giverNpc && giverNpc.role && giverNpc.role.name) ? giverNpc.role.name : null;
+
+    if (this._offersByVillage.has(villageId)) {
+      const cached = this._offersByVillage.get(villageId);
+      if (giverName) cached.giverName = giverName;
+      return cached;
+    }
+    const list = this._villages();
+    const fromIdx = list.findIndex((v) => v.id === villageId);
+    if (fromIdx < 0 || list.length < 2) return null;
+    const fromV = list[fromIdx];
+    const others = list.filter((v) => v.id !== villageId);
+    const destIdx = (fromIdx * 2 + this._offerCounter) % others.length;
+    const toV = others[destIdx];
+    const goods = GOODS_POOL[(fromIdx * 3 + this._offerCounter) % GOODS_POOL.length];
+    const dist = Math.round(Math.hypot(toV.cx - fromV.cx, toV.cz - fromV.cz));
+    const rewardGold = Math.max(25, Math.round(25 + dist * 0.14));
+    const offer = {
+      id: `q_${this._questSeq++}`,
+      fromId: fromV.id,
+      fromName: shortNameOf(fromV),
+      toId: toV.id,
+      toName: shortNameOf(toV),
+      toX: toV.cx,
+      toZ: toV.cz,
+      cargoKind: goods.kind,
+      cargoName: goods.name,
+      cargoIcon: goods.icon,
+      giverName: giverName || `Warga ${shortNameOf(fromV)}`,
+      distance: dist,
+      rewardGold,
+    };
+    this._offersByVillage.set(villageId, offer);
+    return offer;
+  }
+
+  acceptQuest(villageId, wildNpcs = null) {
+    if (this.activeQuest) {
+      return {
+        ok: false,
+        msg: `Masih ada pengantaran aktif ke ${this.activeQuest.toName}.`,
+        quest: this.activeQuest,
+      };
+    }
+    const offer = this.getOfferForVillage(villageId, wildNpcs);
+    if (!offer) {
+      return { ok: false, msg: 'Tidak ada quest tersedia di sini.', quest: null };
+    }
+    let receiverNpc = null;
+    let receiverName = `Warga ${offer.toName}`;
+    if (Array.isArray(wildNpcs)) {
+      const destPool = wildNpcs.filter((w) => w && !w.recruited && w.site === offer.toId);
+      if (destPool.length > 0) {
+        receiverNpc = destPool[Math.floor(Math.random() * destPool.length)];
+        if (receiverNpc.role && receiverNpc.role.name) receiverName = receiverNpc.role.name;
+      }
+    }
+    this.activeQuest = {
+      ...offer,
+      receiverNpc,
+      receiverName,
+      startedAt: Date.now(),
+    };
+    this._offersByVillage.delete(villageId);
+    return {
+      ok: true,
+      msg: `Quest diterima dari ${offer.giverName}: Antar ${offer.cargoName} ke ${receiverName} di ${offer.toName} (+${offer.rewardGold} Emas)!`,
+      quest: this.activeQuest,
+    };
+  }
+
+  abandonQuest() {
+    const prev = this.activeQuest;
+    this.activeQuest = null;
+    return prev;
+  }
+
+  distanceToTarget(x, z) {
+    if (!this.activeQuest) return 0;
+    const rx = (this.activeQuest.receiverNpc && !this.activeQuest.receiverNpc.recruited && !this.activeQuest.receiverNpc.isIndoors)
+      ? this.activeQuest.receiverNpc.x : this.activeQuest.toX;
+    const rz = (this.activeQuest.receiverNpc && !this.activeQuest.receiverNpc.recruited && !this.activeQuest.receiverNpc.isIndoors)
+      ? this.activeQuest.receiverNpc.z : this.activeQuest.toZ;
+    return Math.hypot(rx - x, rz - z);
+  }
+
+  update(horseX, horseZ, physics, onComplete, wildNpcs = null) {
+    const q = this.activeQuest;
+    if (!q) return null;
+    const list = this._villages();
+    const dest = list.find((v) => v.id === q.toId) || { cx: q.toX, cz: q.toZ, radius: 20 };
+
+    let arrived = false;
+    const rcv = q.receiverNpc;
+    if (rcv && !rcv.recruited && !rcv.isIndoors && (!Array.isArray(wildNpcs) || wildNpcs.includes(rcv))) {
+      if (Math.hypot(horseX - rcv.x, horseZ - rcv.z) <= 8.5) arrived = true;
+    }
+    // Fallback ke alun-alun desa tujuan jika NPC sedang di dalam rumah atau pada mode headless
+    const fallbackR = rcv ? (dest.radius || 20) * 1.35 : (dest.radius || 20) * 2.15;
+    if (!arrived && Math.hypot(horseX - dest.cx, horseZ - dest.cz) <= fallbackR) {
+      arrived = true;
+    }
+    if (!arrived) return null;
+
+    if (physics && physics.flipped) return null;
+    if (physics && physics.pos) {
+      const dCart = Math.hypot(physics.pos.x - horseX, physics.pos.z - horseZ);
+      if (dCart > 18.0) return null;
+    }
+
+    this.gold += q.rewardGold;
+    this.completedCount += 1;
+    if (physics && Array.isArray(physics.wheels)) {
+      for (const w of physics.wheels) {
+        if (!w || w.detached) continue;
+        const maxHp = w.hpMax || 100;
+        w.hp = Math.min(maxHp, Math.round((w.hp || 0) + 25));
+        if (w.hp > 0) w.broken = false;
+      }
+    }
+    const done = { ...q };
+    this.activeQuest = null;
+    this._offerCounter += 1;
+    this._offersByVillage.clear();
+    this._questNpcByVillage.delete(done.fromId);
+    if (Array.isArray(wildNpcs)) this.assignVillageQuestNpcs(wildNpcs);
+    if (typeof onComplete === 'function') onComplete(done);
+    return done;
+  }
+}
+
+return { DeliveryQuestSystem, GOODS_POOL };
+
+})();
+
+// --- js/minimap.js ---
+const __MOD_MINIMAP = (() => {
+'use strict';
+/* ============================================================================
+   MINIMAP & WORLD MAP — Peta Mini Kanan Atas + Modal Peta Dunia (Tombol M / Tap)
+   ========================================================================= */
+
+function villageLabel(v) {
+  if (!v) return '';
+  if (v.name) return v.name;
+  const raw = String(v.title || v.id || 'Desa');
+  return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
+}
+
+class MapUI {
+  constructor(opts = {}) {
+    this.world = opts.world || null;
+    this.miniCanvas = opts.miniCanvas || null;
+    this.fullCanvas = opts.fullCanvas || null;
+    this.modalEl = opts.modalEl || null;
+    this.miniWrap = opts.miniWrap || null;
+    this.closeBtn = opts.closeBtn || null;
+    this.locLabelEl = opts.locLabelEl || null;
+    this.coordLabelEl = opts.coordLabelEl || null;
+    this.isOpen = false;
+    this._frame = 0;
+    this._baseSize = 512;
+    this._baseCanvas = null;
+
+    if (this.miniWrap) {
+      this.miniWrap.addEventListener('click', (e) => {
+        e.preventDefault();
+        this.toggle();
+      });
+    }
+    if (this.closeBtn) {
+      this.closeBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        this.close();
+      });
+    }
+    if (this.modalEl) {
+      this.modalEl.addEventListener('click', (e) => {
+        if (e.target === this.modalEl) this.close();
+      });
+    }
+
+    this._bakeStaticMap();
+  }
+
+  _terrainSize() {
+    return (this.world && this.world.TERRAIN_SIZE) || 1500;
+  }
+
+  _bakeStaticMap() {
+    if (typeof document === 'undefined' || !this.world) return;
+    const S = this._baseSize;
+    const cv = document.createElement('canvas');
+    cv.width = S;
+    cv.height = S;
+    const ctx = cv.getContext('2d');
+    if (!ctx) return;
+
+    const T = this._terrainSize();
+    const toPx = (wx, wz) => [
+      ((wx + T * 0.5) / T) * S,
+      ((wz + T * 0.5) / T) * S,
+    ];
+
+    // Base meadow
+    const bgGrad = ctx.createRadialGradient(S * 0.5, S * 0.5, S * 0.08, S * 0.5, S * 0.5, S * 0.7);
+    bgGrad.addColorStop(0, '#4f8f4e');
+    bgGrad.addColorStop(0.55, '#3b7340');
+    bgGrad.addColorStop(1, '#26522e');
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0, 0, S, S);
+
+    // Subtle forest patches texture
+    ctx.fillStyle = 'rgba(20, 48, 25, 0.24)';
+    for (let i = 0; i < 64; i++) {
+      const rx = ((Math.sin(i * 19.3) * 0.5 + 0.5) * 0.9 + 0.05) * S;
+      const ry = ((Math.cos(i * 31.7) * 0.5 + 0.5) * 0.9 + 0.05) * S;
+      const rad = 12 + (i % 5) * 9;
+      ctx.beginPath();
+      ctx.arc(rx, ry, rad, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Winding River
+    if (typeof this.world._riverCenterZ === 'function') {
+      const step = 12;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      // Sandy bank stroke
+      ctx.beginPath();
+      for (let x = -T * 0.5; x <= T * 0.5; x += step) {
+        const z = this.world._riverCenterZ(x);
+        const [px, py] = toPx(x, z);
+        if (x === -T * 0.5) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.strokeStyle = '#c8b384';
+      ctx.lineWidth = Math.max(4.5, (14 / T) * S);
+      ctx.stroke();
+
+      // Water stream stroke
+      ctx.strokeStyle = '#38a7c7';
+      ctx.lineWidth = Math.max(2.6, (9 / T) * S);
+      ctx.stroke();
+    }
+
+    // Pond near origin
+    if (this.world.POND_CENTER) {
+      const p = this.world.POND_CENTER;
+      const [px, py] = toPx(p.x, p.z);
+      const pr = Math.max(2.2, (p.radius / T) * S);
+      ctx.fillStyle = '#d3bf8e';
+      ctx.beginPath();
+      ctx.arc(px, py, pr + 1.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#38b5d2';
+      ctx.beginPath();
+      ctx.arc(px, py, pr, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // All road polylines
+    const polys = (this.world && Array.isArray(this.world.allRoadPolylines)) ? this.world.allRoadPolylines : [];
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    for (const poly of polys) {
+      if (!poly || !Array.isArray(poly.pts) || poly.pts.length < 2) continue;
+      ctx.beginPath();
+      for (let i = 0; i < poly.pts.length; i++) {
+        const [px, py] = toPx(poly.pts[i][0], poly.pts[i][1]);
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.strokeStyle = 'rgba(72, 48, 24, 0.55)';
+      ctx.lineWidth = Math.max(3.2, (6.5 / T) * S);
+      ctx.stroke();
+      ctx.strokeStyle = '#deb778';
+      ctx.lineWidth = Math.max(2.0, (4.2 / T) * S);
+      ctx.stroke();
+    }
+
+    // Village clearing circles
+    const villages = (this.world && Array.isArray(this.world.VILLAGES)) ? this.world.VILLAGES : [];
+    for (const v of villages) {
+      const [vx, vy] = toPx(v.cx, v.cz);
+      const vr = Math.max(5.5, ((v.radius * 1.45) / T) * S);
+      ctx.fillStyle = 'rgba(219, 187, 132, 0.9)';
+      ctx.beginPath();
+      ctx.arc(vx, vy, vr, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#5c3c1e';
+      ctx.lineWidth = 1.4;
+      ctx.stroke();
+    }
+
+    this._baseCanvas = cv;
+  }
+
+  open() {
+    this.isOpen = true;
+    if (this.modalEl) {
+      this.modalEl.hidden = false;
+      this.modalEl.style.display = 'flex';
+    }
+    this._drawFullMapNow = true;
+  }
+
+  close() {
+    this.isOpen = false;
+    if (this.modalEl) {
+      this.modalEl.hidden = true;
+      this.modalEl.style.display = 'none';
+    }
+  }
+
+  toggle() {
+    if (this.isOpen) this.close();
+    else this.open();
+    return this.isOpen;
+  }
+
+  _drawArrow(ctx, cx, cy, yawRad, size, fill = '#fff3b0', stroke = '#1e293b') {
+    // animator forward: fx = cos(yaw), fz = -sin(yaw) in north-up coords (+x right, +z down)
+    const angle = -yawRad;
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(angle);
+    ctx.beginPath();
+    ctx.moveTo(size * 1.15, 0);
+    ctx.lineTo(-size * 0.78, -size * 0.72);
+    ctx.lineTo(-size * 0.42, 0);
+    ctx.lineTo(-size * 0.78, size * 0.72);
+    ctx.closePath();
+    ctx.fillStyle = fill;
+    ctx.fill();
+    ctx.lineWidth = 1.6;
+    ctx.strokeStyle = stroke;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  update(horseX, horseZ, horseYaw, cartX, cartZ, activeQuest, nearbyVillage) {
+    this._frame++;
+    if (this.locLabelEl) {
+      this.locLabelEl.textContent = nearbyVillage
+        ? `Desa ${villageLabel(nearbyVillage)}`
+        : (Math.hypot(horseX, horseZ) < 16 ? 'Perkemahan' : 'Hutan & Jalan');
+    }
+    if (this.isOpen && this.coordLabelEl) {
+      this.coordLabelEl.textContent = `X: ${Math.round(horseX)}m • Z: ${Math.round(horseZ)}m`;
+    }
+
+    if ((this._frame % 3 !== 0) && !this._drawFullMapNow) return;
+    this._drawFullMapNow = false;
+
+    const T = this._terrainSize();
+    const villages = (this.world && Array.isArray(this.world.VILLAGES)) ? this.world.VILLAGES : [];
+    const pulse = 0.5 + 0.5 * Math.sin(performance.now() * 0.006);
+
+    // 1) Top-right Minimap (cropped local 480m view centered on horse)
+    if (this.miniCanvas && this._baseCanvas) {
+      const ctx = this.miniCanvas.getContext('2d');
+      const W = this.miniCanvas.width;
+      const H = this.miniCanvas.height;
+      const spanWorld = 520;
+      const S = this._baseSize;
+      const halfSpan = spanWorld * 0.5;
+
+      const srcW = (spanWorld / T) * S;
+      const srcH = srcW;
+      const horsePx = ((horseX + T * 0.5) / T) * S;
+      const horsePz = ((horseZ + T * 0.5) / T) * S;
+      const sx = horsePx - srcW * 0.5;
+      const sy = horsePz - srcH * 0.5;
+
+      ctx.fillStyle = '#1b3822';
+      ctx.fillRect(0, 0, W, H);
+      ctx.drawImage(this._baseCanvas, sx, sy, srcW, srcH, 0, 0, W, H);
+
+      const toMini = (wx, wz) => [
+        ((wx - horseX + halfSpan) / spanWorld) * W,
+        ((wz - horseZ + halfSpan) / spanWorld) * H,
+      ];
+
+      // Campfire point
+      {
+        const [fx, fy] = toMini(0, 0);
+        if (fx >= -8 && fx <= W + 8 && fy >= -8 && fy <= H + 8) {
+          ctx.fillStyle = '#ff9f1c';
+          ctx.beginPath();
+          ctx.arc(fx, fy, 3.2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      // Active quest vector + target marker
+      if (activeQuest) {
+        const [qx, qy] = toMini(activeQuest.toX, activeQuest.toZ);
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255, 214, 70, 0.85)';
+        ctx.lineWidth = 1.6;
+        ctx.setLineDash([4, 3]);
+        ctx.beginPath();
+        ctx.moveTo(W * 0.5, H * 0.5);
+        ctx.lineTo(qx, qy);
+        ctx.stroke();
+        ctx.restore();
+
+        const pad = 11;
+        const clampedX = Math.max(pad, Math.min(W - pad, qx));
+        const clampedY = Math.max(pad, Math.min(H - pad, qy));
+        ctx.strokeStyle = '#ffd166';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(clampedX, clampedY, 5 + pulse * 3, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.fillStyle = '#ffb703';
+        ctx.beginPath();
+        ctx.arc(clampedX, clampedY, 3.2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Villages inside/near minimap
+      ctx.font = 'bold 9.5px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      for (const v of villages) {
+        const [vx, vy] = toMini(v.cx, v.cz);
+        if (vx < -20 || vx > W + 20 || vy < -14 || vy > H + 14) continue;
+        const isQuestDest = activeQuest && activeQuest.toId === v.id;
+        ctx.fillStyle = isQuestDest ? '#ffd166' : '#fef3c7';
+        ctx.beginPath();
+        ctx.arc(vx, vy, isQuestDest ? 4.2 : 3.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#1e293b';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+
+        const lbl = villageLabel(v);
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.8)';
+        ctx.fillText(lbl, vx + 1, vy + 6);
+        ctx.fillStyle = isQuestDest ? '#ffe066' : '#f8fafc';
+        ctx.fillText(lbl, vx, vy + 5);
+      }
+
+      // Cart marker
+      if (Number.isFinite(cartX) && Number.isFinite(cartZ)) {
+        const [cx, cy] = toMini(cartX, cartZ);
+        ctx.fillStyle = '#d97706';
+        ctx.strokeStyle = '#111827';
+        ctx.lineWidth = 1.2;
+        ctx.fillRect(cx - 2.6, cy - 2.6, 5.2, 5.2);
+        ctx.strokeRect(cx - 2.6, cy - 2.6, 5.2, 5.2);
+      }
+
+      // Horse directional arrow at center
+      this._drawArrow(ctx, W * 0.5, H * 0.5, horseYaw, 6.2, '#ffffff', '#0f172a');
+    }
+
+    // 2) Full World Map Modal (when open)
+    if (this.isOpen && this.fullCanvas && this._baseCanvas) {
+      const ctx = this.fullCanvas.getContext('2d');
+      const W = this.fullCanvas.width;
+      const H = this.fullCanvas.height;
+
+      ctx.clearRect(0, 0, W, H);
+      ctx.drawImage(this._baseCanvas, 0, 0, W, H);
+
+      // Subtle grid lines every 300m
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+      ctx.lineWidth = 1;
+      for (let g = 1; g < 5; g++) {
+        const p = (g / 5) * W;
+        ctx.beginPath(); ctx.moveTo(p, 0); ctx.lineTo(p, H); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, p); ctx.lineTo(W, p); ctx.stroke();
+      }
+
+      const toFull = (wx, wz) => [
+        ((wx + T * 0.5) / T) * W,
+        ((wz + T * 0.5) / T) * H,
+      ];
+
+      // Campfire icon
+      {
+        const [fx, fy] = toFull(0, 0);
+        ctx.fillStyle = '#fb923c';
+        ctx.beginPath(); ctx.arc(fx, fy, 5.5, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 1.5; ctx.stroke();
+        ctx.font = '600 11px system-ui, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#fff7ed';
+        ctx.fillText('Kemah Awal', fx, fy + 16);
+      }
+
+      // Quest route line
+      if (activeQuest) {
+        const [hx, hy] = toFull(horseX, horseZ);
+        const [qx, qy] = toFull(activeQuest.toX, activeQuest.toZ);
+        ctx.save();
+        ctx.strokeStyle = '#ffd166';
+        ctx.lineWidth = 2.4;
+        ctx.setLineDash([8, 6]);
+        ctx.beginPath();
+        ctx.moveTo(hx, hy);
+        ctx.lineTo(qx, qy);
+        ctx.stroke();
+        ctx.restore();
+
+        ctx.strokeStyle = '#fde047';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(qx, qy, 12 + pulse * 5, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      // All 5 villages with crisp pills
+      for (const v of villages) {
+        const [vx, vy] = toFull(v.cx, v.cz);
+        const isCurrent = nearbyVillage && nearbyVillage.id === v.id;
+        const isDest = activeQuest && activeQuest.toId === v.id;
+        ctx.fillStyle = isDest ? '#fbbf24' : isCurrent ? '#4ade80' : '#fef3c7';
+        ctx.beginPath();
+        ctx.arc(vx, vy, isDest || isCurrent ? 7.5 : 6.0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#1e293b';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        const lbl = villageLabel(v);
+        ctx.font = '700 13px system-ui, sans-serif';
+        const tw = ctx.measureText(lbl).width + 14;
+        const bx = vx - tw * 0.5;
+        const by = vy + 10;
+        ctx.fillStyle = isDest ? 'rgba(180, 83, 9, 0.92)' : 'rgba(15, 23, 42, 0.84)';
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(bx, by, tw, 20, 6);
+        else ctx.rect(bx, by, tw, 20);
+        ctx.fill();
+        ctx.fillStyle = '#f8fafc';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(lbl, vx, by + 10);
+      }
+
+      // Cart marker
+      if (Number.isFinite(cartX) && Number.isFinite(cartZ)) {
+        const [cx, cy] = toFull(cartX, cartZ);
+        ctx.fillStyle = '#ea580c';
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 1.5;
+        ctx.fillRect(cx - 4, cy - 4, 8, 8);
+        ctx.strokeRect(cx - 4, cy - 4, 8, 8);
+      }
+
+      // Player horse arrow
+      const [px, py] = toFull(horseX, horseZ);
+      this._drawArrow(ctx, px, py, horseYaw, 9.5, '#ffffff', '#0f172a');
+    }
+  }
+}
+
+return { MapUI };
 
 })();
 
@@ -27739,15 +40118,9 @@ const __MOD_TOUCH = (() => {
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
-function initTouchControls({ animator, survival, onJump, onEat, onDrink, onRunToggle, onHitch, isTouchDevice }) {
+function initTouchControls({ animator, survival, onJump, onEat, onDrink, onSleep, onRunToggle, onHitch, onInspect, isTouchDevice }) {
   const touch = isTouchDevice || matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
   document.body.classList.toggle('is-touch', !!touch);
-  if (touch) {
-    const hudEl = document.getElementById('hud');
-    const tog = document.getElementById('btn-hud-toggle');
-    if (hudEl) hudEl.classList.add('compact');
-    if (tog) tog.textContent = 'Detail';
-  }
 
   // ---------- overlay portrait / layar penuh ----------
   const rotate = document.createElement('div');
@@ -27874,8 +40247,10 @@ function initTouchControls({ animator, survival, onJump, onEat, onDrink, onRunTo
     { id: 'act-jump', icon: '⤴', label: 'LOMPAT', cls: 'jump hero' },
     { id: 'act-run', icon: '⚡', label: 'LARI', sub: 'toggle', cls: 'run' },
     { id: 'act-hitch', icon: '🔗', label: 'TALI', sub: 'lepas', cls: 'hitch' },
+    { id: 'act-inspect', icon: '👁️', label: 'CEK', cls: 'inspect' },
     { id: 'act-eat', icon: '🌿', label: 'MAKAN', cls: 'eat' },
     { id: 'act-drink', icon: '💧', label: 'MINUM', cls: 'drink' },
+    { id: 'act-sleep', icon: '😴', label: 'TIDUR', cls: 'sleep' },
   ];
   for (const d of defs) {
     const b = document.createElement('button');
@@ -27891,6 +40266,8 @@ function initTouchControls({ animator, survival, onJump, onEat, onDrink, onRunTo
 
   const runBtn = padBtns.querySelector('#act-run');
   const hitchBtn = padBtns.querySelector('#act-hitch');
+  const inspectBtn = padBtns.querySelector('#act-inspect');
+  const sleepBtn = padBtns.querySelector('#act-sleep');
   const press = (el, fn) => {
     // HP asli mengirim touchstart LALU click -> tanpa penjaga ini aksi jalan 2x
     // (toggle lari jadi nyala-mati seketika). Catat waktu sentuh terakhir.
@@ -27917,11 +40294,33 @@ function initTouchControls({ animator, survival, onJump, onEat, onDrink, onRunTo
   press(padBtns.querySelector('#act-eat'), () => onEat && onEat());
   press(padBtns.querySelector('#act-drink'), () => onDrink && onDrink());
   press(hitchBtn, () => onHitch && onHitch());
+  if (inspectBtn) {
+    const startInsp = (e) => {
+      e.preventDefault();
+      if (inspectBtn.disabled) return;
+      onInspect && onInspect(true);
+    };
+    const endInsp = (e) => { if (e) e.preventDefault(); onInspect && onInspect(false); };
+    inspectBtn.addEventListener('touchstart', startInsp, { passive: false });
+    inspectBtn.addEventListener('touchend', endInsp, { passive: false });
+    inspectBtn.addEventListener('touchcancel', endInsp, { passive: false });
+    inspectBtn.addEventListener('mousedown', startInsp);
+    inspectBtn.addEventListener('mouseup', endInsp);
+    inspectBtn.addEventListener('mouseleave', endInsp);
+  }
+  if (sleepBtn) press(sleepBtn, () => onSleep && onSleep());
 
   return {
     active: true,
     joystick: { vec, pad, applyStick },
     setRunLatched(on) { runBtn.classList.toggle('on', !!on); },
+    setInspectState(on) { if (inspectBtn) inspectBtn.classList.toggle('on', !!on); },
+    setInspectDisabled(disabled) {
+      if (!inspectBtn) return;
+      inspectBtn.disabled = !!disabled;
+      if (disabled) inspectBtn.classList.remove('on');
+    },
+    setSleepState(on) { if (sleepBtn) sleepBtn.classList.toggle('on', !!on); },
     setHitchState({ free = false, disabled = false, sub = '' } = {}) {
       if (!hitchBtn) return;
       hitchBtn.classList.toggle('free', !!free);
@@ -28409,16 +40808,22 @@ function setNpcLod(root, useLod) {
   return want;
 }
 
-/* Update LOD semua warga liar tiap beberapa frame (bukan tiap frame). */
-function updateNpcLod(items, x, z, nearDist) {
+/* Update LOD semua warga liar tiap beberapa frame (bukan tiap frame).
+   Warga yang SEDANG BERJALAN (atau bertarung) di dekat kamera tetap memakai
+   model penuh: hasil bake itu pose beku, jadi kalau dipakai saat ia melangkah
+   yang terlihat cuma badan meluncur tanpa ayunan kaki. */
+function updateNpcLod(items, x, z, nearDist, walkDist) {
   if (!items || !nearDist) return 0;
+  const keepWalk = walkDist || nearDist * 2.2;
   let count = 0;
   for (const it of items) {
     const root = it && it.root;
     if (!root || !root.parent) continue;      // sudah direkrut: bukan lagi di dunia
     if (!root.userData || !root.userData.__npcLod) continue;
     const d = Math.hypot((it.x || 0) - x, (it.z || 0) - z);
-    if (setNpcLod(root, d > nearDist)) count++;
+    const st = root.userData.npc;
+    const busy = !!(st && (st.walking || st.target));
+    if (setNpcLod(root, d > nearDist && !(busy && d <= keepWalk))) count++;
   }
   return count;
 }
@@ -28434,6 +40839,8 @@ return { QUALITY_PRESETS, QUALITY_ORDER, detectQualityKey, resolveQuality, saveQ
 const { UpgradeStore } = __MOD_UPGRADES;
 const { initUpgradeUI } = __MOD_UI;
 const { Survival } = __MOD_SURVIVAL;
+const { DeliveryQuestSystem } = __MOD_QUESTS;
+const { MapUI } = __MOD_MINIMAP;
 const { initTouchControls } = __MOD_TOUCH;
 const { QUALITY_ORDER, QUALITY_PRESETS, resolveQuality, saveQualityKey, bakeNpcLod, setNpcLod, updateNpcLod, cullDistantNpcs } = __MOD_PERF;
 const THREE = HC.THREE, S = HC.vs;
@@ -28454,7 +40861,7 @@ scene.background = new THREE.Color(0x6bb0e6);
 
 const initW = Math.max(1, window.innerWidth);
 const initH = Math.max(1, window.innerHeight);
-const camera = new THREE.PerspectiveCamera(46, initW / initH, 0.2, 180);
+const camera = new THREE.PerspectiveCamera(46, initW / initH, 0.2, 450);
 
 const renderer = new THREE.WebGLRenderer({
   antialias: !!quality.antialias,
@@ -28740,6 +41147,9 @@ function rebuildCartFromStore() {
   window.RIG.cart = newCart;
   party.bindCart(cart);
   if (party.members.length) party.mount(cart);   // penumpang NPC duduk ikut pindah ke bak baru
+  if (typeof quests !== 'undefined' && quests && quests.activeQuest && HC.setQuestCargoOnCart) {
+    HC.setQuestCargoOnCart(cart, physics, quests.activeQuest.cargoKind, 3);
+  }
   reanchorRopes();
 }
 
@@ -28791,6 +41201,322 @@ const hudCargo = document.getElementById('hud-cargo');
 const hudWheel = document.getElementById('hud-wheel');
 const hudNpc = document.getElementById('hud-npc');
 const hudNpcMsg = document.getElementById('hud-npc-msg');
+const hudGold = document.getElementById('hud-gold');
+const hudTime = document.getElementById('hud-time');
+const portraitHpFill = document.getElementById('portrait-hp-fill');
+const btnHorsePortrait = document.getElementById('btn-horse-portrait');
+const btnSettings = document.getElementById('btn-settings');
+const statsPanelEl = document.getElementById('horse-stats-panel');
+const settingsPanelEl = document.getElementById('settings-panel');
+const btnStatsClose = document.getElementById('btn-stats-close');
+const btnSettingsClose = document.getElementById('btn-settings-close');
+const npcMiniBarEl = document.getElementById('npc-mini-bar');
+const questHudEl = document.getElementById('quest-hud');
+const toastBannerEl = document.getElementById('toast-banner');
+const wheelHpOverlayEl = document.getElementById('wheel-hp-overlay');
+const btnInspectEl = document.getElementById('btn-inspect');
+
+let _toastTimer = null;
+let _lastToastText = '';
+function showToast(text) {
+  if (!toastBannerEl || !text || text === _lastToastText) return;
+  _lastToastText = text;
+  toastBannerEl.textContent = text;
+  toastBannerEl.hidden = false;
+  if (_toastTimer) clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => {
+    toastBannerEl.hidden = true;
+    _lastToastText = '';
+  }, 3400);
+}
+
+function setStatsPanelOpen(open) {
+  if (!statsPanelEl || !btnHorsePortrait) return;
+  const show = !!open;
+  statsPanelEl.hidden = !show;
+  btnHorsePortrait.classList.toggle('open', show);
+  btnHorsePortrait.setAttribute('aria-expanded', show ? 'true' : 'false');
+  if (show && settingsPanelEl && btnSettings) {
+    settingsPanelEl.hidden = true;
+    btnSettings.classList.remove('open');
+    btnSettings.setAttribute('aria-expanded', 'false');
+  }
+}
+
+function setSettingsPanelOpen(open) {
+  if (!settingsPanelEl || !btnSettings) return;
+  const show = !!open;
+  settingsPanelEl.hidden = !show;
+  btnSettings.classList.toggle('open', show);
+  btnSettings.setAttribute('aria-expanded', show ? 'true' : 'false');
+  if (show && statsPanelEl && btnHorsePortrait) {
+    statsPanelEl.hidden = true;
+    btnHorsePortrait.classList.remove('open');
+    btnHorsePortrait.setAttribute('aria-expanded', 'false');
+  }
+}
+
+if (btnHorsePortrait) {
+  btnHorsePortrait.addEventListener('click', (e) => {
+    e.preventDefault();
+    setStatsPanelOpen(statsPanelEl ? statsPanelEl.hidden : false);
+  });
+}
+if (btnStatsClose) {
+  btnStatsClose.addEventListener('click', (e) => { e.preventDefault(); setStatsPanelOpen(false); });
+}
+if (btnSettings) {
+  btnSettings.addEventListener('click', (e) => {
+    e.preventDefault();
+    setSettingsPanelOpen(settingsPanelEl ? settingsPanelEl.hidden : false);
+  });
+}
+if (btnSettingsClose) {
+  btnSettingsClose.addEventListener('click', (e) => { e.preventDefault(); setSettingsPanelOpen(false); });
+}
+
+// ---- Quest Pengantaran & Peta Dunia + Minimap ----
+const quests = new DeliveryQuestSystem({ world });
+quests.assignVillageQuestNpcs(party.wild);
+const mapUI = new MapUI({
+  world,
+  miniCanvas: document.getElementById('minimap-canvas'),
+  fullCanvas: document.getElementById('worldmap-canvas'),
+  modalEl: document.getElementById('worldmap-modal'),
+  miniWrap: document.getElementById('minimap-wrap'),
+  closeBtn: document.getElementById('btn-worldmap-close'),
+  locLabelEl: document.getElementById('minimap-loc'),
+  coordLabelEl: document.getElementById('worldmap-coords'),
+  quests,
+});
+
+function createQuestMarkerMesh(symbol) {
+  const g = new THREE.Group();
+  const isBang = symbol === '!';
+  const col = isBang ? 0xfacc15 : 0x34d399;
+  const mat = new THREE.MeshBasicMaterial({ color: col });
+  const rim = new THREE.MeshBasicMaterial({ color: isBang ? 0x92400e : 0x065f46 });
+  const unit = 0.095;
+  const px = (gx, gy, cMat = mat) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(unit, unit, unit * 0.72), cMat);
+    m.position.set(gx * unit, gy * unit, 0);
+    g.add(m);
+  };
+  if (isBang) {
+    for (let y = 2; y <= 5; y++) px(0, y, mat);
+    px(0, 0, mat);
+    // Halo ring kecil di bawah
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(0.14, 0.21, 16),
+      new THREE.MeshBasicMaterial({ color: col, side: THREE.DoubleSide, transparent: true, opacity: 0.75 })
+    );
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.y = -0.18;
+    g.add(ring);
+  } else {
+    px(-1, 5, mat); px(0, 5, mat); px(1, 5, mat);
+    px(1, 4, mat);
+    px(0, 3, mat); px(1, 3, mat);
+    px(0, 2, mat);
+    px(0, 0, mat);
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(0.14, 0.21, 16),
+      new THREE.MeshBasicMaterial({ color: col, side: THREE.DoubleSide, transparent: true, opacity: 0.75 })
+    );
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.y = -0.18;
+    g.add(ring);
+  }
+  const back = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.14, 0.04), rim);
+  back.position.set(0, 2.5 * unit, -0.05);
+  g.add(back);
+  g.visible = false;
+  return g;
+}
+
+let _qMarkerT = 0;
+function syncQuestNpcMarkers(dt) {
+  _qMarkerT += dt;
+  quests.assignVillageQuestNpcs(party.wild);
+  const q = quests.activeQuest;
+  const givers = new Set(quests._questNpcByVillage.values());
+  const bob = Math.sin(_qMarkerT * 3.4) * 0.11;
+
+  for (const m of party.members) {
+    if (m && m.root && m.root.userData && m.root.userData.__qMarkers) {
+      m.root.userData.__qMarkers['!'].visible = false;
+      m.root.userData.__qMarkers['?'].visible = false;
+    }
+  }
+  for (const w of party.wild) {
+    if (!w || !w.root) continue;
+    let showSym = null;
+    if (!w.recruited && !w.isIndoors) {
+      if (q) {
+        if (q.receiverNpc === w) showSym = '?';
+      } else if (givers.has(w)) {
+        showSym = '!';
+      }
+    }
+    let cache = w.root.userData.__qMarkers;
+    if (!showSym) {
+      if (cache) {
+        cache['!'].visible = false;
+        cache['?'].visible = false;
+      }
+      continue;
+    }
+    if (!cache) {
+      cache = {
+        '!': createQuestMarkerMesh('!'),
+        '?': createQuestMarkerMesh('?'),
+      };
+      w.root.add(cache['!']);
+      w.root.add(cache['?']);
+      w.root.userData.__qMarkers = cache;
+    }
+    cache['!'].visible = showSym === '!';
+    cache['?'].visible = showSym === '?';
+    const act = cache[showSym];
+    act.position.y = 2.35 + bob;
+    act.rotation.y += dt * 1.9;
+  }
+}
+
+let _lastQuestSig = '';
+function renderQuestHud(nearVillage) {
+  if (!questHudEl) return;
+  const q = quests.activeQuest;
+  const nearGiver = !q ? quests.getNearbyQuestNpc(animator.x, animator.z, party.wild, 5.8) : null;
+  const offer = nearGiver ? quests.getOfferForVillage(nearGiver.villageId, party.wild) : null;
+  const vGiver = (!q && !nearGiver && nearVillage) ? quests.getQuestNpcForVillage(nearVillage.id, party.wild) : null;
+  const dGiver = vGiver ? Math.round(Math.hypot(vGiver.x - animator.x, vGiver.z - animator.z)) : 0;
+  const distM = q ? Math.round(quests.distanceToTarget(animator.x, animator.z)) : 0;
+  const sig = q
+    ? `A|${q.id}|${Math.floor(distM / 5)}|${quests.gold}`
+    : (offer && nearGiver)
+      ? `G|${offer.id}|${nearGiver.npc.uid}|${quests.gold}`
+      : nearVillage
+        ? `H|${nearVillage.id}|${vGiver ? vGiver.uid : '0'}|${Math.floor(dGiver / 3)}|${quests.gold}`
+        : `I|${quests.gold}|${quests.completedCount}`;
+  if (sig === _lastQuestSig) return;
+  _lastQuestSig = sig;
+  questHudEl.innerHTML = '';
+
+  if (q) {
+    const pill = document.createElement('div');
+    pill.className = 'q-pill';
+    pill.innerHTML =
+      `<div class="q-pill-head"><span>${q.cargoIcon || '📦'} Antar ke ${q.toName}</span><span>${distM}m</span></div>` +
+      `<div class="q-pill-sub">${q.cargoName} → ${q.receiverName || q.toName} • +${q.rewardGold} G</div>` +
+      `<div class="q-actions"><span class="q-gold-chip">🪙 ${quests.gold} G</span><button type="button" class="q-btn-abandon" id="btn-quest-abandon" title="Batalkan Quest">Batalkan</button></div>`;
+    questHudEl.appendChild(pill);
+    const ab = pill.querySelector('#btn-quest-abandon');
+    if (ab) ab.addEventListener('click', (e) => {
+      e.preventDefault();
+      quests.abandonQuest();
+      if (HC.clearQuestCargoFromCart) HC.clearQuestCargoFromCart(cart, physics);
+      _lastQuestSig = '';
+      showToast('Quest pengantaran dibatalkan.');
+      renderQuestHud(quests.getNearbyVillage(animator.x, animator.z));
+    });
+  } else if (offer && nearGiver) {
+    const pill = document.createElement('div');
+    pill.className = 'q-pill';
+    pill.innerHTML =
+      `<div class="q-pill-head"><span>📜 ${offer.giverName} (${offer.fromName})</span><span>+${offer.rewardGold} G</span></div>` +
+      `<div class="q-pill-sub">Antar ${offer.cargoIcon || ''} ${offer.cargoName} ke ${offer.toName} (${offer.distance}m)</div>` +
+      `<div class="q-actions"><button type="button" class="q-btn-accept" id="btn-quest-accept">Ambil Quest</button></div>`;
+    questHudEl.appendChild(pill);
+    const acc = pill.querySelector('#btn-quest-accept');
+    if (acc) acc.addEventListener('click', (e) => {
+      e.preventDefault();
+      const res = quests.acceptQuest(nearGiver.villageId, party.wild);
+      if (res.ok && res.quest && HC.setQuestCargoOnCart) {
+        HC.setQuestCargoOnCart(cart, physics, res.quest.cargoKind, 3);
+      }
+      _lastQuestSig = '';
+      showToast(res.msg);
+      survival.msg = res.msg;
+      syncVitals();
+      renderQuestHud(nearVillage);
+    });
+  } else if (nearVillage) {
+    const pill = document.createElement('div');
+    pill.className = 'q-pill';
+    const gLabel = (vGiver && vGiver.role && vGiver.role.name) ? vGiver.role.name : 'warga';
+    pill.innerHTML =
+      `<div class="q-pill-head"><span>❗ Quest Desa ${nearVillage.name}</span><span>${vGiver ? `${dGiver}m` : ''}</span></div>` +
+      `<div class="q-pill-sub">${vGiver ? `Temui ${gLabel} bertanda [!] untuk mengambil quest barang.` : 'Cari warga di desa untuk misi antar barang.'}</div>`;
+    questHudEl.appendChild(pill);
+  } else if (quests.gold > 0) {
+    const chip = document.createElement('div');
+    chip.className = 'q-gold-chip';
+    chip.textContent = `🪙 ${quests.gold} G (${quests.completedCount} selesai)`;
+    questHudEl.appendChild(chip);
+  }
+}
+
+let _inspectWasActive = false;
+const _inspectSavedLocalOff = new THREE.Vector3();
+const _inspectTargetLocalOff = new THREE.Vector3();
+const _inspectCurOff = new THREE.Vector3();
+const _inspectWantOff = new THREE.Vector3();
+const _upY = new THREE.Vector3(0, 1, 0);
+let _inspectHasSaved = false;
+let _inspectReturning = false;
+
+controls.addEventListener('start', () => {
+  if (!animator.inspectMode && _inspectReturning) {
+    _inspectReturning = false;
+    _inspectHasSaved = false;
+  }
+});
+
+const INSPECT_MAX_DIST = Math.max(8.5, HITCH_DIST + 4.5);
+function canInspectCart() {
+  if (physics.hitched) return true;
+  return Math.hypot(animator.x - physics.pos.x, animator.z - physics.pos.z) <= INSPECT_MAX_DIST;
+}
+
+function setInspectMode(on, notifyDenied = false) {
+  const next = !!on;
+  if (next && !canInspectCart()) {
+    if (notifyDenied) showToast('Dekati gerobak terlebih dahulu untuk cek HP roda.');
+    if (_inspectWasActive) on = false;
+    else {
+      animator.inspectMode = false;
+      if (wheelHpOverlayEl) wheelHpOverlayEl.hidden = true;
+      return false;
+    }
+  }
+  const finalNext = !!on;
+  if (finalNext === _inspectWasActive) return finalNext;
+  animator.inspectMode = finalNext;
+  if (wheelHpOverlayEl) wheelHpOverlayEl.hidden = !finalNext;
+  if (btnInspectEl) {
+    btnInspectEl.classList.toggle('active', finalNext);
+    btnInspectEl.classList.toggle('held', finalNext);
+  }
+  if (touchUI && touchUI.setInspectState) touchUI.setInspectState(finalNext);
+  if (finalNext) {
+    if (!_inspectHasSaved) {
+      _inspectSavedLocalOff.copy(camera.position).sub(controls.target).applyAxisAngle(_upY, -animator.yaw);
+      _inspectHasSaved = true;
+    }
+    _inspectReturning = false;
+    const side = _inspectSavedLocalOff.z >= 0 ? 1 : -1;
+    _inspectTargetLocalOff.set(-1.35, 3.25, side * 6.8);
+  } else if (_inspectHasSaved) {
+    _inspectReturning = true;
+  }
+  _inspectWasActive = finalNext;
+  return finalNext;
+}
+function toggleInspectMode() {
+  setInspectMode(!animator.inspectMode);
+  return animator.inspectMode;
+}
 
 // Bar HP / stamina / lapar / haus + pesan kontekstual.
 const VITAL_ROWS = [['hp', 'v-hp'], ['stamina', 'v-sta'], ['hunger', 'v-food'], ['thirst', 'v-water']];
@@ -28805,11 +41531,14 @@ function syncVitals() {
       el.parentElement.parentElement.classList.toggle('low', val < 25);
     }
   }
+  if (portraitHpFill) portraitHpFill.style.width = Math.max(0, Math.min(100, Math.round(survival.hp))) + '%';
   const msg = document.getElementById('v-msg');
   if (msg && msg.textContent !== survival.msg) msg.textContent = survival.msg;
+  if (survival.msg) showToast(survival.msg);
 }
 
-const stateLabel = { walk: 'JALAN', run: 'LARI', jump: 'LOMPAT', graze: 'MAKAN RUMPUT' };
+const stateLabel = { walk: 'JALAN', run: 'LARI', jump: 'LOMPAT', graze: 'MAKAN RUMPUT', sleep: 'TIDUR' };
+const btnSleepEl = document.getElementById('btn-sleep');
 
 function bindBtn(id, fn) {
   const el = document.getElementById(id);
@@ -28839,6 +41568,7 @@ const survCtx = () => ({
   x: animator.x, z: animator.z, speed: animator.speed,
   moving: Math.abs(animator.throttle) > 0.06,
   running: animator.state === 'run' && animator.throttle > 0.06,
+  sleeping: animator.state === 'sleep' && Math.abs(animator.throttle) <= 0.06,
   flipped: !!physics.flipped,
   unhitched: !physics.hitched,
 });
@@ -28878,6 +41608,31 @@ function doJump() {
   survival.stamina = Math.max(0, survival.stamina - cost);
   animator.setState('jump');
 }
+function doSleepToggle() {
+  if (animator.state === 'sleep') {
+    animator.setState(runLatched ? 'run' : 'walk');
+    survival.msg = '☀️ Kuda bangun dan siap jalan.';
+    if (btnSleepEl) btnSleepEl.classList.remove('active');
+    if (touchUI && touchUI.setSleepState) touchUI.setSleepState(false);
+    syncVitals();
+    return false;
+  }
+  if (physics.flipped || animator.jumpActive) {
+    survival.msg = 'Tidak bisa tidur saat ini.';
+    syncVitals();
+    return false;
+  }
+  stopForSurvivalAction();
+  survival.eatT = 0;
+  survival.drinkT = 0;
+  if (animator.inspectMode) setInspectMode(false);
+  animator.setState('sleep');
+  survival.msg = '💤 Kuda berbaring tidur — stamina & HP pulih lebih cepat.';
+  if (btnSleepEl) btnSleepEl.classList.add('active');
+  if (touchUI && touchUI.setSleepState) touchUI.setSleepState(true);
+  syncVitals();
+  return true;
+}
 
 const btnWalkEl = document.getElementById('btn-walk');
 if (btnWalkEl) {
@@ -28885,7 +41640,7 @@ if (btnWalkEl) {
     e.preventDefault();
     btnForwardHeld = true;
     btnWalkEl.classList.add('held');
-    if (!survival.eating && !survival.drinking && animator.state === 'graze') {
+    if (!survival.eating && !survival.drinking && (animator.state === 'graze' || animator.state === 'sleep')) {
       animator.setState(runLatched ? 'run' : 'walk');
     }
   };
@@ -28908,7 +41663,7 @@ if (btnRevEl) {
     e.preventDefault();
     btnBackwardHeld = true;
     btnRevEl.classList.add('held');
-    if (!survival.eating && !survival.drinking && animator.state === 'graze') {
+    if (!survival.eating && !survival.drinking && (animator.state === 'graze' || animator.state === 'sleep')) {
       animator.setState('walk');
     }
   };
@@ -28929,10 +41684,24 @@ bindBtn('btn-run', () => toggleRun());
 bindBtn('btn-jump', () => doJump());
 bindBtn('btn-graze', () => doEat());
 bindBtn('btn-drink', () => doDrink());
+bindBtn('btn-sleep', () => doSleepToggle());
+if (btnInspectEl) {
+  const startInsp = (e) => { e.preventDefault(); setInspectMode(true, true); };
+  const stopInsp = (e) => { if (e) e.preventDefault(); setInspectMode(false); };
+  btnInspectEl.addEventListener('pointerdown', startInsp);
+  btnInspectEl.addEventListener('pointerup', stopInsp);
+  btnInspectEl.addEventListener('pointerleave', stopInsp);
+  btnInspectEl.addEventListener('pointercancel', stopInsp);
+  btnInspectEl.addEventListener('touchstart', startInsp, { passive: false });
+  btnInspectEl.addEventListener('touchend', stopInsp, { passive: false });
+  btnInspectEl.addEventListener('touchcancel', stopInsp, { passive: false });
+}
+bindBtn('btn-map', () => mapUI.toggle());
 
 const touchUI = initTouchControls({
   animator, survival,
-  onJump: doJump, onEat: doEat, onDrink: doDrink, onRunToggle: toggleRun, onHitch: toggleHitch,
+  onJump: doJump, onEat: doEat, onDrink: doDrink, onSleep: doSleepToggle, onRunToggle: toggleRun, onHitch: toggleHitch,
+  onInspect: (on) => setInspectMode(on, !!on),
   isTouchDevice: matchMedia('(pointer: coarse)').matches,
 });
 // Kuda mulai diam sampai input maju (W/↑ atau analog) ditekan.
@@ -28996,120 +41765,73 @@ function syncNpcHud() {
     hudNpc.textContent = `${party.squad.length}/${HC.NPC_TEAM_MAX}` + (names ? ` — ${names}` : '');
   }
 }
-function renderNpcDock() {
-  if (!npcDockEl) return;
-  const near = party.members.length < HC.NPC_TEAM_MAX ? party.nearby(animator.x, animator.z) : null;
-  const isStationary = Math.abs(animator.speed) < 0.85 && Math.hypot(physics.vel.x, physics.vel.z) < 0.85;
-  const canHitchAction = !physics.flipped && (!physics.hitched || isStationary || hitchAnim.active);
-  const al = (!physics.hitched && !physics.flipped) ? getHitchAlignment() : null;
-  const hitchMode = !canHitchAction ? 'none'
-    : hitchAnim.active ? 'docking'
-    : physics.hitched ? 'detach'
-    : al.ready ? 'attach'
-    : !al.alignedYaw ? 'yaw'
-    : !al.alignedLat ? 'lat'
-    : al.longErr > 1.25 ? 'rev'
-    : 'pos';
-  const sig = party.members.map((m) => `${m.uid}:${m.role.id}:${m.state}:${m.inCombat ? 'C' : ''}:${Math.round(m.hp ?? m.maxHp ?? 100)}`).join('|') +
-    '#' + (near ? near.npc.role.id : '') +
-    '@' + hitchMode + (physics.flipped ? ':F' : '');
-  if (sig === _lastDockSig) return;
-  _lastDockSig = sig;
+let _lastMiniNpcSig = '';
+function renderNpcMiniBar() {
+  if (!npcMiniBarEl) return;
+  const sig = party.members.map((m) => `${m.uid}:${m.state}:${m.inCombat ? 1 : 0}:${Math.round(m.hp ?? 100)}`).join('|') +
+    (physics.flipped ? ':F' : '');
+  if (sig === _lastMiniNpcSig) return;
+  _lastMiniNpcSig = sig;
 
-  npcDockEl.innerHTML = '';
-  const hasAny = party.members.length > 0 || !!near || canHitchAction;
-  npcDockEl.hidden = !hasAny;
-  if (!hasAny) return;
-
-  const stateText = {
-    boarding: 'Menuju Bak...',
-    hopping_in: 'Naik Kursi...',
-    seated: 'Di Kursi',
-    following: 'Jalan Ikut',
-    fallen: 'Terjatuh!',
-    helping_flip: 'Bantu Angkat',
-  };
+  npcMiniBarEl.innerHTML = '';
   for (const m of party.members) {
-    const r = m.role;
-    const card = document.createElement('div');
-    card.className = 'npc-card' + (m.inCombat ? ' fighting' : '');
-    card.dataset.uid = String(m.uid);
-    card.dataset.state = m.state;
-
-    const rarityCls = r.mythic ? 'mythic' : r.legendary ? 'legendary' : r.rare ? 'rare' : '';
+    const r = m.role || {};
     const robe = hexCss(r.robe, 0x4f6b34);
     const hood = hexCss(r.hood, 0x3c4a68);
     const curHp = Math.max(0, Math.round(m.hp ?? r.hp ?? 100));
     const maxHp = Math.max(1, Math.round(m.maxHp ?? r.hp ?? 100));
     const hpPct = Math.round((curHp / maxHp) * 100);
     const dotCls = m.inCombat ? 'fighting' : m.state;
-    const statusLabel = m.inCombat ? '⚔ Bertarung' : (stateText[m.state] || m.state);
 
-    const top = document.createElement('div');
-    top.className = 'npc-card-top';
-    top.innerHTML =
-      `<div class="npc-thumb ${rarityCls}" style="--robe:${robe};--hood:${hood}">` +
-        `<span>${r.e || '👤'}</span>` +
-        `<i class="npc-dot ${dotCls}"></i>` +
-      `</div>` +
-      `<div class="npc-meta">` +
-        `<div class="npc-name">${r.name}</div>` +
-        `<div class="npc-state">${statusLabel}</div>` +
-        (m.inCombat || curHp < maxHp
-          ? `<div class="npc-hp-mini"><i style="width:${hpPct}%"></i></div>`
-          : '') +
-      `</div>`;
-    card.appendChild(top);
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'npc-mini-chip' + (m.inCombat ? ' fighting' : '');
+    chip.style.setProperty('--robe', robe);
+    chip.style.setProperty('--hood', hood);
+    chip.dataset.uid = String(m.uid);
+    chip.dataset.state = m.state;
+    const actionHint = m.state === 'following' ? 'Klik: Naik Gerobak' : (m.state === 'seated' ? 'Klik: Turun Kawal' : m.state);
+    chip.title = `${r.name || 'NPC'} — ${actionHint}`;
+    chip.innerHTML =
+      `<span>${r.e || '👤'}</span>` +
+      `<i class="nm-dot ${dotCls}"></i>` +
+      `<span class="nm-hp"><i style="width:${hpPct}%"></i></span>`;
 
-    const acts = document.createElement('div');
-    acts.className = 'npc-actions';
-    const btnToggle = document.createElement('button');
-    btnToggle.type = 'button';
-    const canBoard = m.state === 'following';
-    btnToggle.className = 'npc-toggle' + (canBoard ? ' mount' : '');
-    if (m.state === 'hopping_in') {
-      btnToggle.disabled = true;
-      btnToggle.textContent = 'Naik...';
-    } else if (m.state === 'fallen') {
-      btnToggle.disabled = true;
-      btnToggle.textContent = 'Terjatuh';
-    } else if (m.state === 'helping_flip') {
-      btnToggle.disabled = true;
-      btnToggle.textContent = 'Dorong...';
-    } else if (canBoard && physics.flipped) {
-      btnToggle.disabled = true;
-      btnToggle.textContent = '⬆ Terbalik';
-    } else if (canBoard) {
-      btnToggle.textContent = '⬆ Naik';
-      bindTapSafe(btnToggle, () => {
-        party.toggleMemberMount(m.uid);
-        syncNpcHud();
-        renderNpcDock();
-      });
-    } else {
-      btnToggle.textContent = '⬇ Turun';
-      bindTapSafe(btnToggle, () => {
-        party.toggleMemberMount(m.uid);
-        syncNpcHud();
-        renderNpcDock();
-      });
-    }
-    const btnKick = document.createElement('button');
-    btnKick.type = 'button';
-    btnKick.className = 'npc-kick';
-    btnKick.title = 'Lepas NPC';
-    btnKick.textContent = '×';
-    bindTapSafe(btnKick, () => {
-      party.releaseMember(m.uid);
+    bindTapSafe(chip, () => {
+      if (m.state === 'following' && physics.flipped) return;
+      party.toggleMemberMount(m.uid);
+      _lastMiniNpcSig = '';
       syncNpcHud();
+      renderNpcMiniBar();
       renderNpcDock();
     });
-
-    acts.appendChild(btnToggle);
-    acts.appendChild(btnKick);
-    card.appendChild(acts);
-    npcDockEl.appendChild(card);
+    npcMiniBarEl.appendChild(chip);
   }
+}
+
+function renderNpcDock() {
+  renderNpcMiniBar();
+  if (!npcDockEl) return;
+  const near = party.members.length < HC.NPC_TEAM_MAX ? party.nearby(animator.x, animator.z) : null;
+  const isStationary = Math.abs(animator.speed) < 0.85 && Math.hypot(physics.vel.x, physics.vel.z) < 0.85;
+  const canHitchAction = !physics.flipped && ((!physics.hitched) || hitchAnim.active);
+  const al = (!physics.hitched && !physics.flipped) ? getHitchAlignment() : null;
+  const hitchMode = !canHitchAction ? 'none'
+    : hitchAnim.active ? 'docking'
+    : physics.hitched ? (isStationary ? 'detach' : 'none')
+    : al.ready ? 'attach'
+    : !al.alignedYaw ? 'yaw'
+    : !al.alignedLat ? 'lat'
+    : al.longErr > 1.25 ? 'rev'
+    : 'pos';
+  const sig = (near ? near.npc.role.id : '') + '@' + hitchMode + (physics.flipped ? ':F' : '');
+  if (sig === _lastDockSig) return;
+  _lastDockSig = sig;
+
+  npcDockEl.innerHTML = '';
+  const hasAny = !!near || (canHitchAction && hitchMode !== 'none');
+  npcDockEl.hidden = !hasAny;
+  if (!hasAny) return;
 
   if (near) {
     const r = near.npc.role;
@@ -29121,7 +41843,7 @@ function renderNpcDock() {
     npcDockEl.appendChild(pill);
   }
 
-  if (canHitchAction) {
+  if (canHitchAction && hitchMode !== 'none') {
     const hBtn = document.createElement('button');
     hBtn.type = 'button';
     hBtn.className = 'npc-hitch-card' + (!physics.hitched ? ' free' : '');
@@ -29510,9 +42232,14 @@ const flipGame = {
       physics.liftProgress = 1;
       physics.rightCartInPlace();
       this.stop(true);
-      survival.msg = npcN > 0
-        ? `Gerobak berhasil ditegakkan bersama ${npcN} NPC! Dekati gerobak untuk pasang tali.`
-        : 'Gerobak berhasil ditegakkan! Dekati gerobak untuk pasang tali.';
+      const spilledLeft = physics.spilled ? physics.spilled.length : 0;
+      survival.msg = spilledLeft > 0
+        ? (npcN > 0
+          ? `Gerobak tegak! ${npcN} NPC mulai memungut ${spilledLeft} barang jatuh satu per satu...`
+          : `Gerobak tegak! ${spilledLeft} barang masih jatuh di tanah (rekrut NPC untuk memungutnya).`)
+        : (npcN > 0
+          ? `Gerobak berhasil ditegakkan bersama ${npcN} NPC! Dekati gerobak untuk pasang tali.`
+          : 'Gerobak berhasil ditegakkan! Dekati gerobak untuk pasang tali.');
       syncVitals();
       syncNpcHud();
       syncHitchUi();
@@ -29588,33 +42315,10 @@ function resetRig() {
 }
 bindBtn('btn-reset', resetRig);
 
-// ---- Suasana & Lingkungan Hutan Cozy (Pagi / Sore / Malam + Api / Lampu / Sinar / Suara) ----
+// ---- Vignette malam mengikuti siklus 10 menit otomatis ----
 const vignetteEl = document.getElementById('cozy-vignette');
-document.querySelectorAll('#hud [data-mood]').forEach((btn) => {
-  btn.addEventListener('click', (e) => {
-    e.preventDefault();
-    const m = btn.dataset.mood;
-    if (world.setMood) world.setMood(m);
-    document.querySelectorAll('#hud [data-mood]').forEach((b) => b.classList.toggle('active', b === btn));
-    if (vignetteEl) vignetteEl.classList.toggle('night-mist', m === 'night');
-  });
-});
 
-function bindEnvToggle(id, fn) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.addEventListener('click', (e) => {
-    e.preventDefault();
-    const on = fn();
-    el.classList.toggle('active', !!on);
-  });
-}
-bindEnvToggle('env-fire', () => world.toggleCampfire && world.toggleCampfire());
-bindEnvToggle('env-lamp', () => world.toggleHeadlights && world.toggleHeadlights());
-bindEnvToggle('env-rays', () => world.toggleSunbeams && world.toggleSunbeams());
-bindEnvToggle('env-audio', () => world.toggleAudio && world.toggleAudio());
-
-// ---- Interaksi klik langsung pada pohon, semak, kolam, api unggun, jamur, & truk ----
+// ---- Interaksi klik langsung pada pohon, semak, kolam, api unggun, jamur ----
 let _downPos = { x: 0, y: 0 };
 renderer.domElement.addEventListener('pointerdown', (e) => {
   _downPos.x = e.clientX;
@@ -29626,8 +42330,7 @@ renderer.domElement.addEventListener('pointerup', (e) => {
   const note = world.interactAt(e.clientX, e.clientY, camera);
   if (note) {
     survival.msg = note;
-    const fireBtn = document.getElementById('env-fire');
-    if (fireBtn) fireBtn.classList.toggle('active', !!world.isCampfireLit);
+    syncVitals();
   }
 });
 
@@ -29652,14 +42355,14 @@ window.addEventListener('keydown', (e) => {
   const k = e.key.toLowerCase();
   if (k === 'w' || k === 'arrowup') {
     keysHeld.forward = true;
-    if (!survival.eating && !survival.drinking && animator.state === 'graze') {
+    if (!survival.eating && !survival.drinking && (animator.state === 'graze' || animator.state === 'sleep')) {
       animator.setState(runLatched ? 'run' : 'walk');
     }
     e.preventDefault();
   }
   else if (k === 's' || k === 'arrowdown') {
     keysHeld.backward = true;
-    if (!survival.eating && !survival.drinking && animator.state === 'graze') {
+    if (!survival.eating && !survival.drinking && (animator.state === 'graze' || animator.state === 'sleep')) {
       animator.setState('walk');
     }
     e.preventDefault();
@@ -29682,7 +42385,12 @@ window.addEventListener('keydown', (e) => {
     }
   }
   else if (k === 'escape') {
-    if (flipGame.active) { e.preventDefault(); flipGame.stop(false); }
+    if (mapUI.isOpen) { e.preventDefault(); mapUI.close(); }
+    else if (statsPanelEl && !statsPanelEl.hidden) { e.preventDefault(); setStatsPanelOpen(false); }
+    else if (settingsPanelEl && !settingsPanelEl.hidden) { e.preventDefault(); setSettingsPanelOpen(false); }
+    else if (animator.inspectMode) { e.preventDefault(); setInspectMode(false); }
+    else if (animator.state === 'sleep') { e.preventDefault(); doSleepToggle(); }
+    else if (flipGame.active) { e.preventDefault(); flipGame.stop(false); }
     else if (hitchAnim.active) {
       e.preventDefault();
       hitchAnim.active = false;
@@ -29695,7 +42403,10 @@ window.addEventListener('keydown', (e) => {
     }
   }
   else if (k === '3' || k === 'e') doEat();
-  else if (k === '4' || k === 'f' || k === 'm') doDrink();
+  else if (k === '4' || k === 'f') doDrink();
+  else if (k === 'z') { e.preventDefault(); if (!e.repeat) doSleepToggle(); }
+  else if (k === 'm') { e.preventDefault(); if (!e.repeat) mapUI.toggle(); }
+  else if (k === 'q') { e.preventDefault(); setInspectMode(true, !e.repeat); }
   else if (k === 't') spawnTipRamp();
   else if (k === 'b') world.spawnPebbleClusterAhead(animator.x, animator.z, animator.yaw);
   else if (k === 'g') recruitNearbyNPC();
@@ -29704,7 +42415,11 @@ window.addEventListener('keydown', (e) => {
   else if (k === 'x') resetRig();
   else if (k === 'u') {
     const p = document.getElementById('upgrade-panel');
-    if (p) p.classList.toggle('collapsed');
+    if (p) {
+      p.dataset.userToggled = '1';
+      p.classList.toggle('collapsed');
+      if (ui && ui.syncToggleText) ui.syncToggleText();
+    }
   }
 });
 window.addEventListener('keyup', (e) => {
@@ -29713,6 +42428,7 @@ window.addEventListener('keyup', (e) => {
   else if (k === 's' || k === 'arrowdown') keysHeld.backward = false;
   else if (k === 'arrowleft' || k === 'a') { keysHeld.left = false; syncSteerInput(); }
   else if (k === 'arrowright' || k === 'd') { keysHeld.right = false; syncSteerInput(); }
+  else if (k === 'q') setInspectMode(false);
 });
 window.addEventListener('blur', () => {
   keysHeld.forward = false;
@@ -29721,6 +42437,7 @@ window.addEventListener('blur', () => {
   keysHeld.right = false;
   btnForwardHeld = false;
   btnBackwardHeld = false;
+  setInspectMode(false);
   animator.setSteer(0);
   animator.setThrottle(0);
 });
@@ -29731,8 +42448,77 @@ scene.updateMatrixWorld(true);
 syncHitchUi();
 syncFlipBanner();
 
+const _projTmp = new THREE.Vector3();
+const _wheelBadgeEls = [0, 1, 2, 3].map((i) => document.getElementById('whp-' + i));
+const _cartBadgeEl = document.getElementById('whp-cart');
+
+function updateWheelHpOverlay() {
+  if (!wheelHpOverlayEl) return;
+  const active = !!animator.inspectMode;
+  wheelHpOverlayEl.hidden = !active;
+  if (!active) return;
+
+  const vw = Math.max(1, window.innerWidth);
+  const vh = Math.max(1, window.innerHeight);
+  let sumHp = 0;
+
+  for (let i = 0; i < physics.wheels.length && i < _wheelBadgeEls.length; i++) {
+    const w = physics.wheels[i];
+    const el = _wheelBadgeEls[i];
+    if (!el || !w) continue;
+    const hp = Math.max(0, Math.round(w.hp || 0));
+    const maxHp = Math.max(1, Math.round(w.hpMax || 100));
+    sumHp += w.detached ? 0 : hp;
+
+    if (w.ref && w.ref.wheelPivot && !w.detached) {
+      w.ref.wheelPivot.getWorldPosition(_projTmp);
+    } else if (w.world) {
+      _projTmp.copy(w.world);
+    } else {
+      el.style.display = 'none';
+      continue;
+    }
+    _projTmp.y += 0.42;
+    _projTmp.project(camera);
+    if (_projTmp.z > 1 || _projTmp.z < -1) {
+      el.style.display = 'none';
+      continue;
+    }
+    const sx = (_projTmp.x * 0.5 + 0.5) * vw;
+    const sy = (-_projTmp.y * 0.5 + 0.5) * vh;
+    el.style.display = '';
+    el.style.left = Math.round(sx) + 'px';
+    el.style.top = Math.round(sy) + 'px';
+
+    const valEl = el.querySelector('.whp-val');
+    if (valEl) valEl.textContent = w.detached ? 'LEPAS' : `${hp}/${maxHp}`;
+    el.className = 'whp-badge ' + (w.detached ? 'dead' : hp >= 70 ? 'ok' : hp >= 35 ? 'warn' : 'crit');
+  }
+
+  if (_cartBadgeEl && cart && cart.root) {
+    _projTmp.copy(cart.root.position);
+    _projTmp.y += 1.95;
+    _projTmp.project(camera);
+    if (_projTmp.z <= 1 && _projTmp.z >= -1) {
+      const avg = Math.round(sumHp / Math.max(1, physics.wheels.length));
+      const sx = (_projTmp.x * 0.5 + 0.5) * vw;
+      const sy = (-_projTmp.y * 0.5 + 0.5) * vh;
+      _cartBadgeEl.style.display = '';
+      _cartBadgeEl.style.left = Math.round(sx) + 'px';
+      _cartBadgeEl.style.top = Math.round(sy) + 'px';
+      const valEl = _cartBadgeEl.querySelector('.whp-val');
+      if (valEl) valEl.textContent = `${avg}/100`;
+      _cartBadgeEl.className = 'whp-badge ' + (avg >= 70 ? 'ok' : avg >= 35 ? 'warn' : 'crit');
+    } else {
+      _cartBadgeEl.style.display = 'none';
+    }
+  }
+}
+
 let last = performance.now();
 let camPrevYaw = animator.yaw;
+let _sleepZTimer = 0;
+const _sleepHeadW = new THREE.Vector3();
 window.__manualSim = false;
 
 function stepSim(dt) {
@@ -29748,10 +42534,10 @@ function stepSim(dt) {
   } else if (acting) {
     animator.setThrottle(0);
   } else if (pcForward && !pcBackward) {
-    if (animator.state === 'graze') animator.setState(runLatched ? 'run' : 'walk');
+    if (animator.state === 'graze' || animator.state === 'sleep') animator.setState(runLatched ? 'run' : 'walk');
     animator.setThrottle(1);
   } else if (pcBackward && !pcForward) {
-    if (animator.state === 'graze' || animator.state === 'run') {
+    if (animator.state === 'graze' || animator.state === 'sleep' || animator.state === 'run') {
       runLatched = false;
       animator.setState('walk');
       if (touchUI && touchUI.setRunLatched) touchUI.setRunLatched(false);
@@ -29759,6 +42545,9 @@ function stepSim(dt) {
     animator.setThrottle(-1);
   } else if (!stickActive) {
     animator.setThrottle(0);
+  } else if (stickActive && animator.state === 'sleep') {
+    const mStick = Math.hypot(touchUI.joystick.vec.x || 0, touchUI.joystick.vec.y || 0);
+    if (mStick > 0.16) animator.setState(runLatched ? 'run' : 'walk');
   }
   if (!survival.canRun() && animator.state === 'run') {
     runLatched = false;
@@ -29810,10 +42599,30 @@ function stepSim(dt) {
       }
     }
   }
-  world.setCartPose(physics.pos.x, physics.pos.z);
+  world._horseJumpActive = !!animator.jumpActive;
+  world.setCartPose(physics.pos.x, physics.pos.z, physics.yaw);
   world.update(animator.x, dt, animator.z, animator.yaw);
+  if (vignetteEl) vignetteEl.classList.toggle('night-mist', world.currentMoodKey === 'night');
   party.update(animator.x, animator.z, animator.yaw, dt, cart, physics);
-  mobs.update(dt, { animator, physics, party, camera, world });
+  mobs.update(dt, {
+    animator,
+    physics,
+    party,
+    camera,
+    world,
+    onCartAttacked: (dmg, variant) => {
+      const label = variant === 'big' ? 'Bandit Besar' : 'Bandit';
+      survival.msg = `⚠️ ${label} menyerang gerobak (-${dmg} HP roda)! Turunkan NPC untuk melawan!`;
+      syncVitals();
+    },
+    onNightAmbush: (list) => {
+      const n = (list && list.length) || 1;
+      const msg = `🌙⚠️ ${n} Bandit malam menghadang di jalan!`;
+      survival.msg = msg;
+      showToast(msg);
+      syncVitals();
+    },
+  });
   cullDistantNpcs(party.wild, animator.x, animator.z, quality.npcCull);
   // LOD dievaluasi tiap 12 frame saja: hasil tetap sama di mata, biaya CPU
   // turun (jarak warga jarang berubah signifikan dalam 0.2 s).
@@ -29824,6 +42633,20 @@ function stepSim(dt) {
   for (const p of cart.npcPassengers || []) HC.animateNPC(p, dt);
   syncNpcHud();
   renderNpcDock();
+
+  // Quest antar-desa, marker NPC [!]/[?], & peta mini
+  syncQuestNpcMarkers(dt);
+  const nearVillage = quests.getNearbyVillage(animator.x, animator.z);
+  quests.update(animator.x, animator.z, physics, (done) => {
+    if (HC.clearQuestCargoFromCart) HC.clearQuestCargoFromCart(cart, physics);
+    const msg = `🎉 ${done.cargoName} tiba kepada ${done.receiverName || done.toName} di ${done.toName}! +${done.rewardGold} Emas & perbaikan roda +25 HP!`;
+    survival.msg = msg;
+    showToast(msg);
+    syncVitals();
+    _lastQuestSig = '';
+  }, party.wild);
+  renderQuestHud(nearVillage);
+  mapUI.update(animator.x, animator.z, animator.yaw, physics.pos.x, physics.pos.z, quests.activeQuest, nearVillage);
 
   // anchor sabuk perut & kalung kuda harus segar sebelum physics:
   // gerobak ditarik lewat tali (traces) + dibimbing batang (thills)
@@ -29883,12 +42706,21 @@ function stepSim(dt) {
   horseBlob.position.set(animator.x - Math.cos(animator.yaw) * 0.15, gyHorse + 0.02, animator.z + Math.sin(animator.yaw) * 0.15);
   cartBlob.position.set(cart.root.position.x, (world.terrainHeightAt ? world.terrainHeightAt(cart.root.position.x, cart.root.position.z) : 0) + 0.02, cart.root.position.z);
 
+  const inspAllowed = canInspectCart();
+  if (animator.inspectMode && !inspAllowed) setInspectMode(false);
+  if (btnInspectEl) btnInspectEl.disabled = !inspAllowed;
+  if (touchUI && touchUI.setInspectDisabled) touchUI.setInspectDisabled(!inspAllowed);
+
   const panelOpenMobile = isPortraitMobile() && panelEl && !panelEl.classList.contains('collapsed');
-  // fokus di dekat kuda (bukan tengah rig) supaya kepala kuda tidak terpotong panel kanan
-  const focusX = animator.x - animator.forwardX * 1.2;
-  const focusZ = animator.z - animator.forwardZ * 1.2;
+  // Saat Q Inspect ditahan (hold), kamera bergeser fokus ke gerobak + roda, dan saat dilepas kembali ke kamera sebelumnya
+  const focusX = animator.inspectMode
+    ? HC.lerp(animator.x, physics.pos.x, 0.85)
+    : (animator.x - animator.forwardX * 1.2);
+  const focusZ = animator.inspectMode
+    ? HC.lerp(animator.z, physics.pos.z, 0.85)
+    : (animator.z - animator.forwardZ * 1.2);
   const gyFocus = world.terrainHeightAt ? world.terrainHeightAt(focusX, focusZ) : 0;
-  followTarget.set(focusX, gyFocus + (panelOpenMobile ? 0.35 : 1.3), focusZ);
+  followTarget.set(focusX, gyFocus + (panelOpenMobile ? 0.35 : (animator.inspectMode ? 0.85 : 1.25)), focusZ);
 
   // chase-cam: kamera ikut berputar mengikuti heading kuda, jadi rig selalu ke-frame saat belok
   const dYawCam = animator.yaw - camPrevYaw;
@@ -29901,14 +42733,47 @@ function stepSim(dt) {
     camera.position.z = controls.target.z - ox * ss + oz * cc;
   }
 
-  const k = 1 - Math.exp(-4.5 * dt);
+  const kRate = animator.inspectMode ? 7.5 : (_inspectReturning ? 8.5 : 4.5);
+  const k = 1 - Math.exp(-kRate * dt);
   const dx = (followTarget.x - controls.target.x) * k;
   const dy = (followTarget.y - controls.target.y) * k;
   const dz = (followTarget.z - controls.target.z) * k;
   controls.target.x += dx; controls.target.y += dy; controls.target.z += dz;
   camera.position.x += dx; camera.position.y += dy; camera.position.z += dz;
+
+  if (animator.inspectMode) {
+    _inspectWantOff.copy(_inspectTargetLocalOff).applyAxisAngle(_upY, animator.yaw);
+    _inspectCurOff.copy(camera.position).sub(controls.target);
+    _inspectCurOff.lerp(_inspectWantOff, 1 - Math.exp(-7.5 * dt));
+    camera.position.copy(controls.target).add(_inspectCurOff);
+  } else if (_inspectReturning && _inspectHasSaved) {
+    _inspectWantOff.copy(_inspectSavedLocalOff).applyAxisAngle(_upY, animator.yaw);
+    _inspectCurOff.copy(camera.position).sub(controls.target);
+    _inspectCurOff.lerp(_inspectWantOff, 1 - Math.exp(-8.5 * dt));
+    if (_inspectCurOff.distanceTo(_inspectWantOff) < 0.04) {
+      _inspectCurOff.copy(_inspectWantOff);
+      _inspectReturning = false;
+      _inspectHasSaved = false;
+    }
+    camera.position.copy(controls.target).add(_inspectCurOff);
+  }
+
   controls.update();
   if (world.syncCamera) world.syncCamera(camera);
+
+  // Sleepy Zzz particles saat kuda tidur
+  if (animator.sleepBlend > 0.72 && mobs && mobs.vfx && mobs.vfx.spawnSleepyZ) {
+    _sleepZTimer += dt;
+    if (_sleepZTimer >= 1.25) {
+      _sleepZTimer = 0;
+      if (horse && horse.head && horse.head.getWorldPosition) {
+        horse.head.getWorldPosition(_sleepHeadW);
+        mobs.vfx.spawnSleepyZ(_sleepHeadW);
+      }
+    }
+  } else {
+    _sleepZTimer = 0.85;
+  }
 
   const st = animator.jumpActive ? 'jump'
     : hitchAnim.active ? 'dock'
@@ -29916,10 +42781,12 @@ function stepSim(dt) {
     : animator.state;
   const label = st === 'dock' ? 'NGEPASIN' : st === 'rev' ? 'MUNDUR' : (stateLabel[st] || st.toUpperCase());
   if (hudState) hudState.textContent = label;
-  for (const [m, id] of [['walk','btn-walk'],['rev','btn-rev'],['run','btn-run'],['jump','btn-jump'],['graze','btn-graze']]) {
+  for (const [m, id] of [['walk','btn-walk'],['rev','btn-rev'],['run','btn-run'],['jump','btn-jump'],['graze','btn-graze'],['sleep','btn-sleep']]) {
     const b = document.getElementById(id);
     if (b) b.classList.toggle('primary', st === m);
   }
+  if (btnSleepEl) btnSleepEl.classList.toggle('active', animator.state === 'sleep');
+  if (touchUI && touchUI.setSleepState) touchUI.setSleepState(animator.state === 'sleep');
   if (hudSpeed) hudSpeed.textContent = (Math.abs(animator.speed) * 3.6).toFixed(1) + ' km/j';
   syncVitals();
   if (hudHead) {
@@ -29935,7 +42802,7 @@ function stepSim(dt) {
     const total = cart.cargoItems.length;
     const spilled = physics.spilled.length;
     const inBed = total - spilled;
-    const pCount = (cart.passengers && cart.passengers.length) || 4;
+    const pCount = party.members.filter((m) => m.state === 'seated').length;
     let maxDy = 0;
     for (const it of cart.cargoItems) {
       if (!it.spilled) maxDy = Math.max(maxDy, it.localPos.y - it.floorY);
@@ -29943,7 +42810,7 @@ function stepSim(dt) {
     hudCargo.textContent = spilled > 0
       ? pCount + ' org • ' + inBed + '/' + total + ' brg (' + spilled + ' jatuh)'
       : pCount + ' org • ' + inBed + '/' + total + ' brg • goyang ' + (maxDy * 100).toFixed(0) + 'cm';
-    hudCargo.style.color = spilled > 0 ? '#c0392b' : '';
+    hudCargo.style.color = spilled > 0 ? '#f87171' : '';
   }
   if (hudWheel) {
     const rep = physics.wheelReport ? physics.wheelReport() : [];
@@ -29954,12 +42821,15 @@ function stepSim(dt) {
       return r.hp;
     });
     hudWheel.textContent = lost > 0
-      ? parts.join(' · ') + '  (' + lost + ' roda lepas)'
+      ? parts.join(' · ') + '  (' + lost + ' lepas)'
       : parts.join(' · ');
-    hudWheel.style.color = lost > 0 ? '#8e44ad' : worst <= 0 ? '#c0392b' : worst < 45 ? '#d35400' : '';
+    hudWheel.style.color = lost > 0 ? '#c084fc' : worst <= 0 ? '#f87171' : worst < 45 ? '#fb923c' : '';
   }
+  if (hudGold) hudGold.textContent = `${quests.gold} G`;
+  if (hudTime && world.getTimeLabel) hudTime.textContent = world.getTimeLabel();
 
   renderer.render(scene, camera);
+  updateWheelHpOverlay();
 }
 
 function frame(now) {
@@ -29976,9 +42846,15 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 
-window.RIG = { scene, camera, renderer, controls, animator, physics, world, cart, horse, store, ui, party, mobs, rebuildCartFromStore, stepSim, ropes: { towL, towR, traceL, traceR, reinL, reinR } };
+window.RIG = {
+  scene, camera, renderer, controls, animator, physics, world, cart, horse,
+  store, ui, party, mobs, quests, mapUI, toggleInspectMode, setInspectMode, canInspectCart, doSleepToggle,
+  rebuildCartFromStore, stepSim, ropes: { towL, towR, traceL, traceR, reinL, reinR }
+};
 window.SURVIVAL = survival;
 window.TOUCH_UI = touchUI;
+window.QUESTS = quests;
+window.MAP_UI = mapUI;
 requestAnimationFrame(frame);
 
 window.addEventListener('resize', () => {

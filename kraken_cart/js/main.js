@@ -11,6 +11,8 @@ import './sylvan/models.js';
 import { UpgradeStore } from './upgrades.js';
 import { initUpgradeUI } from './ui.js';
 import { Survival } from './survival.js';
+import { DeliveryQuestSystem } from './quests.js';
+import { MapUI } from './minimap.js';
 import { initTouchControls } from './touch_controls.js';
 import {
   QUALITY_ORDER, QUALITY_PRESETS, resolveQuality, saveQualityKey,
@@ -35,7 +37,7 @@ scene.background = new THREE.Color(0x6bb0e6);
 
 const initW = Math.max(1, window.innerWidth);
 const initH = Math.max(1, window.innerHeight);
-const camera = new THREE.PerspectiveCamera(46, initW / initH, 0.2, 180);
+const camera = new THREE.PerspectiveCamera(46, initW / initH, 0.2, 450);
 
 const renderer = new THREE.WebGLRenderer({
   antialias: !!quality.antialias,
@@ -321,6 +323,9 @@ function rebuildCartFromStore() {
   window.RIG.cart = newCart;
   party.bindCart(cart);
   if (party.members.length) party.mount(cart);   // penumpang NPC duduk ikut pindah ke bak baru
+  if (typeof quests !== 'undefined' && quests && quests.activeQuest && HC.setQuestCargoOnCart) {
+    HC.setQuestCargoOnCart(cart, physics, quests.activeQuest.cargoKind, 3);
+  }
   reanchorRopes();
 }
 
@@ -372,6 +377,322 @@ const hudCargo = document.getElementById('hud-cargo');
 const hudWheel = document.getElementById('hud-wheel');
 const hudNpc = document.getElementById('hud-npc');
 const hudNpcMsg = document.getElementById('hud-npc-msg');
+const hudGold = document.getElementById('hud-gold');
+const hudTime = document.getElementById('hud-time');
+const portraitHpFill = document.getElementById('portrait-hp-fill');
+const btnHorsePortrait = document.getElementById('btn-horse-portrait');
+const btnSettings = document.getElementById('btn-settings');
+const statsPanelEl = document.getElementById('horse-stats-panel');
+const settingsPanelEl = document.getElementById('settings-panel');
+const btnStatsClose = document.getElementById('btn-stats-close');
+const btnSettingsClose = document.getElementById('btn-settings-close');
+const npcMiniBarEl = document.getElementById('npc-mini-bar');
+const questHudEl = document.getElementById('quest-hud');
+const toastBannerEl = document.getElementById('toast-banner');
+const wheelHpOverlayEl = document.getElementById('wheel-hp-overlay');
+const btnInspectEl = document.getElementById('btn-inspect');
+
+let _toastTimer = null;
+let _lastToastText = '';
+function showToast(text) {
+  if (!toastBannerEl || !text || text === _lastToastText) return;
+  _lastToastText = text;
+  toastBannerEl.textContent = text;
+  toastBannerEl.hidden = false;
+  if (_toastTimer) clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => {
+    toastBannerEl.hidden = true;
+    _lastToastText = '';
+  }, 3400);
+}
+
+function setStatsPanelOpen(open) {
+  if (!statsPanelEl || !btnHorsePortrait) return;
+  const show = !!open;
+  statsPanelEl.hidden = !show;
+  btnHorsePortrait.classList.toggle('open', show);
+  btnHorsePortrait.setAttribute('aria-expanded', show ? 'true' : 'false');
+  if (show && settingsPanelEl && btnSettings) {
+    settingsPanelEl.hidden = true;
+    btnSettings.classList.remove('open');
+    btnSettings.setAttribute('aria-expanded', 'false');
+  }
+}
+
+function setSettingsPanelOpen(open) {
+  if (!settingsPanelEl || !btnSettings) return;
+  const show = !!open;
+  settingsPanelEl.hidden = !show;
+  btnSettings.classList.toggle('open', show);
+  btnSettings.setAttribute('aria-expanded', show ? 'true' : 'false');
+  if (show && statsPanelEl && btnHorsePortrait) {
+    statsPanelEl.hidden = true;
+    btnHorsePortrait.classList.remove('open');
+    btnHorsePortrait.setAttribute('aria-expanded', 'false');
+  }
+}
+
+if (btnHorsePortrait) {
+  btnHorsePortrait.addEventListener('click', (e) => {
+    e.preventDefault();
+    setStatsPanelOpen(statsPanelEl ? statsPanelEl.hidden : false);
+  });
+}
+if (btnStatsClose) {
+  btnStatsClose.addEventListener('click', (e) => { e.preventDefault(); setStatsPanelOpen(false); });
+}
+if (btnSettings) {
+  btnSettings.addEventListener('click', (e) => {
+    e.preventDefault();
+    setSettingsPanelOpen(settingsPanelEl ? settingsPanelEl.hidden : false);
+  });
+}
+if (btnSettingsClose) {
+  btnSettingsClose.addEventListener('click', (e) => { e.preventDefault(); setSettingsPanelOpen(false); });
+}
+
+// ---- Quest Pengantaran & Peta Dunia + Minimap ----
+const quests = new DeliveryQuestSystem({ world });
+quests.assignVillageQuestNpcs(party.wild);
+const mapUI = new MapUI({
+  world,
+  miniCanvas: document.getElementById('minimap-canvas'),
+  fullCanvas: document.getElementById('worldmap-canvas'),
+  modalEl: document.getElementById('worldmap-modal'),
+  miniWrap: document.getElementById('minimap-wrap'),
+  closeBtn: document.getElementById('btn-worldmap-close'),
+  locLabelEl: document.getElementById('minimap-loc'),
+  coordLabelEl: document.getElementById('worldmap-coords'),
+  quests,
+});
+
+function createQuestMarkerMesh(symbol) {
+  const g = new THREE.Group();
+  const isBang = symbol === '!';
+  const col = isBang ? 0xfacc15 : 0x34d399;
+  const mat = new THREE.MeshBasicMaterial({ color: col });
+  const rim = new THREE.MeshBasicMaterial({ color: isBang ? 0x92400e : 0x065f46 });
+  const unit = 0.095;
+  const px = (gx, gy, cMat = mat) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(unit, unit, unit * 0.72), cMat);
+    m.position.set(gx * unit, gy * unit, 0);
+    g.add(m);
+  };
+  if (isBang) {
+    for (let y = 2; y <= 5; y++) px(0, y, mat);
+    px(0, 0, mat);
+    // Halo ring kecil di bawah
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(0.14, 0.21, 16),
+      new THREE.MeshBasicMaterial({ color: col, side: THREE.DoubleSide, transparent: true, opacity: 0.75 })
+    );
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.y = -0.18;
+    g.add(ring);
+  } else {
+    px(-1, 5, mat); px(0, 5, mat); px(1, 5, mat);
+    px(1, 4, mat);
+    px(0, 3, mat); px(1, 3, mat);
+    px(0, 2, mat);
+    px(0, 0, mat);
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(0.14, 0.21, 16),
+      new THREE.MeshBasicMaterial({ color: col, side: THREE.DoubleSide, transparent: true, opacity: 0.75 })
+    );
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.y = -0.18;
+    g.add(ring);
+  }
+  const back = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.14, 0.04), rim);
+  back.position.set(0, 2.5 * unit, -0.05);
+  g.add(back);
+  g.visible = false;
+  return g;
+}
+
+let _qMarkerT = 0;
+function syncQuestNpcMarkers(dt) {
+  _qMarkerT += dt;
+  quests.assignVillageQuestNpcs(party.wild);
+  const q = quests.activeQuest;
+  const givers = new Set(quests._questNpcByVillage.values());
+  const bob = Math.sin(_qMarkerT * 3.4) * 0.11;
+
+  for (const m of party.members) {
+    if (m && m.root && m.root.userData && m.root.userData.__qMarkers) {
+      m.root.userData.__qMarkers['!'].visible = false;
+      m.root.userData.__qMarkers['?'].visible = false;
+    }
+  }
+  for (const w of party.wild) {
+    if (!w || !w.root) continue;
+    let showSym = null;
+    if (!w.recruited && !w.isIndoors) {
+      if (q) {
+        if (q.receiverNpc === w) showSym = '?';
+      } else if (givers.has(w)) {
+        showSym = '!';
+      }
+    }
+    let cache = w.root.userData.__qMarkers;
+    if (!showSym) {
+      if (cache) {
+        cache['!'].visible = false;
+        cache['?'].visible = false;
+      }
+      continue;
+    }
+    if (!cache) {
+      cache = {
+        '!': createQuestMarkerMesh('!'),
+        '?': createQuestMarkerMesh('?'),
+      };
+      w.root.add(cache['!']);
+      w.root.add(cache['?']);
+      w.root.userData.__qMarkers = cache;
+    }
+    cache['!'].visible = showSym === '!';
+    cache['?'].visible = showSym === '?';
+    const act = cache[showSym];
+    act.position.y = 2.35 + bob;
+    act.rotation.y += dt * 1.9;
+  }
+}
+
+let _lastQuestSig = '';
+function renderQuestHud(nearVillage) {
+  if (!questHudEl) return;
+  const q = quests.activeQuest;
+  const nearGiver = !q ? quests.getNearbyQuestNpc(animator.x, animator.z, party.wild, 5.8) : null;
+  const offer = nearGiver ? quests.getOfferForVillage(nearGiver.villageId, party.wild) : null;
+  const vGiver = (!q && !nearGiver && nearVillage) ? quests.getQuestNpcForVillage(nearVillage.id, party.wild) : null;
+  const dGiver = vGiver ? Math.round(Math.hypot(vGiver.x - animator.x, vGiver.z - animator.z)) : 0;
+  const distM = q ? Math.round(quests.distanceToTarget(animator.x, animator.z)) : 0;
+  const sig = q
+    ? `A|${q.id}|${Math.floor(distM / 5)}|${quests.gold}`
+    : (offer && nearGiver)
+      ? `G|${offer.id}|${nearGiver.npc.uid}|${quests.gold}`
+      : nearVillage
+        ? `H|${nearVillage.id}|${vGiver ? vGiver.uid : '0'}|${Math.floor(dGiver / 3)}|${quests.gold}`
+        : `I|${quests.gold}|${quests.completedCount}`;
+  if (sig === _lastQuestSig) return;
+  _lastQuestSig = sig;
+  questHudEl.innerHTML = '';
+
+  if (q) {
+    const pill = document.createElement('div');
+    pill.className = 'q-pill';
+    pill.innerHTML =
+      `<div class="q-pill-head"><span>${q.cargoIcon || '📦'} Antar ke ${q.toName}</span><span>${distM}m</span></div>` +
+      `<div class="q-pill-sub">${q.cargoName} → ${q.receiverName || q.toName} • +${q.rewardGold} G</div>` +
+      `<div class="q-actions"><span class="q-gold-chip">🪙 ${quests.gold} G</span><button type="button" class="q-btn-abandon" id="btn-quest-abandon" title="Batalkan Quest">Batalkan</button></div>`;
+    questHudEl.appendChild(pill);
+    const ab = pill.querySelector('#btn-quest-abandon');
+    if (ab) ab.addEventListener('click', (e) => {
+      e.preventDefault();
+      quests.abandonQuest();
+      if (HC.clearQuestCargoFromCart) HC.clearQuestCargoFromCart(cart, physics);
+      _lastQuestSig = '';
+      showToast('Quest pengantaran dibatalkan.');
+      renderQuestHud(quests.getNearbyVillage(animator.x, animator.z));
+    });
+  } else if (offer && nearGiver) {
+    const pill = document.createElement('div');
+    pill.className = 'q-pill';
+    pill.innerHTML =
+      `<div class="q-pill-head"><span>📜 ${offer.giverName} (${offer.fromName})</span><span>+${offer.rewardGold} G</span></div>` +
+      `<div class="q-pill-sub">Antar ${offer.cargoIcon || ''} ${offer.cargoName} ke ${offer.toName} (${offer.distance}m)</div>` +
+      `<div class="q-actions"><button type="button" class="q-btn-accept" id="btn-quest-accept">Ambil Quest</button></div>`;
+    questHudEl.appendChild(pill);
+    const acc = pill.querySelector('#btn-quest-accept');
+    if (acc) acc.addEventListener('click', (e) => {
+      e.preventDefault();
+      const res = quests.acceptQuest(nearGiver.villageId, party.wild);
+      if (res.ok && res.quest && HC.setQuestCargoOnCart) {
+        HC.setQuestCargoOnCart(cart, physics, res.quest.cargoKind, 3);
+      }
+      _lastQuestSig = '';
+      showToast(res.msg);
+      survival.msg = res.msg;
+      syncVitals();
+      renderQuestHud(nearVillage);
+    });
+  } else if (nearVillage) {
+    const pill = document.createElement('div');
+    pill.className = 'q-pill';
+    const gLabel = (vGiver && vGiver.role && vGiver.role.name) ? vGiver.role.name : 'warga';
+    pill.innerHTML =
+      `<div class="q-pill-head"><span>❗ Quest Desa ${nearVillage.name}</span><span>${vGiver ? `${dGiver}m` : ''}</span></div>` +
+      `<div class="q-pill-sub">${vGiver ? `Temui ${gLabel} bertanda [!] untuk mengambil quest barang.` : 'Cari warga di desa untuk misi antar barang.'}</div>`;
+    questHudEl.appendChild(pill);
+  } else if (quests.gold > 0) {
+    const chip = document.createElement('div');
+    chip.className = 'q-gold-chip';
+    chip.textContent = `🪙 ${quests.gold} G (${quests.completedCount} selesai)`;
+    questHudEl.appendChild(chip);
+  }
+}
+
+let _inspectWasActive = false;
+const _inspectSavedLocalOff = new THREE.Vector3();
+const _inspectTargetLocalOff = new THREE.Vector3();
+const _inspectCurOff = new THREE.Vector3();
+const _inspectWantOff = new THREE.Vector3();
+const _upY = new THREE.Vector3(0, 1, 0);
+let _inspectHasSaved = false;
+let _inspectReturning = false;
+
+controls.addEventListener('start', () => {
+  if (!animator.inspectMode && _inspectReturning) {
+    _inspectReturning = false;
+    _inspectHasSaved = false;
+  }
+});
+
+const INSPECT_MAX_DIST = Math.max(8.5, HITCH_DIST + 4.5);
+function canInspectCart() {
+  if (physics.hitched) return true;
+  return Math.hypot(animator.x - physics.pos.x, animator.z - physics.pos.z) <= INSPECT_MAX_DIST;
+}
+
+function setInspectMode(on, notifyDenied = false) {
+  const next = !!on;
+  if (next && !canInspectCart()) {
+    if (notifyDenied) showToast('Dekati gerobak terlebih dahulu untuk cek HP roda.');
+    if (_inspectWasActive) on = false;
+    else {
+      animator.inspectMode = false;
+      if (wheelHpOverlayEl) wheelHpOverlayEl.hidden = true;
+      return false;
+    }
+  }
+  const finalNext = !!on;
+  if (finalNext === _inspectWasActive) return finalNext;
+  animator.inspectMode = finalNext;
+  if (wheelHpOverlayEl) wheelHpOverlayEl.hidden = !finalNext;
+  if (btnInspectEl) {
+    btnInspectEl.classList.toggle('active', finalNext);
+    btnInspectEl.classList.toggle('held', finalNext);
+  }
+  if (touchUI && touchUI.setInspectState) touchUI.setInspectState(finalNext);
+  if (finalNext) {
+    if (!_inspectHasSaved) {
+      _inspectSavedLocalOff.copy(camera.position).sub(controls.target).applyAxisAngle(_upY, -animator.yaw);
+      _inspectHasSaved = true;
+    }
+    _inspectReturning = false;
+    const side = _inspectSavedLocalOff.z >= 0 ? 1 : -1;
+    _inspectTargetLocalOff.set(-1.35, 3.25, side * 6.8);
+  } else if (_inspectHasSaved) {
+    _inspectReturning = true;
+  }
+  _inspectWasActive = finalNext;
+  return finalNext;
+}
+function toggleInspectMode() {
+  setInspectMode(!animator.inspectMode);
+  return animator.inspectMode;
+}
 
 // Bar HP / stamina / lapar / haus + pesan kontekstual.
 const VITAL_ROWS = [['hp', 'v-hp'], ['stamina', 'v-sta'], ['hunger', 'v-food'], ['thirst', 'v-water']];
@@ -386,11 +707,14 @@ function syncVitals() {
       el.parentElement.parentElement.classList.toggle('low', val < 25);
     }
   }
+  if (portraitHpFill) portraitHpFill.style.width = Math.max(0, Math.min(100, Math.round(survival.hp))) + '%';
   const msg = document.getElementById('v-msg');
   if (msg && msg.textContent !== survival.msg) msg.textContent = survival.msg;
+  if (survival.msg) showToast(survival.msg);
 }
 
-const stateLabel = { walk: 'JALAN', run: 'LARI', jump: 'LOMPAT', graze: 'MAKAN RUMPUT' };
+const stateLabel = { walk: 'JALAN', run: 'LARI', jump: 'LOMPAT', graze: 'MAKAN RUMPUT', sleep: 'TIDUR' };
+const btnSleepEl = document.getElementById('btn-sleep');
 
 function bindBtn(id, fn) {
   const el = document.getElementById(id);
@@ -420,6 +744,7 @@ const survCtx = () => ({
   x: animator.x, z: animator.z, speed: animator.speed,
   moving: Math.abs(animator.throttle) > 0.06,
   running: animator.state === 'run' && animator.throttle > 0.06,
+  sleeping: animator.state === 'sleep' && Math.abs(animator.throttle) <= 0.06,
   flipped: !!physics.flipped,
   unhitched: !physics.hitched,
 });
@@ -459,6 +784,31 @@ function doJump() {
   survival.stamina = Math.max(0, survival.stamina - cost);
   animator.setState('jump');
 }
+function doSleepToggle() {
+  if (animator.state === 'sleep') {
+    animator.setState(runLatched ? 'run' : 'walk');
+    survival.msg = '☀️ Kuda bangun dan siap jalan.';
+    if (btnSleepEl) btnSleepEl.classList.remove('active');
+    if (touchUI && touchUI.setSleepState) touchUI.setSleepState(false);
+    syncVitals();
+    return false;
+  }
+  if (physics.flipped || animator.jumpActive) {
+    survival.msg = 'Tidak bisa tidur saat ini.';
+    syncVitals();
+    return false;
+  }
+  stopForSurvivalAction();
+  survival.eatT = 0;
+  survival.drinkT = 0;
+  if (animator.inspectMode) setInspectMode(false);
+  animator.setState('sleep');
+  survival.msg = '💤 Kuda berbaring tidur — stamina & HP pulih lebih cepat.';
+  if (btnSleepEl) btnSleepEl.classList.add('active');
+  if (touchUI && touchUI.setSleepState) touchUI.setSleepState(true);
+  syncVitals();
+  return true;
+}
 
 const btnWalkEl = document.getElementById('btn-walk');
 if (btnWalkEl) {
@@ -466,7 +816,7 @@ if (btnWalkEl) {
     e.preventDefault();
     btnForwardHeld = true;
     btnWalkEl.classList.add('held');
-    if (!survival.eating && !survival.drinking && animator.state === 'graze') {
+    if (!survival.eating && !survival.drinking && (animator.state === 'graze' || animator.state === 'sleep')) {
       animator.setState(runLatched ? 'run' : 'walk');
     }
   };
@@ -489,7 +839,7 @@ if (btnRevEl) {
     e.preventDefault();
     btnBackwardHeld = true;
     btnRevEl.classList.add('held');
-    if (!survival.eating && !survival.drinking && animator.state === 'graze') {
+    if (!survival.eating && !survival.drinking && (animator.state === 'graze' || animator.state === 'sleep')) {
       animator.setState('walk');
     }
   };
@@ -510,10 +860,24 @@ bindBtn('btn-run', () => toggleRun());
 bindBtn('btn-jump', () => doJump());
 bindBtn('btn-graze', () => doEat());
 bindBtn('btn-drink', () => doDrink());
+bindBtn('btn-sleep', () => doSleepToggle());
+if (btnInspectEl) {
+  const startInsp = (e) => { e.preventDefault(); setInspectMode(true, true); };
+  const stopInsp = (e) => { if (e) e.preventDefault(); setInspectMode(false); };
+  btnInspectEl.addEventListener('pointerdown', startInsp);
+  btnInspectEl.addEventListener('pointerup', stopInsp);
+  btnInspectEl.addEventListener('pointerleave', stopInsp);
+  btnInspectEl.addEventListener('pointercancel', stopInsp);
+  btnInspectEl.addEventListener('touchstart', startInsp, { passive: false });
+  btnInspectEl.addEventListener('touchend', stopInsp, { passive: false });
+  btnInspectEl.addEventListener('touchcancel', stopInsp, { passive: false });
+}
+bindBtn('btn-map', () => mapUI.toggle());
 
 const touchUI = initTouchControls({
   animator, survival,
-  onJump: doJump, onEat: doEat, onDrink: doDrink, onRunToggle: toggleRun, onHitch: toggleHitch,
+  onJump: doJump, onEat: doEat, onDrink: doDrink, onSleep: doSleepToggle, onRunToggle: toggleRun, onHitch: toggleHitch,
+  onInspect: (on) => setInspectMode(on, !!on),
   isTouchDevice: matchMedia('(pointer: coarse)').matches,
 });
 // Kuda mulai diam sampai input maju (W/↑ atau analog) ditekan.
@@ -577,123 +941,73 @@ function syncNpcHud() {
     hudNpc.textContent = `${party.squad.length}/${HC.NPC_TEAM_MAX}` + (names ? ` — ${names}` : '');
   }
 }
-function renderNpcDock() {
-  if (!npcDockEl) return;
-  const near = party.members.length < HC.NPC_TEAM_MAX ? party.nearby(animator.x, animator.z) : null;
-  const isStationary = Math.abs(animator.speed) < 0.85 && Math.hypot(physics.vel.x, physics.vel.z) < 0.85;
-  const canHitchAction = !physics.flipped && (!physics.hitched || isStationary || hitchAnim.active);
-  const al = (!physics.hitched && !physics.flipped) ? getHitchAlignment() : null;
-  const hitchMode = !canHitchAction ? 'none'
-    : hitchAnim.active ? 'docking'
-    : physics.hitched ? 'detach'
-    : al.ready ? 'attach'
-    : !al.alignedYaw ? 'yaw'
-    : !al.alignedLat ? 'lat'
-    : al.longErr > 1.25 ? 'rev'
-    : 'pos';
-  const sig = party.members.map((m) => `${m.uid}:${m.role.id}:${m.state}:${m.inCombat ? 'C' + ((m.cBrain && m.cBrain.phase) || '') : ''}:${Math.round(m.hp ?? m.maxHp ?? 100)}`).join('|') +
-    '#' + (near ? near.npc.role.id : '') +
-    '@' + hitchMode + (physics.flipped ? ':F' : '');
-  if (sig === _lastDockSig) return;
-  _lastDockSig = sig;
+let _lastMiniNpcSig = '';
+function renderNpcMiniBar() {
+  if (!npcMiniBarEl) return;
+  const sig = party.members.map((m) => `${m.uid}:${m.state}:${m.inCombat ? 1 : 0}:${Math.round(m.hp ?? 100)}`).join('|') +
+    (physics.flipped ? ':F' : '');
+  if (sig === _lastMiniNpcSig) return;
+  _lastMiniNpcSig = sig;
 
-  npcDockEl.innerHTML = '';
-  const hasAny = party.members.length > 0 || !!near || canHitchAction;
-  npcDockEl.hidden = !hasAny;
-  if (!hasAny) return;
-
-  const stateText = {
-    boarding: 'Menuju Bak...',
-    hopping_in: 'Naik Kursi...',
-    seated: 'Di Kursi',
-    following: 'Jalan Ikut',
-    fallen: 'Terjatuh!',
-    helping_flip: 'Bantu Angkat',
-  };
+  npcMiniBarEl.innerHTML = '';
   for (const m of party.members) {
-    const r = m.role;
-    const card = document.createElement('div');
-    card.className = 'npc-card' + (m.inCombat ? ' fighting' : '');
-    card.dataset.uid = String(m.uid);
-    card.dataset.state = m.state;
-
-    const rarityCls = r.mythic ? 'mythic' : r.legendary ? 'legendary' : r.rare ? 'rare' : '';
+    const r = m.role || {};
     const robe = hexCss(r.robe, 0x4f6b34);
     const hood = hexCss(r.hood, 0x3c4a68);
     const curHp = Math.max(0, Math.round(m.hp ?? r.hp ?? 100));
     const maxHp = Math.max(1, Math.round(m.maxHp ?? r.hp ?? 100));
     const hpPct = Math.round((curHp / maxHp) * 100);
     const dotCls = m.inCombat ? 'fighting' : m.state;
-    const cbPhase = m.cBrain && m.cBrain.phase;
-    const statusLabel = m.inCombat
-      ? (cbPhase === 'guard' ? '🛡 Menahan' : cbPhase === 'dodge' ? '💨 Menghindar' : '⚔ Bertarung')
-      : (stateText[m.state] || m.state);
 
-    const top = document.createElement('div');
-    top.className = 'npc-card-top';
-    top.innerHTML =
-      `<div class="npc-thumb ${rarityCls}" style="--robe:${robe};--hood:${hood}">` +
-        `<span>${r.e || '👤'}</span>` +
-        `<i class="npc-dot ${dotCls}"></i>` +
-      `</div>` +
-      `<div class="npc-meta">` +
-        `<div class="npc-name">${r.name}</div>` +
-        `<div class="npc-state">${statusLabel}</div>` +
-        (m.inCombat || curHp < maxHp
-          ? `<div class="npc-hp-mini"><i style="width:${hpPct}%"></i></div>`
-          : '') +
-      `</div>`;
-    card.appendChild(top);
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'npc-mini-chip' + (m.inCombat ? ' fighting' : '');
+    chip.style.setProperty('--robe', robe);
+    chip.style.setProperty('--hood', hood);
+    chip.dataset.uid = String(m.uid);
+    chip.dataset.state = m.state;
+    const actionHint = m.state === 'following' ? 'Klik: Naik Gerobak' : (m.state === 'seated' ? 'Klik: Turun Kawal' : m.state);
+    chip.title = `${r.name || 'NPC'} — ${actionHint}`;
+    chip.innerHTML =
+      `<span>${r.e || '👤'}</span>` +
+      `<i class="nm-dot ${dotCls}"></i>` +
+      `<span class="nm-hp"><i style="width:${hpPct}%"></i></span>`;
 
-    const acts = document.createElement('div');
-    acts.className = 'npc-actions';
-    const btnToggle = document.createElement('button');
-    btnToggle.type = 'button';
-    const canBoard = m.state === 'following';
-    btnToggle.className = 'npc-toggle' + (canBoard ? ' mount' : '');
-    if (m.state === 'hopping_in') {
-      btnToggle.disabled = true;
-      btnToggle.textContent = 'Naik...';
-    } else if (m.state === 'fallen') {
-      btnToggle.disabled = true;
-      btnToggle.textContent = 'Terjatuh';
-    } else if (m.state === 'helping_flip') {
-      btnToggle.disabled = true;
-      btnToggle.textContent = 'Dorong...';
-    } else if (canBoard && physics.flipped) {
-      btnToggle.disabled = true;
-      btnToggle.textContent = '⬆ Terbalik';
-    } else if (canBoard) {
-      btnToggle.textContent = '⬆ Naik';
-      bindTapSafe(btnToggle, () => {
-        party.toggleMemberMount(m.uid);
-        syncNpcHud();
-        renderNpcDock();
-      });
-    } else {
-      btnToggle.textContent = '⬇ Turun';
-      bindTapSafe(btnToggle, () => {
-        party.toggleMemberMount(m.uid);
-        syncNpcHud();
-        renderNpcDock();
-      });
-    }
-    const btnKick = document.createElement('button');
-    btnKick.type = 'button';
-    btnKick.className = 'npc-kick';
-    btnKick.title = 'Lepas NPC';
-    btnKick.textContent = '×';
-    bindTapSafe(btnKick, () => {
-      party.releaseMember(m.uid);
+    bindTapSafe(chip, () => {
+      if (m.state === 'following' && physics.flipped) return;
+      party.toggleMemberMount(m.uid);
+      _lastMiniNpcSig = '';
       syncNpcHud();
+      renderNpcMiniBar();
       renderNpcDock();
     });
-
-    acts.appendChild(btnToggle);
-    acts.appendChild(btnKick);
-    card.appendChild(acts);
-    npcDockEl.appendChild(card);
+    npcMiniBarEl.appendChild(chip);
   }
+}
+
+function renderNpcDock() {
+  renderNpcMiniBar();
+  if (!npcDockEl) return;
+  const near = party.members.length < HC.NPC_TEAM_MAX ? party.nearby(animator.x, animator.z) : null;
+  const isStationary = Math.abs(animator.speed) < 0.85 && Math.hypot(physics.vel.x, physics.vel.z) < 0.85;
+  const canHitchAction = !physics.flipped && ((!physics.hitched) || hitchAnim.active);
+  const al = (!physics.hitched && !physics.flipped) ? getHitchAlignment() : null;
+  const hitchMode = !canHitchAction ? 'none'
+    : hitchAnim.active ? 'docking'
+    : physics.hitched ? (isStationary ? 'detach' : 'none')
+    : al.ready ? 'attach'
+    : !al.alignedYaw ? 'yaw'
+    : !al.alignedLat ? 'lat'
+    : al.longErr > 1.25 ? 'rev'
+    : 'pos';
+  const sig = (near ? near.npc.role.id : '') + '@' + hitchMode + (physics.flipped ? ':F' : '');
+  if (sig === _lastDockSig) return;
+  _lastDockSig = sig;
+
+  npcDockEl.innerHTML = '';
+  const hasAny = !!near || (canHitchAction && hitchMode !== 'none');
+  npcDockEl.hidden = !hasAny;
+  if (!hasAny) return;
 
   if (near) {
     const r = near.npc.role;
@@ -705,7 +1019,7 @@ function renderNpcDock() {
     npcDockEl.appendChild(pill);
   }
 
-  if (canHitchAction) {
+  if (canHitchAction && hitchMode !== 'none') {
     const hBtn = document.createElement('button');
     hBtn.type = 'button';
     hBtn.className = 'npc-hitch-card' + (!physics.hitched ? ' free' : '');
@@ -1094,9 +1408,14 @@ const flipGame = {
       physics.liftProgress = 1;
       physics.rightCartInPlace();
       this.stop(true);
-      survival.msg = npcN > 0
-        ? `Gerobak berhasil ditegakkan bersama ${npcN} NPC! Dekati gerobak untuk pasang tali.`
-        : 'Gerobak berhasil ditegakkan! Dekati gerobak untuk pasang tali.';
+      const spilledLeft = physics.spilled ? physics.spilled.length : 0;
+      survival.msg = spilledLeft > 0
+        ? (npcN > 0
+          ? `Gerobak tegak! ${npcN} NPC mulai memungut ${spilledLeft} barang jatuh satu per satu...`
+          : `Gerobak tegak! ${spilledLeft} barang masih jatuh di tanah (rekrut NPC untuk memungutnya).`)
+        : (npcN > 0
+          ? `Gerobak berhasil ditegakkan bersama ${npcN} NPC! Dekati gerobak untuk pasang tali.`
+          : 'Gerobak berhasil ditegakkan! Dekati gerobak untuk pasang tali.');
       syncVitals();
       syncNpcHud();
       syncHitchUi();
@@ -1172,33 +1491,10 @@ function resetRig() {
 }
 bindBtn('btn-reset', resetRig);
 
-// ---- Suasana & Lingkungan Hutan Cozy (Pagi / Sore / Malam + Api / Lampu / Sinar / Suara) ----
+// ---- Vignette malam mengikuti siklus 10 menit otomatis ----
 const vignetteEl = document.getElementById('cozy-vignette');
-document.querySelectorAll('#hud [data-mood]').forEach((btn) => {
-  btn.addEventListener('click', (e) => {
-    e.preventDefault();
-    const m = btn.dataset.mood;
-    if (world.setMood) world.setMood(m);
-    document.querySelectorAll('#hud [data-mood]').forEach((b) => b.classList.toggle('active', b === btn));
-    if (vignetteEl) vignetteEl.classList.toggle('night-mist', m === 'night');
-  });
-});
 
-function bindEnvToggle(id, fn) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.addEventListener('click', (e) => {
-    e.preventDefault();
-    const on = fn();
-    el.classList.toggle('active', !!on);
-  });
-}
-bindEnvToggle('env-fire', () => world.toggleCampfire && world.toggleCampfire());
-bindEnvToggle('env-lamp', () => world.toggleHeadlights && world.toggleHeadlights());
-bindEnvToggle('env-rays', () => world.toggleSunbeams && world.toggleSunbeams());
-bindEnvToggle('env-audio', () => world.toggleAudio && world.toggleAudio());
-
-// ---- Interaksi klik langsung pada pohon, semak, kolam, api unggun, jamur, & truk ----
+// ---- Interaksi klik langsung pada pohon, semak, kolam, api unggun, jamur ----
 let _downPos = { x: 0, y: 0 };
 renderer.domElement.addEventListener('pointerdown', (e) => {
   _downPos.x = e.clientX;
@@ -1210,8 +1506,7 @@ renderer.domElement.addEventListener('pointerup', (e) => {
   const note = world.interactAt(e.clientX, e.clientY, camera);
   if (note) {
     survival.msg = note;
-    const fireBtn = document.getElementById('env-fire');
-    if (fireBtn) fireBtn.classList.toggle('active', !!world.isCampfireLit);
+    syncVitals();
   }
 });
 
@@ -1236,14 +1531,14 @@ window.addEventListener('keydown', (e) => {
   const k = e.key.toLowerCase();
   if (k === 'w' || k === 'arrowup') {
     keysHeld.forward = true;
-    if (!survival.eating && !survival.drinking && animator.state === 'graze') {
+    if (!survival.eating && !survival.drinking && (animator.state === 'graze' || animator.state === 'sleep')) {
       animator.setState(runLatched ? 'run' : 'walk');
     }
     e.preventDefault();
   }
   else if (k === 's' || k === 'arrowdown') {
     keysHeld.backward = true;
-    if (!survival.eating && !survival.drinking && animator.state === 'graze') {
+    if (!survival.eating && !survival.drinking && (animator.state === 'graze' || animator.state === 'sleep')) {
       animator.setState('walk');
     }
     e.preventDefault();
@@ -1266,7 +1561,12 @@ window.addEventListener('keydown', (e) => {
     }
   }
   else if (k === 'escape') {
-    if (flipGame.active) { e.preventDefault(); flipGame.stop(false); }
+    if (mapUI.isOpen) { e.preventDefault(); mapUI.close(); }
+    else if (statsPanelEl && !statsPanelEl.hidden) { e.preventDefault(); setStatsPanelOpen(false); }
+    else if (settingsPanelEl && !settingsPanelEl.hidden) { e.preventDefault(); setSettingsPanelOpen(false); }
+    else if (animator.inspectMode) { e.preventDefault(); setInspectMode(false); }
+    else if (animator.state === 'sleep') { e.preventDefault(); doSleepToggle(); }
+    else if (flipGame.active) { e.preventDefault(); flipGame.stop(false); }
     else if (hitchAnim.active) {
       e.preventDefault();
       hitchAnim.active = false;
@@ -1279,7 +1579,10 @@ window.addEventListener('keydown', (e) => {
     }
   }
   else if (k === '3' || k === 'e') doEat();
-  else if (k === '4' || k === 'f' || k === 'm') doDrink();
+  else if (k === '4' || k === 'f') doDrink();
+  else if (k === 'z') { e.preventDefault(); if (!e.repeat) doSleepToggle(); }
+  else if (k === 'm') { e.preventDefault(); if (!e.repeat) mapUI.toggle(); }
+  else if (k === 'q') { e.preventDefault(); setInspectMode(true, !e.repeat); }
   else if (k === 't') spawnTipRamp();
   else if (k === 'b') world.spawnPebbleClusterAhead(animator.x, animator.z, animator.yaw);
   else if (k === 'g') recruitNearbyNPC();
@@ -1288,7 +1591,11 @@ window.addEventListener('keydown', (e) => {
   else if (k === 'x') resetRig();
   else if (k === 'u') {
     const p = document.getElementById('upgrade-panel');
-    if (p) p.classList.toggle('collapsed');
+    if (p) {
+      p.dataset.userToggled = '1';
+      p.classList.toggle('collapsed');
+      if (ui && ui.syncToggleText) ui.syncToggleText();
+    }
   }
 });
 window.addEventListener('keyup', (e) => {
@@ -1297,6 +1604,7 @@ window.addEventListener('keyup', (e) => {
   else if (k === 's' || k === 'arrowdown') keysHeld.backward = false;
   else if (k === 'arrowleft' || k === 'a') { keysHeld.left = false; syncSteerInput(); }
   else if (k === 'arrowright' || k === 'd') { keysHeld.right = false; syncSteerInput(); }
+  else if (k === 'q') setInspectMode(false);
 });
 window.addEventListener('blur', () => {
   keysHeld.forward = false;
@@ -1305,6 +1613,7 @@ window.addEventListener('blur', () => {
   keysHeld.right = false;
   btnForwardHeld = false;
   btnBackwardHeld = false;
+  setInspectMode(false);
   animator.setSteer(0);
   animator.setThrottle(0);
 });
@@ -1315,8 +1624,77 @@ scene.updateMatrixWorld(true);
 syncHitchUi();
 syncFlipBanner();
 
+const _projTmp = new THREE.Vector3();
+const _wheelBadgeEls = [0, 1, 2, 3].map((i) => document.getElementById('whp-' + i));
+const _cartBadgeEl = document.getElementById('whp-cart');
+
+function updateWheelHpOverlay() {
+  if (!wheelHpOverlayEl) return;
+  const active = !!animator.inspectMode;
+  wheelHpOverlayEl.hidden = !active;
+  if (!active) return;
+
+  const vw = Math.max(1, window.innerWidth);
+  const vh = Math.max(1, window.innerHeight);
+  let sumHp = 0;
+
+  for (let i = 0; i < physics.wheels.length && i < _wheelBadgeEls.length; i++) {
+    const w = physics.wheels[i];
+    const el = _wheelBadgeEls[i];
+    if (!el || !w) continue;
+    const hp = Math.max(0, Math.round(w.hp || 0));
+    const maxHp = Math.max(1, Math.round(w.hpMax || 100));
+    sumHp += w.detached ? 0 : hp;
+
+    if (w.ref && w.ref.wheelPivot && !w.detached) {
+      w.ref.wheelPivot.getWorldPosition(_projTmp);
+    } else if (w.world) {
+      _projTmp.copy(w.world);
+    } else {
+      el.style.display = 'none';
+      continue;
+    }
+    _projTmp.y += 0.42;
+    _projTmp.project(camera);
+    if (_projTmp.z > 1 || _projTmp.z < -1) {
+      el.style.display = 'none';
+      continue;
+    }
+    const sx = (_projTmp.x * 0.5 + 0.5) * vw;
+    const sy = (-_projTmp.y * 0.5 + 0.5) * vh;
+    el.style.display = '';
+    el.style.left = Math.round(sx) + 'px';
+    el.style.top = Math.round(sy) + 'px';
+
+    const valEl = el.querySelector('.whp-val');
+    if (valEl) valEl.textContent = w.detached ? 'LEPAS' : `${hp}/${maxHp}`;
+    el.className = 'whp-badge ' + (w.detached ? 'dead' : hp >= 70 ? 'ok' : hp >= 35 ? 'warn' : 'crit');
+  }
+
+  if (_cartBadgeEl && cart && cart.root) {
+    _projTmp.copy(cart.root.position);
+    _projTmp.y += 1.95;
+    _projTmp.project(camera);
+    if (_projTmp.z <= 1 && _projTmp.z >= -1) {
+      const avg = Math.round(sumHp / Math.max(1, physics.wheels.length));
+      const sx = (_projTmp.x * 0.5 + 0.5) * vw;
+      const sy = (-_projTmp.y * 0.5 + 0.5) * vh;
+      _cartBadgeEl.style.display = '';
+      _cartBadgeEl.style.left = Math.round(sx) + 'px';
+      _cartBadgeEl.style.top = Math.round(sy) + 'px';
+      const valEl = _cartBadgeEl.querySelector('.whp-val');
+      if (valEl) valEl.textContent = `${avg}/100`;
+      _cartBadgeEl.className = 'whp-badge ' + (avg >= 70 ? 'ok' : avg >= 35 ? 'warn' : 'crit');
+    } else {
+      _cartBadgeEl.style.display = 'none';
+    }
+  }
+}
+
 let last = performance.now();
 let camPrevYaw = animator.yaw;
+let _sleepZTimer = 0;
+const _sleepHeadW = new THREE.Vector3();
 window.__manualSim = false;
 
 function stepSim(dt) {
@@ -1332,10 +1710,10 @@ function stepSim(dt) {
   } else if (acting) {
     animator.setThrottle(0);
   } else if (pcForward && !pcBackward) {
-    if (animator.state === 'graze') animator.setState(runLatched ? 'run' : 'walk');
+    if (animator.state === 'graze' || animator.state === 'sleep') animator.setState(runLatched ? 'run' : 'walk');
     animator.setThrottle(1);
   } else if (pcBackward && !pcForward) {
-    if (animator.state === 'graze' || animator.state === 'run') {
+    if (animator.state === 'graze' || animator.state === 'sleep' || animator.state === 'run') {
       runLatched = false;
       animator.setState('walk');
       if (touchUI && touchUI.setRunLatched) touchUI.setRunLatched(false);
@@ -1343,6 +1721,9 @@ function stepSim(dt) {
     animator.setThrottle(-1);
   } else if (!stickActive) {
     animator.setThrottle(0);
+  } else if (stickActive && animator.state === 'sleep') {
+    const mStick = Math.hypot(touchUI.joystick.vec.x || 0, touchUI.joystick.vec.y || 0);
+    if (mStick > 0.16) animator.setState(runLatched ? 'run' : 'walk');
   }
   if (!survival.canRun() && animator.state === 'run') {
     runLatched = false;
@@ -1394,10 +1775,30 @@ function stepSim(dt) {
       }
     }
   }
-  world.setCartPose(physics.pos.x, physics.pos.z);
+  world._horseJumpActive = !!animator.jumpActive;
+  world.setCartPose(physics.pos.x, physics.pos.z, physics.yaw);
   world.update(animator.x, dt, animator.z, animator.yaw);
+  if (vignetteEl) vignetteEl.classList.toggle('night-mist', world.currentMoodKey === 'night');
   party.update(animator.x, animator.z, animator.yaw, dt, cart, physics);
-  mobs.update(dt, { animator, physics, party, camera, world });
+  mobs.update(dt, {
+    animator,
+    physics,
+    party,
+    camera,
+    world,
+    onCartAttacked: (dmg, variant) => {
+      const label = variant === 'big' ? 'Bandit Besar' : 'Bandit';
+      survival.msg = `⚠️ ${label} menyerang gerobak (-${dmg} HP roda)! Turunkan NPC untuk melawan!`;
+      syncVitals();
+    },
+    onNightAmbush: (list) => {
+      const n = (list && list.length) || 1;
+      const msg = `🌙⚠️ ${n} Bandit malam menghadang di jalan!`;
+      survival.msg = msg;
+      showToast(msg);
+      syncVitals();
+    },
+  });
   cullDistantNpcs(party.wild, animator.x, animator.z, quality.npcCull);
   // LOD dievaluasi tiap 12 frame saja: hasil tetap sama di mata, biaya CPU
   // turun (jarak warga jarang berubah signifikan dalam 0.2 s).
@@ -1408,6 +1809,20 @@ function stepSim(dt) {
   for (const p of cart.npcPassengers || []) HC.animateNPC(p, dt);
   syncNpcHud();
   renderNpcDock();
+
+  // Quest antar-desa, marker NPC [!]/[?], & peta mini
+  syncQuestNpcMarkers(dt);
+  const nearVillage = quests.getNearbyVillage(animator.x, animator.z);
+  quests.update(animator.x, animator.z, physics, (done) => {
+    if (HC.clearQuestCargoFromCart) HC.clearQuestCargoFromCart(cart, physics);
+    const msg = `🎉 ${done.cargoName} tiba kepada ${done.receiverName || done.toName} di ${done.toName}! +${done.rewardGold} Emas & perbaikan roda +25 HP!`;
+    survival.msg = msg;
+    showToast(msg);
+    syncVitals();
+    _lastQuestSig = '';
+  }, party.wild);
+  renderQuestHud(nearVillage);
+  mapUI.update(animator.x, animator.z, animator.yaw, physics.pos.x, physics.pos.z, quests.activeQuest, nearVillage);
 
   // anchor sabuk perut & kalung kuda harus segar sebelum physics:
   // gerobak ditarik lewat tali (traces) + dibimbing batang (thills)
@@ -1467,12 +1882,21 @@ function stepSim(dt) {
   horseBlob.position.set(animator.x - Math.cos(animator.yaw) * 0.15, gyHorse + 0.02, animator.z + Math.sin(animator.yaw) * 0.15);
   cartBlob.position.set(cart.root.position.x, (world.terrainHeightAt ? world.terrainHeightAt(cart.root.position.x, cart.root.position.z) : 0) + 0.02, cart.root.position.z);
 
+  const inspAllowed = canInspectCart();
+  if (animator.inspectMode && !inspAllowed) setInspectMode(false);
+  if (btnInspectEl) btnInspectEl.disabled = !inspAllowed;
+  if (touchUI && touchUI.setInspectDisabled) touchUI.setInspectDisabled(!inspAllowed);
+
   const panelOpenMobile = isPortraitMobile() && panelEl && !panelEl.classList.contains('collapsed');
-  // fokus di dekat kuda (bukan tengah rig) supaya kepala kuda tidak terpotong panel kanan
-  const focusX = animator.x - animator.forwardX * 1.2;
-  const focusZ = animator.z - animator.forwardZ * 1.2;
+  // Saat Q Inspect ditahan (hold), kamera bergeser fokus ke gerobak + roda, dan saat dilepas kembali ke kamera sebelumnya
+  const focusX = animator.inspectMode
+    ? HC.lerp(animator.x, physics.pos.x, 0.85)
+    : (animator.x - animator.forwardX * 1.2);
+  const focusZ = animator.inspectMode
+    ? HC.lerp(animator.z, physics.pos.z, 0.85)
+    : (animator.z - animator.forwardZ * 1.2);
   const gyFocus = world.terrainHeightAt ? world.terrainHeightAt(focusX, focusZ) : 0;
-  followTarget.set(focusX, gyFocus + (panelOpenMobile ? 0.35 : 1.3), focusZ);
+  followTarget.set(focusX, gyFocus + (panelOpenMobile ? 0.35 : (animator.inspectMode ? 0.85 : 1.25)), focusZ);
 
   // chase-cam: kamera ikut berputar mengikuti heading kuda, jadi rig selalu ke-frame saat belok
   const dYawCam = animator.yaw - camPrevYaw;
@@ -1485,14 +1909,47 @@ function stepSim(dt) {
     camera.position.z = controls.target.z - ox * ss + oz * cc;
   }
 
-  const k = 1 - Math.exp(-4.5 * dt);
+  const kRate = animator.inspectMode ? 7.5 : (_inspectReturning ? 8.5 : 4.5);
+  const k = 1 - Math.exp(-kRate * dt);
   const dx = (followTarget.x - controls.target.x) * k;
   const dy = (followTarget.y - controls.target.y) * k;
   const dz = (followTarget.z - controls.target.z) * k;
   controls.target.x += dx; controls.target.y += dy; controls.target.z += dz;
   camera.position.x += dx; camera.position.y += dy; camera.position.z += dz;
+
+  if (animator.inspectMode) {
+    _inspectWantOff.copy(_inspectTargetLocalOff).applyAxisAngle(_upY, animator.yaw);
+    _inspectCurOff.copy(camera.position).sub(controls.target);
+    _inspectCurOff.lerp(_inspectWantOff, 1 - Math.exp(-7.5 * dt));
+    camera.position.copy(controls.target).add(_inspectCurOff);
+  } else if (_inspectReturning && _inspectHasSaved) {
+    _inspectWantOff.copy(_inspectSavedLocalOff).applyAxisAngle(_upY, animator.yaw);
+    _inspectCurOff.copy(camera.position).sub(controls.target);
+    _inspectCurOff.lerp(_inspectWantOff, 1 - Math.exp(-8.5 * dt));
+    if (_inspectCurOff.distanceTo(_inspectWantOff) < 0.04) {
+      _inspectCurOff.copy(_inspectWantOff);
+      _inspectReturning = false;
+      _inspectHasSaved = false;
+    }
+    camera.position.copy(controls.target).add(_inspectCurOff);
+  }
+
   controls.update();
   if (world.syncCamera) world.syncCamera(camera);
+
+  // Sleepy Zzz particles saat kuda tidur
+  if (animator.sleepBlend > 0.72 && mobs && mobs.vfx && mobs.vfx.spawnSleepyZ) {
+    _sleepZTimer += dt;
+    if (_sleepZTimer >= 1.25) {
+      _sleepZTimer = 0;
+      if (horse && horse.head && horse.head.getWorldPosition) {
+        horse.head.getWorldPosition(_sleepHeadW);
+        mobs.vfx.spawnSleepyZ(_sleepHeadW);
+      }
+    }
+  } else {
+    _sleepZTimer = 0.85;
+  }
 
   const st = animator.jumpActive ? 'jump'
     : hitchAnim.active ? 'dock'
@@ -1500,10 +1957,12 @@ function stepSim(dt) {
     : animator.state;
   const label = st === 'dock' ? 'NGEPASIN' : st === 'rev' ? 'MUNDUR' : (stateLabel[st] || st.toUpperCase());
   if (hudState) hudState.textContent = label;
-  for (const [m, id] of [['walk','btn-walk'],['rev','btn-rev'],['run','btn-run'],['jump','btn-jump'],['graze','btn-graze']]) {
+  for (const [m, id] of [['walk','btn-walk'],['rev','btn-rev'],['run','btn-run'],['jump','btn-jump'],['graze','btn-graze'],['sleep','btn-sleep']]) {
     const b = document.getElementById(id);
     if (b) b.classList.toggle('primary', st === m);
   }
+  if (btnSleepEl) btnSleepEl.classList.toggle('active', animator.state === 'sleep');
+  if (touchUI && touchUI.setSleepState) touchUI.setSleepState(animator.state === 'sleep');
   if (hudSpeed) hudSpeed.textContent = (Math.abs(animator.speed) * 3.6).toFixed(1) + ' km/j';
   syncVitals();
   if (hudHead) {
@@ -1519,7 +1978,7 @@ function stepSim(dt) {
     const total = cart.cargoItems.length;
     const spilled = physics.spilled.length;
     const inBed = total - spilled;
-    const pCount = (cart.passengers && cart.passengers.length) || 4;
+    const pCount = party.members.filter((m) => m.state === 'seated').length;
     let maxDy = 0;
     for (const it of cart.cargoItems) {
       if (!it.spilled) maxDy = Math.max(maxDy, it.localPos.y - it.floorY);
@@ -1527,7 +1986,7 @@ function stepSim(dt) {
     hudCargo.textContent = spilled > 0
       ? pCount + ' org • ' + inBed + '/' + total + ' brg (' + spilled + ' jatuh)'
       : pCount + ' org • ' + inBed + '/' + total + ' brg • goyang ' + (maxDy * 100).toFixed(0) + 'cm';
-    hudCargo.style.color = spilled > 0 ? '#c0392b' : '';
+    hudCargo.style.color = spilled > 0 ? '#f87171' : '';
   }
   if (hudWheel) {
     const rep = physics.wheelReport ? physics.wheelReport() : [];
@@ -1538,12 +1997,15 @@ function stepSim(dt) {
       return r.hp;
     });
     hudWheel.textContent = lost > 0
-      ? parts.join(' · ') + '  (' + lost + ' roda lepas)'
+      ? parts.join(' · ') + '  (' + lost + ' lepas)'
       : parts.join(' · ');
-    hudWheel.style.color = lost > 0 ? '#8e44ad' : worst <= 0 ? '#c0392b' : worst < 45 ? '#d35400' : '';
+    hudWheel.style.color = lost > 0 ? '#c084fc' : worst <= 0 ? '#f87171' : worst < 45 ? '#fb923c' : '';
   }
+  if (hudGold) hudGold.textContent = `${quests.gold} G`;
+  if (hudTime && world.getTimeLabel) hudTime.textContent = world.getTimeLabel();
 
   renderer.render(scene, camera);
+  updateWheelHpOverlay();
 }
 
 function frame(now) {
@@ -1560,9 +2022,15 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 
-window.RIG = { scene, camera, renderer, controls, animator, physics, world, cart, horse, store, ui, party, mobs, rebuildCartFromStore, stepSim, ropes: { towL, towR, traceL, traceR, reinL, reinR } };
+window.RIG = {
+  scene, camera, renderer, controls, animator, physics, world, cart, horse,
+  store, ui, party, mobs, quests, mapUI, toggleInspectMode, setInspectMode, canInspectCart, doSleepToggle,
+  rebuildCartFromStore, stepSim, ropes: { towL, towR, traceL, traceR, reinL, reinR }
+};
 window.SURVIVAL = survival;
 window.TOUCH_UI = touchUI;
+window.QUESTS = quests;
+window.MAP_UI = mapUI;
 requestAnimationFrame(frame);
 
 window.addEventListener('resize', () => {

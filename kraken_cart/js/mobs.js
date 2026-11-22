@@ -1,4 +1,10 @@
 import { HC } from './hc.js';
+import {
+  buildSmallBandit,
+  buildBigBandit,
+  animateSmallBandit,
+  animateBigBandit,
+} from './models/bandit_models.js';
 
 const THREE = HC.THREE;
 
@@ -62,7 +68,7 @@ function turnToward(cur, tgt, rate, dt) {
 }
 
 const POND = { x: 8.2, z: 6.2, safeR: 5.05 };
-const MAX_ROAM_R = 58.0;
+const MAX_ROAM_R = 715.0;
 
 function keepOutOfPondAndBounds(pos, world, radius) {
   const dP = Math.hypot(pos.x - POND.x, pos.z - POND.z);
@@ -1808,6 +1814,11 @@ class RabbitMob {
     r.frontLegs.R.fore.rotation.set(p.foreRX, 0, p.foreRZ);
     r.tail.rotation.set(p.tailRotX, p.tailRotY, 0);
   }
+  dispose() {
+    if (this.rig && this.rig.root && this.scene) {
+      this.scene.remove(this.rig.root);
+    }
+  }
 }
 
 /* ============================================================================
@@ -2809,6 +2820,566 @@ class BoarMob {
       }
     }
   }
+  dispose() {
+    if (this.rig && this.rig.root && this.scene) {
+      this.scene.remove(this.rig.root);
+    }
+    if (this.hpBar) {
+      this.hpBar.dispose();
+    }
+  }
+}
+
+/* ============================================================================
+   4B. SYLVAN-STYLE FOREST BANDITS (SMALL CUTTHROAT SCOUT & BIG GREATAXE BRUTE)
+   ============================================================================ */
+function keepBanditInForest(pos, world, radius) {
+  const dP = Math.hypot(pos.x - POND.x, pos.z - POND.z);
+  const minPond = POND.safeR + radius + 0.6;
+  if (dP < minPond && dP > 1e-4) {
+    pos.x = POND.x + ((pos.x - POND.x) / dP) * minPond;
+    pos.z = POND.z + ((pos.z - POND.z) / dP) * minPond;
+  }
+  // Keep bandits roaming in the forest across the 5x map and outside all 5 villages
+  if (world && Array.isArray(world.VILLAGES) && world.VILLAGES.length) {
+    for (let i = 0; i < world.VILLAGES.length; i++) {
+      const v = world.VILLAGES[i];
+      const safeR = (v.radius * 1.95) + radius + 1.5;
+      const dx = pos.x - v.cx;
+      const dz = pos.z - v.cz;
+      const d = Math.hypot(dx, dz);
+      if (d < safeR) {
+        const inv = d > 1e-4 ? (safeR / d) : 1.0;
+        pos.x = v.cx + (d > 1e-4 ? dx * inv : safeR);
+        pos.z = v.cz + (d > 1e-4 ? dz * inv : 0);
+      }
+    }
+  } else {
+    const vCx = (world && typeof world._getRoadCenterX === 'function') ? world._getRoadCenterX(pos.z) : -5.4;
+    if (pos.z > 41.0 && pos.z < 112.0 && Math.abs(pos.x - vCx) < 31.0) {
+      const pushSouth = pos.z - 41.0;
+      const pushNorth = 112.0 - pos.z;
+      const pushSide = 31.0 - Math.abs(pos.x - vCx);
+      if (pushSouth <= pushSide && pushSouth <= pushNorth) pos.z = 41.0;
+      else if (pushNorth <= pushSide) pos.z = 112.0;
+      else pos.x = vCx + Math.sign(pos.x - vCx || 1) * 31.0;
+    }
+  }
+  // Keep bandits out of deep water channels
+  if (world && typeof world.waterDepthAt === 'function' && world.waterDepthAt(pos.x, pos.z) > 0.25) {
+    const rCenter = world._riverCenterZ ? world._riverCenterZ(pos.x) : 30;
+    const side = pos.z >= rCenter ? 1 : -1;
+    pos.z = rCenter + side * 6.8;
+  }
+  const dO = Math.hypot(pos.x, pos.z);
+  if (dO > 715.0) {
+    pos.x = (pos.x / dO) * 715.0;
+    pos.z = (pos.z / dO) * 715.0;
+  }
+  if (world && typeof world.resolveCircleCollision === 'function') {
+    const res = world.resolveCircleCollision(pos.x, pos.z, radius);
+    if (res.hit) {
+      pos.x = res.x;
+      pos.z = res.z;
+    }
+    return res;
+  }
+  return { hit: false, nx: 0, nz: 0 };
+}
+
+class BanditMob {
+  constructor(scene, world, vfx, variant, waypoints, yaw = 0) {
+    this.kind = 'bandit';
+    this.variant = variant === 'big' ? 'big' : 'small';
+    const isBig = this.variant === 'big';
+
+    this.scene = scene;
+    this.world = world;
+    this.vfx = vfx;
+
+    const isMobile = !!(HC.QUALITY && HC.QUALITY.key !== 'high');
+    const built = isBig ? buildBigBandit(isMobile) : buildSmallBandit(isMobile);
+    this.mesh = built.mesh;
+    this.parts = built.parts;
+    this.material = built.material;
+    this.hpBar = new HealthBar3D(scene, { isEnemy: true, width: isBig ? 1.42 : 1.04 });
+
+    this.waypoints = Array.isArray(waypoints) && waypoints.length ? waypoints : [{ x: 0, z: 0 }];
+    this.wpIdx = 0;
+    this.homeX = this.waypoints[0].x;
+    this.homeZ = this.waypoints[0].z;
+    this.x = this.homeX;
+    this.z = this.homeZ;
+    this.y = groundY(world, this.x, this.z);
+    this.heading = yaw;
+    this.targetHeading = yaw;
+
+    this.maxHp = isBig ? 240 : 115;
+    this.hp = this.maxHp;
+    this.dmg = isBig ? 26 : 14;
+    this.walkSpd = isBig ? 1.45 : 2.10;
+    // Kecepatan lari bandit minimal 30% lebih pelan dari kuda berlari (5.25 * 0.70 = 3.675 m/s)
+    this.chaseSpd = isBig ? 2.65 : 3.55;
+    this.isRoadAmbush = false;
+    this.radius = isBig ? 0.68 : 0.45;
+    this.reach = isBig ? 2.65 : 2.05;
+    this.windupDur = isBig ? 0.68 : 0.38;
+    this.recoverDur = isBig ? 0.92 : 0.60;
+    this.hpBarOffset = isBig ? 2.78 : 1.92;
+
+    this.dead = false;
+    this.respawnTimer = 0;
+    this.state = 'idle';
+    this.stateTime = randRange(0, 0.5);
+    this.stateDur = randRange(1.5, 3.0);
+
+    this.target = null;
+    this.inCombat = false;
+    this.isTelegraphing = false;
+    this.telegraphType = null;
+    this.isVulnerable = false;
+    this.posture = 0;
+    this.postureHold = 0;
+    this.atkCd = 0;
+    this.strafeDir = isBig ? 1 : (Math.random() > 0.5 ? 1 : -1);
+
+    this.flashTimer = 0;
+    this.hitstunTimer = 0;
+    this.knockVx = 0;
+    this.knockVz = 0;
+    this.recoilPop = 0;
+    this.strikeDealt = false;
+
+    this.animState = {
+      mesh: this.mesh,
+      parts: this.parts,
+      material: this.material,
+      vel: { x: 0, z: 0 },
+      flash: 0,
+      swing: 0,
+      telegraph: 0,
+      target: null,
+    };
+
+    this.mesh.position.set(this.x, this.y, this.z);
+    this.mesh.rotation.y = this.heading;
+    this.scene.add(this.mesh);
+  }
+
+  _setState(next, dur = 1.0) {
+    this.state = next;
+    this.stateTime = 0;
+    this.stateDur = dur;
+    this.isTelegraphing = next === 'attack_windup';
+    this.telegraphType = next === 'attack_windup' ? (this.variant === 'big' ? 'charge' : 'slash') : null;
+    this.isVulnerable = next === 'attack_recover' || next === 'hitstun' || next === 'stagger';
+    if (next === 'attack_windup') {
+      this.strikeDealt = false;
+    }
+    if (next === 'die') {
+      this.dead = true;
+      this.isTelegraphing = false;
+      this.isVulnerable = false;
+    }
+  }
+
+  takeDamage(amount, fromX, fromZ, opts = {}) {
+    if (this.dead) return 0;
+    const dmg = Math.max(1, Math.round(amount));
+    this.hp = Math.max(0, this.hp - dmg);
+    this.flashTimer = 0.20;
+    this.recoilPop = 1.0;
+    this.hpBar.onHit();
+    this.inCombat = true;
+
+    const dx = this.x - fromX, dz = this.z - fromZ;
+    const d = Math.hypot(dx, dz) || 1;
+    const kbMul = this.variant === 'big' ? 0.55 : 1.0;
+    const kb = (opts.knockback || (opts.isCrit ? 5.6 : 3.6)) * kbMul;
+    this.knockVx = (dx / d) * kb;
+    this.knockVz = (dz / d) * kb;
+
+    if (this.vfx) {
+      this.vfx.spawnHitImpact(
+        new THREE.Vector3(this.x, this.y + (this.variant === 'big' ? 1.25 : 0.85), this.z),
+        opts.vfxColor || (opts.isCrit ? 0xffd447 : 0xffe48f),
+        !!opts.isCrit
+      );
+      this.vfx.spawnDamageText(
+        new THREE.Vector3(this.x, this.y + this.hpBarOffset - 0.1, this.z),
+        opts.isCrit ? `CRIT -${dmg}!` : `-${dmg}`,
+        opts.isCrit ? 'crit' : opts.textStyle || 'normal'
+      );
+      this.vfx.triggerHitStop(opts.isCrit ? 0.055 : 0.03);
+      this.vfx.playSfx(opts.isCrit ? 'crit' : 'hit');
+    }
+
+    if (opts.attackerRef && !opts.attackerRef.isKO) {
+      this.target = opts.attackerRef;
+    }
+
+    if (this.hp <= 0) {
+      this._setState('die', 7.5);
+      this.respawnTimer = 16.0;
+    } else if (this.hitstunTimer <= 0 && this.state !== 'attack_strike') {
+      this.hitstunTimer = opts.isCrit ? 0.24 : 0.14;
+      if (this.state === 'idle' || this.state === 'walk' || this.state === 'stalk') {
+        this._setState('hitstun', this.hitstunTimer);
+      }
+    }
+    return dmg;
+  }
+
+  addPosture(amount) {
+    if (this.dead || !(amount > 0)) return;
+    this.posture = clamp(this.posture + amount * (this.variant === 'big' ? 0.82 : 1.0), 0, 1);
+    this.postureHold = 1.9;
+    if (this.posture >= 1) {
+      this.posture = 0;
+      this.postureHold = 0;
+      this._setState('stagger', 1.30);
+      if (this.vfx) {
+        this.vfx.triggerHitStop(0.07);
+        this.vfx.spawnRing(new THREE.Vector3(this.x, this.y + 0.45, this.z), 0xfff2c4, 0.9, 4.2, 0.40, true);
+        this.vfx.spawnDamageText(new THREE.Vector3(this.x, this.y + this.hpBarOffset, this.z), 'CELAH!', 'crit');
+        this.vfx.playSfx('parry');
+      }
+    }
+  }
+
+  _respawn() {
+    this.wpIdx = 0;
+    this.x = this.homeX;
+    this.z = this.homeZ;
+    this.y = groundY(this.world, this.x, this.z);
+    this.hp = this.maxHp;
+    this.dead = false;
+    this.inCombat = false;
+    this.target = null;
+    this.posture = 0;
+    this.postureHold = 0;
+    this.knockVx = 0; this.knockVz = 0;
+    this.mesh.visible = true;
+    this.mesh.rotation.set(0, this.heading, 0);
+    this.mesh.scale.setScalar(1);
+    this._setState('idle', 2.0);
+  }
+
+  _pickTarget(fullCtx, npcOnly = false) {
+    const party = fullCtx && fullCtx.party;
+    let best = null;
+    let bestD = this.isRoadAmbush ? 22.0 : 10.5;
+    const maxHomeDist = this.isRoadAmbush ? 42.0 : 23.0;
+    const consider = (ent, root) => {
+      if (!ent || ent.isIndoors || ent.recruited) return;
+      if (ent.cBrain && ent.cBrain.phase === 'ko') return;
+      const d = Math.hypot(ent.x - this.x, ent.z - this.z);
+      const dHome = Math.hypot(ent.x - this.homeX, ent.z - this.homeZ);
+      if (d < bestD && dHome < maxHomeDist) {
+        bestD = d;
+        best = {
+          id: ent,
+          get isKO() { return !!(ent.cBrain && ent.cBrain.phase === 'ko'); },
+          isAlive() { return !(ent.cBrain && ent.cBrain.phase === 'ko') && (ent.hp === undefined || ent.hp > 0); },
+          getPos() { return { x: ent.x, z: ent.z }; },
+          takeHit(dmg, fx, fz, isHeavy) {
+            if (HC.combatAI && root) return HC.combatAI.onNpcTakeDamage(ent, root, dmg, fx, fz, isHeavy);
+            return 0;
+          },
+        };
+      }
+    };
+    if (party) {
+      for (const m of (party.members || [])) {
+        if (m.state === 'following' && m.root) consider(m, m.root);
+      }
+      for (const w of (party.wild || [])) {
+        if (!w.recruited && !w.isIndoors && w.root) {
+          const p = combatProfile(w.role);
+          if (p.canFight && !p.selfDefense) consider(w, w.root);
+        }
+      }
+    }
+    if (best || npcOnly) return best;
+
+    // Jika pemain tidak punya NPC rekrutan yang diturunkan bertarung, bandit menyerang gerobak di luar desa
+    const hasDeployedRecruits = !!(party && (party.members || []).some((m) =>
+      m.state === 'following' && !(m.cBrain && m.cBrain.phase === 'ko')
+    ));
+    if (!hasDeployedRecruits && fullCtx && fullCtx.physics && !fullCtx.physics.flipped) {
+      const phys = fullCtx.physics;
+      let inVillage = false;
+      if (this.world && typeof this.world.isInsideVillage === 'function') {
+        inVillage = this.world.isInsideVillage(phys.pos.x, phys.pos.z, 2.0);
+      } else {
+        const vCx = (this.world && typeof this.world._getRoadCenterX === 'function')
+          ? this.world._getRoadCenterX(phys.pos.z) : -5.4;
+        inVillage = phys.pos.z > 42 && phys.pos.z < 110 && Math.abs(phys.pos.x - vCx) < 30;
+      }
+      const dCart = Math.hypot(phys.pos.x - this.x, phys.pos.z - this.z);
+      const cartAggroRange = this.isRoadAmbush ? 24.0 : 13.5;
+      if (!inVillage && dCart < cartAggroRange) {
+        return {
+          id: phys,
+          isCart: true,
+          isKO: false,
+          isAlive: () => !phys.flipped,
+          getPos: () => ({ x: phys.pos.x, z: phys.pos.z }),
+          takeHit: (dmg, fx, fz, isHeavy) => phys.takeBanditHit ? phys.takeBanditHit(dmg, fx, fz, isHeavy) : 0,
+        };
+      }
+    }
+    return null;
+  }
+
+  update(dt, globalTime, fullCtx) {
+    if (this.flashTimer > 0) this.flashTimer = Math.max(0, this.flashTimer - dt);
+    this.animState.flash = this.flashTimer;
+    if (this.animState.swing > 0) this.animState.swing = Math.max(0, this.animState.swing - dt);
+
+    if (this.dead) {
+      this.stateTime += dt;
+      if (!this.isRoadAmbush) {
+        this.respawnTimer -= dt;
+        if (this.respawnTimer <= 0) {
+          this._respawn();
+          return;
+        }
+      }
+      if (this.stateTime > 5.5) {
+        this.mesh.visible = false;
+        this.hpBar.setHp(0, this.maxHp, false, dt);
+        return;
+      }
+      const fallU = clamp(this.stateTime / 0.55, 0, 1);
+      this.mesh.position.set(this.x, this.y - fallU * 0.25, this.z);
+      this.mesh.rotation.set(-fallU * 1.48, this.heading, fallU * 0.25);
+      this.animState.vel.x = 0; this.animState.vel.z = 0;
+      this.animState.telegraph = 0;
+      (this.variant === 'big' ? animateBigBandit : animateSmallBandit)(this.animState, dt);
+      this.hpBar.setPosture(0, false);
+      this.hpBar.setHp(0, this.maxHp, true, dt);
+      this.hpBar.updateTransform(this.x, this.y + this.hpBarOffset * 0.5, this.z, dt);
+      return;
+    }
+
+    this.stateTime += dt;
+    if (this.atkCd > 0) this.atkCd = Math.max(0, this.atkCd - dt);
+    if (this.hitstunTimer > 0) this.hitstunTimer = Math.max(0, this.hitstunTimer - dt);
+    if (this.postureHold > 0) this.postureHold = Math.max(0, this.postureHold - dt);
+    else if (this.posture > 0) this.posture = Math.max(0, this.posture - 0.24 * dt);
+    if (this.recoilPop > 0) this.recoilPop = Math.max(0, this.recoilPop - dt * 5.0);
+
+    if (this.target) {
+      const tp = this.target.getPos();
+      const dHome = Math.hypot(this.x - this.homeX, this.z - this.homeZ);
+      const dTgt = tp ? Math.hypot(tp.x - this.x, tp.z - this.z) : 999;
+      const homeCap = this.isRoadAmbush ? 44.0 : 25.0;
+      const tgtCap = this.isRoadAmbush ? 28.0 : 17.5;
+      if (!this.target.isAlive() || dHome > homeCap || dTgt > tgtCap) {
+        this.target = null;
+      } else if (this.target.isCart && fullCtx) {
+        this._cartReaggroT = (this._cartReaggroT || 0) + dt;
+        if (this._cartReaggroT >= 0.45) {
+          this._cartReaggroT = 0;
+          const npcTgt = this._pickTarget(fullCtx, true);
+          if (npcTgt) {
+            this.target = npcTgt;
+          } else {
+            const p = fullCtx.party;
+            const hasDeployed = !!(p && (p.members || []).some((m) =>
+              m.state === 'following' && !(m.cBrain && m.cBrain.phase === 'ko')
+            ));
+            if (hasDeployed) this.target = null;
+          }
+        }
+      }
+    }
+    if (!this.target && fullCtx) {
+      this.target = this._pickTarget(fullCtx);
+    }
+    this.inCombat = !!this.target && !this.dead;
+
+    let forwardSpeed = 0;
+    let strafeSpeed = 0;
+    let teleTarget = 0;
+    const effReach = (this.target && this.target.isCart) ? (this.reach + 1.15) : this.reach;
+
+    if (this.state === 'hitstun' || this.state === 'stagger') {
+      if (this.stateTime >= this.stateDur) {
+        this._setState(this.target ? 'stalk' : 'walk', 1.5);
+      }
+    } else if (this.state === 'attack_windup') {
+      teleTarget = clamp(this.stateTime / this.windupDur, 0, 1);
+      if (this.target) {
+        const tp = this.target.getPos();
+        if (this.stateTime < this.windupDur * 0.65) {
+          this.targetHeading = Math.atan2(tp.x - this.x, tp.z - this.z);
+          this.heading = turnToward(this.heading, this.targetHeading, 9.0, dt);
+        }
+      }
+      if (this.stateTime >= this.windupDur) {
+        this._setState('attack_strike', 0.34);
+      }
+    } else if (this.state === 'attack_strike') {
+      forwardSpeed = this.variant === 'big' ? 1.50 : 2.95;
+      if (!this.strikeDealt && this.stateTime >= 0.06) {
+        this.strikeDealt = true;
+        this.animState.swing = 0.35;
+        const isBig = this.variant === 'big';
+        if (this.vfx) {
+          const pos = new THREE.Vector3(
+            this.x + Math.sin(this.heading) * (isBig ? 1.15 : 0.65),
+            this.y + (isBig ? 0.35 : 0.85),
+            this.z + Math.cos(this.heading) * (isBig ? 1.15 : 0.65)
+          );
+          this.vfx.spawnSlashArc(
+            new THREE.Vector3(this.x, this.y + (isBig ? 0.45 : 0.1), this.z),
+            this.heading,
+            isBig ? 0xd93829 : 0xe63946,
+            0xffe48f,
+            this.strafeDir,
+            isBig ? 1.45 : 0.95
+          );
+          if (isBig) {
+            this.vfx.spawnRing(pos, 0xff7b39, 0.6, 3.6, 0.35, true);
+          }
+        }
+        if (this.target) {
+          const tp = this.target.getPos();
+          const d = Math.hypot(tp.x - this.x, tp.z - this.z);
+          if (d < effReach + 0.55) {
+            const dealt = this.target.takeHit(this.dmg, this.x, this.z, isBig);
+            if (this.target.isCart && dealt > 0) {
+              if (this.vfx) {
+                const hitV = new THREE.Vector3(
+                  (tp.x + this.x) * 0.5,
+                  this.y + 0.95,
+                  (tp.z + this.z) * 0.5
+                );
+                this.vfx.spawnHitImpact(hitV, 0xff9f43, isBig);
+                this.vfx.spawnDamageText(hitV.clone().add(new THREE.Vector3(0, 0.7, 0)), `GEROBAK -${dealt}!`, 'npcHit');
+                this.vfx.playSfx('hit');
+              }
+              if (fullCtx && typeof fullCtx.onCartAttacked === 'function') {
+                fullCtx.onCartAttacked(dealt, this.variant);
+              }
+            }
+          }
+        }
+        this.strafeDir *= -1;
+      }
+      if (this.stateTime >= 0.34) {
+        this.atkCd = this.variant === 'big' ? 1.95 : 1.15;
+        this._setState('attack_recover', this.recoverDur);
+      }
+    } else if (this.state === 'attack_recover') {
+      if (this.stateTime >= this.recoverDur) {
+        this._setState(this.target ? 'stalk' : 'idle', 1.1);
+      }
+    } else if (this.target) {
+      const tp = this.target.getPos();
+      const dx = tp.x - this.x, dz = tp.z - this.z;
+      const d = Math.hypot(dx, dz);
+      this.targetHeading = Math.atan2(dx, dz);
+      this.heading = turnToward(this.heading, this.targetHeading, 7.5, dt);
+
+      if (this.atkCd <= 0 && d <= effReach) {
+        this._setState('attack_windup', this.windupDur);
+      } else if (d > effReach * 0.92) {
+        forwardSpeed = this.chaseSpd;
+        if (this.variant === 'small' && d < 5.0) strafeSpeed = this.strafeDir * 1.45;
+      } else if (this.variant === 'small') {
+        strafeSpeed = this.strafeDir * 1.85;
+      }
+    } else {
+      // Forest patrol along waypoints + reaction if horse rides close
+      const anim = fullCtx && fullCtx.animator;
+      const dHorse = anim ? Math.hypot(anim.x - this.x, anim.z - this.z) : 999;
+      if (this.isRoadAmbush && anim && dHorse < 28.0 && dHorse > 3.2) {
+        this.targetHeading = Math.atan2(anim.x - this.x, anim.z - this.z);
+        this.heading = turnToward(this.heading, this.targetHeading, 6.0, dt);
+        forwardSpeed = this.walkSpd;
+      } else if (dHorse < 7.5 && anim) {
+        this.targetHeading = Math.atan2(anim.x - this.x, anim.z - this.z);
+        this.heading = turnToward(this.heading, this.targetHeading, 5.5, dt);
+        if (dHorse < 2.3) {
+          forwardSpeed = -1.6;
+        } else if (dHorse < 4.5) {
+          teleTarget = 0.45;
+        }
+      } else {
+        const wp = this.waypoints[this.wpIdx % this.waypoints.length];
+        const wx = wp.x - this.x, wz = wp.z - this.z;
+        const dw = Math.hypot(wx, wz);
+        if (this.state === 'idle') {
+          if (this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + 10 * dt);
+          if (this.stateTime >= this.stateDur) {
+            this.wpIdx = (this.wpIdx + 1) % this.waypoints.length;
+            this._setState('walk', 8.0);
+          }
+        } else {
+          if (dw < 0.75 || this.stateTime >= this.stateDur) {
+            this._setState('idle', randRange(1.6, 3.4));
+          } else {
+            this.targetHeading = Math.atan2(wx, wz);
+            this.heading = turnToward(this.heading, this.targetHeading, 4.6, dt);
+            forwardSpeed = this.walkSpd;
+          }
+        }
+      }
+    }
+
+    const vx = Math.sin(this.heading) * forwardSpeed + Math.cos(this.heading) * strafeSpeed;
+    const vz = Math.cos(this.heading) * forwardSpeed - Math.sin(this.heading) * strafeSpeed;
+    this.x += vx * dt;
+    this.z += vz * dt;
+
+    if (Math.hypot(this.knockVx, this.knockVz) > 0.05) {
+      this.x += this.knockVx * dt;
+      this.z += this.knockVz * dt;
+      const dampK = Math.exp(-8.5 * dt);
+      this.knockVx *= dampK;
+      this.knockVz *= dampK;
+    }
+
+    const pos2 = { x: this.x, z: this.z };
+    const col = keepBanditInForest(pos2, this.world, this.radius);
+    this.x = pos2.x;
+    this.z = pos2.z;
+    if (col.hit && Math.hypot(col.nx, col.nz) > 1e-4 && !this.target) {
+      this.wpIdx = (this.wpIdx + 1) % this.waypoints.length;
+    }
+    this.y = groundY(this.world, this.x, this.z);
+
+    this.mesh.position.set(this.x, this.y, this.z);
+    const staggerTilt = this.state === 'stagger' ? Math.sin(globalTime * 9.0) * 0.14 : 0;
+    this.mesh.rotation.set(0, this.heading, staggerTilt);
+    if (this.recoilPop > 0) {
+      const pop = Math.sin(this.recoilPop * Math.PI) * 0.12;
+      this.mesh.scale.set(1 + pop * 0.7, 1 - pop, 1 + pop * 0.4);
+    } else {
+      this.mesh.scale.setScalar(1);
+    }
+
+    this.animState.vel.x = vx;
+    this.animState.vel.z = vz;
+    this.animState.telegraph = teleTarget;
+    this.animState.target = this.target;
+    (this.variant === 'big' ? animateBigBandit : animateSmallBandit)(this.animState, dt);
+
+    this.hpBar.setPosture(this.posture, this.inCombat);
+    this.hpBar.setHp(this.hp, this.maxHp, this.inCombat, dt);
+    this.hpBar.updateTransform(this.x, this.y + this.hpBarOffset, this.z, dt);
+  }
+  dispose() {
+    if (this.mesh && this.scene) {
+      this.scene.remove(this.mesh);
+    }
+    if (this.hpBar) {
+      this.hpBar.dispose();
+    }
+  }
 }
 
 /* ============================================================================
@@ -2837,8 +3408,6 @@ const ROLE_PROFILES = {
   warrior:       { canFight: true, prefMin: 2.7, prefMax: 4.0, strikeRange: 2.35, orbitSpd: 2.7, dodgeSpd: 7.6, atkCd: 1.30, parry: 0.64, defMul: 0.85, outer: 0xf43f5e, inner: 0xffe48f },
   guard:         { canFight: true, prefMin: 2.7, prefMax: 3.9, strikeRange: 2.35, orbitSpd: 2.5, dodgeSpd: 7.4, atkCd: 1.35, parry: 0.80, defMul: 0.80, outer: 0x94a3b8, inner: 0xfef08a },
 };
-
-const SELF_FIX_Y_ROLES = new Set(['elfmage', 'magesupport', 'rabbitwarrior', 'stonegiant']);
 
 function combatProfile(role) {
   return (role && ROLE_PROFILES[role.id]) || { canFight: true, prefMin: 2.7, prefMax: 4.0, strikeRange: 2.3, orbitSpd: 2.5, dodgeSpd: 7.4, atkCd: 1.4, parry: 0.5, outer: 0x93c5fd, inner: 0xffe48f };
@@ -2927,7 +3496,8 @@ class TacticalCombatAI {
     let best = null, bestD = detectR;
     const cb = entity.cBrain;
     const forceAggro = cb && curTime < (cb.aggroUntil || 0);
-    for (const b of this.mobs.boars) {
+    const foes = [...(this.mobs.boars || []), ...(this.mobs.bandits || [])];
+    for (const b of foes) {
       if (b.dead) continue;
       const dNpc = Math.hypot(b.x - entity.x, b.z - entity.z);
       const dAnchor = Math.hypot(b.x - anchorX, b.z - anchorZ);
@@ -2960,13 +3530,6 @@ class TacticalCombatAI {
         holder.userData._baseScaleZ * (1 + pop * 0.4)
       );
       holder.position.y = holder.userData._baseY;
-    }
-
-    if (st && st.role && SELF_FIX_Y_ROLES.has(st.role.id) && st.mesh) {
-      // Sylvan models with global-Y assumption set mesh.position.y = n.pos.y + offset
-      if (Math.abs(st.mesh.position.y - st.pos.y) < 1.2 && st.pos.y > 0.15) {
-        st.mesh.position.y -= st.pos.y;
-      }
     }
 
     if (entity._hpBar) {
@@ -3316,7 +3879,7 @@ class TacticalCombatAI {
       // Out of combat: heal gently and let caller handle calm AI; if wild NPC wandered, walk home smoothly!
       if (entity.hp < entity.maxHp) entity.hp = Math.min(entity.maxHp, entity.hp + 9 * dt);
       if (st) st.target = null;
-      if (isWild) {
+      if (isWild && !entity.villageProfile) {
         const dh = Math.hypot(entity.x - anchorX, entity.z - anchorZ);
         const homeR = entity.homeRadius || 1.3;
         if (dh > homeR + 0.45) {
@@ -3610,7 +4173,7 @@ class TacticalCombatAI {
   }
 
   stepWild(item, dt, horse, world) {
-    if (!item || !item.root || item.recruited) return false;
+    if (!item || !item.root || item.recruited || item.isIndoors) return false;
     const st = item.root.userData && item.root.userData.npc;
     if (!st || !st.role) return false;
     item.y = item.y ?? groundY(world, item.x, item.z);
@@ -3665,11 +4228,22 @@ class ForestMobs {
     this.clock = 0;
     this.rabbits = [];
     this.boars = [];
+    this.bandits = [];
     this.combatAI = new TacticalCombatAI(this);
     HC.combatAI = this.combatAI;
     HC.mobs = this;
 
-    this._spawnMobs();
+    this._zones = this._buildWorldZones();
+    this._spawnCheckT = 0;
+    this._nightAmbushTimer = 10.0;
+    this._nightAmbushInterval = 18.0;
+    this._nightAmbushChance = 0.30;
+    const initPose = (world && typeof world.initialHorsePose === 'function')
+      ? world.initialHorsePose()
+      : { x: -5.4, z: 0 };
+    this._lastSpawnX = initPose.x;
+    this._lastSpawnZ = initPose.z;
+    this._spawnMobs(initPose.x, initPose.z);
   }
 
   _clearSpawn(x, z, rad = 0.65) {
@@ -3678,33 +4252,300 @@ class ForestMobs {
     return pos;
   }
 
-  _spawnMobs() {
-    const rabbitSpots = [
-      { x: -2.4,  z: -6.4,  pal: RABBIT_PALETTE_WHITE, yaw: 0.4 },
-      { x: -9.6,  z: -5.2,  pal: RABBIT_PALETTE_BROWN, yaw: -0.7 },
-      { x: 4.5,   z: -3.2,  pal: RABBIT_PALETTE_WHITE, yaw: 2.1 },
-      { x: 2.8,   z: 11.4,  pal: RABBIT_PALETTE_BROWN, yaw: 0.9 },
-      { x: 13.6,  z: 4.8,   pal: RABBIT_PALETTE_WHITE, yaw: -1.4 },
-      { x: -13.4, z: 3.6,   pal: RABBIT_PALETTE_BROWN, yaw: 1.2 },
-      { x: 9.8,   z: -10.5, pal: RABBIT_PALETTE_WHITE, yaw: 2.5 },
-      { x: -1.4,  z: 16.4,  pal: RABBIT_PALETTE_BROWN, yaw: -0.4 },
+  _isValidZonePos(x, z, allowNearCamp = false) {
+    if (Math.abs(x) > 705 || Math.abs(z) > 705) return false;
+    if (Math.hypot(x - POND.x, z - POND.z) < POND.safeR + 2.4) return false;
+    if (!allowNearCamp && Math.hypot(x, z) < 13.0) return false;
+    const w = this.world;
+    if (w) {
+      if (typeof w.waterDepthAt === 'function' && w.waterDepthAt(x, z) > 0.15) return false;
+      if (typeof w._getRoadDistance === 'function' && w._getRoadDistance(x, z) < 5.5) return false;
+      if (typeof w.isInsideVillage === 'function') {
+        if (w.isInsideVillage(x, z, 4.0)) return false;
+      } else {
+        const vCx = typeof w._getRoadCenterX === 'function' ? w._getRoadCenterX(z) : -5.4;
+        if (z > 40.0 && z < 114.0 && Math.abs(x - vCx) < 33.0) return false;
+      }
+    } else if (z > 40.0 && z < 114.0 && Math.abs(x + 5.4) < 33.0) {
+      return false;
+    }
+    return true;
+  }
+
+  _buildWorldZones() {
+    const seeds = [
+      // Hutan & padang rumput sekitar area awal (radius 8..32 m)
+      { x: -13.5, z: -4.8, kind: 'rabbit', count: 2 },
+      { x:   3.2, z: -12.5, kind: 'rabbit', count: 2 },
+      { x: -14.8, z:  8.5, kind: 'boar', count: 2 },
+      { x:  16.5, z: -4.5, kind: 'boar', count: 2 },
+      { x: -24.5, z: -10.5, kind: 'bandit_camp', variants: ['big', 'small'] },
+      { x:  23.5, z: -6.5, kind: 'bandit_camp', variants: ['big', 'small'] },
+      { x: -25.0, z:  15.5, kind: 'bandit_camp', variants: ['small', 'small'] },
+      { x:  24.0, z:  16.5, kind: 'rabbit', count: 2 },
+      // Lereng selatan & jalur rintangan batu
+      { x: -34.0, z: -42.0, kind: 'boar', count: 2 },
+      { x:  26.0, z: -46.0, kind: 'bandit_camp', variants: ['small', 'small'] },
+      { x: -65.0, z: -50.0, kind: 'bandit_camp', variants: ['big', 'small'] },
+      { x:  58.0, z: -56.0, kind: 'boar', count: 2 },
+      { x: -18.0, z: -78.0, kind: 'rabbit', count: 2 },
+      { x:  32.0, z: -86.0, kind: 'bandit_camp', variants: ['big', 'small'] },
+      { x: -72.0, z: -92.0, kind: 'boar', count: 2 },
+      { x:  88.0, z: -76.0, kind: 'bandit_camp', variants: ['small', 'small'] },
+      // Sayap hutan barat & timur tengah
+      { x: -68.0, z:  -6.0, kind: 'rabbit', count: 2 },
+      { x: -92.0, z:  18.0, kind: 'bandit_camp', variants: ['big', 'small'] },
+      { x:  72.0, z:   8.0, kind: 'boar', count: 2 },
+      { x:  96.0, z: -12.0, kind: 'bandit_camp', variants: ['big', 'small'] },
+      // Tepian sungai utara & sisi luar desa
+      { x: -64.0, z:  54.0, kind: 'boar', count: 2 },
+      { x:  65.0, z:  55.0, kind: 'bandit_camp', variants: ['big', 'small'] },
+      { x: -84.0, z:  82.0, kind: 'bandit_camp', variants: ['small', 'small'] },
+      { x:  78.0, z:  88.0, kind: 'rabbit', count: 2 },
+      // Hutan utara di balik Desa Lemnos (z = 116..132)
+      { x: -40.0, z: 122.0, kind: 'bandit_camp', variants: ['big', 'small'] },
+      { x:  36.0, z: 120.0, kind: 'boar', count: 2 },
+      { x:  -4.0, z: 125.0, kind: 'rabbit', count: 2 },
+      { x:  82.0, z: 118.0, kind: 'bandit_camp', variants: ['small', 'small'] },
+      // Koridor jalan unik antar-desa di peta 5x (Desa Puncak Pinus, Lembah Selatan, Surya Timur, Rimbun Barat)
+      { x:  55.0, z: 162.0, kind: 'bandit_camp', variants: ['big', 'small'] },
+      { x: 145.0, z: 142.0, kind: 'boar', count: 2 },
+      { x: 220.0, z: 168.0, kind: 'bandit_camp', variants: ['big', 'small'] },
+      { x: 265.0, z: 122.0, kind: 'rabbit', count: 2 },
+      { x: 358.0, z: 195.0, kind: 'bandit_camp', variants: ['small', 'small'] },
+      { x: 332.0, z: 285.0, kind: 'boar', count: 2 },
+      { x: 225.0, z: 335.0, kind: 'bandit_camp', variants: ['big', 'small'] },
+      { x:  65.0, z: 330.0, kind: 'rabbit', count: 2 },
+      { x: -45.0, z: 215.0, kind: 'bandit_camp', variants: ['big', 'small'] },
+      { x:  28.0, z: 265.0, kind: 'boar', count: 2 },
+      { x: -38.0, z: 420.0, kind: 'bandit_camp', variants: ['big', 'small'] },
+      { x:  42.0, z: 485.0, kind: 'boar', count: 2 },
+      { x: -115.0, z: 68.0, kind: 'bandit_camp', variants: ['small', 'small'] },
+      { x: -195.0, z: -10.0, kind: 'boar', count: 2 },
+      { x: -255.0, z: -62.0, kind: 'bandit_camp', variants: ['big', 'small'] },
+      { x: -335.0, z: -175.0, kind: 'rabbit', count: 2 },
+      { x: -255.0, z: -225.0, kind: 'bandit_camp', variants: ['big', 'small'] },
+      { x: -175.0, z: -295.0, kind: 'boar', count: 2 },
+      { x: -65.0, z: -210.0, kind: 'bandit_camp', variants: ['small', 'small'] },
+      { x:  24.0, z: -260.0, kind: 'boar', count: 2 },
+      { x: -48.0, z: -415.0, kind: 'bandit_camp', variants: ['big', 'small'] },
+      { x:  35.0, z: -475.0, kind: 'rabbit', count: 2 },
+      { x: 145.0, z:  22.0, kind: 'bandit_camp', variants: ['big', 'small'] },
+      { x: 215.0, z: -25.0, kind: 'boar', count: 2 },
+      { x: 255.0, z:  65.0, kind: 'bandit_camp', variants: ['small', 'small'] },
+      { x: 225.0, z: -145.0, kind: 'bandit_camp', variants: ['big', 'small'] },
+      { x: 145.0, z: -245.0, kind: 'boar', count: 2 },
+      { x: -330.0, z:  85.0, kind: 'bandit_camp', variants: ['big', 'small'] },
+      { x: -265.0, z: 235.0, kind: 'boar', count: 2 },
+      { x: -165.0, z: 320.0, kind: 'bandit_camp', variants: ['small', 'small'] },
     ];
-    for (const rs of rabbitSpots) {
-      const sp = this._clearSpawn(rs.x, rs.z, 0.35);
-      this.rabbits.push(new RabbitMob(this.scene, this.world, this.vfx, rs.pal, sp.x, sp.z, rs.yaw));
+
+    const zones = [];
+    for (let i = 0; i < seeds.length; i++) {
+      const s = seeds[i];
+      if (!this._isValidZonePos(s.x, s.z, s.kind === 'rabbit')) continue;
+      zones.push({
+        id: i,
+        x: s.x,
+        z: s.z,
+        kind: s.kind,
+        count: s.count || 2,
+        variants: s.variants || ['small', 'small'],
+        spawned: false,
+        entities: [],
+      });
+    }
+    return zones;
+  }
+
+  _spawnZone(z) {
+    if (z.spawned) return;
+    const spawned = [];
+    if (z.kind === 'rabbit') {
+      if (this.rabbits.length >= 10) return;
+      const room = Math.min(z.count, 10 - this.rabbits.length);
+      for (let k = 0; k < room; k++) {
+        const ang = (z.id * 1.7 + k * 2.6) % (Math.PI * 2);
+        const sp = this._clearSpawn(z.x + Math.cos(ang) * (2.2 + k * 1.4), z.z + Math.sin(ang) * (2.2 + k * 1.4), 0.35);
+        const pal = (z.id + k) % 2 === 0 ? RABBIT_PALETTE_WHITE : RABBIT_PALETTE_BROWN;
+        const r = new RabbitMob(this.scene, this.world, this.vfx, pal, sp.x, sp.z, ang);
+        this.rabbits.push(r);
+        spawned.push(r);
+      }
+    } else if (z.kind === 'boar') {
+      if (this.boars.length >= 8) return;
+      const room = Math.min(z.count, 8 - this.boars.length);
+      for (let k = 0; k < room; k++) {
+        const ang = (z.id * 2.1 + k * 3.1) % (Math.PI * 2);
+        const sp = this._clearSpawn(z.x + Math.cos(ang) * (2.6 + k * 1.8), z.z + Math.sin(ang) * (2.6 + k * 1.8), 0.70);
+        const b = new BoarMob(this.scene, this.world, this.vfx, sp.x, sp.z, ang);
+        this.boars.push(b);
+        spawned.push(b);
+      }
+    } else if (z.kind === 'bandit_camp') {
+      if (this.bandits.length >= 8) return;
+      const room = Math.min(z.variants.length, 8 - this.bandits.length);
+      for (let k = 0; k < room; k++) {
+        const variant = z.variants[k] === 'big' ? 'big' : 'small';
+        const rad = variant === 'big' ? 0.68 : 0.45;
+        const a0 = (z.id * 1.3 + k * 2.2) % (Math.PI * 2);
+        const off = 2.4 + k * 2.8;
+        const wps = [
+          { x: z.x + Math.cos(a0) * off, z: z.z + Math.sin(a0) * off },
+          { x: z.x + Math.cos(a0 + 2.1) * (off + 4.0), z: z.z + Math.sin(a0 + 2.1) * (off + 4.0) },
+          { x: z.x + Math.cos(a0 + 4.2) * (off + 3.5), z: z.z + Math.sin(a0 + 4.2) * (off + 3.5) },
+        ].map((wp) => {
+          const pos = { x: wp.x, z: wp.z };
+          keepBanditInForest(pos, this.world, rad);
+          return pos;
+        });
+        const bd = new BanditMob(this.scene, this.world, this.vfx, variant, wps, a0);
+        this.bandits.push(bd);
+        spawned.push(bd);
+      }
+    }
+    if (spawned.length > 0) {
+      z.entities = spawned;
+      z.spawned = true;
+    }
+  }
+
+  _despawnZone(z, party = null) {
+    if (!z.spawned) return;
+    if (party && Array.isArray(party.members)) {
+      for (const m of party.members) {
+        if (m && m.cBrain && m.cBrain.targetBoar && z.entities.includes(m.cBrain.targetBoar)) {
+          return;
+        }
+      }
+    }
+    for (const ent of z.entities) {
+      if (!ent) continue;
+      if (typeof ent.dispose === 'function') ent.dispose();
+      const idxR = this.rabbits.indexOf(ent);
+      if (idxR >= 0) this.rabbits.splice(idxR, 1);
+      const idxB = this.boars.indexOf(ent);
+      if (idxB >= 0) this.boars.splice(idxB, 1);
+      const idxBd = this.bandits.indexOf(ent);
+      if (idxBd >= 0) this.bandits.splice(idxBd, 1);
+    }
+    z.entities = [];
+    z.spawned = false;
+  }
+
+  _updateProximitySpawns(hx, hz, dt, party = null) {
+    const SPAWN_DIST = 54.0;
+    const DESPAWN_DIST = 76.0;
+    this._spawnCheckT += dt || 0;
+    const movedFar = Math.hypot(hx - this._lastSpawnX, hz - this._lastSpawnZ) > 8.0;
+    if (!movedFar && this._spawnCheckT < 0.45) return;
+    this._spawnCheckT = 0;
+    this._lastSpawnX = hx;
+    this._lastSpawnZ = hz;
+
+    // 1) Despawn zona yang jauh dulu untuk mengosongkan kuota mob/bandit aktif
+    for (let i = 0; i < this._zones.length; i++) {
+      const z = this._zones[i];
+      if (!z.spawned) continue;
+      let minD = Math.hypot(z.x - hx, z.z - hz);
+      for (const ent of z.entities) {
+        if (ent) minD = Math.min(minD, Math.hypot(ent.x - hx, ent.z - hz));
+      }
+      if (minD > DESPAWN_DIST) {
+        this._despawnZone(z, party);
+      }
     }
 
-    const boarSpots = [
-      { x: -12.6, z: -3.2,  yaw: 0.9 },
-      { x: 8.8,   z: -6.2,  yaw: -0.8 },
-      { x: -14.2, z: 6.4,   yaw: 1.4 },
-      { x: 15.8,  z: 7.8,   yaw: -2.1 },
-      { x: -4.2,  z: 17.5,  yaw: 2.8 },
-      { x: 4.6,   z: -14.8, yaw: -0.3 },
-    ];
-    for (const bs of boarSpots) {
-      const sp = this._clearSpawn(bs.x, bs.z, 0.70);
-      this.boars.push(new BoarMob(this.scene, this.world, this.vfx, sp.x, sp.z, bs.yaw));
+    // 2) Spawn zona yang dekat (diurutkan dari jarak terdekat)
+    const candidates = [];
+    for (let i = 0; i < this._zones.length; i++) {
+      const z = this._zones[i];
+      if (z.spawned) continue;
+      const d = Math.hypot(z.x - hx, z.z - hz);
+      if (d <= SPAWN_DIST) candidates.push({ z, d });
+    }
+    candidates.sort((a, b) => a.d - b.d);
+    for (let i = 0; i < candidates.length; i++) {
+      this._spawnZone(candidates[i].z);
+    }
+  }
+
+  _spawnMobs(originX = -5.4, originZ = 0) {
+    this._updateProximitySpawns(originX, originZ, 99, null);
+  }
+
+  spawnNightRoadAmbush(hx, hz, hyaw = 0, world = this.world) {
+    if (world && typeof world.isInsideVillage === 'function' && world.isInsideVillage(hx, hz, 6.0)) {
+      return [];
+    }
+    const fwdX = Math.cos(hyaw);
+    const fwdZ = -Math.sin(hyaw);
+    const rightX = -fwdZ;
+    const rightZ = fwdX;
+    const distAhead = 18.0 + Math.random() * 7.0;
+    const baseSide = (Math.random() > 0.5 ? 1 : -1) * (2.0 + Math.random() * 3.5);
+    const ambX = hx + fwdX * distAhead + rightX * baseSide;
+    const ambZ = hz + fwdZ * distAhead + rightZ * baseSide;
+
+    const variants = Math.random() < 0.30 ? ['big', 'small'] : (Math.random() < 0.55 ? ['small', 'small'] : ['small']);
+    const spawned = [];
+    for (let k = 0; k < variants.length; k++) {
+      if (this.bandits.length >= 12) break;
+      const v = variants[k];
+      const rad = v === 'big' ? 0.68 : 0.45;
+      const sx = ambX + rightX * ((k === 0 ? -1 : 1) * 1.8);
+      const sz = ambZ + rightZ * ((k === 0 ? -1 : 1) * 1.8);
+      const pos = { x: sx, z: sz };
+      keepBanditInForest(pos, world || this.world, rad);
+      if (world && typeof world.isInsideVillage === 'function' && world.isInsideVillage(pos.x, pos.z, 4.0)) {
+        continue;
+      }
+      const wps = [
+        { x: pos.x, z: pos.z },
+        { x: hx + fwdX * (distAhead - 5.5), z: hz + fwdZ * (distAhead - 5.5) },
+      ];
+      const yawToHorse = Math.atan2(hx - pos.x, hz - pos.z);
+      const bd = new BanditMob(this.scene, world || this.world, this.vfx, v, wps, yawToHorse);
+      bd.isRoadAmbush = true;
+      this.bandits.push(bd);
+      spawned.push(bd);
+    }
+    return spawned;
+  }
+
+  _updateNightRoadBandits(hx, hz, hyaw, dt, world, onNightAmbush) {
+    const isNight = !!(world && world.currentMoodKey === 'night');
+    let activeAmbush = 0;
+    for (let i = this.bandits.length - 1; i >= 0; i--) {
+      const bd = this.bandits[i];
+      if (!bd || !bd.isRoadAmbush) continue;
+      const d = Math.hypot(bd.x - hx, bd.z - hz);
+      const shouldDespawn = d > 68.0
+        || (bd.dead && bd.stateTime > 6.5)
+        || (!isNight && !bd.inCombat && d > 18.0);
+      if (shouldDespawn) {
+        if (typeof bd.dispose === 'function') bd.dispose();
+        this.bandits.splice(i, 1);
+      } else if (!bd.dead) {
+        activeAmbush++;
+      }
+    }
+    if (!isNight) return;
+
+    this._nightAmbushTimer -= dt;
+    if (this._nightAmbushTimer > 0) return;
+    this._nightAmbushTimer = this._nightAmbushInterval;
+
+    if (activeAmbush >= 3) return;
+    if (world && typeof world.isInsideVillage === 'function' && world.isInsideVillage(hx, hz, 6.0)) return;
+    const roadDist = (world && typeof world._getRoadDistance === 'function') ? world._getRoadDistance(hx, hz) : 0;
+    if (roadDist > 12.0) return;
+
+    if (Math.random() < this._nightAmbushChance) {
+      const spawned = this.spawnNightRoadAmbush(hx, hz, hyaw, world);
+      if (spawned.length > 0 && typeof onNightAmbush === 'function') {
+        onNightAmbush(spawned);
+      }
     }
   }
 
@@ -3716,12 +4557,20 @@ class ForestMobs {
     const simDt = this.vfx.hitStopTimer > 0 ? rawDt * 0.14 : rawDt;
     this.clock += simDt;
 
+    const anim = ctx.animator;
+    if (anim && Number.isFinite(anim.x) && Number.isFinite(anim.z)) {
+      this._updateProximitySpawns(anim.x, anim.z, simDt, ctx.party);
+      this._updateNightRoadBandits(anim.x, anim.z, anim.yaw || 0, simDt, ctx.world || this.world, ctx.onNightAmbush);
+    }
+
     const fullCtx = {
-      animator: ctx.animator,
+      animator: anim,
       physics: ctx.physics,
       party: ctx.party,
       rabbits: this.rabbits,
       boars: this.boars,
+      bandits: this.bandits,
+      onCartAttacked: ctx.onCartAttacked,
     };
 
     for (const r of this.rabbits) {
@@ -3729,6 +4578,9 @@ class ForestMobs {
     }
     for (const b of this.boars) {
       b.update(simDt, this.clock);
+    }
+    for (const bd of this.bandits) {
+      bd.update(simDt, this.clock, fullCtx);
     }
   }
 }

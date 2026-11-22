@@ -297,7 +297,13 @@ HC.animateNPC = function (root, dt) {
   st.vel.x = vS.x;
   st.vel.z = vS.z;
 
+  const savedPosY = st.pos ? st.pos.y : 0;
+  if (st.pos) st.pos.y = 0;
+
   const mesh = st.mesh;
+  const savedMeshPos = (mesh && mesh.position)
+    ? { x: mesh.position.x, y: mesh.position.y, z: mesh.position.z }
+    : null;
   const mirror = !!(mesh && mesh.rotation);
   const renderYaw = mirror ? mesh.rotation.y : 0;
   if (mirror) {
@@ -314,6 +320,17 @@ HC.animateNPC = function (root, dt) {
     delete HC.npcAnimErrors[st.role.id];
   } catch (e) {
     HC.npcAnimErrors[st.role.id] = (e && e.message) || String(e);
+  }
+
+  if (st.pos) st.pos.y = savedPosY;
+  if (mesh && mesh.position && savedMeshPos) {
+    mesh.position.x = savedMeshPos.x;
+    mesh.position.z = savedMeshPos.z;
+    if (st.pose === 'sit') {
+      mesh.position.y = savedMeshPos.y;
+    } else {
+      mesh.position.y = Math.max(-0.25, Math.min(0.85, Number.isFinite(mesh.position.y) ? mesh.position.y : 0));
+    }
   }
 
   /* Model yang menulis sendiri mesh.rotation.y / n.vel (goblin, lich, elfmage,
@@ -363,12 +380,312 @@ HC.NPC_BEHAVIOR = {
 
 const _rnd = (a, b) => a + Math.random() * (b - a);
 
+function _setVillageDoorHold(bldg, hold) {
+  if (!bldg) return;
+  bldg.doorUsers = Math.max(0, (bldg.doorUsers || 0) + (hold ? 1 : -1));
+  bldg.doorTarget = bldg.doorUsers > 0 ? 1 : 0;
+}
+
+function updateVillageResident(item, dt, horse, world) {
+  const root = item.root;
+  const st = root && root.userData && root.userData.npc;
+  const vp = item.villageProfile;
+  if (!st || !vp) return false;
+
+  const prof = HC.NPC_BEHAVIOR[st.role.id] || { mode: 'post', radius: 3.0, walk: 0.5, pause: [3, 6], work: null, act: 6, face: 7 };
+  const vd = vp.villageRef || (world && world.villageData);
+  const homeBldg = vp.homeBldg || null;
+  const stations = vp.stations && vp.stations.length ? vp.stations : [{ x: item.homeX, z: item.homeZ, faceX: item.homeX, faceZ: item.homeZ + 1 }];
+
+  const vb = item.vBrain || (item.vBrain = {
+    state: 'work_at_station',
+    stationIdx: 0,
+    target: stations[0],
+    t: _rnd(2.2, 5.5),
+    subT: 0,
+    cyclesDone: 0,
+    nextHomeCycles: 2 + Math.floor(Math.random() * 3),
+    dir: root.rotation ? root.rotation.y : 0,
+    actT: _rnd(1.5, prof.act || 6),
+    swingT: -1,
+    healT: -1,
+    harvest: true,
+    holdingDoor: false,
+    goingToDoor: false,
+  });
+
+  const groundFn = (x, z) => ((world && world.heightAt) ? world.heightAt(x, z)
+    : (world && world.terrainHeightAt) ? world.terrainHeightAt(x, z) : 0);
+
+  const releaseDoor = () => {
+    if (vb.holdingDoor && homeBldg) {
+      _setVillageDoorHold(homeBldg, false);
+      vb.holdingDoor = false;
+    }
+  };
+  const acquireDoor = () => {
+    if (!vb.holdingDoor && homeBldg) {
+      _setVillageDoorHold(homeBldg, true);
+      vb.holdingDoor = true;
+    }
+  };
+
+  const dxH = horse.x - item.x;
+  const dzH = horse.z - item.z;
+  const distH = Math.hypot(dxH, dzH);
+
+  // ---- State: Indoors resting / working inside home building ----
+  if (vb.state === 'indoors') {
+    vb.t -= dt;
+    root.visible = false;
+    item.isIndoors = true;
+    st.walking = false;
+    st.working = false;
+    st.vel.x = 0; st.vel.z = 0;
+    if (vb.t <= 0) {
+      if (homeBldg) {
+        acquireDoor();
+        vb.state = 'exiting_house';
+        vb.subT = 0;
+        item.isIndoors = false;
+        if (vd) vd.indoorsCount = Math.max(0, (vd.indoorsCount || 0) - 1);
+        item.x = homeBldg.insideWorld.x;
+        item.z = homeBldg.insideWorld.z;
+        root.visible = true;
+        root.scale.setScalar(0.55);
+      } else {
+        vb.state = 'work_at_station';
+        vb.t = _rnd(3.0, 6.0);
+        item.isIndoors = false;
+        root.visible = true;
+      }
+    }
+    return true;
+  }
+
+  let walkSpeed = 0;
+  let isWork = false;
+  let customY = null;
+  let lookHead = 0;
+
+  if (vb.state === 'entering_house' && homeBldg) {
+    acquireDoor();
+    vb.subT += dt / 0.95;
+    const u = HC.clamp(vb.subT, 0, 1);
+    const p0 = homeBldg.doorWorld;
+    const p1 = homeBldg.insideWorld;
+    item.x = p0.x + (p1.x - p0.x) * u;
+    item.z = p0.z + (p1.z - p0.z) * u;
+    customY = (p0.y !== undefined ? p0.y : groundFn(p0.x, p0.z)) * (1 - u)
+      + (p1.y !== undefined ? p1.y : groundFn(p1.x, p1.z)) * u;
+    vb.dir = Math.atan2(p1.x - p0.x, p1.z - p0.z);
+    walkSpeed = (st.speed || 3) * 0.42;
+    const sc = u > 0.45 ? (1.0 - ((u - 0.45) / 0.55) * 0.45) : 1.0;
+    root.scale.setScalar(sc);
+
+    if (u >= 1) {
+      releaseDoor();
+      root.scale.setScalar(1.0);
+      root.visible = false;
+      item.isIndoors = true;
+      if (vd) vd.indoorsCount = (vd.indoorsCount || 0) + 1;
+      const isNight = world && world.currentMoodKey === 'night';
+      vb.state = 'indoors';
+      vb.t = isNight ? _rnd(10.0, 18.0) : _rnd(6.5, 13.0);
+      st.walking = false;
+      st.vel.x = 0; st.vel.z = 0;
+      return true;
+    }
+  } else if (vb.state === 'exiting_house' && homeBldg) {
+    acquireDoor();
+    vb.subT += dt / 1.15;
+    const u = HC.clamp(vb.subT, 0, 1);
+    const p0 = homeBldg.insideWorld;
+    const p1 = homeBldg.doorWorld;
+    const p2 = homeBldg.approachWorld;
+    if (u < 0.48) {
+      const a = u / 0.48;
+      item.x = p0.x + (p1.x - p0.x) * a;
+      item.z = p0.z + (p1.z - p0.z) * a;
+      customY = (p0.y !== undefined ? p0.y : groundFn(p0.x, p0.z)) * (1 - a)
+        + (p1.y !== undefined ? p1.y : groundFn(p1.x, p1.z)) * a;
+      vb.dir = Math.atan2(p1.x - p0.x, p1.z - p0.z);
+      root.scale.setScalar(0.55 + a * 0.45);
+    } else {
+      const a = (u - 0.48) / 0.52;
+      item.x = p1.x + (p2.x - p1.x) * a;
+      item.z = p1.z + (p2.z - p1.z) * a;
+      customY = (p1.y !== undefined ? p1.y : groundFn(p1.x, p1.z)) * (1 - a)
+        + groundFn(p2.x, p2.z) * a;
+      vb.dir = Math.atan2(p2.x - p1.x, p2.z - p1.z);
+      root.scale.setScalar(1.0);
+    }
+    walkSpeed = (st.speed || 3) * 0.45;
+    if (u >= 1) {
+      releaseDoor();
+      root.scale.setScalar(1.0);
+      vb.cyclesDone = 0;
+      vb.nextHomeCycles = 2 + Math.floor(Math.random() * 3);
+      vb.stationIdx = (vb.stationIdx + 1) % stations.length;
+      vb.target = stations[vb.stationIdx];
+      vb.state = 'walk_to_target';
+      vb.t = 9.0;
+    }
+  } else if (vb.state === 'going_home' && homeBldg) {
+    const dest = vb.goingToDoor ? homeBldg.doorWorld : homeBldg.approachWorld;
+    const dx = dest.x - item.x;
+    const dz = dest.z - item.z;
+    const d = Math.hypot(dx, dz);
+    const sp = (st.speed || 3.0) * Math.max(0.45, prof.walk || 0.5);
+    vb.t -= dt;
+
+    if (d < 0.45 || vb.t <= 0) {
+      if (!vb.goingToDoor) {
+        vb.goingToDoor = true;
+        vb.t = 4.0;
+        acquireDoor();
+      } else {
+        vb.goingToDoor = false;
+        vb.state = 'entering_house';
+        vb.subT = 0;
+      }
+    } else {
+      vb.dir = Math.atan2(dx, dz);
+      item.x += (dx / d) * sp * dt;
+      item.z += (dz / d) * sp * dt;
+      walkSpeed = sp;
+      if (vb.goingToDoor && homeBldg.approachWorld && homeBldg.doorWorld.y !== undefined) {
+        const totalD = Math.max(0.4, Math.hypot(homeBldg.doorWorld.x - homeBldg.approachWorld.x, homeBldg.doorWorld.z - homeBldg.approachWorld.z));
+        const prog = HC.clamp(1.0 - d / totalD, 0, 1);
+        customY = groundFn(item.x, item.z) * (1 - prog) + homeBldg.doorWorld.y * prog;
+      } else if (!vb.goingToDoor && world && typeof world.resolveCircleCollision === 'function') {
+        const colRes = world.resolveCircleCollision(item.x, item.z, 0.34);
+        if (colRes.hit) {
+          item.x = colRes.x;
+          item.z = colRes.z;
+        }
+      }
+    }
+  } else if (vb.state === 'walk_to_target') {
+    const tgt = vb.target || stations[0];
+    const dx = tgt.x - item.x;
+    const dz = tgt.z - item.z;
+    const d = Math.hypot(dx, dz);
+    const sp = (st.speed || 3.0) * Math.max(0.45, prof.walk || 0.5);
+    vb.t -= dt;
+
+    if (d < 0.52 || vb.t <= 0) {
+      vb.state = 'work_at_station';
+      const isShop = vp.workKind === 'shop';
+      const isPatrol = vp.workKind === 'patrol';
+      vb.t = isShop ? _rnd(7.0, 12.0) : isPatrol ? _rnd(2.6, 4.8) : _rnd(4.5, 8.5);
+      if (tgt.faceX !== undefined && tgt.faceZ !== undefined) {
+        vb.dir = Math.atan2(tgt.faceX - item.x, tgt.faceZ - item.z);
+      }
+    } else {
+      vb.dir = Math.atan2(dx, dz);
+      item.x += (dx / d) * sp * dt;
+      item.z += (dz / d) * sp * dt;
+      walkSpeed = sp;
+      if (world && typeof world.resolveCircleCollision === 'function') {
+        const colRes = world.resolveCircleCollision(item.x, item.z, 0.34);
+        if (colRes.hit) {
+          item.x = colRes.x;
+          item.z = colRes.z;
+          // Slide slightly around obstacle toward target
+          const perpX = -dz / d, perpZ = dx / d;
+          item.x += perpX * sp * 0.4 * dt;
+          item.z += perpZ * sp * 0.4 * dt;
+        }
+      }
+    }
+  } else {
+    // ---- work_at_station ----
+    vb.t -= dt;
+    isWork = vp.workKind === 'farm' || vp.workKind === 'mine' || vp.workKind === 'forage';
+    const tgt = vb.target || stations[0];
+    if (distH < prof.face) {
+      vb.dir = Math.atan2(dxH, dzH);
+    } else if (tgt.faceX !== undefined && tgt.faceZ !== undefined) {
+      vb.dir = Math.atan2(tgt.faceX - item.x, tgt.faceZ - item.z);
+    }
+    if (vp.workKind === 'patrol') {
+      lookHead = Math.sin((item._vClock = (item._vClock || 0) + dt) * 1.4) * 0.42;
+    }
+
+    if (distH < 1.85) {
+      const away = Math.atan2(-dxH, -dzH);
+      item.x += Math.sin(away) * 1.4 * dt;
+      item.z += Math.cos(away) * 1.4 * dt;
+    }
+
+    if (vb.t <= 0) {
+      vb.cyclesDone++;
+      const maxIndoors = (world && world.currentMoodKey === 'night') ? 2 : 1;
+      const curIndoors = vd ? (vd.indoorsCount || 0) : 0;
+      const nightBias = (world && world.currentMoodKey === 'night') ? 0.72 : 0.45;
+      if (vp.canEnterHouse && homeBldg && vb.cyclesDone >= vb.nextHomeCycles
+        && curIndoors < maxIndoors && Math.random() < nightBias) {
+        vb.state = 'going_home';
+        vb.goingToDoor = false;
+        vb.t = 14.0;
+      } else {
+        vb.stationIdx = vp.workKind === 'patrol'
+          ? (vb.stationIdx + 1) % stations.length
+          : (stations.length > 1 ? ((vb.stationIdx + 1 + Math.floor(Math.random() * (stations.length - 1))) % stations.length) : 0);
+        vb.target = stations[vb.stationIdx];
+        vb.state = 'walk_to_target';
+        vb.t = 12.0;
+      }
+    }
+  }
+
+  const gy = customY !== null ? customY : groundFn(item.x, item.z);
+  root.visible = true;
+  root.position.set(item.x, gy, item.z);
+  root.rotation.y = vb.dir;
+
+  st.pos.copy(root.position);
+  st.vel.x = walkSpeed ? Math.sin(vb.dir) * walkSpeed : 0;
+  st.vel.z = walkSpeed ? Math.cos(vb.dir) * walkSpeed : 0;
+  st.walking = walkSpeed > 0.01;
+  st.working = isWork;
+  st.speed = st.speed || st.role.speed || 3;
+  if (isWork && vp.workKind === 'farm') {
+    st.farmT = 1;
+    st.farmTask = vb.harvest ? { action: 'harvest' } : { action: 'plant' };
+  } else { st.farmT = 0; st.farmTask = null; }
+  st.mineT = (isWork && vp.workKind === 'mine') ? 1 : 0;
+  st.forageT = (isWork && vp.workKind === 'forage') ? 1 : 0;
+  st.healT = (isWork && vp.workKind === 'forage') ? 1 : 0;
+
+  if (prof.act > 0 && vb.state === 'work_at_station') {
+    vb.actT -= dt;
+    if (vb.actT <= 0) {
+      vb.actT = prof.act * _rnd(0.75, 1.4);
+      vb.swingT = 0.001;
+      if (vp.workKind === 'farm') vb.harvest = !vb.harvest;
+    }
+  }
+  if (vb.swingT > 0) {
+    vb.swingT += dt;
+    st.swing = vb.swingT;
+    if (vb.swingT > 0.9) { vb.swingT = -1; st.swing = 0; }
+  }
+  st.headAngle = lookHead;
+
+  const lodRec = root.userData && root.userData.__npcLod;
+  if (!(lodRec && lodRec.on)) HC.animateNPC(root, dt);
+  return true;
+}
+
 /* Satu tick AI untuk NPC liar: pilih fase (diam/jalan/kerja), gerakkan root di
    atas terrain, isi state yang dibaca animate(), lalu animasikan. */
 HC.updateWildNPC = function (item, dt, horse, world) {
   const root = item.root, st = root && root.userData && root.userData.npc;
   if (!st) return;
   if (HC.combatAI && HC.mobs && HC.combatAI.stepWild(item, dt || 1 / 60, horse, world)) return;
+  if (item.villageProfile && updateVillageResident(item, dt || 1 / 60, horse, world)) return;
   const prof = HC.NPC_BEHAVIOR[st.role.id] || { mode: 'post', radius: 2.5, walk: 0.5, pause: [3, 6], work: null, act: 6, face: 7 };
   const b = item.brain || (item.brain = { phase: 'idle', t: _rnd(0.5, 2.0), dir: root.rotation.y, actT: _rnd(2, prof.act || 8), swingT: -1, healT: -1, harvest: true });
 
@@ -674,6 +991,18 @@ HC.NPCParty = class {
     const step = rate * dt;
     return Math.abs(diff) <= step ? tgt : cur + Math.sign(diff) * step;
   }
+  _dropMemberCargo(m, physics = this.physics) {
+    if (!m) return;
+    if (physics && typeof physics.releaseCargoClaim === 'function') {
+      physics.releaseCargoClaim(m.uid);
+    } else if (m.haulItem) {
+      m.haulItem.carriedBy = null;
+      m.haulItem.claimedBy = null;
+    }
+    m.haulItem = null;
+    m.carryingCargo = false;
+    m.haulPickT = 0;
+  }
   _updateMember(m, dt, hx, hz, hyaw, cart, physics) {
     const root = m.root;
     if (!root || !HC.THREE) return;
@@ -870,12 +1199,127 @@ HC.NPCParty = class {
       return;
     }
 
-    // ---- state === 'following': bertarung taktis jika ada babi hutan, atau ikuti/keliling gerobak ----
+    // ---- state === 'following': bertarung taktis jika ada musuh, atau pungut barang jatuh 1 per 1, atau ikuti gerobak ----
     if (HC.combatAI && HC.mobs && HC.combatAI.stepPartyMember(m, dt, hx, hz, hyaw, c, physics, this)) {
+      this._dropMemberCargo(m, physics);
       m.inCombat = true;
       return;
     }
     m.inCombat = false;
+
+    // Pungut barang yang tumpah di tanah satu per satu dan muat kembali ke gerobak jika sudah ditegakkan
+    if (physics && Array.isArray(physics.spilled) && c) {
+      if (m.haulItem && (!m.haulItem.spilled || (m.haulItem.pos && Math.hypot(m.haulItem.pos.x - cc.x, m.haulItem.pos.z - cc.z) > 30))) {
+        this._dropMemberCargo(m, physics);
+      }
+      if (!m.haulItem && !m.carryingCargo && physics.spilled.length > 0 && typeof physics.claimSpilledItem === 'function') {
+        m.haulItem = physics.claimSpilledItem(m.uid, m.x, m.z, 28);
+        m.carryingCargo = false;
+        m.haulPickT = 0;
+      }
+      if (m.haulItem) {
+        const item = m.haulItem;
+        let walkingNow = false;
+        let workingNow = false;
+        let curSpeed = 0;
+        let swingNow = 0;
+
+        if (!m.carryingCargo) {
+          const ix = item.pos ? item.pos.x : m.x;
+          const iz = item.pos ? item.pos.z : m.z;
+          const dxI = ix - m.x, dzI = iz - m.z;
+          const dI = Math.hypot(dxI, dzI);
+          if (dI > 0.95) {
+            const sp = 2.65;
+            const move = Math.min(dI, sp * dt);
+            m.x += (dxI / dI) * move;
+            m.z += (dzI / dI) * move;
+            m.dir = this._turnToward(m.dir, Math.atan2(dxI, dzI), 9.0, dt);
+            walkingNow = true;
+            curSpeed = sp;
+            resolveProps(0.34);
+          } else {
+            m.dir = this._turnToward(m.dir, Math.atan2(dxI || 0.001, dzI || 0.001), 10.0, dt);
+            m.haulPickT = (m.haulPickT || 0) + dt;
+            workingNow = true;
+            if (m.haulPickT >= 0.22) {
+              if (typeof physics.pickUpSpilledItem === 'function') {
+                physics.pickUpSpilledItem(item, m.uid);
+              } else {
+                item.carriedBy = m.uid;
+              }
+              m.carryingCargo = true;
+              m.haulPickT = 0;
+            }
+          }
+          const gy = this._groundY(m.x, m.z);
+          root.position.set(m.x, gy, m.z);
+          root.rotation.set(0, m.dir, 0);
+          if (st) {
+            st.pos.copy(root.position);
+            st.vel.x = walkingNow ? Math.sin(m.dir) * curSpeed : 0;
+            st.vel.z = walkingNow ? Math.cos(m.dir) * curSpeed : 0;
+            st.walking = walkingNow;
+            st.working = workingNow;
+            st.swing = swingNow;
+            st.headAngle = 0;
+          }
+          HC.animateNPC(root, dt);
+          return;
+        }
+
+        // Bawa barang menuju belakang gerobak untuk dimuat kembali
+        const dropRear = this._cartRearWorld(c, 0.95, (m.seatIndex - 1) * 0.45);
+        const dxC = dropRear.x - m.x, dzC = dropRear.z - m.z;
+        const dC = Math.hypot(dxC, dzC);
+        if (dC > 1.45) {
+          const sp = 2.35;
+          const move = Math.min(dC, sp * dt);
+          m.x += (dxC / dC) * move;
+          m.z += (dzC / dC) * move;
+          m.dir = this._turnToward(m.dir, Math.atan2(dxC, dzC), 8.5, dt);
+          walkingNow = true;
+          curSpeed = sp;
+          resolveProps(0.34);
+        } else {
+          m.dir = this._turnToward(m.dir, Math.atan2(cc.x - m.x, cc.z - m.z), 9.0, dt);
+          if (!physics.flipped && typeof physics.loadCargoItemIntoCart === 'function') {
+            const left = physics.loadCargoItemIntoCart(item);
+            m.haulItem = null;
+            m.carryingCargo = false;
+            m.haulPickT = 0;
+            swingNow = 0.45;
+            this.lastMessage = left > 0
+              ? `${m.role.e} ${m.role.name} memuat barang ke gerobak (${left} tersisa).`
+              : `${m.role.e} Semua barang sudah dimuat kembali ke gerobak!`;
+            this._notify();
+          }
+        }
+
+        const gy = this._groundY(m.x, m.z);
+        root.position.set(m.x, gy, m.z);
+        root.rotation.set(0, m.dir, 0);
+        if (m.carryingCargo && item.mesh) {
+          const hxItem = m.x + Math.sin(m.dir) * 0.44;
+          const hyItem = gy + 0.92 + Math.sin(this._clock * 7.5) * 0.03;
+          const hzItem = m.z + Math.cos(m.dir) * 0.44;
+          item.mesh.position.set(hxItem, hyItem, hzItem);
+          if (item.mesh.rotation) item.mesh.rotation.set(0, m.dir, 0);
+          if (item.pos) item.pos.set(hxItem, hyItem, hzItem);
+        }
+        if (st) {
+          st.pos.copy(root.position);
+          st.vel.x = walkingNow ? Math.sin(m.dir) * curSpeed : 0;
+          st.vel.z = walkingNow ? Math.cos(m.dir) * curSpeed : 0;
+          st.walking = walkingNow;
+          st.working = false;
+          st.swing = swingNow;
+          st.headAngle = 0;
+        }
+        HC.animateNPC(root, dt);
+        return;
+      }
+    }
     const horseMovedSpd = this._horseMoveSpd || 0;
     const unhitchedFar = physics && !physics.hitched && Math.hypot(hx - cc.x, hz - cc.z) > 9.0;
     const anchorX = unhitchedFar ? hx : (hx + cc.x) * 0.5;
@@ -1024,7 +1468,13 @@ HC.NPCParty = class {
     for (let i = 0; i < this.wild.length; i++) {
       const w = this.wild[i];
       if (w.respawnAt && this._clock >= w.respawnAt) {
-        this._spawnFromAnchor(i, w.anchor);
+        const prevVp = w.villageProfile;
+        const nw = this._spawnFromAnchor(i, w.anchor);
+        if (nw && prevVp) {
+          nw.villageProfile = prevVp;
+          nw.homeRadius = 18.0;
+          nw.isIndoors = false;
+        }
         w.respawnAt = null;
       }
       if (w.recruited) continue;
@@ -1069,7 +1519,7 @@ HC.NPCParty = class {
   nearby(x, z) {
     let best = null, dist = Infinity;
     for (const w of this.wild) {
-      if (w.recruited) continue;
+      if (w.recruited || w.isIndoors) continue;
       const d = Math.hypot(w.x - x, w.z - z);
       if (d < dist) { best = w; dist = d; }
     }
@@ -1179,6 +1629,7 @@ HC.NPCParty = class {
     }
     const m = this.members.find((it) => it.uid === uid);
     if (!m || m.state === 'seated' || m.state === 'boarding' || m.state === 'hopping_in') return false;
+    this._dropMemberCargo(m, this.physics);
     m.state = 'boarding';
     m.inCombat = false;
     if (m._hpBar) m._hpBar.hideNow();
@@ -1198,6 +1649,7 @@ HC.NPCParty = class {
     const clx = -cfz, clz = cfx;
     const side = (physics && physics.flipDir) ? Math.sign(physics.flipDir) : 1;
     for (const m of this.members) {
+      this._dropMemberCargo(m, this.physics);
       m._wantHelpAfterFall = false;
       m.inCombat = false;
       if (m._hpBar) m._hpBar.hideNow();
@@ -1227,6 +1679,7 @@ HC.NPCParty = class {
   setHelpingFlip(active) {
     for (const m of this.members) {
       if (active) {
+        this._dropMemberCargo(m, this.physics);
         if (m.state === 'fallen') {
           m._wantHelpAfterFall = true;
         } else if (m.state !== 'seated') {
@@ -1268,6 +1721,7 @@ HC.NPCParty = class {
     const idx = this.members.findIndex((it) => it.uid === uid);
     if (idx < 0) return null;
     const [m] = this.members.splice(idx, 1);
+    this._dropMemberCargo(m, this.physics);
     const sIdx = this.squad.indexOf(m.role);
     if (sIdx >= 0) this.squad.splice(sIdx, 1);
     else this.squad.splice(idx, 1);

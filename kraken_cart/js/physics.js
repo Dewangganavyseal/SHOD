@@ -359,6 +359,16 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
 
     _substep(h, horseYaw, hvx, hvz, hYawRate, hitchColL, hitchColR, hitchGirthL, hitchGirthR, horsePos) {
       const g = 9.81, m = this.mass;
+      if (this.asleep && this.flipped) {
+        this.vel.set(0, 0, 0);
+        this.rollV = 0; this.pitchV = 0; this.yawV = 0; this.heaveVel = 0;
+        const restSign = Math.sign(this.roll || this.flipDir || 1);
+        this.roll = restSign * REST_ANG;
+        this.pitch *= Math.exp(-8.0 * h);
+        if (this._sleepHeave !== undefined) this.heave = this._sleepHeave;
+        this._lying = true;
+        return;
+      }
 
       this.euler.set(this.roll, this.yaw, this.pitch, 'YZX');
       this.q.setFromEuler(this.euler);
@@ -655,7 +665,11 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
         let fpx = -vp.x * 900, fpz = -vp.z * 900;
         const mag = Math.hypot(fpx, fpz);
         if (mag > capF && mag > 1e-6) { fpx *= capF / mag; fpz *= capF / mag; }
-        addForce(fpx, N, fpz, px, py, pz);
+        if (lying || this.flipped) {
+          Fx += fpx; Fy += N; Fz += fpz;
+        } else {
+          addForce(fpx, N, fpz, px, py, pz);
+        }
       }
 
       // ---------- integrasi ----------
@@ -668,8 +682,12 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
       this.vel.x *= dragL; this.vel.z *= dragL;
 
       const tRoll = Tx * fwd.x + Ty * fwd.y + Tz * fwd.z;
-      const tPitch = Tx * leftA.x + Ty * leftA.y + Tz * leftA.z;
-      const tYaw = Tx * upA.x + Ty * upA.y + Tz * upA.z;
+      let tPitch = Tx * leftA.x + Ty * leftA.y + Tz * leftA.z;
+      let tYaw = Tx * upA.x + Ty * upA.y + Tz * upA.z;
+      if (lying || this.flipped) {
+        tPitch *= 0.06;
+        tYaw *= 0.04;
+      }
 
       this.rollV += (tRoll / this.Iroll) * h;
       this.pitchV += (tPitch / this.Ipitch) * h;
@@ -723,25 +741,28 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
       // redaman struktur ringan (bukan "ditarik ke nol")
       const aDrag = Math.exp(-0.25 * h);
       this.rollV *= aDrag; this.pitchV *= aDrag; this.yawV *= aDrag;
-      if (lying) {
+      if (lying || this.flipped) {
         // rebah di tanah: gesekan badan + muatan nyeret -> redaman gede, cepat berhenti
-        const gDrag = Math.exp(-3.4 * h);
+        const gDrag = Math.exp(-3.8 * h);
         this.vel.x *= gDrag; this.vel.z *= gDrag;
-        this.rollV *= Math.exp(-4.5 * h);
-        this.pitchV *= Math.exp(-4.5 * h);
-        this.yawV *= Math.exp(-5.0 * h);
+        this.rollV *= Math.exp(-5.0 * h);
+        this.pitchV *= Math.exp(-7.5 * h);
+        this.yawV *= Math.exp(-8.5 * h);
+        this.pitch *= Math.exp(-4.5 * h);
         if (this.rollV * Math.sign(this.roll) > 0) this.rollV *= Math.exp(-6.0 * h);
       }
-      // clamp kecepatan: gerobak rebah/mau rebah gak boleh kelacak 10 m/s
-      const vMax = lying ? 2.2 : (this.flipped ? 4.0 : 9.0);
+      // clamp kecepatan: gerobak rebah/mau rebah gak boleh kelacak atau muter sendiri
+      const vMax = lying ? 1.8 : (this.flipped ? 3.5 : 9.0);
       const vMag = Math.hypot(this.vel.x, this.vel.z);
       if (vMag > vMax) { const sc = vMax / vMag; this.vel.x *= sc; this.vel.z *= sc; }
       if (lying && vMag < 0.18) { this.vel.x = 0; this.vel.z = 0; }   // udah diem ya diem
       this.heaveVel = Math.max(-7, Math.min(7, this.heaveVel));
       const rvCap = lying ? 12 : 3.2;   // sebelum rebah: miringnya keg see, bukan keplak
+      const pvCap = lying ? 1.0 : (this.flipped ? 2.5 : 12);
+      const yvCap = lying ? 0.6 : (this.flipped ? 1.5 : 6);
       this.rollV = Math.max(-rvCap, Math.min(rvCap, this.rollV));
-      this.pitchV = Math.max(-12, Math.min(12, this.pitchV));
-      this.yawV = Math.max(-6, Math.min(6, this.yawV));
+      this.pitchV = Math.max(-pvCap, Math.min(pvCap, this.pitchV));
+      this.yawV = Math.max(-yvCap, Math.min(yvCap, this.yawV));
 
       // ---- bolster depan: castor yang ngejar arah tarikan ----
       // Poros depan bebas berputar di kingpin; tali (traces) dari sabuk perut kuda
@@ -783,7 +804,7 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
         const tgt = Math.sign(this.roll) * REST_ANG;
         this.roll += (tgt - this.roll) * Math.min(1, 7.5 * h);
         this.rollV *= Math.exp(-7.0 * h);
-        this.pitch *= Math.exp(-2.0 * h);
+        this.pitch *= Math.exp(-4.5 * h);
       }
       const ROLL_REST = REST_ANG + 0.02;
       if (Math.abs(this.roll) > ROLL_REST) {
@@ -806,7 +827,7 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
           ? this._aLatDemand
           : vFwdNow * this.yawV;                              // m/s², arah lateral bodi
         const aLatAbs = Math.abs(aLat);
-        if (aLatAbs > 0.05) {
+        if (!this.flipped && !lying && aLatAbs > 0.05) {
           /* Bodi miring KE LUAR tikungan, sebanding percepatan sentrifugal.
              Dipakai target sudut + pegas, bukan torsi mentah: torsi mentah
              bikin miringnya numpuk terus (tikungan pelan pun jadi doyong).
@@ -852,6 +873,7 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
         }
       }
       this.pitch += this.pitchV * h;
+      if (lying || this.flipped) this.pitch = Math.max(-0.42, Math.min(0.42, this.pitch));
       this.yaw = this._wrapAngle(this.yaw + this.yawV * h);
       this.heave += this.heaveVel * h;
 
@@ -863,7 +885,9 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
       // pelan-pelan selamanya. Kuda juga udah berhenti, jadi emang gak ada yang narik.
       if (lying) {
         const vNow = Math.hypot(this.vel.x, this.vel.z);
-        if (vNow < 1.0 && Math.abs(this.rollV) < 0.7) this._sleepT += h; else this._sleepT = 0;
+        if (Math.abs(this.roll) >= REST_ANG - 0.06 && vNow < 0.35) this._sleepT = 1.0;
+        else if (vNow < 1.0 && Math.abs(this.rollV) < 0.9) this._sleepT += h;
+        else this._sleepT = 0;
         if (this._sleepT > 0.30) {
           if (!this.asleep) this._sleepHeave = this.heave;   // kunci tinggi rebahnya
           this.asleep = true;
@@ -1016,6 +1040,12 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
     }
 
     _resolveEnvCollisions() {
+      if (this.asleep && this.flipped) {
+        this._envHit.hit = false;
+        this._envHit.pen = 0;
+        this._envHit.hitType = null;
+        return;
+      }
       if (!this.world || typeof this.world.resolveCircleCollision !== 'function') {
         this._envHit.hit = false;
         this._envHit.pen = 0;
@@ -1588,7 +1618,7 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
 
     spillCargo() {
       for (const item of this.cart.cargoItems) {
-        if (!item.spilled) this.ejectItemToWorld(item, 1.5);
+        if (!item.spilled && !item.hiddenForQuest) this.ejectItemToWorld(item, 1.5);
       }
     }
 
@@ -1603,7 +1633,9 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
       const bedMinX = 1.6 * S, bedMaxX = ((capSpec.bedFrontX ?? 24) - 2.0) * S;
       const halfW = Math.max(6, (capSpec.bedHalfW ?? 15) - 1);
       const bedMinZ = -halfW * S,  bedMaxZ = halfW * S;
-      const railTopY = capSpec.railTopVox * S;
+      const railTopY = (capSpec.railTopVox ?? 16.5) * S;
+      const frontRailTopY = Math.min(railTopY, 13.5 * S);
+      const divRailTopY = Math.max(railTopY, 18.0 * S);
 
       // Wheel pebble shock impulse (rate of compression only, so standing compression never levitates cargo)
       let wheelShock = 0;
@@ -1616,7 +1648,7 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
 
       for (let i = 0; i < items.length; i++) {
         const it = items[i];
-        if (it.spilled) continue;
+        if (it.spilled || it.hiddenForQuest) continue;
 
         // Tiap barang punya slot sendiri (floorY = tinggi alasnya). Nggak ada
         // tumpukan dinamis: kalau ada, barang saling "pompa" naik tiap frame
@@ -1711,9 +1743,8 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
         if (it.localVel.lengthSq() > 2.25) it.localVel.setLength(1.5);
         it.localPos.addScaledVector(it.localVel, dt);
 
-        // Batas atas: dagangan boleh mantul, tapi nggak boleh naik level
-        // (ini yang bikin barang lompat pagar & "muter" di udara).
-        const ceilY = it.floorY + 0.16;
+        // Batas atas dinamis: barang boleh terpantul bebas di dalam bak saat kena guncangan.
+        const ceilY = Math.max(railTopY, it.floorY) + 0.45;
         if (it.localPos.y > ceilY) {
           it.localPos.y = ceilY;
           if (it.localVel.y > 0) it.localVel.y = 0;
@@ -1735,55 +1766,54 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
           it.localVel.z *= 0.88;
         }
 
-        // Side rail collisions (or eject over the rail if high & tilted!).
-        // Resolusi pakai setengah-ukuran barang, bukan titik pusat, jadi dinding
-        // bak benar-benar jadi collider mesh-nya.
+        // Penahan Pagar Kayu Bak: barang TIDAK akan keluar dari gerobak selama masih
+        // berada di balik pagar kayu (di bawah tinggi pagar) dan gerobak belum terguling.
+        // Hanya tumpah jika fisik barang benar-benar terlempar melewati tinggi pagar atau gerobak terbalik.
         const wallKick = (v) => (Math.abs(v) > 0.35 ? Math.min(0.9, Math.abs(v) * 1.5) : 0);
+        const itemSupportY = it.localPos.y - (it.half ? it.half.y * 0.25 : 0.08);
         if (it.localPos.z < inMinZ) {
-          // Jangan buang barang cuma karena posisinya tinggi: tumpukan bawaan
-          // memang menjulang di atas pagar. Yang boleh tumpah cuma kalau baknya
-          // sendiri sedang rebah/miring ekstrem.
-          if (Math.abs(this.roll) > 0.45 || Math.abs(this.pitch) > 0.50) {
+          if (this.flipped || itemSupportY > railTopY + 0.02) {
             this.ejectItemToWorld(it, 0.9);
             continue;
           }
           const v = it.localVel.z;
           it.localPos.z = inMinZ;
-          // Di bawah 0,9 m/s pakai tumbukan mati (tanpa mantul) supaya nggak
-          // ada jitter mikro yang bikin putaran barang nggak berhenti-berhenti.
-          it.localVel.z = Math.abs(v) > 0.9 ? Math.abs(v) * 0.35 : 0;
-          // Impuls putar cuma dari tabrakan nyata; konstanta tiap frame bikin
-          // barang yang nempel pagar berputar terus walaupun gerobak diam.
+          it.localVel.z = Math.abs(v) > 0.35 ? Math.abs(v) * 0.32 : 0;
           it.localAngVel.x += wallKick(v);
           if (Math.abs(v) > 0.35) it._restT = 0;
           it._touchPrev = true;
         } else if (it.localPos.z > inMaxZ) {
-          // Jangan buang barang cuma karena posisinya tinggi: tumpukan bawaan
-          // memang menjulang di atas pagar. Yang boleh tumpah cuma kalau baknya
-          // sendiri sedang rebah/miring ekstrem.
-          if (Math.abs(this.roll) > 0.45 || Math.abs(this.pitch) > 0.50) {
+          if (this.flipped || itemSupportY > railTopY + 0.02) {
             this.ejectItemToWorld(it, 0.9);
             continue;
           }
           const v = it.localVel.z;
           it.localPos.z = inMaxZ;
-          it.localVel.z = Math.abs(v) > 0.9 ? -Math.abs(v) * 0.35 : 0;
+          it.localVel.z = Math.abs(v) > 0.35 ? -Math.abs(v) * 0.32 : 0;
           it.localAngVel.x -= wallKick(v);
           if (Math.abs(v) > 0.35) it._restT = 0;
           it._touchPrev = true;
         }
 
         if (it.localPos.x < inMinX) {
+          if (this.flipped || itemSupportY > divRailTopY + 0.04) {
+            this.ejectItemToWorld(it, 0.9);
+            continue;
+          }
           const v = it.localVel.x;
           it.localPos.x = inMinX;
-          it.localVel.x = Math.abs(v) > 0.9 ? Math.abs(v) * 0.35 : 0;
+          it.localVel.x = Math.abs(v) > 0.35 ? Math.abs(v) * 0.32 : 0;
           it.localAngVel.z -= wallKick(v);
           if (Math.abs(v) > 0.35) it._restT = 0;
           it._touchPrev = true;
         } else if (it.localPos.x > inMaxX) {
+          if (this.flipped || itemSupportY > frontRailTopY + 0.03) {
+            this.ejectItemToWorld(it, 0.9);
+            continue;
+          }
           const v = it.localVel.x;
           it.localPos.x = inMaxX;
-          it.localVel.x = Math.abs(v) > 0.9 ? -Math.abs(v) * 0.35 : 0;
+          it.localVel.x = Math.abs(v) > 0.35 ? -Math.abs(v) * 0.32 : 0;
           it.localAngVel.z += wallKick(v);
           if (Math.abs(v) > 0.35) it._restT = 0;
           it._touchPrev = true;
@@ -1846,11 +1876,11 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
       // bertumpuk/bersandar, bukan saling geser terus kayak muter.
       for (let i = 0; i < items.length; i++) {
         const a = items[i];
-        if (a.spilled || !a.half) continue;
+        if (a.spilled || a.hiddenForQuest || !a.half) continue;
         const ax = a._hx ?? a.half.x, az = a._hz ?? a.half.z;
         for (let j = i + 1; j < items.length; j++) {
           const b = items[j];
-          if (b.spilled || !b.half) continue;
+          if (b.spilled || b.hiddenForQuest || !b.half) continue;
           const bx = b._hx ?? b.half.x, bz = b._hz ?? b.half.z;
           const dx = b.localPos.x - a.localPos.x;
           const dy = b.localPos.y - a.localPos.y;
@@ -1899,7 +1929,7 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
       // kecepatan & putaran barang dibatasi. Dorongan berantai bisa numpuk dan
       // bikin barang kelihatan "hidup" terus walaupun gerobak diam.
       for (const it of items) {
-        if (it.spilled) continue;
+        if (it.spilled || it.hiddenForQuest) continue;
         // Di frame BAK, barang mestinya hampir diam (baknya yang bergerak).
         // Batas 1,2 m/s ini yang bikin nggak ada lagi barang "nyelemot" 2,5 m/s
         // sambil nempel pagar lalu muter terus.
@@ -1910,6 +1940,7 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
       // 2) World physics for spilled cargo items (gravity, ground + pebble bounce, rolling, item-item collisions)
       for (let i = 0; i < this.spilled.length; i++) {
         const item = this.spilled[i];
+        if (item.carriedBy) continue;
         item.vel.y -= g * dt;
         item.pos.addScaledVector(item.vel, dt);
         if (this.world && typeof this.world.resolveCircleCollision === 'function') {
@@ -1963,8 +1994,10 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
       // Spilled item-item collisions on the ground
       for (let i = 0; i < this.spilled.length; i++) {
         const a = this.spilled[i];
+        if (a.carriedBy) continue;
         for (let j = i + 1; j < this.spilled.length; j++) {
           const b = this.spilled[j];
+          if (b.carriedBy) continue;
           const dx = b.pos.x - a.pos.x, dy = b.pos.y - a.pos.y, dz = b.pos.z - a.pos.z;
           const minD = Math.max(0.08, (a.radius + b.radius) * 0.78);
           const d2 = dx * dx + dy * dy + dz * dz;
@@ -2106,11 +2139,123 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
         w._wasContact = false; w._prevPen = 0; w._lastDmg = 0; w._dmgCd = 0;
       }
 
-      for (const item of this.spilled) {
-        this.cart.body.add(item.mesh);
+      for (const it of (this.cart && this.cart.cargoItems) || []) {
+        if (!it.spilled) {
+          if (it.localVel) it.localVel.set(0, 0, 0);
+          if (it.localAngVel) it.localAngVel.set(0, 0, 0);
+        }
       }
-      this.initCargoItems();
       this.syncVisual();
+    }
+
+    claimSpilledItem(npcUid, x, z, maxDist = 28) {
+      let best = null;
+      let bestD = maxDist;
+      for (const item of this.spilled || []) {
+        if (!item || !item.spilled || item.carriedBy) continue;
+        if (item.claimedBy && item.claimedBy !== npcUid) continue;
+        const ix = item.pos ? item.pos.x : 0;
+        const iz = item.pos ? item.pos.z : 0;
+        const d = Math.hypot(ix - x, iz - z);
+        if (d < bestD) {
+          bestD = d;
+          best = item;
+        }
+      }
+      if (best) best.claimedBy = npcUid;
+      return best;
+    }
+
+    pickUpSpilledItem(item, npcUid) {
+      if (!item || !item.spilled) return false;
+      item.carriedBy = npcUid;
+      item.claimedBy = npcUid;
+      if (item.vel) item.vel.set(0, 0, 0);
+      if (item.angVel) item.angVel.set(0, 0, 0);
+      return true;
+    }
+
+    releaseCargoClaim(npcUid) {
+      const scene = this.cart && this.cart.root && this.cart.root.parent;
+      for (const item of this.spilled || []) {
+        if (!item) continue;
+        if (item.claimedBy === npcUid) item.claimedBy = null;
+        if (item.carriedBy === npcUid) {
+          item.carriedBy = null;
+          if (scene && item.mesh && item.mesh.parent !== scene) scene.attach(item.mesh);
+          if (item.mesh && item.pos) item.pos.copy(item.mesh.position);
+          if (item.vel) item.vel.set(0, 0.3, 0);
+        }
+      }
+    }
+
+    loadCargoItemIntoCart(item) {
+      if (!item) return (this.spilled || []).length;
+      const idx = (this.spilled || []).indexOf(item);
+      if (idx >= 0) this.spilled.splice(idx, 1);
+      item.spilled = false;
+      item.carriedBy = null;
+      item.claimedBy = null;
+      if (this.cart && this.cart.body && item.mesh) this.cart.body.add(item.mesh);
+      if (item.localPos && item.homePos) item.localPos.copy(item.homePos);
+      if (item.localVel) item.localVel.set(0, 0, 0);
+      if (item.localAng && item.homeRot) item.localAng.set(item.homeRot.x, item.homeRot.y, item.homeRot.z);
+      if (item.localAngVel) item.localAngVel.set(0, 0, 0);
+      if (item.mesh && item.homePos) item.mesh.position.copy(item.homePos);
+      if (item.mesh && item.homeRot) item.mesh.rotation.copy(item.homeRot);
+      item._restT = 0.5;
+      return (this.spilled || []).length;
+    }
+
+    takeBanditHit(dmg, fromX, fromZ, isHeavy = false) {
+      if (this.flipped) return 0;
+      const dx = this.pos.x - fromX;
+      const dz = this.pos.z - fromZ;
+      const d = Math.hypot(dx, dz) || 1;
+      const nx = dx / d;
+      const nz = dz / d;
+      const lx = Math.sin(this.yaw);
+      const lz = Math.cos(this.yaw);
+      const lat = nx * lx + nz * lz;
+      const sideSign = lat >= 0 ? -1 : 1;
+
+      this.rollV += sideSign * (isHeavy ? 1.25 : 0.65);
+      this.heaveVel += isHeavy ? 0.85 : 0.45;
+      this.vel.x += nx * (isHeavy ? 1.15 : 0.55);
+      this.vel.z += nz * (isHeavy ? 1.15 : 0.55);
+
+      let bestW = null;
+      let bestDist = Infinity;
+      let fallbackW = null;
+      for (const w of this.wheels || []) {
+        if (!w || w.detached) continue;
+        if (!fallbackW) fallbackW = w;
+        if (w.hp <= 0) continue;
+        const wx = (w.world && Number.isFinite(w.world.x)) ? w.world.x : this.pos.x;
+        const wz = (w.world && Number.isFinite(w.world.z)) ? w.world.z : this.pos.z;
+        const wd = Math.hypot(wx - fromX, wz - fromZ);
+        if (wd < bestDist) {
+          bestDist = wd;
+          bestW = w;
+        }
+      }
+      bestW = bestW || fallbackW;
+      const baseDmg = isHeavy ? 16 : 9;
+      const wheelDmg = Math.max(1, Math.round(baseDmg * (this.damageScale ?? 1)));
+      if (bestW) {
+        bestW.hp = Math.max(0, (bestW.hp ?? 100) - wheelDmg);
+        bestW._hitFlash = 0.55;
+        if (bestW.hp <= 0) {
+          bestW.broken = true;
+          if (typeof this.onWheelBroken === 'function') this.onWheelBroken(bestW);
+        }
+      }
+
+      if (isHeavy && Math.random() < 0.35 && this.cart && Array.isArray(this.cart.cargoItems)) {
+        const unspilled = this.cart.cargoItems.find((it) => !it.spilled);
+        if (unspilled) this.ejectItemToWorld(unspilled, 1.3);
+      }
+      return wheelDmg;
     }
 
     syncVisual() {

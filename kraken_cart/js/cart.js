@@ -280,23 +280,24 @@ function buildPassengers(body, capSpec = {}) {
 }
 
 function buildCargoItems(capTier = 1) {
-  // Cargo ditempatkan di kompartemen DEPAN (x positif, dekat kuda); kabin penumpang di buritan.
+  // Cargo ditempatkan di kompartemen DEPAN (x: 2..22, z: -13..13) dengan tata letak organik
+  // dan terlindungi rapat di bawah pagar kayu samping.
   const allDefs = [
-    // Lv1 (6 barang) — tumpukan rendah di lantai bak, sekat di x=1
-    { build: () => makeBarrelMesh(P.oakMid), pos: [6, 13.0, -7.8], rot: [0, 0.1, 0], r: 5.2 },
-    { build: () => makeBarrelMesh(P.oakMid), pos: [6, 13.0,  7.8], rot: [0, -0.2, 0], r: 5.2 },
-    { build: () => makeCrateMesh(6, 5, 6, P.oakLite, P.oakDark), pos: [16, 11.0, -7.4], rot: [0, 0.08, 0], r: 5.1 },
-    { build: () => makeCrateMesh(5, 5, 5, P.oakMid, P.oakDark), pos: [16, 11.0,  7.4], rot: [0, -0.15, 0], r: 4.9 },
-    { build: () => makeSackMesh(P.sack), pos: [11, 9.6, -6.5], rot: [0.05, 0.2, 0], r: 4.0 },
-    { build: () => makeSackMesh(P.sack), pos: [11, 9.6,  6.5], rot: [0.08, 0.35, 0], r: 4.0 },
-    // Lv2 (+2 = 8) — karung di atas tong & terpal di lantai
-    { build: () => makeSackMesh(P.canvas), pos: [6, 23.5, -7.8], rot: [-0.06, -0.25, 0], r: 4.0 },
-    { build: () => makeTarpMesh(), pos: [19, 9.4, 0], rot: [0, 0.04, 0], r: 3.8 },
+    // Lv1 (6 barang) — bervariasi, asimetris alami, pas di dalam pagar
+    { build: () => makeBarrelMesh(P.oakMid), pos: [6.2, 12.1, -8.2], rot: [0, 0.22, 0], r: 5.0 },
+    { build: () => makeCrateMesh(5, 4, 5, P.oakLite, P.oakDark), pos: [15.4, 10.1, -7.6], rot: [0, 0.14, 0], r: 4.8 },
+    { build: () => makeSackMesh(P.sack), pos: [10.6, 9.6, 7.8], rot: [0.04, -0.34, 0], r: 4.0 },
+    { build: () => makeTarpMesh(), pos: [19.4, 9.2, 0.4], rot: [0, 0.18, 0], r: 3.8 },
+    { build: () => makeCrateMesh(4, 3.5, 4, P.oakMid, P.oakDark), pos: [6.4, 9.6, 7.4], rot: [0, -0.19, 0], r: 4.3 },
+    { build: () => makeSackMesh(P.canvas), pos: [11.2, 9.6, -1.2], rot: [0.06, 0.42, 0], r: 3.9 },
+    // Lv2 (+2 = 8) — peti perjalanan & tong persediaan
+    { build: () => makeTreasureChestMesh(), pos: [16.2, 9.1, 7.2], rot: [0, -0.26, 0], r: 4.5 },
+    { build: () => makeBarrelMesh(P.oakDark), pos: [6.0, 12.1, 0.5], rot: [0, 0.35, 0], r: 4.9 },
     // Lv3 (+4 = 12)
-    { build: () => makeTreasureChestMesh(), pos: [19, 10.0, -6.5], rot: [0, 0.12, 0], r: 4.5 },
-    { build: () => makeTreasureChestMesh(), pos: [19, 10.0,  6.5], rot: [0, -0.12, 0], r: 4.5 },
-    { build: () => makeBarrelMesh(P.oakDark), pos: [11, 13.0, 0.0], rot: [0, 0.25, 0], r: 5.1 },
-    { build: () => makeSackMesh(P.sack), pos: [6, 16.6, 6.5], rot: [0.1, -0.3, 0], r: 4.0 }
+    { build: () => makeTreasureChestMesh(), pos: [18.8, 9.1, -7.4], rot: [0, 0.19, 0], r: 4.4 },
+    { build: () => makeSackMesh(P.sack), pos: [13.2, 9.6, 4.2], rot: [0.08, -0.45, 0], r: 3.9 },
+    { build: () => makeCrateMesh(4, 3, 4, P.oakLite, P.oakDark), pos: [14.6, 9.1, -2.8], rot: [0, 0.28, 0], r: 4.2 },
+    { build: () => makeSackMesh(P.canvas), pos: [8.8, 9.6, -4.6], rot: [-0.04, 0.52, 0], r: 3.9 }
   ];
 
   const spec = HC.CART_UPGRADES.capacity[capTier] || HC.CART_UPGRADES.capacity[1];
@@ -313,6 +314,182 @@ function buildCargoItems(capTier = 1) {
   }
   return items;
 }
+
+HC.buildQuestCargoMesh = function (cargoKind = 'spices', sc = S) {
+  const b = new V(sc);
+  const kind = String(cargoKind || 'spices');
+  if (kind === 'spices') {
+    // Peti terbuka berisi 4 mangkuk rempah warna-warni
+    b.box(-4.2, -3.0, -3.8, 4.2, -2.0, 3.8, P.oakMid, 0.04);
+    b.box(-4.2, -2.0, -3.8, -3.4, 1.4, 3.8, P.oakDark, 0.03);
+    b.box(3.4, -2.0, -3.8, 4.2, 1.4, 3.8, P.oakDark, 0.03);
+    b.box(-3.4, -2.0, -3.8, 3.4, 1.4, -3.0, P.oakLite, 0.03);
+    b.box(-3.4, -2.0, 3.0, 3.4, 1.4, 3.8, P.oakLite, 0.03);
+    // 4 kompartemen rempah (kunyit, cabai, jintan, herba)
+    b.box(-3.0, -2.0, -2.6, -0.3, 1.9, -0.3, 0xf59e0b, 0.05);
+    b.box(0.3, -2.0, -2.6, 3.0, 2.2, -0.3, 0xdc2626, 0.05);
+    b.box(-3.0, -2.0, 0.3, -0.3, 2.1, 2.6, 0xeab308, 0.05);
+    b.box(0.3, -2.0, 0.3, 3.0, 1.8, 2.6, 0x16a34a, 0.05);
+    b.box(-4.3, -3.0, -3.9, 4.3, -2.6, -3.5, P.brass, 0.01);
+  } else if (kind === 'wheat') {
+    // Karung gandum montok terikat tali + bulir emas mencuat
+    b.ellipsoid(0, 0.2, 0, 4.2, 3.2, 3.6, 0xd6b376, 0.05);
+    b.box(-1.6, 2.6, -1.6, 1.6, 3.5, 1.6, 0x78552b, 0.02);
+    for (const [ox, oz] of [[-0.8, -0.6], [0.7, -0.4], [0, 0.8], [-0.4, 0.2]]) {
+      b.line(ox, 3.0, oz, ox * 2.2, 5.4, oz * 2.2, 0.45, 0xfacc15, 0.03);
+      b.set(Math.round(ox * 2.2), 5, Math.round(oz * 2.2), 0xca8a04, 0.02);
+    }
+  } else if (kind === 'cloth') {
+    // Tumpukan gulungan kain tenun bermotif warna mencolok + tali pengikat
+    b.box(-4.2, -3.0, -3.8, 4.2, -2.2, 3.8, P.oakDark, 0.03);
+    b.cylX(-4.0, 4.0, -0.4, -1.8, 1.7, 0xbe123c, 0, 0.04);
+    b.cylX(-4.0, 4.0, -0.4, 1.8, 1.7, 0x1d4ed8, 0, 0.04);
+    b.cylX(-3.8, 3.8, 2.1, 0.0, 1.6, 0xd97706, 0, 0.04);
+    for (const sx of [-2.4, 2.4]) {
+      b.box(sx, -2.2, -3.6, sx + 0.6, 3.8, 3.6, P.leather, 0.02);
+    }
+  } else if (kind === 'potions') {
+    // Rak kayu apotek berisi 4 botol ramuan kaca berwarna cerah + gabus
+    b.box(-4.0, -3.0, -3.6, 4.0, -1.8, 3.6, P.oakDark, 0.03);
+    b.box(-3.8, -1.8, -3.4, 3.8, 0.8, -2.8, P.oakMid, 0.03);
+    b.box(-3.8, -1.8, 2.8, 3.8, 0.8, 3.4, P.oakMid, 0.03);
+    const flasks = [[-2.0, -1.5, 0x10b981], [2.0, -1.5, 0xf43f5e], [-2.0, 1.5, 0x3b82f6], [2.0, 1.5, 0xf59e0b]];
+    for (const [fx, fz, col] of flasks) {
+      b.cylY(fx, fz, -1.8, 1.8, 1.35, col, 0, 0.02);
+      b.cylY(fx, fz, 1.8, 3.2, 0.65, 0xdbeafe, 0, 0.01);
+      b.box(fx - 0.5, 3.2, fz - 0.5, fx + 0.5, 4.0, fz + 0.5, P.oakLite, 0.01);
+    }
+  } else if (kind === 'iron_tools') {
+    // Peti perkakas besi tempa + batangan baja + kapak/beliung menonjol
+    b.box(-4.4, -3.0, -3.6, 4.4, 1.6, 3.6, P.oakDark, 0.04);
+    b.box(-4.5, -3.0, -3.7, -3.8, 1.8, 3.7, P.ironDark, 0.02);
+    b.box(3.8, -3.0, -3.7, 4.5, 1.8, 3.7, P.ironDark, 0.02);
+    b.box(-3.0, 1.2, -2.4, 0.5, 2.6, 0.0, 0x94a3b8, 0.02);
+    b.box(-2.4, 2.6, -2.0, 0.2, 3.6, -0.4, 0xcbd5e1, 0.02);
+    b.line(-1.0, 0.5, 1.8, 3.6, 4.6, 1.0, 0.55, P.oakMid, 0.02);
+    b.box(2.2, 3.6, -0.6, 4.2, 5.2, 2.6, 0x64748b, 0.02);
+  } else if (kind === 'honey') {
+    // Peti jerami isi 2 guci madu hutan keemasan menetes
+    b.box(-4.2, -3.0, -3.4, 4.2, 0.2, 3.4, P.oakMid, 0.04);
+    b.box(-3.6, -2.0, -2.8, 3.6, 0.6, 2.8, 0xeab308, 0.04);
+    for (const hx of [-1.9, 1.9]) {
+      b.cylY(hx, 0, -1.6, 2.6, 1.7, 0xc2410c, 0, 0.03);
+      b.cylY(hx, 0, 2.4, 3.3, 1.25, 0xfbbf24, 0, 0.02);
+      b.box(hx - 1.0, 1.6, 1.2, hx - 0.3, 2.6, 1.7, 0xf59e0b, 0.01);
+      b.box(hx - 0.8, 3.3, -0.8, hx + 0.8, 4.1, 0.8, 0xfef3c7, 0.02);
+    }
+  } else if (kind === 'coffee') {
+    // Karung goni kopi cokelat gelap penuh biji kopi sangrai
+    b.ellipsoid(0, -0.4, 0, 4.0, 2.8, 3.5, 0x7c5a38, 0.05);
+    b.cylY(0, 0, 1.4, 2.6, 2.8, 0x9a754c, 0, 0.03);
+    b.cylY(0, 0, 2.3, 3.8, 2.2, 0x3b1f14, 0, 0.04);
+    b.box(-1.2, 3.4, -1.0, 1.2, 4.3, 1.0, 0x522e1f, 0.03);
+    b.box(-4.0, -1.0, -0.8, -3.5, 0.8, 0.8, 0xdc2626, 0.02);
+    b.box(3.5, -1.0, -0.8, 4.0, 0.8, 0.8, 0xdc2626, 0.02);
+  } else {
+    // 'ceramics': Peti jerami berpelindung dengan guci keramik porselen biru-putih
+    b.box(-4.0, -3.0, -3.6, 4.0, 0.4, 3.6, P.oakLite, 0.04);
+    b.box(-3.4, -2.0, -3.0, 3.4, 0.8, 3.0, 0xe5cf8c, 0.04);
+    b.cylY(-1.2, 0, -1.2, 3.0, 2.0, 0xf8fafc, 0, 0.02);
+    b.cylY(-1.2, 0, 0.4, 1.3, 2.05, 0x1d4ed8, 0, 0.01);
+    b.cylY(-1.2, 0, 3.0, 4.4, 0.95, 0xf8fafc, 0, 0.02);
+    b.cylY(-1.2, 0, 4.0, 4.6, 1.35, 0x1d4ed8, 0, 0.01);
+    b.cylY(2.2, 0.6, -1.0, 1.4, 1.3, 0xf8fafc, 0, 0.02);
+    b.cylY(2.2, 0.6, 0.8, 1.3, 1.35, 0x1d4ed8, 0, 0.01);
+  }
+  const mesh = b.build(0, 0, 0);
+  mesh.userData.questCargoKind = kind;
+  return mesh;
+};
+
+HC.clearQuestCargoFromCart = function (cart, physics) {
+  if (!cart || !Array.isArray(cart.cargoItems)) return 0;
+  let removed = 0;
+  for (let i = cart.cargoItems.length - 1; i >= 0; i--) {
+    const it = cart.cargoItems[i];
+    if (it && it.hiddenForQuest) {
+      it.hiddenForQuest = false;
+      if (it.mesh) it.mesh.visible = true;
+    }
+    if (!it || !it.isQuestCargo) continue;
+    if (it.mesh && it.mesh.parent) it.mesh.parent.remove(it.mesh);
+    if (physics && Array.isArray(physics.spilled)) {
+      const sIdx = physics.spilled.indexOf(it);
+      if (sIdx >= 0) physics.spilled.splice(sIdx, 1);
+    }
+    cart.cargoItems.splice(i, 1);
+    removed++;
+  }
+  return removed;
+};
+
+HC.setQuestCargoOnCart = function (cart, physics, cargoKind = 'spices', count = 3) {
+  if (!cart || !cart.body) return [];
+  HC.clearQuestCargoFromCart(cart, physics);
+
+  // Tempatkan barang quest pada 3 titik strategis depan-tengah-kanan bak; sembunyikan sementara
+  // filler di slot tersebut agar tidak bertabrakan lalu hidupkan fisika dinamisnya.
+  const qSlots = [
+    { pos: [17.8, 9.2, -6.8], rot: [0, 0.16, 0] },
+    { pos: [12.4, 9.2, 0.4],  rot: [0, -0.22, 0] },
+    { pos: [17.0, 9.2, 7.2],  rot: [0, 0.28, 0] },
+  ];
+  const n = Math.max(1, Math.min(qSlots.length, count | 0));
+  const placed = [];
+
+  for (let i = 0; i < n; i++) {
+    const slot = qSlots[i];
+    const hp = new THREE.Vector3(slot.pos[0] * S, slot.pos[1] * S, slot.pos[2] * S);
+    const hr = new THREE.Euler(slot.rot[0], slot.rot[1], slot.rot[2]);
+
+    // Redam filler statis yang terlalu dekat dari titik penempatan quest ini
+    for (const ex of cart.cargoItems) {
+      if (!ex || ex.isQuestCargo || ex.spilled || ex.hiddenForQuest) continue;
+      if (Math.hypot((ex.homePos ? ex.homePos.x : 0) - hp.x, (ex.homePos ? ex.homePos.z : 0) - hp.z) < 0.34) {
+        ex.hiddenForQuest = true;
+        if (ex.mesh) ex.mesh.visible = false;
+      }
+    }
+
+    const mesh = HC.buildQuestCargoMesh(cargoKind, S);
+    mesh.position.copy(hp);
+    mesh.rotation.copy(hr);
+    cart.body.add(mesh);
+
+    const bb = new THREE.Box3().setFromObject(mesh);
+    const sz = bb.getSize(new THREE.Vector3());
+    const half = new THREE.Vector3(
+      Math.max(0.05, sz.x * 0.45),
+      Math.max(0.05, sz.y * 0.45),
+      Math.max(0.05, sz.z * 0.45)
+    );
+    const item = {
+      mesh,
+      isQuestCargo: true,
+      cargoKind,
+      homePos: hp,
+      homeRot: hr,
+      localPos: hp.clone(),
+      localVel: new THREE.Vector3(),
+      localAng: new THREE.Vector3(hr.x, hr.y, hr.z),
+      localAngVel: new THREE.Vector3(),
+      floorY: hp.y,
+      bounciness: 0.36 + (i % 3) * 0.06,
+      pos: new THREE.Vector3(),
+      quat: new THREE.Quaternion(),
+      vel: new THREE.Vector3(),
+      angVel: new THREE.Vector3(),
+      spilled: false,
+      half,
+      radius: Math.max(half.x, half.z, 0.28),
+      _onTopPrev: false,
+      _restT: 0,
+    };
+    cart.cargoItems.push(item);
+    placed.push(item);
+  }
+  return placed;
+};
 
 HC.buildCart = function (pivotY = 0.58, upgrades = {}) {
   const capTier = upgrades.capacity ?? 1;
@@ -407,6 +584,17 @@ HC.buildCart = function (pivotY = 0.58, upgrades = {}) {
   // Sekat melintang: kargo depan (x >= 2) terpisah dari penumpang di buritan.
   cb.box(0, 7, -zSide + 1, 1, Math.max(18, gateTop), zSide - 1, P.oakDark, 0.04);
   cb.box(0, Math.max(18, gateTop), -zSide, 1, Math.max(18, gateTop) + 1, zSide, P.ironDark, 0.02);
+  // Detail dek barang: alas kayu anti-selip, siku besi pengikat sudut, dan cincin pengait di pagar
+  for (const bx of [4, 10, 16, 21]) {
+    cb.box(bx, 6, -(zSide - 2), bx, 6, zSide - 2, P.oakDark, 0.03);
+  }
+  for (const sz of [-(zSide - 1), zSide - 1]) {
+    cb.box(2, 7, sz, 3, 9, sz, P.ironDark, 0.02);
+    cb.box(22, 7, sz, 23, 9, sz, P.ironDark, 0.02);
+    for (const rx of [6, 12, 18]) {
+      cb.box(rx, 9, sz, rx + 1, 10, sz, P.brass, 0.015);
+    }
+  }
 
   // Rak/pijakan depan dan dashboard hanya di kompartemen barang, tanpa kursi kusir.
   cb.box(23, 8, -zSide + 1, 25, 9, zSide - 1, P.oakDark, 0.04);
@@ -518,8 +706,8 @@ HC.buildCart = function (pivotY = 0.58, upgrades = {}) {
   axleBeam(rearAxleX, wheelSpec.rRear, false, 'axleRear');
   body.add(cb.build(0, 0, 0));
 
-  // Build 4 Voxel Adventurers on the facing benches (no driver)
-  const passengers = buildPassengers(body, capSpec);
+  // Starter gerobak kosong tanpa penumpang (direkrut langsung di desa)
+  const passengers = [];
 
   // Swinging iron lantern
   const lanternPivot = new THREE.Group();

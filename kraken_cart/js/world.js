@@ -10,6 +10,29 @@
 import { HC } from './hc.js';
 import './voxel.js';
 import MAP from './map.js';
+import {
+  createVillageMaterialPalette,
+  createCozyCottage,
+  createVillageTavernInn,
+  createBlacksmithWorkshop,
+  createMarketStall,
+  createStorageBarn,
+} from './models/village_buildings.js';
+import {
+  createVillageWell,
+  createVillageGateArch,
+  createVillageLanternPost,
+  createVillageNoticeBoard,
+  createVillageBench,
+  createVillageFlowerPlanter,
+  createVillageCrateCluster,
+  createVillageStonePath,
+  createVillageFenceRun,
+} from './models/village_props.js';
+import {
+  createBotWRiverSurface,
+  createNaturalRiverbanks,
+} from './models/river_assets.js';
 
 const THREE = HC.THREE, P = HC.PAL;
 
@@ -29,13 +52,13 @@ class World {
     const PERF_PROFILES = {
       // treeLod  = jarak mulai pakai geometri pohon gabungan (low-detail, 1 draw call per jenis)
       // treeFar  = jarak maksimum pohon low-detail masih digambar (siluet cakrawala)
-      potato:   { label: 'Kentang',  pixelRatio: 1.0,  cullDistance: 30.0, grassRatio: 0.30, treeLod: 55.0, treeFar: 120.0 },
-      medium:   { label: 'Menengah', pixelRatio: 1.25, cullDistance: 52.0, grassRatio: 0.62, treeLod: 70.0, treeFar: 140.0 },
-      high:     { label: 'Ultra PC', pixelRatio: 2.0,  cullDistance: 84.0, grassRatio: 1.0,  treeLod: 90.0, treeFar: 160.0 },
+      potato:   { label: 'Kentang',  pixelRatio: 1.0,  cullDistance: 42.0, grassRatio: 0.30, treeLod: 40.0, treeFar: 165.0 },
+      medium:   { label: 'Menengah', pixelRatio: 1.25, cullDistance: 72.0, grassRatio: 0.62, treeLod: 54.0, treeFar: 220.0 },
+      high:     { label: 'Ultra PC', pixelRatio: 2.0,  cullDistance: 118.0, grassRatio: 1.0, treeLod: 72.0, treeFar: 290.0 },
       // alias lama supaya kode/probe yang masih menyebut nama ini tetap jalan
-      mobile:   { label: 'Kentang',  pixelRatio: 1.0,  cullDistance: 30.0, grassRatio: 0.30, treeLod: 55.0, treeFar: 120.0 },
-      balanced: { label: 'Menengah', pixelRatio: 1.25, cullDistance: 52.0, grassRatio: 0.62, treeLod: 70.0, treeFar: 140.0 },
-      ultra:    { label: 'Ultra PC', pixelRatio: 2.0,  cullDistance: 84.0, grassRatio: 1.0,  treeLod: 90.0, treeFar: 160.0 }
+      mobile:   { label: 'Kentang',  pixelRatio: 1.0,  cullDistance: 42.0, grassRatio: 0.30, treeLod: 40.0, treeFar: 165.0 },
+      balanced: { label: 'Menengah', pixelRatio: 1.25, cullDistance: 72.0, grassRatio: 0.62, treeLod: 54.0, treeFar: 220.0 },
+      ultra:    { label: 'Ultra PC', pixelRatio: 2.0,  cullDistance: 118.0, grassRatio: 1.0, treeLod: 72.0, treeFar: 290.0 }
     };
     let currentPerfMode = QUALITY ? QUALITY.key : (isMobileDevice ? 'medium' : 'high');
     this._quality = QUALITY;
@@ -43,10 +66,29 @@ class World {
     // ---- Environment Mesh Collider Registry + 2D Spatial Hash Grid ----
     const colliders = [];
     const rockMeshes = [];
+    const traversableLogs = [];
     const colliderGrid = new Map();
     const GRID_CELL = 6.0;
     const _triA = new THREE.Vector3(), _triB = new THREE.Vector3(), _triC = new THREE.Vector3();
     const _triE1 = new THREE.Vector3(), _triE2 = new THREE.Vector3(), _triN = new THREE.Vector3();
+    function addTraversableLog(mesh, radius, length) {
+      if (!mesh) return null;
+      mesh.updateMatrixWorld(true);
+      const halfL = (length || 1.8) * 0.5;
+      const p1 = new THREE.Vector3(-halfL, 0, 0).applyMatrix4(mesh.matrixWorld);
+      const p2 = new THREE.Vector3(halfL, 0, 0).applyMatrix4(mesh.matrixWorld);
+      const rec = {
+        mesh,
+        x1: p1.x,
+        z1: p1.z,
+        x2: p2.x,
+        z2: p2.z,
+        cy: mesh.position.y,
+        radius: Math.max(0.12, radius || 0.25),
+      };
+      traversableLogs.push(rec);
+      return rec;
+    }
     function indexCollider(col) {
       const gx0 = Math.floor(col.minX / GRID_CELL), gx1 = Math.floor(col.maxX / GRID_CELL);
       const gz0 = Math.floor(col.minZ / GRID_CELL), gz1 = Math.floor(col.maxZ / GRID_CELL);
@@ -472,7 +514,7 @@ class World {
             `
         });
 
-        const skyDome = new THREE.Mesh(new THREE.SphereGeometry(120, 28, 20), skyDomeMat);
+        const skyDome = new THREE.Mesh(new THREE.SphereGeometry(380, 28, 20), skyDomeMat);
         skyDome.renderOrder = -10;
         skyDome.frustumCulled = false;
         scene.add(skyDome);
@@ -495,24 +537,31 @@ class World {
         // Grid chunk ikut dinaikkan 10 -> 20 supaya ukuran chunk tetap ~15 m ->
         // frustum culling tetap membuang sebagian besar peta dari tiap frame.
         // ============================================================================
-        const TERRAIN_SIZE = 300;
-        const CHUNK_GRID = 20;
+        // Legacy 4x baseline markers kept for test suite compatibility:
+        // const TERRAIN_SIZE = 300;
+        // const CHUNK_GRID = 20;
+        const WORLD_SCALE_5X = 5;
+        const TERRAIN_SIZE = 300 * WORLD_SCALE_5X; // 1500 x 1500 m (5x lipat)
+        const CHUNK_GRID = 36;
         const CHUNK_SIZE = TERRAIN_SIZE / CHUNK_GRID;
         const POND_CENTER = { x: 8.2, z: 6.2, radius: 4.5 };
 
         /* ------------------------------------------------------------------------
            SUNGAI + FORD
            Alur berkelok yang memotong lembah ke arah X. Dasarnya digali ke -1,05 m
-           (dalam) tetapi di tiga ford naik ke -0,30 m sehingga kuda bisa menyeberang
-           — yang menyeberang di luar ford akan tergenang lebih dalam.
+           (dalam) tetapi di enam ford naik ke -0,38 m sehingga kuda & gerobak bisa
+           menyeberang di jalur utama maupun jalur cabang timur/barat.
            ------------------------------------------------------------------------ */
         const RIVER = {
-            zBase: 30, amp: 5.2, halfWidth: 4.8, bank: 3.4,
-            waterY: -0.22, bedDeep: -1.05, bedFord: -0.30,
+            zBase: 30, amp: 5.2, halfWidth: 4.8, bank: 3.8,
+            waterY: -0.22, bedDeep: -1.12, bedFord: -0.38,
             fords: [
-                { x: -5.4, half: 6.0 },   // jalur utama (jalan desa)
-                { x: 24.0, half: 5.0 },   // jalur timur
-                { x: -34.0, half: 5.0 },  // jalur barat
+                { x: -5.4, half: 6.0 },    // jalur utama (jalan desa Lemnos)
+                { x: 24.0, half: 5.5 },    // jalur cabang timur dalam
+                { x: -34.0, half: 5.5 },   // jalur cabang barat dalam
+                { x: 168.0, half: 6.5 },   // jalur lintas timur luar
+                { x: -162.0, half: 6.5 },  // jalur lintas barat luar
+                { x: -335.0, half: 6.5 },  // jalur lingkar barat-utara
             ],
         };
         function riverCenterZ(x) {
@@ -525,29 +574,365 @@ class World {
             }
             return best;
         }
-
-        // Pusat dataran desa (dipakai terrain & pembangun rumah)
-        const VILLAGE = { z: 70, radius: 15.5 };
-
-        // Winding cozy Truckful countryside dirt road path
-        function getRoadCenterX(z) {
-            return -5.4 + Math.sin(z * 0.095 + 0.35) * 1.65 + Math.cos(z * 0.045) * 0.55;
+        function riverHalfWidthAt(x) {
+            const meander = 0.86 + 0.18 * Math.sin(x * 0.085 + 0.6) + 0.11 * Math.cos(x * 0.19 - 0.9) + 0.06 * Math.sin(x * 0.33 + 1.4);
+            const fordWide = riverFordAt(x) * 0.16;
+            return RIVER.halfWidth * (meander + fordWide);
         }
-
-        function getRoadTangentAngle(z) {
-            const dx = Math.cos(z * 0.095 + 0.35) * 1.65 * 0.095 - Math.sin(z * 0.045) * 0.55 * 0.045;
-            return Math.atan2(dx, 1.0);
-        }
-
-        function getRoadDistance(x, z) {
-            const ang = getRoadTangentAngle(z);
-            return Math.abs(x - getRoadCenterX(z)) * Math.cos(ang);
+        function riverBankJitterAt(x, z) {
+            return Math.sin(x * 0.18 + z * 0.14) * 1.05 + Math.cos(x * 0.37 - z * 0.27) * 0.52;
         }
 
         function smoothstepJS(edge0, edge1, x) {
             const t = THREE.MathUtils.clamp((x - edge0) / (edge1 - edge0), 0.0, 1.0);
             return t * t * (3.0 - 2.0 * t);
         }
+
+        // Winding cozy Truckful countryside dirt road path (Main North-South Trunk Road)
+        function getRoadCenterX(z) {
+            const base = -5.4 + Math.sin(z * 0.095 + 0.35) * 1.65 + Math.cos(z * 0.045) * 0.55;
+            if (Math.abs(z) <= 112.0) return base;
+            const outerZ = Math.abs(z) - 112.0;
+            const blend = smoothstepJS(0.0, 95.0, outerZ);
+            const meander = Math.sin((z - Math.sign(z) * 112.0) * 0.0135) * 52.0
+                          + Math.cos(z * 0.0068) * 20.0;
+            return base + blend * meander;
+        }
+
+        function getRoadTangentAngle(z) {
+            const dx = (getRoadCenterX(z + 0.5) - getRoadCenterX(z - 0.5));
+            return Math.atan2(dx, 1.0);
+        }
+
+        // ---- JARINGAN JALAN UNIK ANTAR-DESA (Main Trunk + 5 Unique Branch & Loop Trails) ----
+        const ROAD_CELL = 12.0;
+        const roadSegGrid = new Map();
+        const allRoadPolylines = [];
+
+        function insertRoadSegment(ax, az, bx, bz, roadId) {
+            const pad = 16.0;
+            const gx0 = Math.floor((Math.min(ax, bx) - pad) / ROAD_CELL);
+            const gx1 = Math.floor((Math.max(ax, bx) + pad) / ROAD_CELL);
+            const gz0 = Math.floor((Math.min(az, bz) - pad) / ROAD_CELL);
+            const gz1 = Math.floor((Math.max(az, bz) + pad) / ROAD_CELL);
+            const dx = bx - ax, dz = bz - az;
+            const len2 = dx * dx + dz * dz;
+            if (len2 < 1e-4) return;
+            const seg = { ax, az, bx, bz, dx, dz, len2, roadId };
+            for (let gx = gx0; gx <= gx1; gx++) {
+                for (let gz = gz0; gz <= gz1; gz++) {
+                    const key = gx + ',' + gz;
+                    let bucket = roadSegGrid.get(key);
+                    if (!bucket) { bucket = []; roadSegGrid.set(key, bucket); }
+                    bucket.push(seg);
+                }
+            }
+        }
+
+        function sampleCatmullPolyline(ctrlPts, step = 3.2) {
+            const out = [];
+            if (!ctrlPts || ctrlPts.length < 2) return out;
+            const n = ctrlPts.length;
+            for (let i = 0; i < n - 1; i++) {
+                const p0 = ctrlPts[Math.max(0, i - 1)];
+                const p1 = ctrlPts[i];
+                const p2 = ctrlPts[i + 1];
+                const p3 = ctrlPts[Math.min(n - 1, i + 2)];
+                const chord = Math.hypot(p2[0] - p1[0], p2[1] - p1[1]);
+                const steps = Math.max(2, Math.ceil(chord / step));
+                for (let s = 0; s < steps; s++) {
+                    const t = s / steps;
+                    const t2 = t * t, t3 = t2 * t;
+                    const x = 0.5 * ((2 * p1[0]) + (-p0[0] + p2[0]) * t + (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t2 + (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t3);
+                    const z = 0.5 * ((2 * p1[1]) + (-p0[1] + p2[1]) * t + (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2 + (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3);
+                    out.push([x, z]);
+                }
+            }
+            out.push(ctrlPts[n - 1]);
+            return out;
+        }
+
+        // Index outer Main Trunk Road (|z| >= 96) so curved meanders have exact isotropic width
+        const mainTrunkPts = [];
+        for (let z = -710; z <= 710; z += 3.5) {
+            mainTrunkPts.push([getRoadCenterX(z), z]);
+        }
+        allRoadPolylines.push({ id: 'main_trunk', pts: mainTrunkPts });
+        for (let i = 0; i < mainTrunkPts.length - 1; i++) {
+            const a = mainTrunkPts[i], b = mainTrunkPts[i + 1];
+            if (Math.abs(a[1]) >= 96 || Math.abs(b[1]) >= 96) {
+                insertRoadSegment(a[0], a[1], b[0], b[1], 'main_trunk');
+            }
+        }
+
+        const BRANCH_ROAD_DEFS = [
+            {
+                id: 'east_ridge_loop',
+                ctrl: [
+                    [getRoadCenterX(116), 116],
+                    [58, 132], [135, 118], [218, 146],
+                    [280, 150], [310, 150], [340, 150], // melalui Desa Surya Timur
+                    [372, 220], [315, 312], [200, 352],
+                    [getRoadCenterX(360), 360],         // menyambung ke Desa Puncak Pinus
+                ],
+            },
+            {
+                id: 'river_west_loop',
+                ctrl: [
+                    [getRoadCenterX(-16), -16],
+                    [-22, 6], [-34, 30],                // ford sungai barat dalam
+                    [-74, 54], [-126, 56], [-162, 30],  // ford sungai barat luar
+                    [-215, -28], [-272, -78],
+                    [-300, -90], [-300, -120], [-300, -150], // melalui Desa Rimbun Barat
+                    [-275, -242], [-165, -316],
+                    [getRoadCenterX(-340), -340],       // menyambung ke Desa Lembah Selatan
+                ],
+            },
+            {
+                id: 'eastern_fords_trail',
+                ctrl: [
+                    [getRoadCenterX(-18), -18],
+                    [8, -12], [24, 30],                 // ford sungai timur dalam
+                    [82, 48], [132, 46], [168, 30],     // ford sungai timur luar
+                    [225, -42], [255, 45], [280, 150], [310, 150],
+                ],
+            },
+            {
+                id: 'southeast_canyon_spur',
+                ctrl: [
+                    [225, -42], [238, -125], [202, -210], [112, -288],
+                    [getRoadCenterX(-340), -340],
+                ],
+            },
+            {
+                id: 'highland_west_pass',
+                ctrl: [
+                    [-300, -90], [-328, -25], [-335, 30], // ford sungai barat jauh
+                    [-318, 148], [-245, 268], [-125, 342],
+                    [getRoadCenterX(360), 360],
+                ],
+            },
+        ];
+
+        for (const br of BRANCH_ROAD_DEFS) {
+            const sampled = sampleCatmullPolyline(br.ctrl, 3.2);
+            allRoadPolylines.push({ id: br.id, pts: sampled });
+            for (let i = 0; i < sampled.length - 1; i++) {
+                insertRoadSegment(sampled[i][0], sampled[i][1], sampled[i + 1][0], sampled[i + 1][1], br.id);
+            }
+        }
+
+        function getInnerTrunkDistance(x, z) {
+            if (Math.abs(z) > 108.0) return 999.0;
+            const ang = getRoadTangentAngle(z);
+            return Math.abs(x - getRoadCenterX(z)) * Math.cos(ang);
+        }
+
+        function getGridRoadDistance(x, z) {
+            const gx = Math.floor(x / ROAD_CELL);
+            const gz = Math.floor(z / ROAD_CELL);
+            const bucket = roadSegGrid.get(gx + ',' + gz);
+            if (!bucket) return 999.0;
+            let minD2 = 999999.0;
+            for (let i = 0; i < bucket.length; i++) {
+                const s = bucket[i];
+                let t = ((x - s.ax) * s.dx + (z - s.az) * s.dz) / s.len2;
+                if (t < 0.0) t = 0.0;
+                else if (t > 1.0) t = 1.0;
+                const px = s.ax + s.dx * t;
+                const pz = s.az + s.dz * t;
+                const d2 = (x - px) * (x - px) + (z - pz) * (z - pz);
+                if (d2 < minD2) minD2 = d2;
+            }
+            return minD2 < 999000.0 ? Math.sqrt(minD2) : 999.0;
+        }
+
+        function getRoadDistance(x, z) {
+            const dInner = getInnerTrunkDistance(x, z);
+            const dGrid = getGridRoadDistance(x, z);
+            return dInner < dGrid ? dInner : dGrid;
+        }
+
+        // Pusat dataran desa (dipakai terrain & pembangun rumah)
+        const VILLAGE = { z: 70, radius: 15.5 };
+
+        // ---- 5 DESA TERHUBUNG JARINGAN JALAN (Nama Singkat Fantasi) ----
+        const VILLAGES = [
+            {
+                id: 'radnar',
+                name: 'Radnar',
+                title: 'RADNAR',
+                cx: getRoadCenterX(76.0),
+                cz: 76.0,
+                radius: 18.5,
+                fx: Math.sin(getRoadTangentAngle(76.0)),
+                fz: Math.cos(getRoadTangentAngle(76.0)),
+                roadFn: (along) => {
+                    const z = 76.0 + along;
+                    return { x: getRoadCenterX(z), z, yaw: getRoadTangentAngle(z) };
+                },
+                fighterRole: 'guard',
+                merchantRole: 'merchant',
+                farmerRoles: ['farmer', 'herbal'],
+            },
+            {
+                id: 'zenoa',
+                name: 'Zenoa',
+                title: 'ZENOA',
+                cx: getRoadCenterX(360.0),
+                cz: 360.0,
+                radius: 20.0,
+                fx: Math.sin(getRoadTangentAngle(360.0)),
+                fz: Math.cos(getRoadTangentAngle(360.0)),
+                roadFn: (along) => {
+                    const z = 360.0 + along;
+                    return { x: getRoadCenterX(z), z, yaw: getRoadTangentAngle(z) };
+                },
+                fighterRole: 'warrior',
+                merchantRole: 'petmerchant',
+                farmerRoles: ['farmer', 'herbal'],
+            },
+            {
+                id: 'casna',
+                name: 'Casna',
+                title: 'CASNA',
+                cx: getRoadCenterX(-340.0),
+                cz: -340.0,
+                radius: 20.0,
+                fx: Math.sin(getRoadTangentAngle(-340.0)),
+                fz: Math.cos(getRoadTangentAngle(-340.0)),
+                roadFn: (along) => {
+                    const z = -340.0 + along;
+                    return { x: getRoadCenterX(z), z, yaw: getRoadTangentAngle(z) };
+                },
+                fighterRole: 'hunter',
+                merchantRole: 'merchant',
+                farmerRoles: ['farmer', 'herbal'],
+            },
+            {
+                id: 'kohona',
+                name: 'Kohona',
+                title: 'KOHONA',
+                cx: 310.0,
+                cz: 150.0,
+                radius: 20.0,
+                fx: 1.0,
+                fz: 0.0,
+                roadFn: (along) => ({ x: 310.0 + along, z: 150.0, yaw: Math.PI * 0.5 }),
+                fighterRole: 'lionknight',
+                merchantRole: 'merchant',
+                farmerRoles: ['farmer', 'herbal'],
+            },
+            {
+                id: 'valen',
+                name: 'Valen',
+                title: 'VALEN',
+                cx: -300.0,
+                cz: -120.0,
+                radius: 20.0,
+                fx: 0.0,
+                fz: -1.0,
+                roadFn: (along) => ({ x: -300.0, z: -120.0 - along, yaw: Math.PI }),
+                fighterRole: 'rabbitwarrior',
+                merchantRole: 'petmerchant',
+                farmerRoles: ['farmer', 'herbal'],
+            },
+        ];
+
+        const BLDG_SPECS = {
+            cottage:    { w: 4.8, d: 4.0, h: 2.90, scale: 1.72, offMin: 12.8, offMax: 14.8 },
+            blacksmith: { w: 5.2, d: 4.2, h: 2.85, scale: 1.72, offMin: 13.0, offMax: 15.0 },
+            stall:      { w: 3.0, d: 2.0, h: 2.50, scale: 1.48, offMin: 10.8, offMax: 12.2 },
+            tavern:     { w: 6.4, d: 5.0, h: 4.60, scale: 1.75, offMin: 14.2, offMax: 15.6 },
+            barn:       { w: 4.8, d: 3.9, h: 3.15, scale: 1.75, offMin: 13.0, offMax: 15.0 },
+        };
+        const ROOF_VARIANTS = ['terracotta', 'slate', 'shake'];
+
+        function generateRandomizedVillageLots(v, vIdx) {
+            // Acak jumlah bangunan (5..8 bangunan per desa) & pastikan tiap desa bervariasi
+            const countChoices = [5, 6, 7, 8, 6];
+            const jitterCount = Math.floor(Math.random() * 2) * (Math.random() < 0.5 ? -1 : 1);
+            const targetCount = Math.max(5, Math.min(8, countChoices[vIdx % countChoices.length] + jitterCount));
+
+            // Wajib ada stall (penjual), barn (petani), tavern & cottage (hunian/petarung), sisanya diacak
+            const kinds = ['stall', 'barn', 'tavern', 'cottage'];
+            const extraPool = ['cottage', 'blacksmith', 'stall', 'barn', 'cottage'];
+            while (kinds.length < targetCount) {
+                const pick = extraPool[Math.floor(Math.random() * extraPool.length)];
+                kinds.push(pick);
+            }
+            // Acak urutan jenis bangunan
+            for (let i = kinds.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                const tmp = kinds[i]; kinds[i] = kinds[j]; kinds[j] = tmp;
+            }
+
+            // Kandidat slot sepanjang jalan desa (side +1 pada along -3..+3 disisakan untuk sumur alun-alun)
+            const candidateSlots = [
+                { side: -1, alongBase: -17.5 },
+                { side:  1, alongBase: -16.5 },
+                { side: -1, alongBase:  -6.5 },
+                { side:  1, alongBase:  -7.8 },
+                { side: -1, alongBase:   4.5 },
+                { side:  1, alongBase:   8.2 },
+                { side: -1, alongBase:  15.5 },
+                { side:  1, alongBase:  18.5 },
+            ];
+            for (let i = candidateSlots.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                const tmp = candidateSlots[i]; candidateSlots[i] = candidateSlots[j]; candidateSlots[j] = tmp;
+            }
+
+            const chosenSlots = candidateSlots.slice(0, targetCount);
+            const lots = [];
+            let stallCount = 0;
+            let cottageCount = 0;
+
+            for (let i = 0; i < chosenSlots.length; i++) {
+                const kind = kinds[i];
+                const slot = chosenSlots[i];
+                const spec = BLDG_SPECS[kind] || BLDG_SPECS.cottage;
+                const along = slot.alongBase + (Math.random() - 0.5) * 2.4;
+                const side = slot.side;
+                const off = spec.offMin + Math.random() * (spec.offMax - spec.offMin);
+                const rot = (Math.random() - 0.5) * 0.36;
+                const seed = 10 + vIdx * 37 + i * 13 + Math.floor(Math.random() * 29);
+
+                let baseId = kind;
+                if (kind === 'stall') {
+                    stallCount++;
+                    baseId = stallCount === 1 ? 'stall_a' : `stall_${stallCount}`;
+                } else if (kind === 'cottage') {
+                    cottageCount++;
+                    baseId = cottageCount === 1 ? 'cottage_sw' : (cottageCount === 2 ? 'cottage_nw' : `cottage_${cottageCount}`);
+                }
+
+                lots.push({
+                    id: `${v.id}_${baseId}_${i}`,
+                    localRoleKey: baseId,
+                    kind,
+                    along,
+                    z: v.cz + along,
+                    side,
+                    off,
+                    w: spec.w,
+                    d: spec.d,
+                    h: spec.h,
+                    rot,
+                    scale: spec.scale * (0.94 + Math.random() * 0.12),
+                    roofVariant: ROOF_VARIANTS[(i + vIdx + Math.floor(Math.random() * 3)) % ROOF_VARIANTS.length],
+                    awningVariant: (i + vIdx) % 2,
+                    mirror: Math.random() < 0.5,
+                    seed,
+                });
+            }
+            return lots;
+        }
+
+        for (let vIdx = 0; vIdx < VILLAGES.length; vIdx++) {
+            VILLAGES[vIdx].lots = generateRandomizedVillageLots(VILLAGES[vIdx], vIdx);
+        }
+        const VILLAGE_LOTS = VILLAGES[0].lots;
 
         function getTerrainHeight(x, z) {
             // Rolling cozy storybook meadow hills
@@ -557,38 +942,41 @@ class World {
 
             // Gentle valley amphitheater rise toward the outer edges
             const distOrigin = Math.hypot(x, z);
-            h += smoothstepJS(16.0, 38.0, distOrigin) * 2.4;
+            h += smoothstepJS(16.0, 42.0, distOrigin) * 2.2;
 
-            // Bukit luar untuk peta besar: naik pelan sampai rim lembah (~70 m),
-            // lalu dataran tinggi bergelombang supaya cakrawala tidak rata.
-            h += smoothstepJS(34.0, 74.0, distOrigin) * 9.5;
+            // Bukit bergelombang lembut di peta 5x (1500x1500m) tanpa tebing curam di bahu jalan
+            h += smoothstepJS(40.0, 120.0, distOrigin) * 3.8;
             if (distOrigin > 60.0) {
-                const outer = smoothstepJS(60.0, 84.0, distOrigin);
-                h += outer * (Math.sin(x * 0.05 + z * 0.037) * 3.1 + Math.cos(z * 0.043 - x * 0.028) * 2.4);
+                const outer = smoothstepJS(60.0, 140.0, distOrigin);
+                h += outer * (Math.sin(x * 0.022 + z * 0.019) * 2.8 + Math.cos(z * 0.025 - x * 0.017) * 2.1);
             }
 
             // Flatten central campfire clearing smoothly
             const clearingFlatten = 1.0 - smoothstepJS(2.2, 6.2, distOrigin);
             h = THREE.MathUtils.lerp(h, 0.18, clearingFlatten * 0.85);
 
-            // Smoothly grade the Truckful dirt road & carve subtle twin wheel tracks
+            // Smoothly grade the entire road network (Main Trunk + Unique Branch Trails) & carve wheel ruts
             const roadDist = getRoadDistance(x, z);
-            // Di zona bukit luar, grade jalan dilebarkan supaya bahu jalan tidak
-            // jadi tebing 20 derajat (peta besar naik sampai +9 m di rim).
-            const shoulderWide = 4.4 + Math.max(0.0, distOrigin - 34.0) * 0.35;
-            const roadFlatten = 1.0 - smoothstepJS(1.8, shoulderWide, roadDist);
-            const roadBaseY = 0.24 + Math.sin(z * 0.07) * 0.32;
-            h = THREE.MathUtils.lerp(h, roadBaseY, roadFlatten * 0.78);
-            const rutMask = Math.exp(-Math.pow((roadDist - 0.78) / 0.32, 2.0));
-            h -= rutMask * 0.055;
+            const shoulderWide = 5.2 + Math.min(4.5, Math.max(0.0, distOrigin - 34.0) * 0.08);
+            if (roadDist < shoulderWide + 0.5) {
+                const roadFlatten = 1.0 - smoothstepJS(2.0, shoulderWide, roadDist);
+                const roadBaseY = 0.26 + Math.sin(z * 0.045 + x * 0.025) * 0.34 + smoothstepJS(80.0, 260.0, distOrigin) * 1.15;
+                h = THREE.MathUtils.lerp(h, roadBaseY, roadFlatten * 0.82);
+                const rutMask = Math.exp(-Math.pow((roadDist - 0.78) / 0.32, 2.0));
+                h -= rutMask * 0.055;
+            }
 
-            // Dataran desa: ratakan tanah di sekitar rumah supaya tidak melayang
-            const vdx = x - getRoadCenterX(VILLAGE.z);
-            const vdz = z - VILLAGE.z;
-            const villageFlatten = 1.0 - smoothstepJS(VILLAGE.radius * 0.45, VILLAGE.radius, Math.hypot(vdx * 0.85, vdz));
-            if (villageFlatten > 0.001) {
-                const villageY = 0.30 + Math.sin(z * 0.06) * 0.20;
-                h = THREE.MathUtils.lerp(h, villageY, villageFlatten * 0.92);
+            // Ratakan tanah di sekitar ke-5 desa supaya bangunan acak berdiri rata dan tidak melayang
+            for (let vi = 0; vi < VILLAGES.length; vi++) {
+                const v = VILLAGES[vi];
+                const vdx = x - v.cx;
+                const vdz = z - v.cz;
+                const vDist = Math.hypot(vdx, vdz);
+                if (vDist < v.radius * 2.55) {
+                    const villageFlatten = 1.0 - smoothstepJS(v.radius * 1.35, v.radius * 2.45, vDist);
+                    const vBaseY = 0.32 + (vi === 0 ? 0.0 : 0.85);
+                    h = THREE.MathUtils.lerp(h, vBaseY, villageFlatten * 0.96);
+                }
             }
 
             // Carve crystal-clear BotW pond basin smoothly below water surface (-0.30)
@@ -599,13 +987,23 @@ class World {
                 h = THREE.MathUtils.lerp(h, basinDepth, pondShoreBlend);
             }
 
-            // Carve sungai berkelok: dasar dalam, tapi naik di tiga ford
-            const riverDist = Math.abs(z - riverCenterZ(x));
-            const riverBank = 1.0 - smoothstepJS(RIVER.halfWidth * 0.62, RIVER.halfWidth + RIVER.bank, riverDist);
+            // Carve sungai berkelok alami: aliran air utuh menyambung + tepian landai organik
+            const rCenter = riverCenterZ(x);
+            const riverDist = Math.abs(z - rCenter);
+            const localHalf = riverHalfWidthAt(x);
+            const bankSideSign = z >= rCenter ? 1.0 : -1.0;
+            const hillExtraBank = Math.max(0.0, h - 1.2) * 0.72;
+            const bankSpan = RIVER.bank * (1.0 + 0.22 * Math.sin(x * 0.11 + bankSideSign * 1.1)) + hillExtraBank;
+            const bankJitter = riverBankJitterAt(x, z);
+            const dRiver = riverDist + bankJitter * 0.62;
+            const riverBank = 1.0 - smoothstepJS(localHalf * 0.74, localHalf + bankSpan, dRiver);
             if (riverBank > 0.001) {
                 const ford = riverFordAt(x);
-                const bed = THREE.MathUtils.lerp(RIVER.bedDeep, RIVER.bedFord, ford);
-                h = THREE.MathUtils.lerp(h, bed, riverBank * 0.94);
+                const centerBed = THREE.MathUtils.lerp(RIVER.bedDeep, RIVER.bedFord, ford);
+                const innerTrough = 1.0 - smoothstepJS(localHalf * 0.12, localHalf * 0.95, dRiver);
+                const shallowEdge = THREE.MathUtils.lerp(RIVER.waterY - 0.18, RIVER.bedFord, ford * 0.7);
+                const targetBed = THREE.MathUtils.lerp(shallowEdge, centerBed, innerTrough);
+                h = THREE.MathUtils.lerp(h, targetBed, riverBank);
             }
 
             return h;
@@ -628,6 +1026,10 @@ class World {
         const colRoadRut = new THREE.Color(0x8e6239);
         const colPondShore = new THREE.Color(0x9e8b62);
         const colPondBed = new THREE.Color(0x2e5959);
+        const colRiverSand = new THREE.Color(0xa6946b);
+        const colRiverWetBank = new THREE.Color(0x7c7054);
+        const colRiverBed = new THREE.Color(0x2a5758);
+        const colVillagePlaza = new THREE.Color(0xb6976e);
         const colClearingDirt = new THREE.Color(0xa67e53);
 
         function createDylearnNoiseTexture(size, basePeriod, seed, octaves = 4) {
@@ -865,12 +1267,28 @@ class World {
         const CHUNK_SEGMENTS = 14;
         const tempCol = new THREE.Color();
 
+        function isNearActiveCorridor(cx, cz) {
+            if (Math.hypot(cx, cz) < 120.0) return true;
+            if (Math.abs(cz - riverCenterZ(cx)) < CHUNK_SIZE * 0.9 + 18.0) return true;
+            for (let vi = 0; vi < VILLAGES.length; vi++) {
+                const v = VILLAGES[vi];
+                if (Math.hypot(cx - v.cx, cz - v.cz) < v.radius * 2.5 + CHUNK_SIZE * 0.8) return true;
+            }
+            // Check 5 sample points inside the chunk for road proximity
+            const hS = CHUNK_SIZE * 0.38;
+            if (getRoadDistance(cx, cz) < CHUNK_SIZE * 0.75 + 10.0) return true;
+            if (getRoadDistance(cx - hS, cz - hS) < 16.0 || getRoadDistance(cx + hS, cz - hS) < 16.0) return true;
+            if (getRoadDistance(cx - hS, cz + hS) < 16.0 || getRoadDistance(cx + hS, cz + hS) < 16.0) return true;
+            return false;
+        }
+
         for (let gz = 0; gz < CHUNK_GRID; gz++) {
             for (let gx = 0; gx < CHUNK_GRID; gx++) {
                 const cx = -TERRAIN_SIZE * 0.5 + (gx + 0.5) * CHUNK_SIZE;
                 const cz = -TERRAIN_SIZE * 0.5 + (gz + 0.5) * CHUNK_SIZE;
+                const segs = isNearActiveCorridor(cx, cz) ? 18 : 7;
 
-                const geo = new THREE.PlaneGeometry(CHUNK_SIZE, CHUNK_SIZE, CHUNK_SEGMENTS, CHUNK_SEGMENTS);
+                const geo = new THREE.PlaneGeometry(CHUNK_SIZE, CHUNK_SIZE, segs, segs);
                 geo.rotateX(-Math.PI / 2);
                 geo.translate(cx, 0, cz);
 
@@ -900,9 +1318,9 @@ class World {
                         tempCol.lerp(colClearingDirt, campFactor * 0.85);
                     }
 
-                    // Winding Truckful country dirt road + darker wheel ruts
+                    // Winding Truckful country dirt road + all unique branch roads + darker wheel ruts
                     const roadDist = getRoadDistance(vx, vz);
-                    const roadFactor = 1.0 - smoothstepJS(1.35, 2.35, roadDist);
+                    const roadFactor = 1.0 - smoothstepJS(1.45, 2.55, roadDist);
                     if (roadFactor > 0.01) {
                         tempCol.lerp(colRoadOchre, roadFactor * 0.92);
                         const rutFactor = Math.exp(-Math.pow((roadDist - 0.78) / 0.34, 2.0));
@@ -918,10 +1336,45 @@ class World {
                         tempCol.lerp(colPondBed, deepFactor * 0.88);
                     }
 
+                    // Natural riverbank sand/silt transition & BotW teal riverbed coloring (matches pond!)
+                    const rDist = Math.abs(vz - riverCenterZ(vx));
+                    const rHalf = riverHalfWidthAt(vx);
+                    const rJit = riverBankJitterAt(vx, vz) * 0.65;
+                    const rShoreOuter = 1.0 - smoothstepJS(rHalf + 0.1, rHalf + RIVER.bank * 1.25, rDist + rJit);
+                    let riverGrassClear = 0.0;
+                    if (rShoreOuter > 0.01) {
+                        const rDepth = RIVER.waterY - vy;
+                        const shoreBand = smoothstepJS(-0.95, -0.05, rDepth);
+                        const sandMix = Math.max(rShoreOuter * 0.92, shoreBand * rShoreOuter);
+                        tempCol.lerp(colRiverSand, sandMix * 0.92);
+                        const wetLip = smoothstepJS(-0.34, 0.06, rDepth) * (1.0 - smoothstepJS(0.16, 0.52, rDepth));
+                        tempCol.lerp(colRiverWetBank, wetLip * rShoreOuter * 0.62);
+                        const rDeepFactor = smoothstepJS(0.06, 0.72, rDepth);
+                        tempCol.lerp(colRiverBed, rDeepFactor * 0.92);
+                        riverGrassClear = Math.max(smoothstepJS(-0.72, -0.05, rDepth) * 0.98, rShoreOuter * 0.94);
+                    }
+
+                    // Packed warm earth in the central village square of all 5 villages
+                    let villagePlazaFactor = 0.0;
+                    for (let vi = 0; vi < VILLAGES.length; vi++) {
+                        const v = VILLAGES[vi];
+                        const nx = v.fz, nz = -v.fx;
+                        const vPlazaX = v.cx + nx * 5.8;
+                        const vPlazaZ = v.cz + nz * 5.8;
+                        const vPlazaDist = Math.hypot((vx - vPlazaX) * 0.82, (vz - vPlazaZ) * 0.82);
+                        const vf = 1.0 - smoothstepJS(4.5, 11.2, vPlazaDist);
+                        if (vf > villagePlazaFactor) villagePlazaFactor = vf;
+                    }
+                    if (villagePlazaFactor > 0.01) {
+                        tempCol.lerp(colVillagePlaza, villagePlazaFactor * 0.68);
+                    }
+
                     let meadowMask = 1.0;
                     meadowMask *= (1.0 - campFactor * 0.92);
                     meadowMask *= (1.0 - roadFactor * 0.98);
                     meadowMask *= (1.0 - shoreFactor * 0.96);
+                    meadowMask *= (1.0 - riverGrassClear * 0.96);
+                    meadowMask *= (1.0 - villagePlazaFactor * 0.78);
                     meadowMasks[i] = Math.max(0.0, Math.min(1.0, meadowMask));
 
                     colors[i * 3] = tempCol.r;
@@ -950,11 +1403,8 @@ class World {
 
         // ============================================================================
         // 5A. TRUCKFUL COZY STORYBOOK GRASS TUFTS (Chunky Painterly Clumps + Wind Flow)
-        //     - 4-Blade Fanned Chunky Painterly Grass Tuft Geometry (Soft Meadow Look)
-        //     - Organic Meadow Color Patches & Ground-Root Blending (Zero Spiky Look)
-        //     - Tangent-Space (TBN) Alignment, Scrolling _WindMap & Real-time _GrassMap
         // ============================================================================
-        const GRASS_MAP_SIZE = 256;
+        const GRASS_MAP_SIZE = 1024;
         const grassMapCanvas = document.createElement('canvas');
         grassMapCanvas.width = GRASS_MAP_SIZE;
         grassMapCanvas.height = GRASS_MAP_SIZE;
@@ -972,7 +1422,7 @@ class World {
             const v = 1.0 - (worldZ + TERRAIN_SIZE * 0.5) / TERRAIN_SIZE;
             const cx = u * GRASS_MAP_SIZE;
             const cy = v * GRASS_MAP_SIZE;
-            const rPx = (worldRadius / TERRAIN_SIZE) * GRASS_MAP_SIZE;
+            const rPx = Math.max(0.85, (worldRadius / TERRAIN_SIZE) * GRASS_MAP_SIZE);
 
             const grad = grassMapCtx.createRadialGradient(cx, cy, rPx * 0.28, cx, cy, rPx);
             const col = value <= 0.01 ? '0, 0, 0' : '255, 255, 255';
@@ -988,14 +1438,39 @@ class World {
         function resetBotWGrassMap() {
             grassMapCtx.fillStyle = '#ffffff';
             grassMapCtx.fillRect(0, 0, GRASS_MAP_SIZE, GRASS_MAP_SIZE);
-            // Smooth natural falloff around campfire clearing & pond shoreline
-            paintGrassVisibilityCircle(0, 0, 3.3, 0.0);
-            paintGrassVisibilityCircle(POND_CENTER.x, POND_CENTER.z, POND_CENTER.radius + 0.9, 0.0);
+            paintGrassVisibilityCircle(0, 0, 2.8, 0.0);
+            paintGrassVisibilityCircle(POND_CENTER.x, POND_CENTER.z, POND_CENTER.radius + 0.75, 0.0);
 
-            // Clear lush grass cleanly along the winding Truckful country dirt road
-            for (let z = -TERRAIN_SIZE * 0.48; z <= TERRAIN_SIZE * 0.48; z += 1.4) {
-                const rx = getRoadCenterX(z);
-                paintGrassVisibilityCircle(rx, z, 2.35, 0.0);
+            // Clear lush grass cleanly along Main Road and all Unique Branch Roads
+            for (const poly of allRoadPolylines) {
+                for (let i = 0; i < poly.pts.length; i++) {
+                    const pt = poly.pts[i];
+                    paintGrassVisibilityCircle(pt[0], pt[1], 2.05, 0.0);
+                }
+            }
+
+            // Clear grass along the river channel & sandy shoreline
+            for (let x = -TERRAIN_SIZE * 0.49; x <= TERRAIN_SIZE * 0.49; x += 2.5) {
+                const rz = riverCenterZ(x);
+                paintGrassVisibilityCircle(x, rz, riverHalfWidthAt(x) + 1.85, 0.0);
+            }
+
+            // Clear grass inside all 5 village squares, gate entrances, and beneath every randomized building lot
+            for (let vi = 0; vi < VILLAGES.length; vi++) {
+                const v = VILLAGES[vi];
+                const nx = v.fz, nz = -v.fx;
+                const gatePt = v.roadFn(-24.0);
+                paintGrassVisibilityCircle(gatePt.x, gatePt.z, 4.5, 0.0);
+                paintGrassVisibilityCircle(v.cx + nx * 5.8, v.cz + nz * 5.8, 7.6, 0.0);
+                for (const lot of v.lots) {
+                    const rPt = v.roadFn(lot.along);
+                    const rnx = Math.cos(rPt.yaw), rnz = -Math.sin(rPt.yaw);
+                    const hx = rPt.x + rnx * lot.side * lot.off;
+                    const hz = rPt.z + rnz * lot.side * lot.off;
+                    const sc = lot.scale || 1.0;
+                    const clearR = Math.max(lot.w, lot.d) * sc * 0.65 + 1.1;
+                    paintGrassVisibilityCircle(hx, hz, clearR, 0.0);
+                }
             }
             grassMapTexture.needsUpdate = true;
         }
@@ -1452,87 +1927,176 @@ class World {
         const BASE_GRASS_QUAD_GEO = new THREE.PlaneGeometry(0.42, 0.56);
         BASE_GRASS_QUAD_GEO.translate(0, 0.24, 0);
         const grassChunks = [];
-        // Peta besar: 100 chunk. Kepadatan rumput per chunk mengekor preset
-        // kualitas supaya boot di HP kentang tidak menyiapkan 220 ribu bilah.
-        const TARGET_TUFTS_PER_CHUNK = Math.round(2200 * (QUALITY ? (0.45 + 0.55 * QUALITY.grassRatio) : 1.0));
-        const grassDummy = new THREE.Object3D();
+        // Kembalikan kepadatan rumput asli (~9.8 rumpun/m² di tile 15x15m = ~2200 rumpun/tile)
+        // dengan streaming pool di sekitar pemain agar rimbun di seluruh peta 1500x1500m tetap ringan.
+        const GRASS_TILE_SIZE = 15.0;
+        const GRASS_GRID_RADIUS = isMobileDevice ? 3 : 4; // 7x7 = 49 tile (mobile), 9x9 = 81 tile (PC)
+        const TUFTS_PER_TILE = 2200; // kepadatan penuh asli; updateCameraFrustumCulling menyesuaikan rasio kualitas & jarak
 
-        for (let gz = 0; gz < CHUNK_GRID; gz++) {
-            for (let gx = 0; gx < CHUNK_GRID; gx++) {
-                const minX = -TERRAIN_SIZE * 0.5 + gx * CHUNK_SIZE;
-                const minZ = -TERRAIN_SIZE * 0.5 + gz * CHUNK_SIZE;
-                const cx = minX + CHUNK_SIZE * 0.5;
-                const cz = minZ + CHUNK_SIZE * 0.5;
+        const villageGrassClearZones = VILLAGES.map((v) => {
+            const pads = [];
+            const nx = v.fz, nz = -v.fx;
+            pads.push({ x: v.cx + nx * 5.8, z: v.cz + nz * 5.8, r: 6.2 });
+            for (const lot of (v.lots || [])) {
+                const rPt = v.roadFn(lot.along);
+                const rnx = Math.cos(rPt.yaw), rnz = -Math.sin(rPt.yaw);
+                const hx = rPt.x + rnx * lot.side * lot.off;
+                const hz = rPt.z + rnz * lot.side * lot.off;
+                const sc = lot.scale || 1.0;
+                pads.push({ x: hx, z: hz, r: Math.max(lot.w, lot.d) * sc * 0.62 + 0.9 });
+            }
+            return { cx: v.cx, cz: v.cz, radiusSq: 44 * 44, pads };
+        });
 
-                const validQuads = [];
-                for (let b = 0; b < TARGET_TUFTS_PER_CHUNK; b++) {
-                    const bx = minX + Math.random() * CHUNK_SIZE;
-                    const bz = minZ + Math.random() * CHUNK_SIZE;
+        function populateGrassTile(tile, tx, tz) {
+            const minX = tx * GRASS_TILE_SIZE;
+            const minZ = tz * GRASS_TILE_SIZE;
+            const cx = minX + GRASS_TILE_SIZE * 0.5;
+            const cz = minZ + GRASS_TILE_SIZE * 0.5;
+            const halfBound = TERRAIN_SIZE * 0.495;
+            const instMesh = tile.mesh;
+            const mArr = instMesh.instanceMatrix.array;
+            const normalArr = tile.normalArr;
+            const dataArr = tile.dataArr;
 
-                    const distPond = Math.hypot(bx - POND_CENTER.x, bz - POND_CENTER.z);
-                    if (distPond < POND_CENTER.radius - 0.15) continue;
+            if (Math.abs(cx) > halfBound + GRASS_TILE_SIZE || Math.abs(cz) > halfBound + GRASS_TILE_SIZE) {
+                tile.tx = tx;
+                tile.tz = tz;
+                instMesh.userData.maxCount = 0;
+                instMesh.count = 0;
+                instMesh.visible = false;
+                return;
+            }
 
-                    const by = getTerrainHeight(bx, bz);
-                    if (distPond < POND_CENTER.radius + 0.35 && by < -0.22) continue;
+            // Collect nearby village building pads only when tile intersects village apron
+            let activePads = null;
+            for (let vi = 0; vi < villageGrassClearZones.length; vi++) {
+                const vz = villageGrassClearZones[vi];
+                const dxv = cx - vz.cx, dzv = cz - vz.cz;
+                if (dxv * dxv + dzv * dzv < vz.radiusSq) {
+                    activePads = vz.pads;
+                    break;
+                }
+            }
 
-                    const roadDist = getRoadDistance(bx, bz);
-                    if (roadDist < 1.70) continue;
-                    if (Math.hypot(bx, bz) < 2.2) continue;
+            // Deterministic xorshift32 per-tile so revisiting tiles produces identical meadow layout
+            let hSeed = ((tx * 73856093) ^ (tz * 19349663) ^ 0x9e3779b9) >>> 0;
+            if (hSeed === 0) hSeed = 1234567;
+            const nextRand = () => {
+                hSeed ^= (hSeed << 13) >>> 0;
+                hSeed ^= (hSeed >>> 17) >>> 0;
+                hSeed ^= (hSeed << 5) >>> 0;
+                return (hSeed >>> 0) / 4294967296;
+            };
 
-                    const roadsideBoost = (roadDist > 2.25 && roadDist < 4.2) ? 1.15 : 1.0;
-                    const n = getTerrainNormal(bx, bz);
-                    const locSeed = Math.abs(Math.sin(bx * 12.9898 + bz * 78.233) * 43758.5453) % 1.0;
-                    validQuads.push({
-                        x: bx, y: by - 0.02, z: bz,
-                        nx: n.x, ny: n.y, nz: n.z,
-                        seed1: Math.random(),
-                        seed2: Math.random(),
-                        locSeed,
-                        sizeScale: (0.86 + Math.random() * 0.30) * roadsideBoost
-                    });
+            let count = 0;
+            for (let b = 0; b < TUFTS_PER_TILE; b++) {
+                const bx = minX + nextRand() * GRASS_TILE_SIZE;
+                const bz = minZ + nextRand() * GRASS_TILE_SIZE;
+                const r1 = nextRand();
+                const r2 = nextRand();
+                const rScale = nextRand();
+
+                if (Math.abs(bx) > halfBound || Math.abs(bz) > halfBound) continue;
+                const distCamp = Math.hypot(bx, bz);
+                if (distCamp < 2.2) continue;
+
+                const distPond = Math.hypot(bx - POND_CENTER.x, bz - POND_CENTER.z);
+                if (distPond < POND_CENTER.radius + 0.15) continue;
+
+                const rDist = Math.abs(bz - riverCenterZ(bx));
+                if (rDist < riverHalfWidthAt(bx) + 0.65) continue;
+
+                const roadDist = getRoadDistance(bx, bz);
+                if (roadDist < 1.72) continue;
+
+                if (activePads) {
+                    let blocked = false;
+                    for (let pi = 0; pi < activePads.length; pi++) {
+                        const pd = activePads[pi];
+                        const dxp = bx - pd.x, dzp = bz - pd.z;
+                        if (dxp * dxp + dzp * dzp < pd.r * pd.r) { blocked = true; break; }
+                    }
+                    if (blocked) continue;
                 }
 
-                if (validQuads.length === 0) continue;
+                const by = getTerrainHeight(bx, bz);
+                if (distPond < POND_CENTER.radius + 0.65 && by < -0.18) continue;
 
+                const roadsideBoost = (roadDist > 2.25 && roadDist < 4.2) ? 1.15 : 1.0;
+                const n = getTerrainNormal(bx, bz);
+                const locSeed = Math.abs(Math.sin(bx * 12.9898 + bz * 78.233) * 43758.5453) % 1.0;
+
+                const i16 = count * 16;
+                mArr[i16] = 1; mArr[i16 + 1] = 0; mArr[i16 + 2] = 0; mArr[i16 + 3] = 0;
+                mArr[i16 + 4] = 0; mArr[i16 + 5] = 1; mArr[i16 + 6] = 0; mArr[i16 + 7] = 0;
+                mArr[i16 + 8] = 0; mArr[i16 + 9] = 0; mArr[i16 + 10] = 1; mArr[i16 + 11] = 0;
+                mArr[i16 + 12] = bx;
+                mArr[i16 + 13] = by - 0.02;
+                mArr[i16 + 14] = bz;
+                mArr[i16 + 15] = 1;
+
+                const i3 = count * 3;
+                normalArr[i3] = n.x;
+                normalArr[i3 + 1] = n.y;
+                normalArr[i3 + 2] = n.z;
+
+                const i4 = count * 4;
+                dataArr[i4] = r1;
+                dataArr[i4 + 1] = r2;
+                dataArr[i4 + 2] = locSeed;
+                dataArr[i4 + 3] = (0.86 + rScale * 0.30) * roadsideBoost;
+
+                count++;
+            }
+
+            tile.tx = tx;
+            tile.tz = tz;
+            tile.key = tx + ',' + tz;
+            instMesh.userData.maxCount = count;
+            instMesh.count = count;
+            instMesh.visible = count > 0;
+            instMesh.userData.boundingSphere.center.set(cx, getTerrainHeight(cx, cz) + 0.55, cz);
+            instMesh.instanceMatrix.needsUpdate = true;
+            tile.normalAttr.needsUpdate = true;
+            tile.dataAttr.needsUpdate = true;
+        }
+
+        const grassTiles = [];
+        for (let dtz = -GRASS_GRID_RADIUS; dtz <= GRASS_GRID_RADIUS; dtz++) {
+            for (let dtx = -GRASS_GRID_RADIUS; dtx <= GRASS_GRID_RADIUS; dtx++) {
                 const instGeo = BASE_GRASS_QUAD_GEO.clone();
-                const count = validQuads.length;
-                const normalArr = new Float32Array(count * 3);
-                const dataArr = new Float32Array(count * 4);
+                const normalArr = new Float32Array(TUFTS_PER_TILE * 3);
+                const dataArr = new Float32Array(TUFTS_PER_TILE * 4);
+                const normalAttr = new THREE.InstancedBufferAttribute(normalArr, 3);
+                normalAttr.setUsage(THREE.DynamicDrawUsage);
+                const dataAttr = new THREE.InstancedBufferAttribute(dataArr, 4);
+                dataAttr.setUsage(THREE.DynamicDrawUsage);
+                instGeo.setAttribute('aTerrainNormal', normalAttr);
+                instGeo.setAttribute('aGrassData', dataAttr);
 
-                for (let i = 0; i < count; i++) {
-                    const vq = validQuads[i];
-                    normalArr[i * 3] = vq.nx;
-                    normalArr[i * 3 + 1] = vq.ny;
-                    normalArr[i * 3 + 2] = vq.nz;
-
-                    dataArr[i * 4] = vq.seed1;
-                    dataArr[i * 4 + 1] = vq.seed2;
-                    dataArr[i * 4 + 2] = vq.locSeed;
-                    dataArr[i * 4 + 3] = vq.sizeScale;
-                }
-
-                instGeo.setAttribute('aTerrainNormal', new THREE.InstancedBufferAttribute(normalArr, 3));
-                instGeo.setAttribute('aGrassData', new THREE.InstancedBufferAttribute(dataArr, 4));
-
-                const instMesh = new THREE.InstancedMesh(instGeo, grassMat, count);
-                for (let i = 0; i < count; i++) {
-                    const vq = validQuads[i];
-                    grassDummy.position.set(vq.x, vq.y, vq.z);
-                    grassDummy.rotation.set(0, 0, 0);
-                    grassDummy.scale.set(1, 1, 1);
-                    grassDummy.updateMatrix();
-                    instMesh.setMatrixAt(i, grassDummy.matrix);
-                }
-                instMesh.instanceMatrix.needsUpdate = true;
+                const instMesh = new THREE.InstancedMesh(instGeo, grassMat, TUFTS_PER_TILE);
+                instMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
                 instMesh.castShadow = false;
                 instMesh.receiveShadow = true;
                 instMesh.frustumCulled = false;
-
-                const centerY = getTerrainHeight(cx, cz) + 0.55;
                 instMesh.userData = {
-                    maxCount: count,
-                    boundingSphere: new THREE.Sphere(new THREE.Vector3(cx, centerY, cz), CHUNK_SIZE * 0.85)
+                    maxCount: 0,
+                    boundingSphere: new THREE.Sphere(new THREE.Vector3(0, 0, 0), GRASS_TILE_SIZE * 0.85)
                 };
+
+                const tile = {
+                    tx: dtx,
+                    tz: dtz,
+                    key: dtx + ',' + dtz,
+                    mesh: instMesh,
+                    normalArr,
+                    dataArr,
+                    normalAttr,
+                    dataAttr
+                };
+                populateGrassTile(tile, dtx, dtz);
+                grassTiles.push(tile);
                 grassChunks.push(instMesh);
                 scene.add(instMesh);
             }
@@ -2687,36 +3251,31 @@ class World {
             pineDepthMaterials[key] = depthMat;
         });
 
-        function createStylizedPineTree(x, z, scale = 1.0, variant = 'tall_alpine', colorKey = 'emerald') {
-            const group = new THREE.Group();
-            const y = getTerrainHeight(x, z);
-            group.position.set(x, y - 0.08, z);
+        const PINE_CONFIGS = {
+            tall_alpine: { h: 7.4, baseR: 0.26, topR: 0.04, startT: 0.20, tiers: 9, maxRadius: 2.05 },
+            broad_woodland: { h: 6.2, baseR: 0.28, topR: 0.05, startT: 0.18, tiers: 8, maxRadius: 2.35 },
+            high_canopy: { h: 8.2, baseR: 0.28, topR: 0.04, startT: 0.34, tiers: 8, maxRadius: 2.10 },
+            young_bushy: { h: 4.8, baseR: 0.20, topR: 0.04, startT: 0.15, tiers: 7, maxRadius: 1.72 }
+        };
+        const pineGeoCache = {};
+        let pineSpawnCounter = 0;
 
-            const canopyPivot = new THREE.Group();
-            group.add(canopyPivot);
-
-            const configs = {
-                tall_alpine: { h: 7.4, baseR: 0.26, topR: 0.04, startT: 0.20, tiers: 9, maxRadius: 2.05 },
-                broad_woodland: { h: 6.2, baseR: 0.28, topR: 0.05, startT: 0.18, tiers: 8, maxRadius: 2.35 },
-                high_canopy: { h: 8.2, baseR: 0.28, topR: 0.04, startT: 0.34, tiers: 8, maxRadius: 2.10 },
-                young_bushy: { h: 4.8, baseR: 0.20, topR: 0.04, startT: 0.15, tiers: 7, maxRadius: 1.72 }
-            };
-            const cfg = configs[variant] || configs.tall_alpine;
-
+        function getPineArchetype(variant, slotIdx) {
+            const key = variant + '_' + (slotIdx % 3);
+            if (pineGeoCache[key]) return pineGeoCache[key];
+            const cfg = PINE_CONFIGS[variant] || PINE_CONFIGS.tall_alpine;
             const bendX = (Math.random() - 0.5) * 0.38;
             const bendZ = (Math.random() - 0.5) * 0.38;
-            const { mesh: trunkMesh, getSpineOffset } = createSculptedTrunkMesh(
+            const { mesh: trunkTemplate, getSpineOffset } = createSculptedTrunkMesh(
                 cfg.h, cfg.baseR, cfg.topR, bendX, bendZ, trunkMat
             );
-            canopyPivot.add(trunkMesh);
-
             const padGeos = [];
             const dummy = new THREE.Object3D();
             const goldenAngle = 2.3999632;
             const treeSeed = Math.random() * 100.0;
 
             function stampPinePad(geoSrc, matrix, socketVec, tierAO, heightNorm, phaseSeed) {
-                const g = geoSrc.clone().toNonIndexed();
+                const g = geoSrc.index ? geoSrc.clone().toNonIndexed() : geoSrc.clone();
                 g.applyMatrix4(matrix);
                 const pos = g.attributes.position;
                 const count = pos.count;
@@ -2726,64 +3285,52 @@ class World {
 
                 for (let v = 0; v < count; v++) {
                     const px = pos.getX(v);
-                    const py = pos.getY(v);
                     const pz = pos.getZ(v);
-
                     sockArr[v * 3] = socketVec.x;
                     sockArr[v * 3 + 1] = socketVec.y;
                     sockArr[v * 3 + 2] = socketVec.z;
-
-                    // Conical outward normal from trunk axis for unified, smooth BotW cel-shading
                     const radial = new THREE.Vector3(px - socketVec.x, 0.65, pz - socketVec.z).normalize();
                     projNArr[v * 3] = radial.x;
                     projNArr[v * 3 + 1] = radial.y;
                     projNArr[v * 3 + 2] = radial.z;
-
                     const radDist = Math.hypot(px - socketVec.x, pz - socketVec.z);
                     const tipLight = THREE.MathUtils.clamp(tierAO * 0.72 + radDist * 0.16, 0.30, 1.0);
                     infoArr[v * 3] = phaseSeed;
                     infoArr[v * 3 + 1] = tipLight;
                     infoArr[v * 3 + 2] = heightNorm;
                 }
-
                 g.setAttribute('aSocketPos', new THREE.BufferAttribute(sockArr, 3));
                 g.setAttribute('aProjectedNormal', new THREE.BufferAttribute(projNArr, 3));
                 g.setAttribute('aFoliageInfo', new THREE.BufferAttribute(infoArr, 3));
                 padGeos.push(g);
             }
 
-            // Build dense, overlapping spiral evergreen pine bough tiers with randomized natural yaw/pitch/roll
             for (let tier = 0; tier < cfg.tiers; tier++) {
                 const frac = tier / Math.max(1, cfg.tiers - 1);
                 const hNorm = cfg.startT + frac * (0.94 - cfg.startT);
                 const tierY = hNorm * cfg.h;
                 const radiusMul = Math.pow(1.0 - frac * 0.80, 0.86) * cfg.maxRadius;
                 const boughsInTier = Math.max(4, Math.round(7 - frac * 3));
-
                 for (let b = 0; b < boughsInTier; b++) {
                     const yJitter = (Math.random() - 0.5) * 0.28;
                     const localY = THREE.MathUtils.clamp(tierY + yJitter, cfg.startT * cfg.h * 0.85, cfg.h * 0.96);
                     const spineT = localY / cfg.h;
                     const spine = getSpineOffset(spineT);
                     const socket = new THREE.Vector3(spine.x, localY, spine.z);
-
                     const yaw = (b / boughsInTier) * Math.PI * 2 + tier * goldenAngle + (Math.random() - 0.5) * 0.42;
                     const pitch = 0.20 + (1.0 - frac) * 0.24 + (Math.random() - 0.5) * 0.14;
                     const roll = (Math.random() - 0.5) * 0.34;
                     const lenScale = (radiusMul / 1.45) * (0.84 + Math.random() * 0.32);
                     const widScale = lenScale * (0.95 + Math.random() * 0.26);
-
                     dummy.position.copy(socket);
                     dummy.rotation.set(pitch, yaw, roll, 'YXZ');
                     dummy.scale.set(widScale, lenScale, lenScale);
                     dummy.updateMatrix();
-
                     const tierAO = 0.44 + frac * 0.52;
                     stampPinePad(BASE_BOTW_PINE_PAD_GEO, dummy.matrix, socket, tierAO, frac, treeSeed + tier * 1.1 + b * 0.7);
                 }
             }
 
-            // Natural pointed evergreen crown spire at top of trunk
             const topSpine = getSpineOffset(0.98);
             const topSocket = new THREE.Vector3(topSpine.x, cfg.h * 0.93, topSpine.z);
             dummy.position.copy(topSocket);
@@ -2793,8 +3340,29 @@ class World {
             stampPinePad(BASE_BOTW_PINE_SPIRE_GEO, dummy.matrix, topSocket, 0.98, 1.0, treeSeed + 9.4);
 
             const mergedFoliageGeo = mergeBufferGeometriesSimple(padGeos);
+            const entry = { cfg, trunkGeo: trunkTemplate.geometry, foliageGeo: mergedFoliageGeo };
+            pineGeoCache[key] = entry;
+            return entry;
+        }
+
+        function createStylizedPineTree(x, z, scale = 1.0, variant = 'tall_alpine', colorKey = 'emerald') {
+            const group = new THREE.Group();
+            const y = getTerrainHeight(x, z);
+            group.position.set(x, y - 0.08, z);
+
+            const canopyPivot = new THREE.Group();
+            canopyPivot.rotation.y = ((pineSpawnCounter * 2.39996) + x * 0.37) % (Math.PI * 2);
+            group.add(canopyPivot);
+
+            const arch = getPineArchetype(variant, pineSpawnCounter++);
+            const cfg = arch.cfg;
+            const trunkMesh = new THREE.Mesh(arch.trunkGeo, trunkMat);
+            trunkMesh.castShadow = Math.hypot(x, z) < 28.0;
+            trunkMesh.receiveShadow = true;
+            canopyPivot.add(trunkMesh);
+
             const pal = PINE_PALETTES[colorKey] || PINE_PALETTES.emerald;
-            const foliageMesh = new THREE.Mesh(mergedFoliageGeo, pineMaterials[colorKey] || pineMaterials.emerald);
+            const foliageMesh = new THREE.Mesh(arch.foliageGeo, pineMaterials[colorKey] || pineMaterials.emerald);
             foliageMesh.customDepthMaterial = pineDepthMaterials[colorKey] || pineDepthMaterials.emerald;
             foliageMesh.castShadow = Math.hypot(x, z) < 26.0;
             foliageMesh.receiveShadow = true;
@@ -3282,6 +3850,37 @@ class World {
         }
 
         const BASE_DECIDUOUS_CANOPY_GEO = createTruckfulDeciduousCanopyGeometry();
+        const deciduousTrunkCache = [];
+        let deciduousSpawnCounter = 0;
+
+        function getDeciduousTrunkArchetype(slotIdx) {
+            const idx = slotIdx % 3;
+            if (deciduousTrunkCache[idx]) return deciduousTrunkCache[idx];
+            const { mesh: trunkTemplate, getSpineOffset } = createSculptedTrunkMesh(
+                3.7, 0.34, 0.16, (Math.random() - 0.5) * 0.25, (Math.random() - 0.5) * 0.25, trunkMat
+            );
+            const forkTop = getSpineOffset(0.76);
+            const boughDirs = [
+                { yaw: 0.4, pitch: 0.62, len: 1.65 },
+                { yaw: 2.0, pitch: 0.58, len: 1.55 },
+                { yaw: 3.6, pitch: 0.66, len: 1.60 },
+                { yaw: 5.1, pitch: 0.55, len: 1.50 }
+            ];
+            const geos = [trunkTemplate.geometry.clone()];
+            const dummy = new THREE.Object3D();
+            boughDirs.forEach(bd => {
+                const bGeo = new THREE.CylinderGeometry(0.065, 0.13, bd.len, 6);
+                bGeo.translate(0, bd.len * 0.5, 0);
+                dummy.position.set(forkTop.x, 2.72, forkTop.z);
+                dummy.rotation.set(bd.pitch, bd.yaw, 0, 'YXZ');
+                dummy.updateMatrix();
+                bGeo.applyMatrix4(dummy.matrix);
+                geos.push(bGeo);
+            });
+            const mergedWoodGeo = mergeBufferGeometriesSimple(geos);
+            deciduousTrunkCache[idx] = mergedWoodGeo;
+            return mergedWoodGeo;
+        }
 
         function createBotWDeciduousTree(x, z, scale = 1.0, colorKey = 'emerald') {
             const group = new THREE.Group();
@@ -3291,28 +3890,12 @@ class World {
             const canopyPivot = new THREE.Group();
             group.add(canopyPivot);
 
-            // Sculpted trunk + 4 forked wooden boughs reaching into the leafy crown
-            const { mesh: trunkMesh, getSpineOffset } = createSculptedTrunkMesh(
-                3.7, 0.34, 0.16, (Math.random() - 0.5) * 0.25, (Math.random() - 0.5) * 0.25, trunkMat
-            );
+            // Cached sculpted trunk + 4 forked wooden boughs merged into 1 draw call
+            const woodGeo = getDeciduousTrunkArchetype(deciduousSpawnCounter++);
+            const trunkMesh = new THREE.Mesh(woodGeo, trunkMat);
+            trunkMesh.castShadow = Math.hypot(x, z) < 28.0;
+            trunkMesh.receiveShadow = true;
             canopyPivot.add(trunkMesh);
-
-            const forkTop = getSpineOffset(0.76);
-            const boughDirs = [
-                { yaw: 0.4, pitch: 0.62, len: 1.65 },
-                { yaw: 2.0, pitch: 0.58, len: 1.55 },
-                { yaw: 3.6, pitch: 0.66, len: 1.60 },
-                { yaw: 5.1, pitch: 0.55, len: 1.50 }
-            ];
-            boughDirs.forEach(bd => {
-                const bGeo = new THREE.CylinderGeometry(0.065, 0.13, bd.len, 6);
-                bGeo.translate(0, bd.len * 0.5, 0);
-                const bMesh = new THREE.Mesh(bGeo, trunkMat);
-                bMesh.position.set(forkTop.x, 2.72, forkTop.z);
-                bMesh.rotation.set(bd.pitch, bd.yaw, 0, 'YXZ');
-                bMesh.castShadow = true;
-                canopyPivot.add(bMesh);
-            });
 
             const pal = DECIDUOUS_PALETTES[colorKey] || DECIDUOUS_PALETTES.emerald;
             const foliageMesh = new THREE.Mesh(
@@ -3360,8 +3943,46 @@ class World {
             { x: 9.8, z: -4.2, s: 0.98, kind: 'deciduous', c: 'teal' },
             { x: -10.2, z: 14.5, s: 0.94, kind: 'deciduous', c: 'olive' }
         ];
+        const treeGrid = new Map();
+        const TREE_CELL = 3.6;
+        const treeKey = (x, z) => `${Math.floor(x / TREE_CELL)},${Math.floor(z / TREE_CELL)}`;
+        const registerTreeSpot = (x, z) => {
+            const k = treeKey(x, z);
+            let arr = treeGrid.get(k);
+            if (!arr) { arr = []; treeGrid.set(k, arr); }
+            arr.push({ x, z });
+        };
+        const isValidForestTreePos = (x, z, minSpacing = 3.6) => {
+            if (Math.hypot(x, z) < 11.2) return false;
+            if (getRoadDistance(x, z) < 3.9) return false;
+            if (Math.abs(x + 5.4) < 8.5 && z < -32 && z > -58) return false;
+            if (Math.hypot(x - POND_CENTER.x, z - POND_CENTER.z) < POND_CENTER.radius + 3.0) return false;
+            if (Math.abs(z - riverCenterZ(x)) < riverHalfWidthAt(x) + RIVER.bank + 2.4) return false;
+            for (let vi = 0; vi < VILLAGES.length; vi++) {
+                const v = VILLAGES[vi];
+                if (Math.hypot(x - v.cx, z - v.cz) < v.radius * 2.15) return false;
+            }
+            if (Math.abs(x) > TERRAIN_SIZE * 0.48 || Math.abs(z) > TERRAIN_SIZE * 0.48) return false;
+            const gx = Math.floor(x / TREE_CELL);
+            const gz = Math.floor(z / TREE_CELL);
+            const minD2 = minSpacing * minSpacing;
+            for (let dx = -1; dx <= 1; dx++) {
+                for (let dz = -1; dz <= 1; dz++) {
+                    const arr = treeGrid.get(`${gx + dx},${gz + dz}`);
+                    if (!arr) continue;
+                    for (let i = 0; i < arr.length; i++) {
+                        const dxT = arr[i].x - x;
+                        const dzT = arr[i].z - z;
+                        if (dxT * dxT + dzT * dzT < minD2) return false;
+                    }
+                }
+            }
+            return true;
+        };
+
         heroTrees.forEach(ht => {
             if (getRoadDistance(ht.x, ht.z) < 3.2) return;
+            registerTreeSpot(ht.x, ht.z);
             if (ht.kind === 'deciduous') {
                 createBotWDeciduousTree(ht.x, ht.z, ht.s, ht.c);
             } else {
@@ -3371,48 +3992,84 @@ class World {
 
         const variantCycle = ['tall_alpine', 'deciduous', 'broad_woodland', 'deciduous', 'high_canopy', 'young_bushy'];
         const colorCycle = ['emerald', 'teal', 'olive', 'emerald'];
-
-        for (let i = 0; i < 110; i++) {
-            const angle = (i / 110) * Math.PI * 2 + (Math.random() - 0.5) * 0.12;
-            const radius = 15.5 + Math.random() * (TERRAIN_SIZE * 0.42);
-            const x = Math.cos(angle) * radius;
-            const z = Math.sin(angle) * radius;
-
-            if (Math.abs(x) < 4.5 && z > 12 && z < 26) continue;
-            if (Math.hypot(x - POND_CENTER.x, z - POND_CENTER.z) < POND_CENTER.radius + 2.8) continue;
-            // Keep the Truckful dirt road open and lined nicely with trees on either side
-            if (getRoadDistance(x, z) < 3.4) continue;
-
+        let treeIdxSeq = 0;
+        function placeForestTreeAt(x, z, minSp = 3.6, deadChance = 0.06) {
+            if (!isValidForestTreePos(x, z, minSp)) return false;
+            registerTreeSpot(x, z);
+            const idx = treeIdxSeq++;
             const scale = 0.88 + Math.random() * 0.48;
-            if (Math.random() < 0.08) {
-                createStylizedDeadPine(x, z, scale * 1.05);
+            if (Math.random() < deadChance) {
+                createStylizedDeadPine(x, z, scale * 1.04);
             } else {
-                const v = variantCycle[i % variantCycle.length];
-                const c = colorCycle[(i + Math.floor(i / 3)) % colorCycle.length];
+                const v = variantCycle[idx % variantCycle.length];
+                const c = colorCycle[(idx + Math.floor(idx / 3)) % colorCycle.length];
                 if (v === 'deciduous') {
                     createBotWDeciduousTree(x, z, scale, c);
                 } else {
                     createStylizedPineTree(x, z, scale, v, c);
                 }
             }
+            return true;
         }
 
-        // Outer horizon forest ring framing the valley rim
-        for (let i = 0; i < 46; i++) {
-            const angle = (i / 46) * Math.PI * 2 + (Math.sin(i * 4.7) * 0.07);
-            const radius = TERRAIN_SIZE * 0.46 + (i % 4) * 1.85;
+        // 1) Hutan Lembah Dalam yang Sangat Rapat (radius 13..165 m dari titik awal)
+        for (let i = 0; i < 460; i++) {
+            const angle = (i / 460) * Math.PI * 2 + (Math.random() - 0.5) * 0.25;
+            const radius = 13.0 + Math.sqrt(Math.random()) * 152.0;
             const x = Math.cos(angle) * radius;
             const z = Math.sin(angle) * radius;
-            if (Math.hypot(x - POND_CENTER.x, z - POND_CENTER.z) < POND_CENTER.radius + 3.0) continue;
-            if (getRoadDistance(x, z) < 3.6) continue;
-            const scale = 0.95 + (i % 5) * 0.11;
-            const v = variantCycle[(i + 1) % variantCycle.length];
-            const c = colorCycle[(i + 2) % colorCycle.length];
-            if (v === 'deciduous') {
-                createBotWDeciduousTree(x, z, scale, c);
-            } else {
-                createStylizedPineTree(x, z, scale, v, c);
+            if (Math.abs(x) < 4.5 && z > 12 && z < 26) continue;
+            placeForestTreeAt(x, z, 3.6, 0.06);
+        }
+
+        // 2) Sabuk Hutan Rapat di Sepanjang Semua Jalur Jalan Unik Antar-Desa
+        for (let pIdx = 0; pIdx < allRoadPolylines.length; pIdx++) {
+            const pts = allRoadPolylines[pIdx].pts;
+            for (let i = 0; i < pts.length; i += 2) {
+                const pt = pts[i];
+                const nextPt = pts[Math.min(pts.length - 1, i + 1)];
+                const tx = nextPt[0] - pt[0], tz = nextPt[1] - pt[1];
+                const tLen = Math.hypot(tx, tz) || 1.0;
+                const nx = -tz / tLen, nz = tx / tLen;
+                for (const side of [-1, 1]) {
+                    // Baris tepi jalan rapat (4.6..13.5 m) & baris rimba pendamping (14..32 m)
+                    const d1 = 4.6 + Math.random() * 8.8;
+                    const j1 = (Math.random() - 0.5) * 4.5;
+                    placeForestTreeAt(pt[0] + nx * side * d1 + (tx / tLen) * j1, pt[1] + nz * side * d1 + (tz / tLen) * j1, 3.6, 0.05);
+                    if (i % 4 === 0) {
+                        const d2 = 14.0 + Math.random() * 19.0;
+                        const j2 = (Math.random() - 0.5) * 6.0;
+                        placeForestTreeAt(pt[0] + nx * side * d2 + (tx / tLen) * j2, pt[1] + nz * side * d2 + (tz / tLen) * j2, 3.7, 0.07);
+                    }
+                }
             }
+        }
+
+        // 3) Cincin Hutan Rimbun Mengelilingi Ke-5 Desa
+        for (let vi = 0; vi < VILLAGES.length; vi++) {
+            const v = VILLAGES[vi];
+            for (let k = 0; k < 44; k++) {
+                const ang = (k / 44) * Math.PI * 2 + (Math.random() - 0.5) * 0.14;
+                const rad = v.radius * 2.22 + (k % 3) * 4.8 + Math.random() * 6.5;
+                placeForestTreeAt(v.cx + Math.cos(ang) * rad, v.cz + Math.sin(ang) * rad, 3.6, 0.04);
+            }
+        }
+
+        // 4) Sebaran Hutan Belantara Luas di Peta 5x (1500 x 1500 m) + Horizon Ring
+        for (let i = 0; i < 620; i++) {
+            const angle = (i / 620) * Math.PI * 2 + (Math.random() - 0.5) * 0.22;
+            const radius = 65.0 + Math.sqrt(Math.random()) * (TERRAIN_SIZE * 0.44);
+            const x = Math.cos(angle) * radius;
+            const z = Math.sin(angle) * radius;
+            placeForestTreeAt(x, z, 3.8, 0.08);
+        }
+
+        for (let i = 0; i < 120; i++) {
+            const angle = (i / 120) * Math.PI * 2 + (Math.sin(i * 4.7) * 0.05);
+            const radius = TERRAIN_SIZE * 0.45 + (i % 4) * 3.5;
+            const x = Math.cos(angle) * radius;
+            const z = Math.sin(angle) * radius;
+            placeForestTreeAt(x, z, 4.0, 0.04);
         }
 
         // ============================================================================
@@ -3463,7 +4120,7 @@ class World {
         const cfRad = Math.max(0.55, Math.max(cfBox.max.x - cfBox.min.x, cfBox.max.z - cfBox.min.z) * 0.5);
         addCircleCollider('campfire', 0, 0, cfRad, cfTop, campfireGroup);
 
-        // Seat logs near campfire
+        // Seat logs near campfire (dapat dilewati kuda & gerobak mengikuti bentuk silinder kayunya)
         const seatLogGeo = new THREE.CylinderGeometry(0.24, 0.26, 1.9, 8);
         seatLogGeo.rotateZ(Math.PI * 0.5);
         const seat1 = new THREE.Mesh(seatLogGeo, trunkMat);
@@ -3471,12 +4128,7 @@ class World {
         seat1.rotation.y = 0.55;
         seat1.castShadow = true;
         scene.add(seat1);
-        addCapsuleCollider(
-            'log',
-            -2.2 - Math.cos(0.55) * 0.85, 1.2 + Math.sin(0.55) * 0.85,
-            -2.2 + Math.cos(0.55) * 0.85, 1.2 - Math.sin(0.55) * 0.85,
-            0.28, seat1.position.y + 0.34, seat1
-        );
+        addTraversableLog(seat1, 0.25, 1.9);
 
         const flames = [];
         const flameColors = [0xff5400, 0xff9e00, 0xffea00];
@@ -3763,10 +4415,11 @@ class World {
         pondWaterGeo.setAttribute('aBedDepth', new THREE.BufferAttribute(bedDepthArr, 1));
         pondWaterGeo.setAttribute('aObstacleDist', new THREE.BufferAttribute(obstacleFoamArr, 1));
 
+        const botWWaterDataTex = createBotWWaterDataTexture();
         const pondUniforms = {
             uTime: celShaderUniforms.uTime,
             uWindSpeed: grassUniforms.uWindSpeed,
-            uWaterDataTex: { value: createBotWWaterDataTexture() },
+            uWaterDataTex: { value: botWWaterDataTex },
             uSunDir: celShaderUniforms.uSunDir,
             uSunColor: celShaderUniforms.uSunColor,
             uSkyTop: { value: activeAtmosphere.bgTop },
@@ -4010,37 +4663,45 @@ class World {
             }
         })();
 
-        // 2. Charming Crooked Wooden Countryside Signpost at the Clearing Fork
+        // 2. Charming Crooked Wooden Countryside Signposts at the Clearing & Road Forks
         (function buildCountrysideSignpost() {
-            const sx = getRoadCenterX(2.0) + 2.55;
-            const sz = 2.0;
-            const sy = getTerrainHeight(sx, sz);
-            const signGroup = new THREE.Group();
-            signGroup.position.set(sx, sy, sz);
-
-            const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 2.05, 6), fenceWoodMat);
-            pole.position.y = 1.0;
-            pole.rotation.z = 0.04;
-            pole.castShadow = true;
-            signGroup.add(pole);
-
+            const forkSpots = [
+                { x: getRoadCenterX(2.0) + 2.55, z: 2.0, yaw: 0.0 },
+                { x: getRoadCenterX(114.0) + 3.1, z: 114.0, yaw: -0.35 },
+                { x: getRoadCenterX(-17.0) - 3.1, z: -17.0, yaw: 0.45 },
+                { x: 225.0 + 3.2, z: -42.0, yaw: -0.55 },
+            ];
             const boardMat = new THREE.MeshStandardMaterial({ color: 0xb68456, roughness: 0.85 });
             applyStylizedCelShading(boardMat, { rimStrength: 0.18, shadowLift: 0.56 });
 
-            const b1 = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.24, 0.06), boardMat);
-            b1.position.set(0.28, 1.72, 0.05);
-            b1.rotation.y = -0.35;
-            b1.rotation.z = 0.05;
-            signGroup.add(b1);
+            forkSpots.forEach((sp) => {
+                const sx = sp.x, sz = sp.z;
+                const sy = getTerrainHeight(sx, sz);
+                const signGroup = new THREE.Group();
+                signGroup.position.set(sx, sy, sz);
+                signGroup.rotation.y = sp.yaw;
 
-            const b2 = new THREE.Mesh(new THREE.BoxGeometry(0.92, 0.22, 0.06), boardMat);
-            b2.position.set(-0.22, 1.38, -0.04);
-            b2.rotation.y = 0.42;
-            b2.rotation.z = -0.06;
-            signGroup.add(b2);
+                const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 2.05, 6), fenceWoodMat);
+                pole.position.y = 1.0;
+                pole.rotation.z = 0.04;
+                pole.castShadow = true;
+                signGroup.add(pole);
 
-            scene.add(signGroup);
-            addCircleCollider('signpost', sx, sz, 0.20, sy + 2.1, signGroup);
+                const b1 = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.24, 0.06), boardMat);
+                b1.position.set(0.28, 1.72, 0.05);
+                b1.rotation.y = -0.35;
+                b1.rotation.z = 0.05;
+                signGroup.add(b1);
+
+                const b2 = new THREE.Mesh(new THREE.BoxGeometry(0.92, 0.22, 0.06), boardMat);
+                b2.position.set(-0.22, 1.38, -0.04);
+                b2.rotation.y = 0.42;
+                b2.rotation.z = -0.06;
+                signGroup.add(b2);
+
+                scene.add(signGroup);
+                addCircleCollider('signpost', sx, sz, 0.20, sy + 2.1, signGroup);
+            });
         })();
 
         // Soft Warm Radial Glow Sprite Texture (shared by Lanterns & Truck Headlights)
@@ -4219,50 +4880,52 @@ class World {
         // 8B. AIR SUNGAI, TANTANGAN BEBATUAN & DESA KECIL
         // ============================================================================
 
-        // ---- Permukaan air sungai: pita yang mengikuti alur riverCenterZ(x) ----
-        (function buildRiverSurface() {
-            const step = 3.0;
-            const x0 = -TERRAIN_SIZE * 0.5 + 8;
-            const x1 = TERRAIN_SIZE * 0.5 - 8;
-            const verts = [];
-            const idx = [];
-            let vi = 0;
-            for (let x = x0; x <= x1; x += step) {
-                const cz = riverCenterZ(x);
-                const half = RIVER.halfWidth * (0.90 + 0.10 * Math.sin(x * 0.08));
-                verts.push(x, RIVER.waterY, cz - half, x, RIVER.waterY, cz + half);
-                if (vi >= 2) {
-                    const a = vi - 2, b = vi - 1, c = vi, d = vi + 1;
-                    idx.push(a, c, b, b, c, d);
-                }
-                vi += 2;
-            }
-            const geo = new THREE.BufferGeometry();
-            geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
-            geo.setIndex(idx);
-            geo.computeVertexNormals();
-            const mat = new THREE.MeshStandardMaterial({
-                color: 0x3f8fa6, roughness: 0.16, metalness: 0.06,
-                transparent: true, opacity: 0.82, side: THREE.DoubleSide,
-            });
-            const mesh = new THREE.Mesh(geo, mat);
-            mesh.name = 'river-water';
-            mesh.receiveShadow = false;
-            scene.add(mesh);
+        // ---- Permukaan air sungai BotW (shader 1:1 kolam/genangan) + tepian alami ----
+        let riverMesh = null;
+        let riverUniforms = null;
+        let riverAnimated = { lilyPads: [], reeds: [] };
 
-            // Tanda ford: batu penyeberangan kecil di tepi jalur (bukan collider,
-            // supaya roda tidak terhentak di tengah arus).
-            for (const f of RIVER.fords) {
-                for (const side of [-1, 1]) {
-                    const fx = f.x + side * (f.half + 0.9);
-                    const fz = riverCenterZ(fx) - RIVER.halfWidth - 1.2;
-                    const marker = new THREE.Mesh(new THREE.DodecahedronGeometry(0.28, 0), rockMat);
-                    marker.position.set(fx, getTerrainHeight(fx, fz) + 0.16, fz);
-                    marker.scale.set(1.1, 0.8, 1.0);
-                    marker.receiveShadow = true;
-                    scene.add(marker);
+        (function buildRiverSurface() {
+            const riverSpec = {
+                terrainSize: TERRAIN_SIZE,
+                waterY: RIVER.waterY,
+                halfWidth: RIVER.halfWidth,
+                bank: RIVER.bank,
+                fords: RIVER.fords,
+                riverCenterZ,
+                riverHalfWidthAt,
+                riverFordAt,
+                getRoadDistance,
+            };
+            const riverCtx = {
+                applyStylizedCelShading,
+                isMobileDevice,
+                getTerrainHeight,
+                warmGlowTex,
+                rockMat,
+                wetRockMat,
+                celShaderUniforms,
+                grassUniforms,
+                activeAtmosphere,
+                waterDataTex: botWWaterDataTex,
+            };
+
+            const banks = createNaturalRiverbanks(riverCtx, riverSpec);
+            scene.add(banks.group);
+            if (banks.colliders) {
+                for (const c of banks.colliders) {
+                    if (c && c.mesh) addRockMeshCollider(c.type || 'river_rock', c.mesh);
                 }
             }
+            if (banks.lanterns) {
+                for (const l of banks.lanterns) roadLanterns.push(l);
+            }
+            riverAnimated = banks.animated || { lilyPads: [], reeds: [] };
+
+            const surface = createBotWRiverSurface(riverCtx, riverSpec, banks.obstacles || []);
+            riverMesh = surface.mesh;
+            riverUniforms = surface.uniforms;
+            scene.add(riverMesh);
         })();
 
         // ---- Tantangan bebatuan: gerbang batu sempit + onggokan di bahu jalur ----
@@ -4290,125 +4953,401 @@ class World {
             }
         })();
 
-        // ---- Desa kecil di utara jalan (rumah panggung batu- kayu) ----
+        // ---- 5 Desa Terhubung Jaringan Jalan (posisi & jumlah bangunan diacak dari modul model) ----
+        const villageAnimated = {
+            smokePuffs: [],
+            signPivots: [],
+            embers: [],
+            wellWaters: [],
+            bucketPivots: [],
+        };
+        const villageData = {
+            buildings: {},
+            buildingList: [],
+            stations: {
+                planters: [],
+                benches: [],
+            },
+            villages: [],
+            indoorsCount: 0,
+        };
+
         (function buildVillage() {
-            const houseWallMat = new THREE.MeshStandardMaterial({ color: 0xd8c9a8, roughness: 0.94 });
-            const houseWoodMat = new THREE.MeshStandardMaterial({ color: 0x9a6b45, roughness: 0.92 });
-            const houseRoofMat = new THREE.MeshStandardMaterial({ color: 0x8a4234, roughness: 0.86 });
-            const houseGlassMat = new THREE.MeshStandardMaterial({
-                color: 0xffd79a, emissive: 0xff9c3c, emissiveIntensity: 0.45, roughness: 0.5,
-            });
-            applyStylizedCelShading(houseWallMat, { rimStrength: 0.14, shadowLift: 0.58 });
-            applyStylizedCelShading(houseWoodMat, { rimStrength: 0.16, shadowLift: 0.56 });
-            applyStylizedCelShading(houseRoofMat, { rimStrength: 0.18, shadowLift: 0.52 });
+            const villageCtx = {
+                applyStylizedCelShading,
+                isMobileDevice,
+                getTerrainHeight,
+                warmGlowTex,
+            };
+            const palette = createVillageMaterialPalette(villageCtx);
 
-            function buildHouse(x, z, yaw, w, d, hgt) {
-                const gy = getTerrainHeight(x, z);
-                const g = new THREE.Group();
-                g.position.set(x, gy - 0.12, z);
-                g.rotation.y = yaw;
+            function localToWorldXZ(wx, wz, yaw, sc, lx, lz) {
+                const cosY = Math.cos(yaw);
+                const sinY = Math.sin(yaw);
+                const sx = lx * sc;
+                const sz = lz * sc;
+                return {
+                    x: wx + sx * cosY + sz * sinY,
+                    z: wz - sx * sinY + sz * cosY,
+                };
+            }
 
-                const walls = new THREE.Mesh(new THREE.BoxGeometry(w, hgt, d), houseWallMat);
-                walls.position.y = hgt * 0.5;
-                walls.castShadow = !isMobileDevice;
-                walls.receiveShadow = true;
-                g.add(walls);
-
-                for (const sx of [-1, 1]) {
-                    for (const sz of [-1, 1]) {
-                        const post = new THREE.Mesh(new THREE.BoxGeometry(0.16, hgt, 0.16), houseWoodMat);
-                        post.position.set(sx * (w * 0.5 - 0.09), hgt * 0.5, sz * (d * 0.5 - 0.09));
-                        g.add(post);
+            function registerModelMeta(group, wx, wy, wz, yaw, fallbackType = 'house', scale = 1.0) {
+                const ud = group.userData || {};
+                if (Array.isArray(ud.lanterns)) {
+                    for (const l of ud.lanterns) roadLanterns.push(l);
+                }
+                if (ud.animated) {
+                    if (Array.isArray(ud.animated.smokePuffs)) {
+                        for (const sp of ud.animated.smokePuffs) villageAnimated.smokePuffs.push(sp);
                     }
+                    if (ud.animated.signPivot) villageAnimated.signPivots.push(ud.animated.signPivot);
+                    if (ud.animated.embers) villageAnimated.embers.push(ud.animated.embers);
+                    if (ud.animated.wellWater) villageAnimated.wellWaters.push(ud.animated.wellWater);
+                    if (ud.animated.bucketPivot) villageAnimated.bucketPivots.push(ud.animated.bucketPivot);
+                }
+                if (Array.isArray(ud.colliders)) {
+                    const cosY = Math.cos(yaw);
+                    const sinY = Math.sin(yaw);
+                    for (const c of ud.colliders) {
+                        const lx = (c.localX || 0) * scale;
+                        const lz = (c.localZ || 0) * scale;
+                        const cx = wx + lx * cosY + lz * sinY;
+                        const cz = wz - lx * sinY + lz * cosY;
+                        addCircleCollider(c.type || fallbackType, cx, cz, (c.radius || 0.45) * scale, wy + (c.height || 3.5) * scale, group);
+                    }
+                } else if (ud.collider) {
+                    addCircleCollider(
+                        ud.collider.type || fallbackType,
+                        wx,
+                        wz,
+                        (ud.collider.radius || 2.2) * scale,
+                        wy + (ud.collider.height || 4.0) * scale,
+                        group
+                    );
+                }
+            }
+
+            for (let vIdx = 0; vIdx < VILLAGES.length; vIdx++) {
+                const v = VILLAGES[vIdx];
+                const villageGroup = new THREE.Group();
+                villageGroup.name = v.id;
+                scene.add(villageGroup);
+
+                const vRec = {
+                    id: v.id,
+                    title: v.title,
+                    cx: v.cx,
+                    cz: v.cz,
+                    radius: v.radius,
+                    fighterRole: v.fighterRole,
+                    merchantRole: v.merchantRole,
+                    farmerRoles: v.farmerRoles,
+                    buildings: {},
+                    buildingList: [],
+                    stations: {
+                        planters: [],
+                        benches: [],
+                    },
+                    indoorsCount: 0,
+                };
+
+                // Helper koordinat sepanjang poros jalan desa: along (maju/mundur), lat (kanan +, kiri -)
+                const streetPt = (along, lat = 0) => {
+                    const r = v.roadFn(along);
+                    const rnx = Math.cos(r.yaw);
+                    const rnz = -Math.sin(r.yaw);
+                    return {
+                        x: r.x + rnx * lat,
+                        z: r.z + rnz * lat,
+                        roadX: r.x,
+                        roadZ: r.z,
+                        yaw: r.yaw,
+                        rnx,
+                        rnz,
+                    };
+                };
+
+                // 1. Gerbang Masuk Desa
+                const gateP = streetPt(-24.5, 0);
+                const gateY = getTerrainHeight(gateP.x, gateP.z);
+                const gateScale = 1.24;
+                const gateArch = createVillageGateArch(villageCtx, {
+                    spanWidth: 7.4,
+                    clearHeight: 4.5,
+                    title: v.title,
+                });
+                gateArch.scale.setScalar(gateScale);
+                gateArch.position.set(gateP.x, gateY, gateP.z);
+                gateArch.rotation.y = gateP.yaw;
+                villageGroup.add(gateArch);
+                registerModelMeta(gateArch, gateP.x, gateY, gateP.z, gateP.yaw, 'gate_post', gateScale);
+
+                const gSouthP = streetPt(-22.5, -2.4);
+                const gSouthFace = streetPt(-28.0, 0);
+                vRec.stations.gateSouth = { x: gSouthP.x, z: gSouthP.z, faceX: gSouthFace.x, faceZ: gSouthFace.z };
+                const gNorthP = streetPt(20.5, 2.2);
+                const gNorthFace = streetPt(26.0, 0);
+                vRec.stations.gateNorth = { x: gNorthP.x, z: gNorthP.z, faceX: gNorthFace.x, faceZ: gNorthFace.z };
+
+                // 2. Bangunan Utama Desa dengan posisi & jumlah acak (5..8 bangunan per desa)
+                const doorApproachPoints = [];
+                for (const lot of v.lots) {
+                    const p = streetPt(lot.along, lot.side * lot.off);
+                    const hx = p.x;
+                    const hz = p.z;
+                    const hy = getTerrainHeight(hx, hz);
+                    const sc = lot.scale || 1.0;
+                    const yaw = p.yaw + (lot.side > 0 ? Math.PI * 0.5 : -Math.PI * 0.5) + (lot.rot || 0);
+
+                    let bldg = null;
+                    if (lot.kind === 'tavern') {
+                        bldg = createVillageTavernInn(palette, villageCtx, lot);
+                    } else if (lot.kind === 'blacksmith') {
+                        bldg = createBlacksmithWorkshop(palette, villageCtx, lot);
+                    } else if (lot.kind === 'stall') {
+                        bldg = createMarketStall(palette, villageCtx, lot);
+                    } else if (lot.kind === 'barn') {
+                        bldg = createStorageBarn(palette, villageCtx, lot);
+                    } else {
+                        bldg = createCozyCottage(palette, villageCtx, lot);
+                    }
+
+                    bldg.scale.setScalar(sc);
+                    bldg.position.set(hx, hy, hz);
+                    bldg.rotation.y = yaw;
+                    villageGroup.add(bldg);
+                    registerModelMeta(bldg, hx, hy, hz, yaw, 'house', sc);
+
+                    const ud = bldg.userData || {};
+                    const dl = ud.doorLocal;
+                    const approachZOff = lot.kind === 'tavern' ? -2.75 : -1.50;
+                    const doorZOff = lot.kind === 'tavern' ? -0.55 : -0.58;
+                    const dLocX = dl ? dl.x : 0;
+                    const dLocZ = dl ? dl.z : -lot.d * 0.5;
+                    const dLocY = dl ? dl.y : 0.36;
+
+                    const approachWorld = localToWorldXZ(hx, hz, yaw, sc, dLocX, dLocZ + approachZOff);
+                    const doorWorld = localToWorldXZ(hx, hz, yaw, sc, dLocX, dLocZ + doorZOff);
+                    const insideWorld = localToWorldXZ(hx, hz, yaw, sc, dLocX, dLocZ + 1.20);
+                    approachWorld.y = getTerrainHeight(approachWorld.x, approachWorld.z);
+                    doorWorld.y = hy + dLocY * sc;
+                    insideWorld.y = hy + dLocY * sc;
+
+                    if (dl) {
+                        const rec = {
+                            id: lot.id,
+                            villageId: v.id,
+                            kind: lot.kind,
+                            x: hx,
+                            y: hy,
+                            z: hz,
+                            yaw,
+                            scale: sc,
+                            doorWorld,
+                            approachWorld,
+                            insideWorld,
+                            doorPivot: ud.doorPivot || null,
+                            doorPivotR: ud.doorPivotR || null,
+                            doorOpenAmt: 0,
+                            doorTarget: 0,
+                        };
+                        vRec.buildings[lot.id] = rec;
+                        vRec.buildings[lot.localRoleKey] = rec;
+                        vRec.buildings[lot.kind] = vRec.buildings[lot.kind] || rec;
+                        vRec.buildingList.push(rec);
+                        villageData.buildings[lot.id] = rec;
+                        if (vIdx === 0) villageData.buildings[lot.localRoleKey] = rec;
+                        villageData.buildingList.push(rec);
+                    }
+
+                    if (lot.kind === 'blacksmith' && !vRec.stations.forge) {
+                        const forgeStand = localToWorldXZ(hx, hz, yaw, sc, 1.45, -2.55);
+                        vRec.stations.forge = { x: forgeStand.x, z: forgeStand.z, faceX: hx, faceZ: hz };
+                    } else if (lot.kind === 'tavern' && !vRec.stations.tavernPorch) {
+                        const tavFront = localToWorldXZ(hx, hz, yaw, sc, 1.2, -5.35);
+                        vRec.stations.tavernPorch = { x: tavFront.x, z: tavFront.z, faceX: hx, faceZ: hz };
+                    } else if (lot.kind === 'stall') {
+                        const stallFront = localToWorldXZ(hx, hz, yaw, sc, 0, -1.75);
+                        const stallSpot = { x: stallFront.x, z: stallFront.z, faceX: p.roadX, faceZ: p.roadZ };
+                        if (!vRec.stations.stallA) vRec.stations.stallA = stallSpot;
+                        else vRec.stations.stallB = stallSpot;
+                    } else if (lot.kind === 'barn' && !vRec.stations.barnYard) {
+                        vRec.stations.barnYard = { x: approachWorld.x, z: approachWorld.z, faceX: hx, faceZ: hz };
+                    } else if (lot.kind === 'cottage' && !vRec.stations.garden) {
+                        const gardenSpot = localToWorldXZ(hx, hz, yaw, sc, 1.8, -3.5);
+                        vRec.stations.garden = { x: gardenSpot.x, z: gardenSpot.z, faceX: hx, faceZ: hz };
+                    }
+
+                    const roadEdge = streetPt(lot.along, lot.side * 2.3);
+                    const pathEnd = dl ? approachWorld : localToWorldXZ(hx, hz, yaw, sc, 0, -lot.d * 0.5 - 1.1);
+                    doorApproachPoints.push({
+                        road: { x: roadEdge.x, z: roadEdge.z },
+                        door: pathEnd,
+                        seed: lot.seed || 1,
+                    });
                 }
 
-                const eave = new THREE.Mesh(new THREE.BoxGeometry(w + 0.34, 0.10, d + 0.34), houseWoodMat);
-                eave.position.y = hgt + 0.01;
-                g.add(eave);
+                // 3. Alun-alun Tengah: Sumur Batu Beratap + Papan Pengumuman + Bangku + Pot Bunga
+                const wellP = streetPt(-1.5, 6.4);
+                const wellX = wellP.x, wellZ = wellP.z;
+                const wellY = getTerrainHeight(wellX, wellZ);
+                const wellScale = 1.45;
+                const wellGroup = createVillageWell(villageCtx, { seed: 7 + vIdx * 11 });
+                wellGroup.scale.setScalar(wellScale);
+                wellGroup.position.set(wellX, wellY, wellZ);
+                wellGroup.rotation.y = wellP.yaw + Math.PI * 0.5 - 0.18;
+                villageGroup.add(wellGroup);
+                registerModelMeta(wellGroup, wellX, wellY, wellZ, wellGroup.rotation.y, 'well', wellScale);
 
-                const roof = new THREE.Mesh(
-                    new THREE.ConeGeometry(Math.max(w, d) * 0.82, hgt * 0.74, 4),
-                    houseRoofMat
-                );
-                roof.position.y = hgt + hgt * 0.34;
-                roof.rotation.y = Math.PI * 0.25;
-                roof.castShadow = !isMobileDevice;
-                g.add(roof);
+                const wellStand = streetPt(-1.2, 3.8);
+                const plazaStand = streetPt(-1.5, 2.8);
+                vRec.stations.well = { x: wellStand.x, z: wellStand.z, faceX: wellX, faceZ: wellZ };
+                vRec.stations.plaza = { x: plazaStand.x, z: plazaStand.z, faceX: wellX, faceZ: wellZ };
 
-                const door = new THREE.Mesh(new THREE.BoxGeometry(0.62, 1.05, 0.08), houseWoodMat);
-                door.position.set(0, 0.52, -d * 0.5 - 0.02);
-                g.add(door);
-                for (const sx of [-1, 1]) {
-                    const win = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.42, 0.06), houseGlassMat);
-                    win.position.set(sx * w * 0.26, hgt * 0.62, -d * 0.5 - 0.02);
-                    g.add(win);
+                const plazaPath = createVillageStonePath(villageCtx, {
+                    points: [
+                        streetPt(-5.0, 2.2),
+                        streetPt(-4.2, 4.2),
+                        streetPt(-1.5, 8.8),
+                        streetPt(1.8, 8.2),
+                        streetPt(2.5, 2.2),
+                    ],
+                    width: 1.85,
+                    seed: 101 + vIdx * 17,
+                });
+                villageGroup.add(plazaPath);
+
+                for (const dp of doorApproachPoints) {
+                    const pathMesh = createVillageStonePath(villageCtx, {
+                        points: [dp.road, dp.door],
+                        width: 1.55,
+                        seed: dp.seed * 7 + 3,
+                    });
+                    villageGroup.add(pathMesh);
                 }
 
-                scene.add(g);
-                addCircleCollider('house', x, z, Math.max(w, d) * 0.58, gy + hgt * 1.5, g);
-                return g;
-            }
+                // Papan pengumuman desa
+                const nbP = streetPt(-7.5, 4.4);
+                const nbY = getTerrainHeight(nbP.x, nbP.z);
+                const nbScale = 1.32;
+                const noticeBoard = createVillageNoticeBoard(villageCtx, { seed: 12 + vIdx * 5 });
+                noticeBoard.scale.setScalar(nbScale);
+                noticeBoard.position.set(nbP.x, nbY, nbP.z);
+                noticeBoard.rotation.y = nbP.yaw + Math.PI * 0.36;
+                villageGroup.add(noticeBoard);
+                registerModelMeta(noticeBoard, nbP.x, nbY, nbP.z, noticeBoard.rotation.y, 'prop', nbScale);
+                const nbStand = streetPt(-6.8, 3.1);
+                vRec.stations.noticeBoard = { x: nbStand.x, z: nbStand.z, faceX: nbP.x, faceZ: nbP.z };
 
-            const lots = [
-                { z: 58, side: -1, off: 7.6, w: 4.2, d: 3.6, h: 2.6, rot: 0.10 },
-                { z: 64, side: 1, off: 7.0, w: 3.8, d: 3.4, h: 2.5, rot: -0.16 },
-                { z: 70, side: -1, off: 8.6, w: 4.6, d: 3.8, h: 2.9, rot: 0.04 },
-                { z: 76, side: 1, off: 7.6, w: 4.0, d: 3.5, h: 2.6, rot: -0.08 },
-                { z: 82, side: -1, off: 6.9, w: 3.4, d: 3.2, h: 2.3, rot: 0.20 },
-            ];
-            for (const lot of lots) {
-                const roadX = getRoadCenterX(lot.z);
-                const hx = roadX + lot.side * lot.off;
-                // pintu (sisi -Z lokal) menghadap jalan
-                const yaw = (lot.side > 0 ? Math.PI * 0.5 : -Math.PI * 0.5) + lot.rot;
-                buildHouse(hx, lot.z, yaw, lot.w, lot.d, lot.h);
-            }
+                // Bangku kayu
+                const benchDefs = [
+                    { along: 2.4, lat: 6.1, rotOff: Math.PI + 0.12 },
+                    { along: 3.5, lat: -5.2, rotOff: -Math.PI * 0.5 + 0.1 },
+                ];
+                benchDefs.forEach((bd, idx) => {
+                    const bp = streetPt(bd.along, bd.lat);
+                    const by = getTerrainHeight(bp.x, bp.z);
+                    const bScale = 1.30;
+                    const bench = createVillageBench(villageCtx, { seed: 20 + vIdx * 7 + idx });
+                    bench.scale.setScalar(bScale);
+                    bench.position.set(bp.x, by, bp.z);
+                    bench.rotation.y = bp.yaw + bd.rotOff;
+                    villageGroup.add(bench);
+                    registerModelMeta(bench, bp.x, by, bp.z, bench.rotation.y, 'prop', bScale);
+                    const bStand = streetPt(bd.along + 1.0, bd.lat * 0.85);
+                    const stBench = { x: bStand.x, z: bStand.z, faceX: bp.x, faceZ: bp.z };
+                    vRec.stations.benches.push(stBench);
+                    if (vIdx === 0) villageData.stations.benches.push(stBench);
+                });
 
-            // Sumur desa di tengah dataran
-            const wellX = getRoadCenterX(VILLAGE.z) + 4.6;
-            const wellZ = VILLAGE.z - 1.5;
-            const wellY = getTerrainHeight(wellX, wellZ);
-            const wellGroup = new THREE.Group();
-            wellGroup.position.set(wellX, wellY, wellZ);
-            const wellRing = new THREE.Mesh(new THREE.CylinderGeometry(0.72, 0.78, 0.62, 10), stoneRingMat);
-            wellRing.position.y = 0.31;
-            wellRing.castShadow = !isMobileDevice;
-            wellGroup.add(wellRing);
-            const wellWater = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 0.04, 10), houseWoodMat);
-            wellWater.position.y = 0.56;
-            wellGroup.add(wellWater);
-            for (const sx of [-1, 1]) {
-                const post = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 1.5, 6), houseWoodMat);
-                post.position.set(sx * 0.62, 0.75, 0);
-                wellGroup.add(post);
-            }
-            const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.5, 6), houseWoodMat);
-            beam.rotation.z = Math.PI * 0.5;
-            beam.position.y = 1.48;
-            wellGroup.add(beam);
-            scene.add(wellGroup);
-            addCircleCollider('well', wellX, wellZ, 0.82, wellY + 1.5, wellGroup);
+                // Pot bunga desa
+                const planterDefs = [
+                    { along: -4.6, lat: 9.2, yawOff: 0.45, style: 'stone', seed: 31 + vIdx * 10 },
+                    { along: 1.8,  lat: 9.0, yawOff: -0.55, style: 'wood', seed: 32 + vIdx * 10 },
+                    { along: -8.0, lat: -4.8, yawOff: -Math.PI * 0.5, style: 'wood', seed: 33 + vIdx * 10 },
+                    { along: 8.8,  lat: -5.4, yawOff: -Math.PI * 0.5, style: 'stone', seed: 34 + vIdx * 10 },
+                ];
+                planterDefs.forEach((pd) => {
+                    const pp = streetPt(pd.along, pd.lat);
+                    const py = getTerrainHeight(pp.x, pp.z);
+                    const pScale = 1.30;
+                    const planter = createVillageFlowerPlanter(villageCtx, pd);
+                    planter.scale.setScalar(pScale);
+                    planter.position.set(pp.x, py, pp.z);
+                    planter.rotation.y = pp.yaw + pd.yawOff;
+                    villageGroup.add(planter);
+                    registerModelMeta(planter, pp.x, py, pp.z, planter.rotation.y, 'prop', pScale);
+                    const pStand = streetPt(pd.along, pd.lat - Math.sign(pd.lat) * 1.3);
+                    const stPlanter = { x: pStand.x, z: pStand.z, faceX: pp.x, faceZ: pp.z };
+                    vRec.stations.planters.push(stPlanter);
+                    if (vIdx === 0) villageData.stations.planters.push(stPlanter);
+                });
 
-            // Obor kayu penyambut di tepi jalan desa (tanpa PointLight: hemat HP)
-            for (const tz of [60, 74]) {
-                const tx = getRoadCenterX(tz) + (tz === 60 ? 2.9 : -2.9);
-                const ty = getTerrainHeight(tx, tz);
-                const torchGroup = new THREE.Group();
-                torchGroup.position.set(tx, ty, tz);
-                const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 1.6, 6), houseWoodMat);
-                pole.position.y = 0.8;
-                pole.castShadow = !isMobileDevice;
-                torchGroup.add(pole);
-                const bowl = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.12, 0.16, 8), houseWoodMat);
-                bowl.position.y = 1.64;
-                torchGroup.add(bowl);
-                const flameMat = new THREE.MeshBasicMaterial({ color: 0xff9e3c, transparent: true, opacity: 0.9 });
-                const flame = new THREE.Mesh(new THREE.OctahedronGeometry(0.16, 0), flameMat);
-                flame.position.y = 1.86;
-                flame.userData = { baseY: 1.86, speed: 2.1, offset: tz * 0.13 };
-                torchGroup.add(flame);
-                scene.add(torchGroup);
-                addCircleCollider('torch', tx, tz, 0.16, ty + 1.9, torchGroup);
+                // Tumpukan peti & barel perbekalan
+                const crateDefs = [
+                    { along: 6.2,  lat: 8.4, yawOff: 0.35, withSack: true, seed: 41 + vIdx * 9 },
+                    { along: 16.5, lat: 7.2, yawOff: -0.45, withSack: true, seed: 42 + vIdx * 9 },
+                ];
+                crateDefs.forEach((cd) => {
+                    const cp = streetPt(cd.along, cd.lat);
+                    const cy = getTerrainHeight(cp.x, cp.z);
+                    const cScale = 1.32;
+                    const crates = createVillageCrateCluster(villageCtx, cd);
+                    crates.scale.setScalar(cScale);
+                    crates.position.set(cp.x, cy, cp.z);
+                    crates.rotation.y = cp.yaw + cd.yawOff;
+                    villageGroup.add(crates);
+                    registerModelMeta(crates, cp.x, cy, cp.z, crates.rotation.y, 'prop', cScale);
+                });
+
+                // 4. Tiang Lentera Desa
+                const lanternAlong = [-19.5, -8.5, 2.5, 13.5];
+                lanternAlong.forEach((al, idx) => {
+                    const side = idx % 2 === 0 ? 1 : -1;
+                    const lp = streetPt(al, side * 3.65);
+                    const ly = getTerrainHeight(lp.x, lp.z);
+                    const yaw = lp.yaw + (side > 0 ? Math.PI : 0);
+                    const lScale = 1.30;
+                    const lamp = createVillageLanternPost(villageCtx, {
+                        withSign: idx === 0 || idx === 3,
+                        phase: 1.1 + idx * 1.3 + vIdx * 0.7,
+                        seed: 60 + vIdx * 12 + idx,
+                    });
+                    lamp.scale.setScalar(lScale);
+                    lamp.position.set(lp.x, ly, lp.z);
+                    lamp.rotation.y = yaw;
+                    villageGroup.add(lamp);
+                    registerModelMeta(lamp, lp.x, ly, lp.z, yaw, 'lantern', lScale);
+                });
+
+                // 5. Pagar Pekarangan Desa Rendah
+                const fenceDefs = [
+                    [streetPt(-23.0, -5.2), streetPt(-22.5, -18.0), streetPt(-12.0, -18.5)],
+                    [streetPt(8.0, -18.5),  streetPt(20.0, -18.2),  streetPt(21.5, -5.5)],
+                    [streetPt(15.0, 18.5),  streetPt(24.5, 18.5),   streetPt(25.5, 5.5)],
+                ];
+                fenceDefs.forEach((pts, idx) => {
+                    const fRun = createVillageFenceRun(villageCtx, { points: pts, low: true, seed: 80 + vIdx * 10 + idx });
+                    villageGroup.add(fRun);
+                    const segs = (fRun.userData && fRun.userData.fenceSegments) || [];
+                    for (const s of segs) {
+                        addCapsuleCollider('fence', s.x1, s.z1, s.x2, s.z2, 0.14, s.yMax, fRun);
+                    }
+                });
+
+                // Fallback stations supaya tiap role petani/penjual/petarung di desa ini selalu punya titik kerja
+                vRec.stations.stallA = vRec.stations.stallA || vRec.stations.plaza;
+                vRec.stations.stallB = vRec.stations.stallB || vRec.stations.stallA;
+                vRec.stations.barnYard = vRec.stations.barnYard || vRec.stations.garden || vRec.stations.well;
+                vRec.stations.garden = vRec.stations.garden || vRec.stations.barnYard;
+                vRec.stations.tavernPorch = vRec.stations.tavernPorch || vRec.stations.plaza;
+                vRec.stations.forge = vRec.stations.forge || vRec.stations.tavernPorch;
+
+                villageData.villages.push(vRec);
+                if (vIdx === 0) {
+                    Object.assign(villageData.stations, vRec.stations);
+                }
             }
         })();
 
@@ -4504,6 +5443,31 @@ class World {
     this.TERRAIN_SIZE = TERRAIN_SIZE;
     this.POND_CENTER = POND_CENTER;
     this.POND_WATER_Y = POND_WATER_Y;
+    this.RIVER = RIVER;
+    this.VILLAGE = VILLAGE;
+    this.VILLAGES = VILLAGES;
+    this.allRoadPolylines = allRoadPolylines;
+    this._riverCenterZ = riverCenterZ;
+    this._riverHalfWidthAt = riverHalfWidthAt;
+    this.riverMesh = riverMesh;
+    this.riverUniforms = riverUniforms;
+    this.riverAnimated = riverAnimated;
+    this.villageAnimated = villageAnimated;
+    this.villageData = villageData;
+    this._riverCenterZ = riverCenterZ;
+    this._riverHalfWidthAt = riverHalfWidthAt;
+    this._riverRippleSlot = 0;
+    this._lastRiverRippleAt = -99;
+    this._lastHoofSplashAt = -99;
+    this._lastCartWakeAt = -99;
+    this._lastWaterSfxAt = -99;
+    this._prevHorseX = 0;
+    this._prevHorseZ = 0;
+    this._prevCartX = 0;
+    this._prevCartZ = 0;
+    this._wasHorseInAir = false;
+    this._horseJumpActive = false;
+    this.cartYaw = 0;
     this.terrainChunks = terrainChunks;
     this.grassChunks = grassChunks;
     this.grassUniforms = grassUniforms;
@@ -4550,6 +5514,38 @@ class World {
     this._grassMapTexture = grassMapTexture;
     this.colliders = colliders;
     this.rockMeshes = rockMeshes;
+    this.traversableLogs = traversableLogs;
+    this._grassTiles = grassTiles;
+    this._grassTileSize = GRASS_TILE_SIZE;
+    this._grassGridRadius = GRASS_GRID_RADIUS;
+    this._populateGrassTile = populateGrassTile;
+    this._lastGrassTileX = 0;
+    this._lastGrassTileZ = 0;
+    this.cycleEnabled = true;
+    this.cycleDuration = 600.0; // Siklus penuh siang-malam 10 menit
+    this.timeOfDay = 0.08;      // Mulai pagi cerah (~07:55)
+    this._cycleTarget = {
+      bgTop: MOODS.morning.bgTop.clone(),
+      bgBottom: MOODS.morning.bgBottom.clone(),
+      sunColor: MOODS.morning.sunColor.clone(),
+      sunIntensity: MOODS.morning.sunIntensity,
+      sunPos: MOODS.morning.sunPos.clone(),
+      hemiSky: MOODS.morning.hemiSky.clone(),
+      hemiGround: MOODS.morning.hemiGround.clone(),
+      hemiIntensity: MOODS.morning.hemiIntensity,
+      sceneBrightness: MOODS.morning.sceneBrightness,
+      mushroomGlow: MOODS.morning.mushroomGlow,
+      particleColor: MOODS.morning.particleColor.clone(),
+      shadowTint: MOODS.morning.shadowTint.clone(),
+      rimTint: MOODS.morning.rimTint.clone(),
+      cloudColor: MOODS.morning.cloudColor.clone(),
+      cloudShadow: MOODS.morning.cloudShadow.clone(),
+      cloudCoverage: MOODS.morning.cloudCoverage,
+      grassBaseColor: MOODS.morning.grassBaseColor.clone(),
+      grassTipColor: MOODS.morning.grassTipColor.clone(),
+      sunbeamOpacity: MOODS.morning.sunbeamOpacity,
+      lanternIntensity: MOODS.morning.lanternIntensity,
+    };
     this._colliderGrid = colliderGrid;
     this._gridCell = GRID_CELL;
     this._colSeen = new Set();
@@ -4846,59 +5842,286 @@ class World {
     return { hit, nx: bestNx, nz: bestNz, pen: maxPen, hitType };
   }
 
-  // ---- Tempatkan 18 warga NPC Sylvan di titik-titik cozy dalam lembah ----
+  isInsideVillage(x, z, pad = 0) {
+    const list = this.VILLAGES || [];
+    for (let i = 0; i < list.length; i++) {
+      const v = list[i];
+      if (Math.hypot(x - v.cx, z - v.cz) < (v.radius * 1.95) + pad) return true;
+    }
+    return false;
+  }
+
+  // ---- Kurangi NPC per desa: hanya 4 NPC tiap desa (2 petani, 1 penjual, dan 1 petarung saja) di 5 desa ----
   placeNPCsInWorld(party) {
     this._party = party;
     if (!party || !party.wild) return;
-    const spots = [
-      // Sekitar api unggun & kayu duduk
-      { x: -2.4, z: -1.8, faceX: 0, faceZ: 0 },
-      { x:  2.2, z: -2.1, faceX: 0, faceZ: 0 },
-      { x:  2.5, z:  1.6, faceX: 0, faceZ: 0 },
-      // Dekat papan petunjuk & persimpangan jalan
-      { x: -1.8, z:  3.2, faceX: -5, faceZ: 3.2 },
-      { x: -2.2, z: -5.2, faceX: -5, faceZ: -5.2 },
-      // Tepi kolam BotW
-      { x:  3.6, z:  3.8, faceX: 8.2, faceZ: 6.2 },
-      { x:  4.2, z:  9.8, faceX: 8.2, faceZ: 6.2 },
-      { x: 11.8, z:  2.6, faceX: 8.2, faceZ: 6.2 },
-      { x: 12.6, z:  8.8, faceX: 8.2, faceZ: 6.2 },
-      // Dekat truk pickup merah & pagar kayu
-      { x: -9.8, z:  5.4, faceX: -7.5, faceZ: 7.4 },
-      { x: -9.5, z:  9.6, faceX: -7.5, faceZ: 7.4 },
-      { x: -8.6, z: -2.8, faceX: -5.4, faceZ: -2.8 },
-      { x: -8.8, z: -9.5, faceX: -5.4, faceZ: -9.5 },
-      // Padang bunga & bukit lembah
-      { x:  5.5, z: -4.8, faceX: 0, faceZ: 0 },
-      { x:  8.4, z: -2.2, faceX: 0, faceZ: 0 },
-      { x: -2.5, z: 12.5, faceX: -5.0, faceZ: 12.5 },
-      { x: -8.5, z: 14.2, faceX: -5.0, faceZ: 14.2 },
-      { x:  1.8, z: -11.5, faceX: -5.4, faceZ: -11.5 }
-    ];
+
+    const vd = this.villageData;
+    const villages = (vd && Array.isArray(vd.villages) && vd.villages.length) ? vd.villages : [];
+    if (!villages.length) return;
+
+    // Bersihkan mesh NPC awal dari _spawnSettlements supaya tidak tersisa 18 NPC menumpuk
     for (let i = 0; i < party.wild.length; i++) {
-      const w = party.wild[i];
-      const sp = spots[i % spots.length];
-      const cleared = this.resolveCircleCollision(sp.x, sp.z, 0.42);
-      const sx = cleared.x, sz = cleared.z;
-      const gy = this.terrainHeightAt(sx, sz);
-      const yaw = Math.atan2(sp.faceX - sx, sp.faceZ - sz);
-      w.x = sx; w.z = sz;
-      w.homeX = sx; w.homeZ = sz;
-      if (w.anchor) { w.anchor.x = sx; w.anchor.z = sz; w.anchor.yaw = yaw; }
-      if (w.root) {
-        w.root.position.set(sx, gy, sz);
-        w.root.rotation.y = yaw;
+      const old = party.wild[i];
+      if (!old) continue;
+      if (old._hpBar && typeof old._hpBar.dispose === 'function') { old._hpBar.dispose(); old._hpBar = null; }
+      if (old.root && party.scene && typeof party.scene.remove === 'function') party.scene.remove(old.root);
+    }
+    party.wild.length = 0;
+
+    let slotIdx = 0;
+    for (let vIdx = 0; vIdx < villages.length; vIdx++) {
+      const vRec = villages[vIdx];
+      const st = vRec.stations || {};
+      const bldgs = vRec.buildings || {};
+      const bList = vRec.buildingList || [];
+      const pickPlanter = (idx) => (st.planters && st.planters[idx % st.planters.length]) || st.garden || st.well;
+      const pickBench = (idx) => (st.benches && st.benches[idx % st.benches.length]) || st.well;
+      const pickHome = (prefKey, fallbackIdx = 0) =>
+        bldgs[prefKey] || bList[fallbackIdx % Math.max(1, bList.length)] || null;
+
+      // Tepat 4 warga per desa: 2 petani (farmer, herbal), 1 penjual (merchant/petmerchant), 1 petarung (guard/warrior/hunter/lionknight/rabbitwarrior)
+      const roster = [
+        {
+          roleId: 'farmer',
+          workKind: 'farm',
+          spawn: st.barnYard || st.garden || st.plaza,
+          homeBldg: pickHome('barn', 0),
+          stations: [st.barnYard, st.garden, pickPlanter(0), st.well].filter(Boolean),
+        },
+        {
+          roleId: 'herbal',
+          workKind: 'forage',
+          spawn: pickPlanter(0) || st.garden || st.well,
+          homeBldg: pickHome('cottage_sw', 1),
+          stations: [pickPlanter(0), pickPlanter(1), st.garden, st.well].filter(Boolean),
+        },
+        {
+          roleId: vRec.merchantRole || 'merchant',
+          workKind: 'shop',
+          spawn: st.stallA || st.plaza,
+          homeBldg: pickHome('cottage_nw', 2),
+          stations: [st.stallA, st.stallB, st.noticeBoard, st.well].filter(Boolean),
+        },
+        {
+          roleId: vRec.fighterRole || 'guard',
+          workKind: 'patrol',
+          spawn: st.gateSouth || st.plaza,
+          homeBldg: pickHome('tavern', 3),
+          stations: [st.gateSouth, st.plaza, st.gateNorth, st.tavernPorch, pickBench(0)].filter(Boolean),
+        },
+      ];
+
+      for (let rIdx = 0; rIdx < roster.length; rIdx++) {
+        const cfg = roster[rIdx];
+        const sp0 = cfg.spawn || st.plaza || { x: vRec.cx, z: vRec.cz, faceX: vRec.cx, faceZ: vRec.cz + 1 };
+        const jitterAng = (rIdx * 1.57 + vIdx * 0.85) % (Math.PI * 2);
+        const tryX = sp0.x + Math.cos(jitterAng) * 0.45;
+        const tryZ = sp0.z + Math.sin(jitterAng) * 0.45;
+        const cleared = this.resolveCircleCollision(tryX, tryZ, 0.44);
+        const sx = cleared.x;
+        const sz = cleared.z;
+        const gy = this.terrainHeightAt(sx, sz);
+        const fx = sp0.faceX !== undefined ? sp0.faceX : vRec.cx;
+        const fz = sp0.faceZ !== undefined ? sp0.faceZ : vRec.cz;
+        const yaw = Math.atan2(fx - sx, fz - sz);
+
+        const anchor = {
+          role: cfg.roleId,
+          site: vRec.id,
+          x: sx,
+          z: sz,
+          yaw,
+        };
+
+        let w = null;
+        if (typeof party._spawnFromAnchor === 'function') {
+          w = party._spawnFromAnchor(slotIdx, anchor);
+        } else {
+          const roleObj = (HC.NPC_ROLES || []).find((r) => r.id === cfg.roleId) || { id: cfg.roleId };
+          const root = HC.buildNPC ? HC.buildNPC(roleObj, 'stand') : null;
+          if (root && party.scene && party.scene.add) party.scene.add(root);
+          w = { root, role: roleObj, site: vRec.id, x: sx, z: sz, homeX: sx, homeZ: sz, anchor };
+          party.wild[slotIdx] = w;
+        }
+        slotIdx++;
+        if (!w) continue;
+
+        w.x = sx; w.z = sz;
+        w.homeX = sx; w.homeZ = sz;
+        w.homeRadius = 18.0;
+        w.isIndoors = false;
+        w.site = vRec.id;
+        w.villageProfile = {
+          roleId: cfg.roleId,
+          villageId: vRec.id,
+          villageRef: vRec,
+          homeId: (cfg.homeBldg && cfg.homeBldg.id) || 'tavern',
+          homeBldg: cfg.homeBldg,
+          workKind: cfg.workKind,
+          stations: cfg.stations.length ? cfg.stations : [sp0],
+          canEnterHouse: !!cfg.homeBldg,
+        };
+        if (w.anchor) {
+          w.anchor.x = sx;
+          w.anchor.z = sz;
+          w.anchor.yaw = yaw;
+          w.anchor.role = cfg.roleId;
+          w.anchor.site = vRec.id;
+        }
+        if (w.root) {
+          w.root.visible = true;
+          w.root.position.set(sx, gy, sz);
+          w.root.rotation.y = yaw;
+        }
       }
     }
   }
 
-  // ---- Ganti suasana Hutan Cozy (morning / sunset / night) ----
+  // ---- Siklus siang-malam 10 menit otomatis & helper suasana ----
   setMood(moodKey) {
     if (!this.MOODS[moodKey]) return null;
     this.currentMoodKey = moodKey;
     this.targetMood = this.MOODS[moodKey];
-    if (moodKey === 'night') this.isHeadlightsOn = true;
+    if (moodKey === 'night') {
+      this.timeOfDay = 0.76;
+      this.isHeadlightsOn = true;
+    } else if (moodKey === 'sunset') {
+      this.timeOfDay = 0.51;
+      this.isHeadlightsOn = true;
+    } else {
+      this.timeOfDay = 0.08;
+      this.isHeadlightsOn = false;
+    }
     return this.targetMood;
+  }
+
+  getTimeLabel() {
+    const t = ((this.timeOfDay || 0) % 1 + 1) % 1;
+    // t=0 -> 06:00, t=0.25 -> 12:00, t=0.5 -> 18:00, t=0.75 -> 00:00
+    const totalMin = Math.floor(((t * 24 + 6) % 24) * 60);
+    const hh = String(Math.floor(totalMin / 60)).padStart(2, '0');
+    const mm = String(totalMin % 60).padStart(2, '0');
+    const phase = this.currentMoodKey === 'night' ? 'Malam' : (this.currentMoodKey === 'sunset' ? 'Senja' : 'Siang');
+    return `${hh}:${mm} • ${phase}`;
+  }
+
+  _blendMoodTarget(a, b, alpha) {
+    const ct = this._cycleTarget;
+    if (!ct || !a || !b) return;
+    const w = Math.max(0, Math.min(1, alpha));
+    ct.bgTop.copy(a.bgTop).lerp(b.bgTop, w);
+    ct.bgBottom.copy(a.bgBottom).lerp(b.bgBottom, w);
+    ct.sunColor.copy(a.sunColor).lerp(b.sunColor, w);
+    ct.sunIntensity = THREE.MathUtils.lerp(a.sunIntensity, b.sunIntensity, w);
+    ct.sunPos.copy(a.sunPos).lerp(b.sunPos, w);
+    ct.hemiSky.copy(a.hemiSky).lerp(b.hemiSky, w);
+    ct.hemiGround.copy(a.hemiGround).lerp(b.hemiGround, w);
+    ct.hemiIntensity = THREE.MathUtils.lerp(a.hemiIntensity, b.hemiIntensity, w);
+    ct.sceneBrightness = THREE.MathUtils.lerp(a.sceneBrightness, b.sceneBrightness, w);
+    ct.mushroomGlow = THREE.MathUtils.lerp(a.mushroomGlow, b.mushroomGlow, w);
+    ct.particleColor.copy(a.particleColor).lerp(b.particleColor, w);
+    ct.shadowTint.copy(a.shadowTint).lerp(b.shadowTint, w);
+    ct.rimTint.copy(a.rimTint).lerp(b.rimTint, w);
+    ct.cloudColor.copy(a.cloudColor).lerp(b.cloudColor, w);
+    ct.cloudShadow.copy(a.cloudShadow).lerp(b.cloudShadow, w);
+    ct.cloudCoverage = THREE.MathUtils.lerp(a.cloudCoverage, b.cloudCoverage, w);
+    ct.grassBaseColor.copy(a.grassBaseColor).lerp(b.grassBaseColor, w);
+    ct.grassTipColor.copy(a.grassTipColor).lerp(b.grassTipColor, w);
+    ct.sunbeamOpacity = THREE.MathUtils.lerp(a.sunbeamOpacity, b.sunbeamOpacity, w);
+    ct.lanternIntensity = THREE.MathUtils.lerp(a.lanternIntensity, b.lanternIntensity, w);
+  }
+
+  _updateDayNightCycle(delta) {
+    if (!this.cycleEnabled || !this.cycleDuration) return;
+    this.timeOfDay = (this.timeOfDay + delta / this.cycleDuration) % 1.0;
+    const t = this.timeOfDay;
+    const { morning, sunset, night } = this.MOODS;
+    const sm = (a, b, x) => {
+      const u = Math.max(0, Math.min(1, (x - a) / (b - a)));
+      return u * u * (3 - 2 * u);
+    };
+
+    if (t < 0.06) {
+      this._blendMoodTarget(sunset, morning, sm(0.0, 0.06, t));
+    } else if (t < 0.44) {
+      this._blendMoodTarget(morning, morning, 1.0);
+      // Busur matahari lembut sepanjang siang
+      const dayU = (t - 0.06) / 0.38;
+      const arcAng = (dayU - 0.5) * Math.PI * 0.72;
+      this._cycleTarget.sunPos.set(Math.sin(-arcAng) * 28, 24 + Math.cos(arcAng) * 11, 16 - dayU * 14);
+    } else if (t < 0.54) {
+      this._blendMoodTarget(morning, sunset, sm(0.44, 0.54, t));
+    } else if (t < 0.62) {
+      this._blendMoodTarget(sunset, night, sm(0.54, 0.62, t));
+    } else if (t < 0.91) {
+      this._blendMoodTarget(night, night, 1.0);
+    } else {
+      this._blendMoodTarget(night, sunset, sm(0.91, 1.0, t));
+    }
+
+    this.targetMood = this._cycleTarget;
+    this.currentMoodKey = (t >= 0.58 && t < 0.93)
+      ? 'night'
+      : ((t >= 0.45 && t < 0.58) || t >= 0.93 || t < 0.04) ? 'sunset' : 'morning';
+    this.isHeadlightsOn = (t >= 0.48 && t <= 0.95);
+    this.isSunbeamsEnabled = (t < 0.58 || t > 0.92);
+    if (this.sunbeamsGroup) this.sunbeamsGroup.visible = this.isSunbeamsEnabled;
+  }
+
+  _updateStreamingGrass(horseX, horseZ) {
+    const tiles = this._grassTiles;
+    const ts = this._grassTileSize || 15.0;
+    const R = this._grassGridRadius || 4;
+    if (!tiles || !tiles.length || typeof this._populateGrassTile !== 'function') return;
+
+    const ptx = Math.floor(horseX / ts);
+    const ptz = Math.floor(horseZ / ts);
+    if (ptx === this._lastGrassTileX && ptz === this._lastGrassTileZ && !this._grassPendingSync) return;
+
+    const occupied = new Set();
+    const stale = [];
+    for (let i = 0; i < tiles.length; i++) {
+      const tl = tiles[i];
+      if (Math.abs(tl.tx - ptx) <= R && Math.abs(tl.tz - ptz) <= R) {
+        occupied.add(tl.tx + ',' + tl.tz);
+      } else {
+        stale.push(tl);
+      }
+    }
+
+    if (!stale.length) {
+      this._lastGrassTileX = ptx;
+      this._lastGrassTileZ = ptz;
+      this._grassPendingSync = false;
+      return;
+    }
+
+    const needed = [];
+    for (let dz = -R; dz <= R; dz++) {
+      for (let dx = -R; dx <= R; dx++) {
+        const tx = ptx + dx;
+        const tz = ptz + dz;
+        const key = tx + ',' + tz;
+        if (!occupied.has(key)) {
+          needed.push({ tx, tz, d2: dx * dx + dz * dz });
+        }
+      }
+    }
+    needed.sort((a, b) => a.d2 - b.d2);
+
+    const budget = Math.min(stale.length, needed.length, 4);
+    for (let i = 0; i < budget; i++) {
+      this._populateGrassTile(stale[i], needed[i].tx, needed[i].tz);
+    }
+
+    if (needed.length <= budget) {
+      this._lastGrassTileX = ptx;
+      this._lastGrassTileZ = ptz;
+      this._grassPendingSync = false;
+    } else {
+      this._grassPendingSync = true;
+    }
   }
 
   toggleCampfire(forceState) {
@@ -4936,7 +6159,7 @@ class World {
       const sc = this.dirLight.shadow.camera;
       sc.left = -area; sc.right = area; sc.top = area; sc.bottom = -area;
       sc.updateProjectionMatrix();
-      if (this.dirLight.shadow.mapSize.x !== quality.shadowMapSize) {
+      if (quality.shadowMapSize > 0 && this.dirLight.shadow.mapSize.x !== quality.shadowMapSize) {
         this.dirLight.shadow.mapSize.set(quality.shadowMapSize, quality.shadowMapSize);
         if (this.dirLight.shadow.map) {
           this.dirLight.shadow.map.dispose();
@@ -5081,6 +6304,7 @@ class World {
 
     const targets = [
       this.pondMesh, this.campfireGroup,
+      ...(this.riverMesh ? [this.riverMesh] : []),
       ...this.interactiveMushrooms, ...this.interactiveBushes, ...this.interactiveTrees
     ];
     const intersects = this._raycaster.intersectObjects(targets, true);
@@ -5095,6 +6319,13 @@ class World {
       this.spawnBurst(new THREE.Vector3(hitPoint.x, this.POND_WATER_Y + 0.12, hitPoint.z), 0xa5f3fc, 12, true, false);
       this.spawnBurst(new THREE.Vector3(hitPoint.x, this.POND_WATER_Y + 0.18, hitPoint.z), 0xffffff, 6, true, false);
       return 'Cipratan air & riak kolam BotW!';
+    }
+    if (obj.userData.type === 'river') {
+      this.triggerRiverRipple(hitPoint.x, hitPoint.z);
+      const wy = this.RIVER ? this.RIVER.waterY : -0.22;
+      this.spawnBurst(new THREE.Vector3(hitPoint.x, wy + 0.12, hitPoint.z), 0xa5f3fc, 12, true, false);
+      this.spawnBurst(new THREE.Vector3(hitPoint.x, wy + 0.18, hitPoint.z), 0xffffff, 6, true, false);
+      return 'Cipratan air & riak sungai jernih!';
     }
     if (obj.userData.type === 'campfire') {
       if (!this.isCampfireLit) {
@@ -5138,16 +6369,134 @@ class World {
   }
 
   isOnRoad(x, z) {
-    return false;
+    return !!(this._getRoadDistance && this._getRoadDistance(x, z) < 2.35);
   }
 
-  riverDistX(x, z) {
-    return 9.0;
+  waterEdgeDistance(x, z = 0) {
+    let best = Infinity;
+    if (this._riverCenterZ && this._riverHalfWidthAt) {
+      const rEdge = Math.abs(z - this._riverCenterZ(x)) - this._riverHalfWidthAt(x);
+      if (rEdge < best) best = rEdge;
+    }
+    if (this.POND_CENTER) {
+      const pEdge = Math.hypot(x - this.POND_CENTER.x, z - this.POND_CENTER.z) - this.POND_CENTER.radius;
+      if (pEdge < best) best = pEdge;
+    }
+    return best;
+  }
+
+  isAtWater(x, z) {
+    if (this.waterDepthAt(x, z) > 0.01) return true;
+    return this.waterEdgeDistance(x, z) <= 0.70;
+  }
+
+  isOnGrass(x, z) {
+    if (this.isOnRoad(x, z)) return false;
+    if (this.isAtWater(x, z)) return false;
+    if (Math.hypot(x, z) < 2.35) return false;
+    const vs = this.VILLAGES || [];
+    for (let i = 0; i < vs.length; i++) {
+      const v = vs[i];
+      const nx = v.fz || 0, nz = -(v.fx || 1);
+      if (Math.hypot(x - (v.cx + nx * 5.8), z - (v.cz + nz * 5.8)) < 6.5) return false;
+      if (Math.hypot(x - v.cx, z - v.cz) < 3.4) return false;
+    }
+    return true;
+  }
+
+  riverDistX(x, z = 0) {
+    return Math.max(0, this.waterEdgeDistance(x, z));
+  }
+
+  waterDepthAt(x, z) {
+    let maxD = 0;
+    const gy = this._getTerrainHeight(x, z);
+    if (this._riverCenterZ && this._riverHalfWidthAt && this.RIVER) {
+      const rDist = Math.abs(z - this._riverCenterZ(x));
+      if (rDist < this._riverHalfWidthAt(x) + 1.8) {
+        const rd = this.RIVER.waterY - gy;
+        if (rd > maxD) maxD = rd;
+      }
+    }
+    const pd = Math.hypot(x - this.POND_CENTER.x, z - this.POND_CENTER.z);
+    if (pd < this.POND_CENTER.radius + 0.8) {
+      const pDepth = this.POND_WATER_Y - gy;
+      if (pDepth > maxD) maxD = pDepth;
+    }
+    return maxD;
   }
 
   triggerPondRipple(x, z) {
     this.pondUniforms.uRippleOrigin.value.set(x, this.POND_WATER_Y, z);
     this.pondUniforms.uRippleTime.value = this.elapsed;
+  }
+
+  triggerRiverRipple(x, z, strength = 1.0) {
+    if (!this.riverUniforms) return;
+    const wy = this.RIVER ? this.RIVER.waterY : -0.22;
+    this.riverUniforms.uRippleOrigin.value.set(x, wy, z);
+    this.riverUniforms.uRippleTime.value = this.elapsed;
+    if (this.riverUniforms.uRipples && Array.isArray(this.riverUniforms.uRipples.value)) {
+      const slots = this.riverUniforms.uRipples.value;
+      const idx = (this._riverRippleSlot || 0) % slots.length;
+      slots[idx].set(x, z, this.elapsed, Math.max(0.25, Math.min(1.6, strength)));
+      this._riverRippleSlot = idx + 1;
+    }
+  }
+
+  spawnWaterSplash(x, y, z, intensity = 1.0, vx = 0, vz = 0) {
+    const count = Math.min(18, Math.max(3, Math.round(5 * intensity)));
+    const capRoom = Math.max(0, 64 - this.burstParticles.length);
+    const n = Math.min(count, capRoom);
+    for (let i = 0; i < n; i++) {
+      const isFoam = i % 3 === 0;
+      const mat = new THREE.MeshBasicMaterial({
+        color: isFoam ? 0xeefcff : 0x7ce8f5,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: isFoam ? 0.92 : 0.78,
+      });
+      const mesh = new THREE.Mesh(this._sharedSparkBurstGeo, mat);
+      const ang = Math.random() * Math.PI * 2;
+      const spread = (0.12 + Math.random() * 0.24) * Math.min(1.8, intensity);
+      mesh.position.set(x + Math.cos(ang) * spread, y + 0.04, z + Math.sin(ang) * spread);
+      const sc = (isFoam ? 1.15 : 0.85) * (0.75 + Math.random() * 0.55) * Math.min(1.4, Math.sqrt(intensity));
+      mesh.scale.setScalar(sc);
+      this.scene.add(mesh);
+      const outSpd = (0.7 + Math.random() * 1.45) * Math.min(1.7, intensity);
+      this.burstParticles.push({
+        mesh,
+        vel: new THREE.Vector3(
+          Math.cos(ang) * outSpd + vx * 0.22,
+          (1.45 + Math.random() * 1.95) * Math.min(1.65, Math.sqrt(intensity)),
+          Math.sin(ang) * outSpd + vz * 0.22
+        ),
+        gravity: 9.6,
+        life: 0.72 + Math.random() * 0.26,
+      });
+    }
+    if (this._isAudioPlaying && this._audioCtx && (this.elapsed - this._lastWaterSfxAt) > 0.16) {
+      this._lastWaterSfxAt = this.elapsed;
+      try {
+        const ac = this._audioCtx;
+        const now = ac.currentTime;
+        const len = Math.floor(ac.sampleRate * 0.11);
+        const buf = ac.createBuffer(1, len, ac.sampleRate);
+        const ch = buf.getChannelData(0);
+        for (let i = 0; i < len; i++) ch[i] = (Math.random() * 2 - 1) * (1 - i / len);
+        const src = ac.createBufferSource();
+        src.buffer = buf;
+        const bp = ac.createBiquadFilter();
+        bp.type = 'bandpass';
+        bp.frequency.setValueAtTime(680 + intensity * 260, now);
+        bp.Q.value = 1.1;
+        const g = ac.createGain();
+        g.gain.setValueAtTime(Math.min(0.08, 0.032 * intensity), now);
+        g.gain.exponentialRampToValueAtTime(0.0001, now + 0.11);
+        src.connect(bp); bp.connect(g); g.connect(ac.destination);
+        src.start(now);
+      } catch (e) { /* no-op */ }
+    }
   }
 
   _rampHeight(x, z) {
@@ -5218,23 +6567,81 @@ class World {
     return bestRock ? { hit: true, y: bestY, nx: bestNx, ny: bestNy, nz: bestNz, rock: bestRock } : { hit: false, y: -Infinity, nx: 0, ny: 1, nz: 0, rock: null };
   }
 
+  sampleLogSurface(x, z) {
+    const logs = this.traversableLogs;
+    if (!logs || !logs.length) return { hit: false, y: -Infinity, nx: 0, ny: 1, nz: 0 };
+    let bestY = -Infinity, bestNx = 0, bestNy = 1, bestNz = 0, hit = false;
+    for (let i = 0; i < logs.length; i++) {
+      const lg = logs[i];
+      const ax = lg.x2 - lg.x1, az = lg.z2 - lg.z1;
+      const len2 = ax * ax + az * az;
+      if (len2 < 1e-6) continue;
+      const t = Math.max(0, Math.min(1, ((x - lg.x1) * ax + (z - lg.z1) * az) / len2));
+      const cx = lg.x1 + ax * t;
+      const cz = lg.z1 + az * t;
+      const px = x - cx, pz = z - cz;
+      const d = Math.hypot(px, pz);
+      const r = lg.radius;
+      const skirt = r + 0.16;
+      if (d <= r) {
+        const yTop = lg.cy + Math.sqrt(Math.max(0, r * r - d * d));
+        if (yTop > bestY) {
+          bestY = yTop;
+          const invR = 1 / Math.max(r, 1e-4);
+          bestNx = px * invR;
+          bestNz = pz * invR;
+          bestNy = Math.max(0.22, Math.sqrt(Math.max(0, r * r - d * d)) * invR);
+          hit = true;
+        }
+      } else if (d < skirt) {
+        const u = 1 - (d - r) / (skirt - r);
+        const sm = u * u * (3 - 2 * u);
+        const groundY = this._getTerrainHeight(x, z);
+        const rampY = groundY + (lg.cy - groundY) * sm;
+        if (rampY > bestY) {
+          bestY = rampY;
+          const dirX = d > 1e-5 ? px / d : 0;
+          const dirZ = d > 1e-5 ? pz / d : 0;
+          bestNx = dirX * 0.45;
+          bestNz = dirZ * 0.45;
+          bestNy = 0.89;
+          hit = true;
+        }
+      }
+    }
+    return { hit, y: bestY, nx: bestNx, ny: bestNy, nz: bestNz };
+  }
+
   heightAt(x, z) {
-    const base = this._getTerrainHeight(x, z) + this._rampHeight(x, z);
+    let h = this._getTerrainHeight(x, z) + this._rampHeight(x, z);
     const rk = this.sampleRockSurface(x, z);
-    return rk.hit ? Math.max(base, rk.y) : base;
+    if (rk.hit && rk.y > h) h = rk.y;
+    const lg = this.sampleLogSurface(x, z);
+    if (lg.hit && lg.y > h) h = lg.y;
+    return h;
   }
 
   wheelHeightAt(x, z, wheelRadius = 0.55) {
     let h = this._getTerrainHeight(x, z) + this._rampHeight(x, z) + this._pebbleHeight(x, z, wheelRadius);
     const rkC = this.sampleRockSurface(x, z);
     if (rkC.hit && rkC.y > h) h = rkC.y;
-    const off = wheelRadius * 0.22;
-    if (this.rockMeshes && this.rockMeshes.length) {
+    const lgC = this.sampleLogSurface(x, z);
+    if (lgC.hit && lgC.y > h) h = lgC.y;
+    const off = wheelRadius * 0.24;
+    const hasRocks = !!(this.rockMeshes && this.rockMeshes.length);
+    const hasLogs = !!(this.traversableLogs && this.traversableLogs.length);
+    if (hasRocks || hasLogs) {
       for (let i = 0; i < 4; i++) {
         const sx = i === 0 ? x + off : i === 1 ? x - off : x;
         const sz = i === 2 ? z + off : i === 3 ? z - off : z;
-        const rks = this.sampleRockSurface(sx, sz);
-        if (rks.hit && rks.y - 0.02 > h) h = rks.y - 0.02;
+        if (hasRocks) {
+          const rks = this.sampleRockSurface(sx, sz);
+          if (rks.hit && rks.y - 0.02 > h) h = rks.y - 0.02;
+        }
+        if (hasLogs) {
+          const lgs = this.sampleLogSurface(sx, sz);
+          if (lgs.hit && lgs.y - 0.02 > h) h = lgs.y - 0.02;
+        }
       }
     }
     return h;
@@ -5243,8 +6650,13 @@ class World {
   normalAt(x, z, outVec) {
     const base = this._getTerrainHeight(x, z) + this._rampHeight(x, z);
     const rk = this.sampleRockSurface(x, z);
-    const n = (rk.hit && rk.y > base + 0.01)
-      ? (this._tmpRockN || (this._tmpRockN = new THREE.Vector3())).set(rk.nx, rk.ny, rk.nz)
+    const lg = this.sampleLogSurface(x, z);
+    let bestY = base;
+    let src = null;
+    if (rk.hit && rk.y > bestY + 0.01) { bestY = rk.y; src = rk; }
+    if (lg.hit && lg.y > bestY + 0.01) { bestY = lg.y; src = lg; }
+    const n = src
+      ? (this._tmpRockN || (this._tmpRockN = new THREE.Vector3())).set(src.nx, src.ny, src.nz)
       : this._getTerrainNormal(x, z);
     if (outVec) return outVec.copy(n);
     return n;
@@ -5314,9 +6726,10 @@ class World {
     this._syncPebbles();
   }
 
-  setCartPose(cx, cz) {
+  setCartPose(cx, cz, cyaw = null) {
     this.cartX = cx;
     this.cartZ = cz;
+    if (Number.isFinite(cyaw)) this.cartYaw = cyaw;
   }
 
   /* --------------------------------------------------------------------------
@@ -5542,6 +6955,11 @@ class World {
 
     for (let i = 0; i < this.grassChunks.length; i++) {
       const gChunk = this.grassChunks[i];
+      if (!gChunk.userData.maxCount) {
+        gChunk.visible = false;
+        gChunk.count = 0;
+        continue;
+      }
       const sphere = gChunk.userData.boundingSphere;
       const dist = camPos.distanceTo(sphere.center);
       if (dist - sphere.radius > prof.cullDistance || !this._cameraFrustum.intersectsSphere(sphere)) {
@@ -5608,6 +7026,10 @@ class World {
     this.elapsed += delta;
     const elapsed = this.elapsed;
     this.frameCounter++;
+
+    // Streaming rumput rimbun 15x15m mengikuti posisi pemain + siklus 10 menit otomatis
+    this._updateStreamingGrass(horseX, horseZ);
+    this._updateDayNightCycle(delta);
 
     // Bayangan mode 'static' (HP menengah): peta bayangan digambar ulang tiap
     // 5 frame, bukan tiap frame. Gerak lambat tetap dapat bayangan, biaya turun.
@@ -5828,10 +7250,166 @@ class World {
       }
     }
 
-    // Riak air otomatis bila kuda masuk ke tepi/dalam kolam
+    // Riak air otomatis & partikel cipratan saat kuda atau gerobak masuk ke kolam/sungai
+    const hVelX = (horseX - (this._prevHorseX ?? horseX)) / Math.max(0.008, delta);
+    const hVelZ = (horseZ - (this._prevHorseZ ?? horseZ)) / Math.max(0.008, delta);
+    const hSpeed = Math.hypot(hVelX, hVelZ);
+    this._prevHorseX = horseX;
+    this._prevHorseZ = horseZ;
+
+    const horseDepth = this.waterDepthAt(horseX, horseZ);
+    const horseInAir = !!this._horseJumpActive;
+    const horseJustLanded = !horseInAir && this._wasHorseInAir;
+    this._wasHorseInAir = horseInAir;
+
     const dPond = Math.hypot(horseX - this.POND_CENTER.x, horseZ - this.POND_CENTER.z);
-    if (dPond < this.POND_CENTER.radius + 0.3 && (elapsed - this.pondUniforms.uRippleTime.value) > 0.65) {
-      this.triggerPondRipple(horseX, horseZ);
+    if (dPond < this.POND_CENTER.radius + 0.45 && horseDepth > 0.02 && !horseInAir) {
+      if (horseJustLanded) {
+        this.triggerPondRipple(horseX, horseZ);
+        this.spawnWaterSplash(horseX, this.POND_WATER_Y, horseZ, 1.85, hVelX, hVelZ);
+      } else if ((elapsed - this.pondUniforms.uRippleTime.value) > 0.35 && hSpeed > 0.25) {
+        this.triggerPondRipple(horseX, horseZ);
+        this.spawnWaterSplash(horseX, this.POND_WATER_Y, horseZ, 0.75 + Math.min(0.9, hSpeed / 5.5), hVelX, hVelZ);
+      }
+    }
+
+    if (this.riverUniforms && this.RIVER) {
+      const wy = this.RIVER.waterY;
+      if (horseDepth > 0.03 && dPond > this.POND_CENTER.radius + 1.0 && !horseInAir) {
+        if (horseJustLanded) {
+          this.triggerRiverRipple(horseX, horseZ, 1.5);
+          this.spawnWaterSplash(horseX, wy, horseZ, 2.0, hVelX, hVelZ);
+          this._lastRiverRippleAt = elapsed;
+          this._lastHoofSplashAt = elapsed;
+        } else {
+          if (hSpeed > 0.25 && (elapsed - this._lastRiverRippleAt) > 0.26) {
+            this._lastRiverRippleAt = elapsed;
+            this.triggerRiverRipple(horseX, horseZ, 0.62 + Math.min(0.68, hSpeed / 5.2));
+          }
+          if (hSpeed > 0.35 && (elapsed - this._lastHoofSplashAt) > 0.11) {
+            this._lastHoofSplashAt = elapsed;
+            const sideSign = (this.frameCounter % 2 === 0) ? 1 : -1;
+            const cosY = Math.cos(horseYaw), sinY = Math.sin(horseYaw);
+            const sx = horseX + cosY * 0.42 - sinY * sideSign * 0.24;
+            const sz = horseZ - sinY * 0.42 - cosY * sideSign * 0.24;
+            this.spawnWaterSplash(sx, wy, sz, 0.65 + Math.min(1.0, hSpeed / 4.5), hVelX, hVelZ);
+          }
+        }
+      }
+
+      if (Number.isFinite(this.cartX) && Number.isFinite(this.cartZ)) {
+        const cVelX = (this.cartX - (this._prevCartX ?? this.cartX)) / Math.max(0.008, delta);
+        const cVelZ = (this.cartZ - (this._prevCartZ ?? this.cartZ)) / Math.max(0.008, delta);
+        const cSpeed = Math.hypot(cVelX, cVelZ);
+        this._prevCartX = this.cartX;
+        this._prevCartZ = this.cartZ;
+        const cartDepth = this.waterDepthAt(this.cartX, this.cartZ);
+        if (cartDepth > 0.04 && cSpeed > 0.25 && (elapsed - this._lastCartWakeAt) > 0.30) {
+          this._lastCartWakeAt = elapsed;
+          const cy = this.cartYaw || 0;
+          const lx = -Math.sin(cy), lz = -Math.cos(cy);
+          const wxL = this.cartX + lx * 1.05, wzL = this.cartZ + lz * 1.05;
+          const wxR = this.cartX - lx * 1.05, wzR = this.cartZ - lz * 1.05;
+          const str = 0.48 + Math.min(0.55, cSpeed / 5.5);
+          this.triggerRiverRipple(wxL, wzL, str);
+          this.triggerRiverRipple(wxR, wzR, str);
+          this.spawnWaterSplash(wxL, wy, wzL, 0.55 * str, cVelX, cVelZ);
+          this.spawnWaterSplash(wxR, wy, wzR, 0.55 * str, cVelX, cVelZ);
+        }
+      }
+    }
+
+    // Daun teratai & ilalang tepi sungai
+    if (this.riverAnimated) {
+      const rRiverAge = this.riverUniforms ? (elapsed - this.riverUniforms.uRippleTime.value) : 99;
+      const rOrg = this.riverUniforms ? this.riverUniforms.uRippleOrigin.value : null;
+      if (this.riverAnimated.lilyPads) {
+        for (let i = 0; i < this.riverAnimated.lilyPads.length; i++) {
+          const lp = this.riverAnimated.lilyPads[i];
+          const ud = lp.userData;
+          let rSplash = 0;
+          if (rOrg && rRiverAge >= 0 && rRiverAge < 3.0) {
+            const dR = Math.hypot(ud.baseX - rOrg.x, ud.baseZ - rOrg.z);
+            rSplash = Math.sin((dR - rRiverAge * 2.6) * 10.0) * Math.max(0, 1.0 - rRiverAge / 3.0) * 0.04;
+          }
+          lp.position.y = ud.baseY + Math.sin(elapsed * 2.0 + ud.phase) * 0.015 + rSplash;
+          lp.rotation.z = Math.sin(elapsed * 1.6 + ud.phase) * 0.05;
+          lp.rotation.x = Math.cos(elapsed * 1.4 + ud.phase) * 0.05;
+        }
+      }
+      if (this.riverAnimated.reeds) {
+        for (let i = 0; i < this.riverAnimated.reeds.length; i++) {
+          const reed = this.riverAnimated.reeds[i];
+          const ud = reed.userData;
+          const amp = (ud.swayAmp || 0.05) * windFactor;
+          reed.rotation.z = Math.sin(elapsed * 1.6 + ud.phase) * amp;
+          reed.rotation.x = Math.cos(elapsed * 1.2 + ud.phase * 0.7) * amp * 0.6;
+        }
+      }
+    }
+
+    // Animasi halus Desa Lemnos (asap cerobong, papan ayun, bara pandai besi, air sumur)
+    if (this.villageAnimated) {
+      const va = this.villageAnimated;
+      for (let i = 0; i < va.smokePuffs.length; i++) {
+        const sp = va.smokePuffs[i];
+        const ud = sp.userData;
+        if (!ud) continue;
+        const cycle = (elapsed * (ud.speed || 0.28) + (ud.phase || 0)) % 1.0;
+        const maxRise = ud.maxRise || 2.1;
+        sp.position.y = ud.baseY + cycle * maxRise;
+        sp.position.x = ud.baseX + Math.sin(elapsed * 0.9 + ud.phase) * 0.14 * cycle + cycle * 0.35 * windFactor;
+        sp.position.z = ud.baseZ + Math.cos(elapsed * 0.8 + ud.phase) * 0.12 * cycle;
+        const sc = (ud.baseScale || 0.32) * (0.55 + cycle * 1.25);
+        sp.scale.setScalar(sc);
+      }
+      for (let i = 0; i < va.signPivots.length; i++) {
+        const piv = va.signPivots[i];
+        const ud = piv.userData || {};
+        const angle = Math.sin(elapsed * (ud.speed || 1.35) + (ud.phase || i)) * (ud.maxAngle || 0.12) * Math.min(1.5, windFactor);
+        if (ud.axis === 'x') piv.rotation.x = angle;
+        else piv.rotation.z = angle;
+      }
+      for (let i = 0; i < va.embers.length; i++) {
+        const eb = va.embers[i];
+        if (!eb) continue;
+        const pulse = 0.86 + 0.18 * Math.sin(elapsed * 7.5 + i * 2.1) + 0.10 * Math.cos(elapsed * 13.0 + i);
+        if (eb.glowSprite) {
+          const bs = eb.baseScale || 1.55;
+          eb.glowSprite.scale.set(bs * pulse, bs * pulse, 1.0);
+          if (eb.glowSprite.material) eb.glowSprite.material.opacity = Math.min(0.95, 0.62 * pulse);
+        }
+        if (Array.isArray(eb.meshes)) {
+          for (let j = 0; j < eb.meshes.length; j++) {
+            const m = eb.meshes[j];
+            if (m && m.material && m.material.emissiveIntensity !== undefined) {
+              const baseI = (m.userData && m.userData.baseIntensity) || 1.2;
+              m.material.emissiveIntensity = baseI * (0.82 + 0.24 * Math.sin(elapsed * 6.5 + ((m.userData && m.userData.phase) || j)));
+            }
+          }
+        }
+      }
+      for (let i = 0; i < va.wellWaters.length; i++) {
+        const ww = va.wellWaters[i];
+        if (ww) ww.rotation.y = elapsed * 0.14;
+      }
+      for (let i = 0; i < va.bucketPivots.length; i++) {
+        const bp = va.bucketPivots[i];
+        if (bp) bp.rotation.z = Math.sin(elapsed * 1.1 + i) * 0.04 * windFactor;
+      }
+    }
+
+    // Animasi ayunan pintu berengsel saat warga desa keluar / masuk rumah
+    if (this.villageData && Array.isArray(this.villageData.buildingList)) {
+      const doorRate = Math.min(1, delta * 5.2);
+      const list = this.villageData.buildingList;
+      for (let i = 0; i < list.length; i++) {
+        const b = list[i];
+        b.doorOpenAmt += ((b.doorTarget || 0) - b.doorOpenAmt) * doorRate;
+        const swing = b.doorOpenAmt * 1.26;
+        if (b.doorPivot) b.doorPivot.rotation.y = -swing;
+        if (b.doorPivotR) b.doorPivotR.rotation.y = swing;
+      }
     }
 
     // Daun teratai & ikan koi berenang di kolam BotW

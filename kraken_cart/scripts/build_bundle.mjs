@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -117,11 +118,38 @@ function buildForestConsumer(relPath) {
   return wrapIIFE(relPath, src);
 }
 
+function buildModelModule(relPath, assignVar) {
+  let src = read(relPath);
+  src = mustReplace(src, /^\s*import\s*\{\s*HC\s*\}\s*from\s*'\.\.\/hc\.js';\s*\r?\n/m, '', `${relPath} (HC import)`);
+  const idx = src.lastIndexOf('export {');
+  if (idx < 0) throw new Error(`export { not found in ${relPath}`);
+  src = src.slice(0, idx) + 'return {' + src.slice(idx + 'export {'.length);
+  return wrapIIFE(relPath, src, assignVar);
+}
+
 function buildWorld() {
   let src = read('js/world.js');
   src = mustReplace(src, /^\s*import\s*\{\s*HC\s*\}\s*from\s*'\.\/hc\.js';\s*\r?\n/m, '', 'js/world.js (HC)');
   src = mustReplace(src, /^\s*import\s*'\.\/voxel\.js';\s*\r?\n/m, '', 'js/world.js (voxel)');
   src = mustReplace(src, /^\s*import\s+MAP\s+from\s*'\.\/map\.js';\s*\r?\n/m, 'const MAP = __MOD_MAP;\n', 'js/world.js (MAP)');
+  src = mustReplace(
+    src,
+    /^\s*import\s*\{([\s\S]*?)\}\s*from\s*'\.\/models\/village_buildings\.js';\s*\r?\n/m,
+    'const {$1} = __MOD_VILLAGE_BLDG;\n',
+    'js/world.js (village_buildings)'
+  );
+  src = mustReplace(
+    src,
+    /^\s*import\s*\{([\s\S]*?)\}\s*from\s*'\.\/models\/village_props\.js';\s*\r?\n/m,
+    'const {$1} = __MOD_VILLAGE_PROPS;\n',
+    'js/world.js (village_props)'
+  );
+  src = mustReplace(
+    src,
+    /^\s*import\s*\{([\s\S]*?)\}\s*from\s*'\.\/models\/river_assets\.js';\s*\r?\n/m,
+    'const {$1} = __MOD_RIVER_ASSETS;\n',
+    'js/world.js (river_assets)'
+  );
   return wrapIIFE('js/world.js', src);
 }
 
@@ -137,6 +165,18 @@ function buildSylvanModels() {
     .replace(/^\s*import\s+['"][^'"]+['"];?\s*\r?\n/gm, '')
     .replace(/^\s*import\s*\{\s*HC\s*\}\s*from\s*'\.\.\/hc\.js';\s*\r?\n/m, '');
   return wrapIIFE('js/sylvan/models.js', src);
+}
+
+function buildMobs() {
+  let src = read('js/mobs.js');
+  src = mustReplace(src, /^\s*import\s*\{\s*HC\s*\}\s*from\s*'\.\/hc\.js';\s*\r?\n/m, '', 'js/mobs.js (HC)');
+  src = mustReplace(
+    src,
+    /^\s*import\s*\{([\s\S]*?)\}\s*from\s*'\.\/models\/bandit_models\.js';\s*\r?\n/m,
+    'const {$1} = __MOD_BANDIT_MODELS;\n',
+    'js/mobs.js (bandit_models)'
+  );
+  return wrapIIFE('js/mobs.js', src);
 }
 
 function buildUpgrades() {
@@ -174,6 +214,21 @@ function buildTouchControls() {
   return wrapIIFE('js/touch_controls.js', src, '__MOD_TOUCH');
 }
 
+function buildQuests() {
+  let src = read('js/quests.js');
+  src = src.replace(/^\s*export\s*\{[^}]*\};\s*\r?\n?/gm, '');
+  src = src.replace(/\bexport\s+(class|const|function)\s+/g, '$1 ');
+  src += '\nreturn { DeliveryQuestSystem, GOODS_POOL };\n';
+  return wrapIIFE('js/quests.js', src, '__MOD_QUESTS');
+}
+
+function buildMinimap() {
+  let src = read('js/minimap.js');
+  src = src.replace(/\bexport\s+(class|const|function)\s+/g, '$1 ');
+  src += '\nreturn { MapUI };\n';
+  return wrapIIFE('js/minimap.js', src, '__MOD_MINIMAP');
+}
+
 function buildPerf() {
   let src = read('js/perf.js');
   src = src.replace(/\bexport\s+(const|class|function)\s+/g, '$1 ');
@@ -193,6 +248,8 @@ function buildMain() {
       'const { UpgradeStore } = __MOD_UPGRADES;',
       'const { initUpgradeUI } = __MOD_UI;',
       'const { Survival } = __MOD_SURVIVAL;',
+      'const { DeliveryQuestSystem } = __MOD_QUESTS;',
+      'const { MapUI } = __MOD_MINIMAP;',
       'const { initTouchControls } = __MOD_TOUCH;',
       ''
     ].join('\n'),
@@ -222,6 +279,9 @@ const chunks = [
   buildSideEffectModule('js/voxel.js'),
   buildSideEffectModule('js/horse.js'),
   buildSideEffectModule('js/cart.js'),
+  buildModelModule('js/models/village_buildings.js', '__MOD_VILLAGE_BLDG'),
+  buildModelModule('js/models/village_props.js', '__MOD_VILLAGE_PROPS'),
+  buildModelModule('js/models/river_assets.js', '__MOD_RIVER_ASSETS'),
   buildWorld(),
   buildSideEffectModule('js/physics.js'),
   buildSideEffectModule('js/animator.js'),
@@ -229,10 +289,13 @@ const chunks = [
   ...SYLVAN_NPCS.map((id) => wrapIIFE(`js/sylvan/npc_${id}.js`, read(`js/sylvan/npc_${id}.js`))),
   buildSylvanModels(),
   buildSideEffectModule('js/npc.js'),
-  buildSideEffectModule('js/mobs.js'),
+  buildModelModule('js/models/bandit_models.js', '__MOD_BANDIT_MODELS'),
+  buildMobs(),
   buildUpgrades(),
   buildUI(),
   buildSurvival(),
+  buildQuests(),
+  buildMinimap(),
   buildTouchControls(),
   buildPerf(),
   buildMain(),
@@ -242,5 +305,8 @@ const chunks = [
 const outDir = path.join(ROOT, 'dist');
 fs.mkdirSync(outDir, { recursive: true });
 const outFile = path.join(outDir, 'game.bundle.js');
-fs.writeFileSync(outFile, chunks.join('\n'), 'utf8');
+const bundleCode = chunks.join('\n');
+// Pastikan valid sebagai classic <script> (bukan ES module, bebas import/export) untuk file://
+new vm.Script(bundleCode, { filename: 'dist/game.bundle.js' });
+fs.writeFileSync(outFile, bundleCode, 'utf8');
 console.log(`Built ${path.relative(ROOT, outFile)} (${(fs.statSync(outFile).size / 1024).toFixed(1)} KB)`);

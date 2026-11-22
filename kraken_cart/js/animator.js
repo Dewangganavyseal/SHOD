@@ -92,6 +92,11 @@ const THREE = HC.THREE, S = HC.vs;
       // Graze blending (0 = normal posture, 1 = head down grazing)
       this.grazeBlend = 0;
       this.runBlend = 0;
+      // Sleep posture blending (0 = awake, 1 = lying in sternal recumbency)
+      this.sleepBlend = 0;
+      // Cart/wheel inspect mode (Q): kepala & leher menoleh ke samping/belakang ke arah roda gerobak
+      this.inspectMode = false;
+      this.inspectBlend = 0;
 
       // Per-leg phase offsets:
       // Walk 4-beat: HL(0.0), FL(0.25), HR(0.50), FR(0.75)
@@ -104,6 +109,10 @@ const THREE = HC.THREE, S = HC.vs;
       this._qHoof = new THREE.Quaternion();
       this._qYaw = new THREE.Quaternion();
       this._knee2 = new THREE.Vector3();
+      this._sleepKneeW = new THREE.Vector3();
+      this._sleepAnkleW = new THREE.Vector3();
+      this._dirTmp1 = new THREE.Vector3();
+      this._dirTmp2 = new THREE.Vector3();
     }
 
     setSteer(v) {
@@ -119,14 +128,13 @@ const THREE = HC.THREE, S = HC.vs;
     setState(mode) {
       if (mode === 'jump') {
         if (!this.jumpActive) {
-          if (this.state === 'graze') this.state = this.prevMoveState || 'walk';
-          /* Catat kecepatan saat lepas tanah. Impuls depan = bagian dari
-             kecepatan itu + dorongan lari, jadi lompat sambil lari benar-benar
-             melesat ke depan, bukan cuma naik-turun di tempat. */
+          if (this.state === 'graze' || this.state === 'sleep') this.state = this.prevMoveState || 'walk';
+          /* Catat kecepatan saat lepas tanah. Impuls depan dibatasi agar lompat saat
+             lari terasa atletis dan natural, bukan melesat ekstrem. */
           this.jumpTakeoff = Math.max(0, this.speed);
           this.jumpRun = this.runBlend;
-          this.jumpImpulse = this.jumpTakeoff * (0.55 + 0.45 * this.jumpRun)
-            + (this.jumpTakeoff > 0.5 ? 0.9 + 1.1 * this.jumpRun : 0);
+          this.jumpImpulse = Math.min(1.65, this.jumpTakeoff * (0.18 + 0.06 * this.jumpRun)
+            + (this.jumpTakeoff > 0.5 ? 0.32 + 0.18 * this.jumpRun : 0));
           this.jumpActive = true;
           this.jumpT = 0;
         }
@@ -179,6 +187,8 @@ const THREE = HC.THREE, S = HC.vs;
         this.throttle = Math.abs(signedSpd) > 0.05 ? Math.sign(signedSpd) * 0.45 : 0;
         this.runBlend = HC.damp(this.runBlend, 0, 8.0, dt);
         this.grazeBlend = HC.damp(this.grazeBlend, 0, 8.0, dt);
+        this.sleepBlend = HC.damp(this.sleepBlend, 0, 7.0, dt);
+        this.inspectBlend = HC.damp(this.inspectBlend, 0, 8.0, dt);
         this.headLead = HC.damp(this.headLead, HC.clamp(this.steer * 0.45, -0.5, 0.5), 10.0, dt);
         this.bodyLag = HC.damp(this.bodyLag, HC.clamp(-this.yawRate * 0.16, -0.18, 0.18), 6.0, dt);
         moving = Math.abs(this.speed) > 0.04;
@@ -207,20 +217,29 @@ const THREE = HC.THREE, S = HC.vs;
         moving = movingFwd || movingRev;
         const wantRun = this.state === 'run' && movingFwd;
 
-        const isGraze = this.state === 'graze' && !this.jumpActive;
+        if (this.state === 'sleep' && moving) {
+          this.state = this.prevMoveState || 'walk';
+        }
+        const isSleep = this.state === 'sleep' && !this.jumpActive && !moving;
+        const isGraze = this.state === 'graze' && !this.jumpActive && !isSleep;
         const isRun = wantRun || (this.jumpActive && this.prevMoveState === 'run' && movingFwd);
 
+        this.sleepBlend = HC.damp(this.sleepBlend, isSleep ? 1 : 0, 2.6, dt);
         this.grazeBlend = HC.damp(this.grazeBlend, isGraze ? 1 : 0, 5.5, dt);
+        this.inspectBlend = HC.damp(this.inspectBlend, (this.inspectMode && !isGraze && !isSleep) ? 1 : 0, 6.5, dt);
         this.runBlend = HC.damp(this.runBlend, isRun ? 1 : 0, 6.0, dt);
 
         // Desired speed (+ maju, - mundur); kondisi badan (survival) menskalakan semua.
-        if (isGraze || !moving) {
+        if (isGraze || isSleep || !moving) {
           this.targetSpeed = 0;
         } else if (movingRev) {
           this.targetSpeed = -revMax * Math.min(1, Math.abs(thr)) * this.speedScale;
         } else {
           const span = HC.lerp(walkMax, runMax, this.runBlend);
-          this.targetSpeed = span * Math.min(1, thr) * this.speedScale;
+          const wDepth = (!this.jumpActive && this.world && this.world.waterDepthAt)
+            ? this.world.waterDepthAt(this.x, this.z) : 0;
+          const waterScale = wDepth > 0.04 ? (1.0 - HC.clamp(wDepth * 0.28, 0, 0.28)) : 1.0;
+          this.targetSpeed = span * Math.min(1, thr) * this.speedScale * waterScale;
           if (this.jumpActive) this.targetSpeed = Math.max(this.targetSpeed, (this.unhitched ? 3.8 : 3.2) * this.speedScale);
         }
         this.speed = HC.damp(this.speed, this.targetSpeed, this.unhitched ? 10.5 : 6.5, dt);
@@ -237,12 +256,12 @@ const THREE = HC.THREE, S = HC.vs;
         if (this.unhitched && Math.abs(this.steer) > 0.04) {
           rawTurn = Math.max(rawTurn, 0.92);
         }
-        const turnRate = this.steer * rawTurn * (1 - this.grazeBlend * 0.9) * (this.jumpActive ? 0.55 : 1);
+        const turnRate = this.steer * rawTurn * (1 - this.grazeBlend * 0.9) * (1 - this.sleepBlend) * (this.jumpActive ? 0.55 : 1);
         this.yawRate = HC.damp(this.yawRate, turnRate, this.unhitched ? 11.5 : 9.5, dt);
         this.yaw += this.yawRate * dt;
 
         // kepala + leher mendahului putaran badan (anticipation), badan menyusul dengan lag
-        const headWant = HC.clamp(this.steer * 0.62 + this.yawRate * 0.24, -0.85, 0.85);
+        const headWant = HC.clamp(this.steer * 0.62 + this.yawRate * 0.24, -0.85, 0.85) * (1 - this.sleepBlend);
         this.headLead = HC.damp(this.headLead, headWant, 10.0, dt);
         this.bodyLag = HC.damp(this.bodyLag, HC.clamp(-this.yawRate * 0.18, -0.26, 0.26), 5.0, dt);
 
@@ -255,7 +274,7 @@ const THREE = HC.THREE, S = HC.vs;
         this.x += this.forwardX * (this.speed + airPush) * dt;
         this.z += this.forwardZ * (this.speed + airPush) * dt;
 
-        pivoting = this.unhitched && Math.abs(this.yawRate) > 0.12 && absSpd < 0.15 && !isGraze && !this.jumpActive;
+        pivoting = this.unhitched && Math.abs(this.yawRate) > 0.12 && absSpd < 0.15 && !isGraze && !isSleep && !this.jumpActive;
       }
 
       // Advance gait cycle phase proportional to signed distance travelled (or gentle shuffle saat putar di tempat)
@@ -316,25 +335,32 @@ const THREE = HC.THREE, S = HC.vs;
       const ghMid = (ghFront + ghRear) * 0.5;
       const terrainPitch = Math.atan2(ghFront - ghRear, 1.10);
 
-      // ---- Torso bobbing & rocking ----
+      // ---- Torso bobbing & rocking + realistic equine sternal recumbency sleeping posture ----
       const p2 = this.phase * Math.PI * 2;
-      const moveAmt = HC.clamp(absSpeed / 2.2 + (pivoting ? 0.16 : 0), 0, 1.5) * (1 - this.grazeBlend);
+      const sl = this.sleepBlend || 0;
+      const breath = Math.sin(this.time * 1.15);
+      const moveAmt = HC.clamp(absSpeed / 2.2 + (pivoting ? 0.16 : 0), 0, 1.5) * (1 - this.grazeBlend) * (1 - sl);
       const walkBob = Math.sin(p2 * 2) * 0.028 * (1 - this.runBlend);
       const runBob = Math.sin(p2) * 0.075 * this.runBlend;
       const runPitch = Math.cos(p2) * 0.085 * this.runBlend;
       const walkRoll = Math.sin(p2) * 0.022 * (1 - this.runBlend);
 
-      const torsoY = CY * S - STANCE_DROP * S + ghMid + (walkBob + runBob) * moveAmt + jumpHeave - this.grazeBlend * 0.40;
+      const standTorsoY = CY * S - STANCE_DROP * S + ghMid + (walkBob + runBob) * moveAmt + jumpHeave - this.grazeBlend * 0.40;
+      // Belly voxel bottom = 16 -> -7.5*S = -0.469 m below torso pivot; resting height ghMid + 0.50 m puts belly flush on turf with gentle breathing heave
+      const sleepTorsoY = ghMid + 0.50 + breath * 0.016;
+      const torsoY = HC.lerp(standTorsoY, sleepTorsoY, sl);
       this.horse.root.position.set(this.x, 0, this.z);
       this.horse.root.rotation.y = this.yaw;
       this.horse.torso.position.set(0, torsoY, 0);
 
       const bankRoll = -this.yawRate * Math.max(0, this.speed) * 0.055; // miring ke dalam tikungan maju
-      const totalPitch = terrainPitch * 0.65 + runPitch * moveAmt + jumpPitch - this.grazeBlend * 0.11;
-      const totalRoll = walkRoll * moveAmt + bankRoll;
-      this.horse.torso.rotation.set(totalRoll, this.bodyLag, totalPitch);
+      const standPitch = terrainPitch * 0.65 + runPitch * moveAmt + jumpPitch - this.grazeBlend * 0.11;
+      const standRoll = walkRoll * moveAmt + bankRoll;
+      const totalPitch = HC.lerp(standPitch, terrainPitch * 0.85 - 0.04, sl);
+      const totalRoll = HC.lerp(standRoll, 0.21 + breath * 0.012, sl);
+      this.horse.torso.rotation.set(totalRoll, this.bodyLag * (1 - sl), totalPitch);
 
-      // ---- Neck, Head, Jaw & Ears (Walk / Run / Jump / Graze) ----
+      // ---- Neck, Head, Jaw & Ears (Walk / Run / Jump / Graze / Sleep) ----
       const neckRhythm = Math.sin(p2 * (this.runBlend > 0.5 ? 1 : 2) - 0.7) * HC.lerp(0.06, 0.16, this.runBlend) * moveAmt;
       const jumpNeck = this.jumpActive ? (jumpAir * -0.26 - jumpPitch * 0.35) : 0;
 
@@ -355,44 +381,60 @@ const THREE = HC.THREE, S = HC.vs;
       const nuZ_graze = -0.62 + grazeTug * 0.18;
       const hdZ_graze = 0.52 + grazeTug * 0.32;
 
+      const nlZ_stand = HC.lerp(nlZ_move, nlZ_graze, this.grazeBlend);
+      const nuZ_stand = HC.lerp(nuZ_move, nuZ_graze, this.grazeBlend);
+      const hdZ_stand = HC.lerp(hdZ_move, hdZ_graze, this.grazeBlend);
+
+      const nlZ_sleep = -1.28 + breath * 0.025;
+      const nuZ_sleep = -0.30 + breath * 0.015;
+      const hdZ_sleep = 0.46 - breath * 0.015;
+
       this.horse.neckLow.position.set(
-        (11.0 + this.grazeBlend * 1.4) * S,
-        ((27.6 - CY) - this.grazeBlend * 4.2) * S,
+        (11.0 + this.grazeBlend * 1.4 + sl * 0.6) * S,
+        ((27.6 - CY) - this.grazeBlend * 4.2 - sl * 2.2) * S,
         0
       );
       this.horse.neckUp.position.set(0, 7.4 * S, 0);
+      const insp = this.inspectBlend || 0;
+      const nlYawStand = grazeSweepYaw * 0.45 * this.grazeBlend + this.headLead * 0.34 + 0.58 * insp;
+      const nuYawStand = grazeSweepYaw * 0.55 * this.grazeBlend + this.headLead * 0.50 + 0.54 * insp;
+      const hdYawStand = grazeSweepYaw * 0.35 * this.grazeBlend + this.headLead * 0.62 + 0.50 * insp;
+
       this.horse.neckLow.rotation.set(
         0,
-        grazeSweepYaw * 0.45 * this.grazeBlend + this.headLead * 0.34,
-        HC.lerp(nlZ_move, nlZ_graze, this.grazeBlend)
+        HC.lerp(nlYawStand, 0.30, sl),
+        HC.lerp(nlZ_stand - 0.14 * insp, nlZ_sleep, sl)
       );
       this.horse.neckUp.rotation.set(
         0,
-        grazeSweepYaw * 0.55 * this.grazeBlend + this.headLead * 0.50,
-        HC.lerp(nuZ_move, nuZ_graze, this.grazeBlend)
+        HC.lerp(nuYawStand, 0.24, sl),
+        HC.lerp(nuZ_stand - 0.06 * insp, nuZ_sleep, sl)
       );
       this.horse.head.rotation.set(
-        Math.sin(this.time * 5.2) * 0.04 * this.grazeBlend,
-        grazeSweepYaw * 0.35 * this.grazeBlend + this.headLead * 0.62,
-        HC.lerp(hdZ_move, hdZ_graze, this.grazeBlend)
+        HC.lerp(Math.sin(this.time * 5.2) * 0.04 * this.grazeBlend + 0.08 * insp, -0.06, sl),
+        HC.lerp(hdYawStand, 0.16, sl),
+        HC.lerp(hdZ_stand - 0.16 * insp, hdZ_sleep, sl)
       );
-      this.horse.jaw.rotation.z = -chew * this.grazeBlend;
+      this.horse.jaw.rotation.z = -chew * this.grazeBlend * (1 - sl);
 
-      // Ears flick
+      // Ears flick (relaxed outward droop when sleeping)
       for (let i = 0; i < this.horse.ears.length; i++) {
         const s = i === 0 ? -1 : 1;
         const flick = Math.sin(this.time * 3.1 + i * 2.1) * 0.12 + (this.runBlend * -0.28);
-        this.horse.ears[i].rotation.set(s * 0.12, 0, flick);
+        const earRotX = HC.lerp(s * 0.12, s * 0.34, sl);
+        const earRotZ = HC.lerp(flick, -0.24, sl);
+        this.horse.ears[i].rotation.set(earRotX, 0, earRotZ);
       }
 
-      // ---- Multi-segment Tail inertia & swish ----
+      // ---- Multi-segment Tail inertia & swish (rests calmly when sleeping) ----
       for (let i = 0; i < this.horse.tailSegs.length; i++) {
         const seg = this.horse.tailSegs[i];
         const lag = i * 0.55;
-        const lift = i === 0 ? (-0.28 - this.runBlend * 0.45 - (this.jumpActive ? 0.25 : 0)) : -0.06;
+        const liftStand = i === 0 ? (-0.28 - this.runBlend * 0.45 - (this.jumpActive ? 0.25 : 0)) : -0.06;
         const waveZ = Math.sin(this.time * (4.0 + this.runBlend * 4.5) - lag) * (0.06 + this.runBlend * 0.09);
         const swishX = Math.sin(this.time * 2.4 - lag) * (0.07 + this.grazeBlend * 0.14);
-        seg.rotation.set(swishX, 0, lift + waveZ);
+        const liftSleep = i === 0 ? -0.58 : -0.18;
+        seg.rotation.set(swishX * (1 - sl), 0, HC.lerp(liftStand + waveZ, liftSleep, sl));
       }
 
       // ---- 4-Leg IK with Surface & Pebble Detection ----
@@ -505,6 +547,44 @@ const THREE = HC.THREE, S = HC.vs;
         const bendSign = 1;
         solveLegIK(this._hipW, this._ankleW, l1World, l2World, bendSign, this._kneeW, cy, -sy);
 
+        // Realistic sleeping folded legs blend (sternum & flank tucked cleanly above grass)
+        if (sl > 0.005) {
+          const isLeft = (leg.id === 'FL' || leg.id === 'HL');
+          const latSign = isLeft ? 1 : -1;
+          const sdX = sy, sdZ = cy; // local +Z axis in world space (left = +1, right = -1)
+          // 1) Save standing/walking upper & lower bone unit directions
+          this._dirTmp1.subVectors(this._kneeW, this._hipW);
+          if (this._dirTmp1.lengthSq() > 1e-8) this._dirTmp1.normalize();
+          this._dirTmp2.subVectors(this._ankleW, this._kneeW);
+          if (this._dirTmp2.lengthSq() > 1e-8) this._dirTmp2.normalize();
+
+          // 2) Compute target sleeping upper & lower unit directions
+          if (leg.front) {
+            const sideLat = -0.14 * latSign;
+            this._sleepKneeW.set(cy * 0.62 + sdX * sideLat, -0.49, -sy * 0.62 + sdZ * sideLat).normalize();
+            const cannonLat = -0.16 * latSign;
+            this._sleepAnkleW.set(-cy * 0.63 + sdX * cannonLat, 0.04, sy * 0.63 + sdZ * cannonLat).normalize();
+          } else {
+            const hipLat = isLeft ? 0.12 : -0.18;
+            this._sleepKneeW.set(cy * 0.64 + sdX * hipLat, -0.45, -sy * 0.64 + sdZ * hipLat).normalize();
+            const cannonLat = isLeft ? -0.12 : 0.08;
+            this._sleepAnkleW.set(-cy * 0.62 + sdX * cannonLat, -0.05, sy * 0.62 + sdZ * cannonLat).normalize();
+          }
+
+          // 3) Smoothly blend bone directions preserving exact bone lengths l1 & l2
+          this._dirTmp1.lerp(this._sleepKneeW, sl).normalize();
+          this._dirTmp2.lerp(this._sleepAnkleW, sl).normalize();
+          this._kneeW.copy(this._hipW).addScaledVector(this._dirTmp1, l1World);
+          const minSleepY = groundY + 0.085;
+          if (this._kneeW.y < minSleepY && sl > 0.25) {
+            this._kneeW.y = HC.lerp(this._kneeW.y, minSleepY, HC.clamp((sl - 0.25) / 0.75, 0, 1));
+          }
+          this._ankleW.copy(this._kneeW).addScaledVector(this._dirTmp2, l2World);
+          if (this._ankleW.y < minSleepY && sl > 0.25) {
+            this._ankleW.y = HC.lerp(this._ankleW.y, minSleepY, HC.clamp((sl - 0.25) / 0.75, 0, 1));
+          }
+        }
+
         // Aim upper bone (H -> K) and lower bone (K -> A)
         HC.aimBone(leg.upperMesh, this._hipW, this._kneeW);
         leg.upperMesh.updateMatrixWorld(true);
@@ -515,7 +595,9 @@ const THREE = HC.THREE, S = HC.vs;
         // When swinging in air, curl hoof naturally with fetlockFlex
         const slopeAngle = Math.atan2(-(this._normW.x * cy - this._normW.z * sy), this._normW.y);
         const airAngle = fetlockFlex;
-        const hoofPitch = HC.lerp(airAngle, slopeAngle, leg.stanceBlend);
+        const standHoofPitch = HC.lerp(airAngle, slopeAngle, leg.stanceBlend);
+        const sleepHoofPitch = leg.front ? -1.42 : -1.24;
+        const hoofPitch = HC.lerp(standHoofPitch, sleepHoofPitch, sl);
         // pitch terhadap sumbu lateral kuda (fz, 0, -fx) lalu diputar sesuai heading kuda
         this._hoofAxis.set(-sy, 0, -cy);
         this._qHoof.setFromAxisAngle(this._hoofAxis, hoofPitch);

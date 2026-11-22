@@ -20,48 +20,82 @@
   <div id="app"></div>
   <div id="cozy-vignette"></div>
 
-  <div id="hud">
-    <div class="brand">KRAKENONE STUDIO</div>
-    <div class="hud-top">
-      <div class="title">VOXEL HORSE &amp; CUSTOM CART</div>
-      <button id="btn-hud-toggle" type="button" title="Ringkas / Detail HUD">Ringkas</button>
+  <!-- HUD Kiri Atas: Potrait Kuda + Gear Setting + Icon NPC Direkrut + Quest -->
+  <div id="hud-top-left">
+    <div id="tl-head-row">
+      <button id="btn-horse-portrait" type="button" title="Klik untuk melihat Stat Kuda &amp; Gerobak" aria-expanded="false">
+        <svg class="hp-avatar" viewBox="0 0 48 48" aria-hidden="true">
+          <circle cx="24" cy="24" r="22" fill="#2d3b2b" stroke="#e9c46a" stroke-width="2.4" />
+          <path d="M16 37 L18 24 L15 16 L20 11 L24 14 L29 11 L33 17 L30 22 L34 26 L31 30 L27 29 L27 37 Z" fill="#b8733e" stroke="#4a2b13" stroke-width="1.4" stroke-linejoin="round" />
+          <path d="M22 14 L26 24" stroke="#3b2313" stroke-width="2.2" stroke-linecap="round" />
+          <circle cx="27.5" cy="18.5" r="1.5" fill="#1a120b" />
+          <circle cx="31.5" cy="26.5" r="1.2" fill="#3b2313" />
+        </svg>
+        <span class="hp-mini-bar"><i id="portrait-hp-fill"></i></span>
+      </button>
+      <button id="btn-settings" type="button" title="Pengaturan Grafis" aria-expanded="false">⚙️</button>
     </div>
-    <div class="mood-bar" title="Suasana Hutan Cozy">
-      <button type="button" class="mood-chip active" data-mood="morning">🌤️ Pagi</button>
-      <button type="button" class="mood-chip" data-mood="sunset">🍯 Sore</button>
-      <button type="button" class="mood-chip" data-mood="night">🌙 Malam</button>
+
+    <div id="npc-mini-bar" aria-label="NPC Direkrut"></div>
+    <div id="quest-hud"></div>
+
+    <!-- Popover Stat Kuda (muncul saat potrait kuda diklik) -->
+    <div id="horse-stats-panel" class="hud-popover" hidden>
+      <div class="pop-head">
+        <span>🐴 STAT KUDA &amp; GEROBAK</span>
+        <button id="btn-stats-close" type="button" class="pop-close" aria-label="Tutup">✕</button>
+      </div>
+      <div id="vitals">
+        <div class="vital hp"><span class="v-label">HP</span><div class="bar"><i id="v-hp"></i></div><b id="v-hp-t">100</b></div>
+        <div class="vital sta"><span class="v-label">STAM</span><div class="bar"><i id="v-sta"></i></div><b id="v-sta-t">100</b></div>
+        <div class="vital food"><span class="v-label">LAPAR</span><div class="bar"><i id="v-food"></i></div><b id="v-food-t">100</b></div>
+        <div class="vital water"><span class="v-label">HAUS</span><div class="bar"><i id="v-water"></i></div><b id="v-water-t">100</b></div>
+        <div id="v-msg" class="sub"></div>
+      </div>
+      <div class="stats-grid">
+        <div>Mode: <b id="hud-state">JALAN</b></div>
+        <div>Kecepatan: <b id="hud-speed">0.0 km/j</b></div>
+        <div>Arah: <b id="hud-head">Lurus</b></div>
+        <div>Kemiringan: <b id="hud-roll">0°</b></div>
+        <div>Muatan: <b id="hud-cargo">0 org • 8/8 brg</b></div>
+        <div>Nyawa Roda: <b id="hud-wheel">100 · 100 · 100 · 100</b></div>
+        <div>Regu NPC: <b id="hud-npc">0/3</b></div>
+        <div>Emas Quest: <b id="hud-gold">0 G</b></div>
+        <div>Waktu: <b id="hud-time">07:55 • Pagi</b></div>
+      </div>
+      <div id="hud-npc-msg" class="sub">NPC di desa bisa direkrut.</div>
     </div>
-    <div class="mood-bar quality-bar" id="quality-bar" title="Kualitas Grafis — otomatis dari perangkat, bisa diganti manual"></div>
-    <div class="env-bar opt" title="Lingkungan Hutan Cozy">
-      <button type="button" class="env-chip active" id="env-fire">🔥 Api</button>
-      <button type="button" class="env-chip active" id="env-lamp">💡 Lampu</button>
-      <button type="button" class="env-chip active" id="env-rays">☀️ Sinar</button>
-      <button type="button" class="env-chip" id="env-audio">🔊 Suara</button>
-    </div>
-    <div>Mode: <b id="hud-state">JALAN</b></div>
-    <div>Kecepatan: <b id="hud-speed">0.0 km/j</b></div>
-    <div>Arah: <b id="hud-head">Lurus</b></div>
-    <div class="opt">Kemiringan: <b id="hud-roll">0°</b></div>
-    <div class="opt">Perbekalan: <b id="hud-cargo">8/8 di bak</b></div>
-    <div class="opt">Nyawa Roda: <b id="hud-wheel">100 · 100 · 100 · 100</b></div>
-    <div class="opt">Regu NPC: <b id="hud-npc">0/3</b></div>
-    <div id="hud-npc-msg" class="sub opt">NPC deket kuda bisa direkrut.</div>
-    <div id="vitals">
-      <div class="vital hp"><span class="v-label">HP</span><div class="bar"><i id="v-hp"></i></div><b id="v-hp-t">100</b></div>
-      <div class="vital sta"><span class="v-label">STAM</span><div class="bar"><i id="v-sta"></i></div><b id="v-sta-t">100</b></div>
-      <div class="vital food"><span class="v-label">LAPAR</span><div class="bar"><i id="v-food"></i></div><b id="v-food-t">100</b></div>
-      <div class="vital water"><span class="v-label">HAUS</span><div class="bar"><i id="v-water"></i></div><b id="v-water-t">100</b></div>
-      <div id="v-msg" class="sub"></div>
+
+    <!-- Popover Pengaturan Grafis (hanya kualitas grafis) -->
+    <div id="settings-panel" class="hud-popover" hidden>
+      <div class="pop-head">
+        <span>⚙️ PENGATURAN GRAFIS</span>
+        <button id="btn-settings-close" type="button" class="pop-close" aria-label="Tutup">✕</button>
+      </div>
+      <div class="settings-sec-label">Kualitas Visual</div>
+      <div class="quality-bar" id="quality-bar" title="Kualitas Grafis"></div>
+      <div class="settings-note">Siklus siang–malam berjalan otomatis tiap 10 menit.</div>
     </div>
   </div>
 
-  <aside id="upgrade-panel">
+  <!-- HUD Kanan Atas: Minimap + Tombol Bengkel -->
+  <div id="hud-top-right">
+    <div id="minimap-wrap" role="button" tabindex="0" title="Klik atau tekan M untuk membuka Peta Dunia">
+      <canvas id="minimap-canvas" width="144" height="144"></canvas>
+      <span class="mm-compass">U</span>
+      <span class="mm-key">[M] Peta</span>
+      <div id="minimap-loc" class="mm-loc">Hutan &amp; Jalan</div>
+    </div>
+    <button id="btn-ug-toggle-top" type="button" title="Bengkel Upgrade Gerobak (U)">🔧 Bengkel</button>
+  </div>
+
+  <aside id="upgrade-panel" class="collapsed">
     <div id="upgrade-header">
       <div>
         <div class="ug-title">BENGKEL UPGRADE GEROBAK</div>
         <div class="ug-sub" id="upgrade-total">3/10 level</div>
       </div>
-      <button id="btn-ug-toggle" type="button" title="Lipat / Buka (U)">Lipat</button>
+      <button id="btn-ug-toggle" type="button" title="Tutup / Buka (U)">Tutup</button>
     </div>
     <div id="upgrade-body">
       <div id="upgrade-presets">
@@ -71,26 +105,61 @@
       </div>
       <div id="upgrade-list"></div>
       <div id="upgrade-footer">
-        <span>Klik bebas Lv1–Lv3 • U lipat panel</span>
+        <span>Klik bebas Lv1–Lv3 • U buka/tutup</span>
       </div>
     </div>
   </aside>
 
-  <aside id="npc-dock" aria-label="Regu NPC" hidden></aside>
+  <aside id="npc-dock" aria-label="Aksi Kontekstual" hidden></aside>
+
+  <!-- Toast Notifikasi Ringkas -->
+  <div id="toast-banner" hidden></div>
+
+  <!-- Overlay HP 4 Roda & Gerobak saat tekan Q -->
+  <div id="wheel-hp-overlay" hidden>
+    <div class="whp-badge" id="whp-cart"><span class="whp-lbl">Gerobak</span><b class="whp-val">100%</b></div>
+    <div class="whp-badge" id="whp-0"><span class="whp-lbl">Roda DL</span><b class="whp-val">100/100</b></div>
+    <div class="whp-badge" id="whp-1"><span class="whp-lbl">Roda DR</span><b class="whp-val">100/100</b></div>
+    <div class="whp-badge" id="whp-2"><span class="whp-lbl">Roda BL</span><b class="whp-val">100/100</b></div>
+    <div class="whp-badge" id="whp-3"><span class="whp-lbl">Roda BR</span><b class="whp-val">100/100</b></div>
+  </div>
+
+  <!-- Modal Peta Dunia (Tombol M atau Tap Minimap) -->
+  <div id="worldmap-modal" hidden>
+    <div class="wm-card">
+      <div class="wm-head">
+        <div>
+          <div class="wm-title">🗺️ PETA DUNIA</div>
+          <div id="worldmap-coords" class="wm-sub">X: 0m • Z: 0m</div>
+        </div>
+        <button id="btn-worldmap-close" type="button" class="wm-close">✕ Tutup (M)</button>
+      </div>
+      <canvas id="worldmap-canvas" width="600" height="600"></canvas>
+      <div class="wm-legend">
+        <span><i>📍</i> Posisi Kuda</span>
+        <span><i>🏘️</i> 5 Desa (Radnar, Zenoa, Casna, Kohona, Valen)</span>
+        <span><i>⭐</i> Target Quest</span>
+        <span><i>〰️</i> Sungai &amp; Jalan</span>
+      </div>
+    </div>
+  </div>
 
   <div id="controls">
     <button id="btn-left" class="steer" title="Belok Kiri (A / ←)"><span class="k">A/← </span>↶ Kiri</button>
     <button id="btn-right" class="steer" title="Belok Kanan (D / →)"><span class="k">D/→ </span>Kanan ↷</button>
     <button id="btn-walk" class="primary" title="Tahan untuk Maju (W / ↑)"><span class="k">W/↑ </span>▲ Maju</button>
     <button id="btn-rev" title="Tahan untuk Mundur (S / ↓)"><span class="k">S/↓ </span>▼ Mundur</button>
-    <button id="btn-run" title="Toggle Lari (2 / R / Shift)"><span class="k">2/R. </span>Lari</button>
-    <button id="btn-jump"><span class="k">Space. </span>Lompat</button>
-    <button id="btn-graze" title="Makan Rumput (3 / E)"><span class="k">3/E. </span>Makan</button>
-    <button id="btn-drink" title="Minum Air (4 / F)"><span class="k">4/F. </span>Minum</button>
-    <button id="btn-pebble"><span class="k">B. </span>Kerikil</button>
-    <button id="btn-recruit"><span class="k">G. </span>Rekrut NPC</button>
+    <button id="btn-run" title="Toggle Lari (2 / R / Shift)"><span class="k">R. </span>Lari</button>
+    <button id="btn-jump"><span class="k">Spasi. </span>Lompat</button>
+    <button id="btn-graze" title="Makan Rumput (3 / E)"><span class="k">E. </span>Makan</button>
+    <button id="btn-drink" title="Minum Air (4 / F)"><span class="k">F. </span>Minum</button>
+    <button id="btn-sleep" title="Tidur / Istirahat Kuda (Z)"><span class="k">Z. </span>Tidur</button>
+    <button id="btn-inspect" title="Tahan Q untuk Cek HP Roda &amp; Gerobak"><span class="k">Q. </span>Cek Roda</button>
+    <button id="btn-recruit"><span class="k">G. </span>Rekrut</button>
     <button id="btn-release"><span class="k">H. </span>Lepas</button>
-    <button id="btn-hitch" title="Lepas / Pasang Tali Gerobak (V)"><span class="k">V. </span>Lepas Tali</button>
+    <button id="btn-hitch" title="Lepas / Pasang Tali Gerobak (V)"><span class="k">V. </span>Tali</button>
+    <button id="btn-map" title="Buka Peta Dunia (M)"><span class="k">M. </span>Peta</button>
+    <button id="btn-pebble"><span class="k">B. </span>Kerikil</button>
     <button id="btn-ramp" class="warn"><span class="k">T. </span>Miring</button>
     <button id="btn-reset"><span class="k">X. </span>Reset</button>
   </div>
@@ -140,19 +209,19 @@
     (function boot() {
       function loadBundle() {
         const s = document.createElement('script');
-        s.src = './dist/game.bundle.js?v=hutan25';
+        s.src = './dist/game.bundle.js?v=hutan26';
         s.onerror = () => reportBootError('Gagal memuat ./dist/game.bundle.js');
         document.body.appendChild(s);
       }
 
-      if (location.protocol === 'file:') {
+      if (location.protocol === 'file:' || location.search.includes('bundle=1')) {
         loadBundle();
         return;
       }
 
       const mod = document.createElement('script');
       mod.type = 'module';
-      mod.src = './js/main.js?v=hutan15';
+      mod.src = './js/main.js?v=hutan16';
       mod.onerror = () => loadBundle();
       document.body.appendChild(mod);
     })();

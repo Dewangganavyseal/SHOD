@@ -41,21 +41,33 @@ export class Survival {
     return (w && w.riverDistX) ? w.riverDistX(x, z) : Infinity;
   }
 
-  /* --- aksi: makan (rumput) --- */
+  /* --- aksi: makan (harus tepat di rumput) --- */
   tryEat(ctx) {
     if (Math.abs(ctx.speed) > 1.0) return this._deny('Berhenti dulu buat makan.');
-    if (this.onRoad(ctx.x, ctx.z)) return this._deny('Di jalan gak ada rumput. Ke pinggir dulu.');
-    if (this.riverDistance(ctx.x, ctx.z) < 8.5) return this._deny('Di air kuda gak makan rumput.');
+    if (this.world && typeof this.world.isOnGrass === 'function') {
+      if (!this.world.isOnGrass(ctx.x, ctx.z)) {
+        return this._deny('Harus berdiri tepat di rumput untuk makan.');
+      }
+    } else {
+      if (this.onRoad(ctx.x, ctx.z)) return this._deny('Di jalan gak ada rumput. Ke pinggir dulu.');
+      if (this.riverDistance(ctx.x, ctx.z) < 8.5) return this._deny('Di air kuda gak makan rumput.');
+    }
     this.eatT = 2.6;
     this.drinkT = 0;
     this.msg = 'Kuda makan rumput...';
     return true;
   }
 
-  /* --- aksi: minum (harus dekat sungai) --- */
+  /* --- aksi: minum (harus tepat di tepi/dalam air) --- */
   tryDrink(ctx) {
     if (Math.abs(ctx.speed) > 1.0) return this._deny('Berhenti dulu buat minum.');
-    if (this.riverDistance(ctx.x, ctx.z) > 9.5) return this._deny('Terlalu jauh dari sungai.');
+    if (this.world && typeof this.world.isAtWater === 'function') {
+      if (!this.world.isAtWater(ctx.x, ctx.z)) {
+        return this._deny('Harus tepat di tepi atau dalam air untuk minum.');
+      }
+    } else if (this.riverDistance(ctx.x, ctx.z) > 9.5) {
+      return this._deny('Terlalu jauh dari sungai.');
+    }
     this.drinkT = 2.2;
     this.eatT = 0;
     this.msg = 'Kuda minum air...';
@@ -79,10 +91,11 @@ export class Survival {
 
   update(dt, ctx) {
     const moving = !!ctx.moving;
-    const running = !!ctx.running && moving;
+    const sleeping = !!ctx.sleeping && !moving;
+    const running = !!ctx.running && moving && !sleeping;
     const grazing = this.eating;
     const unhitched = !!ctx.unhitched;
-    const vitalMul = unhitched ? 0.60 : 1.0;
+    const vitalMul = (unhitched ? 0.60 : 1.0) * (sleeping ? 0.40 : 1.0);
     const stamMul = unhitched ? 0.55 : 1.0;
 
     if (this.eatT > 0) {
@@ -103,19 +116,22 @@ export class Survival {
       this.thirst = Math.max(0, this.thirst - dt * (0.32 + (running ? 0.38 : moving ? 0.10 : 0)) * vitalMul);
     }
 
-    // Stamina: saat lepas tali (tanpa beban gerobak), pemakaian stamina jauh lebih hemat.
-    if (running) this.stamina = Math.max(0, this.stamina - 3.2 * stamMul * dt);
+    // Stamina: saat tidur pulih cepat (+22/s); saat lepas tali pemakaian stamina lebih hemat.
+    if (sleeping) this.stamina = Math.min(SURV_CAP, this.stamina + 22.0 * dt);
+    else if (running) this.stamina = Math.max(0, this.stamina - 3.2 * stamMul * dt);
     else if (moving) this.stamina = Math.max(0, this.stamina - 0.25 * stamMul * dt);
     else if (!grazing && !this.drinking) this.stamina = Math.min(SURV_CAP, this.stamina + (unhitched ? 14.0 : 12.0) * dt);
 
-    // HP: lapar/haus akut dan gerobak rebah menggerus; istirahat kenyang pelan pulih.
+    // HP: lapar/haus akut dan gerobak rebah menggerus; tidur & istirahat kenyang memulihkan HP.
     let dmg = 0;
     if (this.starving) dmg += 2.4;
     if (this.parched) dmg += 2.8;
     if (ctx.flipped) dmg += 3.5;
     if (this.landedHard > 0) { dmg += this.landedHard; this.landedHard = 0; }
     if (dmg > 0) this.hp = Math.max(0, this.hp - dmg * dt);
-    else if (!running && !moving && this.hunger > 55 && this.thirst > 55) {
+    else if (sleeping && this.hunger > 25 && this.thirst > 25) {
+      this.hp = Math.min(SURV_CAP, this.hp + 4.0 * dt);
+    } else if (!running && !moving && this.hunger > 55 && this.thirst > 55) {
       this.hp = Math.min(SURV_CAP, this.hp + 1.5 * dt);
     }
     this.hp = Math.min(SURV_CAP, Math.max(0, this.hp));
