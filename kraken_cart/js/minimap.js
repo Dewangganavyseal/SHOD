@@ -143,6 +143,7 @@ export class MapUI {
 
     // Village clearing circles
     const villages = (this.world && Array.isArray(this.world.VILLAGES)) ? this.world.VILLAGES : [];
+    const workshops = (this.world && Array.isArray(this.world.VILLAGE_WORKSHOPS)) ? this.world.VILLAGE_WORKSHOPS : [];
     for (const v of villages) {
       const [vx, vy] = toPx(v.cx, v.cz);
       const vr = Math.max(5.5, ((v.radius * 1.45) / T) * S);
@@ -203,10 +204,11 @@ export class MapUI {
 
   update(horseX, horseZ, horseYaw, cartX, cartZ, activeQuest, nearbyVillage) {
     this._frame++;
+    const trFn = typeof globalThis !== 'undefined' && globalThis.HC && globalThis.HC.t;
     if (this.locLabelEl) {
       this.locLabelEl.textContent = nearbyVillage
-        ? `Desa ${villageLabel(nearbyVillage)}`
-        : (Math.hypot(horseX, horseZ) < 16 ? 'Perkemahan' : 'Hutan & Jalan');
+        ? `${trFn ? trFn('loc_village_prefix') : 'Village'} ${villageLabel(nearbyVillage)}`
+        : (Math.hypot(horseX, horseZ) < 16 ? (trFn ? trFn('loc_camp') : 'Starting Camp') : (trFn ? trFn('loc_forest') : 'Forest & Trail'));
     }
     if (this.isOpen && this.coordLabelEl) {
       this.coordLabelEl.textContent = `X: ${Math.round(horseX)}m • Z: ${Math.round(horseZ)}m`;
@@ -217,6 +219,7 @@ export class MapUI {
 
     const T = this._terrainSize();
     const villages = (this.world && Array.isArray(this.world.VILLAGES)) ? this.world.VILLAGES : [];
+    const workshops = (this.world && Array.isArray(this.world.VILLAGE_WORKSHOPS)) ? this.world.VILLAGE_WORKSHOPS : [];
     const pulse = 0.5 + 0.5 * Math.sin(performance.now() * 0.006);
 
     // 1) Top-right Minimap (cropped local 480m view centered on horse)
@@ -305,6 +308,17 @@ export class MapUI {
         ctx.fillText(lbl, vx, vy + 5);
       }
 
+      // Cart workshop bays on minimap
+      for (const ws of workshops) {
+        const [wx, wy] = toMini(ws.x, ws.z);
+        if (wx < -12 || wx > W + 12 || wy < -12 || wy > H + 12) continue;
+        ctx.fillStyle = '#38bdf8';
+        ctx.strokeStyle = '#0f172a';
+        ctx.lineWidth = 1.2;
+        ctx.fillRect(wx - 2.5, wy - 2.5, 5, 5);
+        ctx.strokeRect(wx - 2.5, wy - 2.5, 5, 5);
+      }
+
       // Cart marker
       if (Number.isFinite(cartX) && Number.isFinite(cartZ)) {
         const [cx, cy] = toMini(cartX, cartZ);
@@ -351,7 +365,8 @@ export class MapUI {
         ctx.font = '600 11px system-ui, sans-serif';
         ctx.textAlign = 'center';
         ctx.fillStyle = '#fff7ed';
-        ctx.fillText('Kemah Awal', fx, fy + 16);
+        const trFn = typeof globalThis !== 'undefined' && globalThis.HC && globalThis.HC.t;
+        ctx.fillText(trFn ? trFn('loc_camp') : 'Starting Camp', fx, fy + 16);
       }
 
       // Quest route line
@@ -402,6 +417,18 @@ export class MapUI {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(lbl, vx, by + 10);
+      }
+
+      // Workshop bays on fullscreen map
+      for (const ws of workshops) {
+        const [wx, wy] = toFull(ws.x, ws.z);
+        ctx.fillStyle = '#38bdf8';
+        ctx.strokeStyle = '#0f172a';
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        ctx.rect(wx - 4.5, wy - 4.5, 9, 9);
+        ctx.fill();
+        ctx.stroke();
       }
 
       // Cart marker

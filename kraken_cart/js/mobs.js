@@ -3102,31 +3102,48 @@ class BanditMob {
     }
     if (best || npcOnly) return best;
 
-    // Jika pemain tidak punya NPC rekrutan yang diturunkan bertarung, bandit menyerang gerobak di luar desa
+    // Jika pemain tidak punya NPC rekrutan yang diturunkan bertarung, bandit menyerang Kuda atau Gerobak di luar desa
     const hasDeployedRecruits = !!(party && (party.members || []).some((m) =>
       m.state === 'following' && !(m.cBrain && m.cBrain.phase === 'ko')
     ));
-    if (!hasDeployedRecruits && fullCtx && fullCtx.physics && !fullCtx.physics.flipped) {
-      const phys = fullCtx.physics;
+    if (!hasDeployedRecruits && fullCtx) {
+      const anim = fullCtx.animator;
+      const phys = (fullCtx.hasCart !== false && fullCtx.physics && !fullCtx.physics.flipped) ? fullCtx.physics : null;
+      const refX = anim ? anim.x : (phys ? phys.pos.x : 0);
+      const refZ = anim ? anim.z : (phys ? phys.pos.z : 0);
       let inVillage = false;
       if (this.world && typeof this.world.isInsideVillage === 'function') {
-        inVillage = this.world.isInsideVillage(phys.pos.x, phys.pos.z, 2.0);
+        inVillage = this.world.isInsideVillage(refX, refZ, 2.0);
       } else {
         const vCx = (this.world && typeof this.world._getRoadCenterX === 'function')
-          ? this.world._getRoadCenterX(phys.pos.z) : -5.4;
-        inVillage = phys.pos.z > 42 && phys.pos.z < 110 && Math.abs(phys.pos.x - vCx) < 30;
+          ? this.world._getRoadCenterX(refZ) : -5.4;
+        inVillage = refZ > 42 && refZ < 110 && Math.abs(refX - vCx) < 30;
       }
-      const dCart = Math.hypot(phys.pos.x - this.x, phys.pos.z - this.z);
-      const cartAggroRange = this.isRoadAmbush ? 24.0 : 13.5;
-      if (!inVillage && dCart < cartAggroRange) {
-        return {
-          id: phys,
-          isCart: true,
-          isKO: false,
-          isAlive: () => !phys.flipped,
-          getPos: () => ({ x: phys.pos.x, z: phys.pos.z }),
-          takeHit: (dmg, fx, fz, isHeavy) => phys.takeBanditHit ? phys.takeBanditHit(dmg, fx, fz, isHeavy) : 0,
-        };
+      if (!inVillage) {
+        const aggroRange = this.isRoadAmbush ? 24.0 : 13.5;
+        const dHorse = anim ? Math.hypot(anim.x - this.x, anim.z - this.z) : Infinity;
+        const dCart = phys ? Math.hypot(phys.pos.x - this.x, phys.pos.z - this.z) : Infinity;
+        const horseAlive = fullCtx.horseHp === undefined || fullCtx.horseHp > 1;
+        if (dHorse < aggroRange && horseAlive && dHorse <= dCart + 0.6) {
+          return {
+            id: anim,
+            isHorse: true,
+            isKO: false,
+            isAlive: () => fullCtx.horseHp === undefined || fullCtx.horseHp > 1,
+            getPos: () => ({ x: anim.x, z: anim.z }),
+            takeHit: (dmg) => Math.max(1, Math.round((dmg || 10) * 0.72)),
+          };
+        }
+        if (dCart < aggroRange && phys) {
+          return {
+            id: phys,
+            isCart: true,
+            isKO: false,
+            isAlive: () => !phys.flipped,
+            getPos: () => ({ x: phys.pos.x, z: phys.pos.z }),
+            takeHit: (dmg, fx, fz, isHeavy) => phys.takeBanditHit ? phys.takeBanditHit(dmg, fx, fz, isHeavy) : 0,
+          };
+        }
       }
     }
     return null;
@@ -3178,7 +3195,7 @@ class BanditMob {
       const tgtCap = this.isRoadAmbush ? 28.0 : 17.5;
       if (!this.target.isAlive() || dHome > homeCap || dTgt > tgtCap) {
         this.target = null;
-      } else if (this.target.isCart && fullCtx) {
+      } else if ((this.target.isCart || this.target.isHorse) && fullCtx) {
         this._cartReaggroT = (this._cartReaggroT || 0) + dt;
         if (this._cartReaggroT >= 0.45) {
           this._cartReaggroT = 0;
@@ -3203,7 +3220,11 @@ class BanditMob {
     let forwardSpeed = 0;
     let strafeSpeed = 0;
     let teleTarget = 0;
-    const effReach = (this.target && this.target.isCart) ? (this.reach + 1.15) : this.reach;
+    const effReach = (this.target && this.target.isCart)
+      ? (this.reach + 1.15)
+      : (this.target && this.target.isHorse)
+        ? (this.reach + 0.78)
+        : this.reach;
 
     if (this.state === 'hitstun' || this.state === 'stagger') {
       if (this.stateTime >= this.stateDur) {
@@ -3250,18 +3271,21 @@ class BanditMob {
           const d = Math.hypot(tp.x - this.x, tp.z - this.z);
           if (d < effReach + 0.55) {
             const dealt = this.target.takeHit(this.dmg, this.x, this.z, isBig);
-            if (this.target.isCart && dealt > 0) {
+            if ((this.target.isCart || this.target.isHorse) && dealt > 0) {
               if (this.vfx) {
                 const hitV = new THREE.Vector3(
                   (tp.x + this.x) * 0.5,
                   this.y + 0.95,
                   (tp.z + this.z) * 0.5
                 );
-                this.vfx.spawnHitImpact(hitV, 0xff9f43, isBig);
-                this.vfx.spawnDamageText(hitV.clone().add(new THREE.Vector3(0, 0.7, 0)), `GEROBAK -${dealt}!`, 'npcHit');
+                this.vfx.spawnHitImpact(hitV, this.target.isHorse ? 0xf87171 : 0xff9f43, isBig);
+                const dmgLbl = this.target.isHorse ? `-${dealt} HP!` : `CART -${dealt}!`;
+                this.vfx.spawnDamageText(hitV.clone().add(new THREE.Vector3(0, 0.7, 0)), dmgLbl, 'npcHit');
                 this.vfx.playSfx('hit');
               }
-              if (fullCtx && typeof fullCtx.onCartAttacked === 'function') {
+              if (this.target.isHorse && fullCtx && typeof fullCtx.onHorseAttacked === 'function') {
+                fullCtx.onHorseAttacked(dealt, this.variant);
+              } else if (this.target.isCart && fullCtx && typeof fullCtx.onCartAttacked === 'function') {
                 fullCtx.onCartAttacked(dealt, this.variant);
               }
             }
@@ -4549,6 +4573,52 @@ class ForestMobs {
     }
   }
 
+  _applyRigRamAndCollision(mob, dt, horseCtx, cartCtx, onMobRammed) {
+    if (!mob || mob.dead || !HC.resolveRigObstacle) return;
+    if (mob._ramCd > 0) mob._ramCd = Math.max(0, mob._ramCd - dt);
+    const rad = mob.kind === 'boar' ? 0.56 : mob.kind === 'bandit' ? (mob.radius || 0.44) : 0.28;
+    const res = HC.resolveRigObstacle(mob.x, mob.z, rad, horseCtx, cartCtx);
+    if (!res.hit) return;
+
+    mob.x = res.x;
+    mob.z = res.z;
+    mob.y = groundY(this.world, mob.x, mob.z);
+
+    if (res.impactSpeed >= 2.2 && (mob._ramCd || 0) <= 0) {
+      mob._ramCd = 0.70;
+      if (mob.kind === 'rabbit') {
+        mob.targetHeading = Math.atan2(res.nx, res.nz);
+        mob.heading = mob.targetHeading;
+        mob.x += res.nx * 0.14;
+        mob.z += res.nz * 0.14;
+      } else if (typeof mob.takeDamage === 'function') {
+        const dmg = Math.max(5, Math.round(5 + (res.impactSpeed - 2.0) * (res.source === 'cart' ? 6.5 : 5.0)));
+        const kb = Math.min(8.5, 4.2 + res.impactSpeed * 0.65);
+        mob.takeDamage(dmg, res.hitFromX, res.hitFromZ, {
+          knockback: kb,
+          isCrit: res.impactSpeed >= 4.6,
+          textStyle: 'crit',
+        });
+        if (!mob.dead) {
+          mob.hitstunTimer = 0.90;
+          if (typeof mob._setState === 'function') mob._setState('stagger', 0.90);
+          mob.x += res.nx * 0.16;
+          mob.z += res.nz * 0.16;
+        }
+        if (this.vfx) {
+          this.vfx.spawnRing(new THREE.Vector3(mob.x, mob.y + 0.35, mob.z), 0xfbbf24, 0.45, 2.1, 0.28, true);
+        }
+        if (typeof onMobRammed === 'function') {
+          onMobRammed(mob, dmg, res.impactSpeed, res.source);
+        }
+      }
+      mob.y = groundY(this.world, mob.x, mob.z);
+    }
+
+    if (mob.mesh && mob.mesh.position) mob.mesh.position.set(mob.x, mob.y, mob.z);
+    else if (mob.rig && mob.rig.root && mob.rig.root.position) mob.rig.root.position.set(mob.x, mob.y, mob.z);
+  }
+
   update(dt, ctx = {}) {
     const rawDt = Math.min(0.05, Math.max(0.001, dt || 1 / 60));
     this.vfx.update(rawDt, ctx.camera);
@@ -4563,24 +4633,35 @@ class ForestMobs {
       this._updateNightRoadBandits(anim.x, anim.z, anim.yaw || 0, simDt, ctx.world || this.world, ctx.onNightAmbush);
     }
 
+    const phys = ctx.physics;
+    const hasCart = ctx.hasCart !== false && !!phys;
+    const horseCtx = anim ? { x: anim.x, z: anim.z, yaw: anim.yaw || 0, speed: anim.speed || 0 } : null;
+    const cartCtx = (hasCart && phys.pos) ? { x: phys.pos.x, z: phys.pos.z, yaw: phys.yaw || 0, speed: phys.forwardSpeed || 0, active: true } : null;
+
     const fullCtx = {
       animator: anim,
-      physics: ctx.physics,
+      physics: phys,
+      hasCart,
+      horseHp: ctx.horseHp,
       party: ctx.party,
       rabbits: this.rabbits,
       boars: this.boars,
       bandits: this.bandits,
       onCartAttacked: ctx.onCartAttacked,
+      onHorseAttacked: ctx.onHorseAttacked,
     };
 
     for (const r of this.rabbits) {
       r.update(simDt, this.clock, fullCtx);
+      this._applyRigRamAndCollision(r, simDt, horseCtx, cartCtx, ctx.onMobRammed);
     }
     for (const b of this.boars) {
       b.update(simDt, this.clock);
+      this._applyRigRamAndCollision(b, simDt, horseCtx, cartCtx, ctx.onMobRammed);
     }
     for (const bd of this.bandits) {
       bd.update(simDt, this.clock, fullCtx);
+      this._applyRigRamAndCollision(bd, simDt, horseCtx, cartCtx, ctx.onMobRammed);
     }
   }
 }

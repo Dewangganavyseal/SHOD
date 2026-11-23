@@ -343,3 +343,67 @@ const THREE = HC.THREE, V = HC.VoxelBuilder, P = HC.PAL;
       collarLeft, collarRight, girthLeft, girthRight, bitLeft, bitRight
     };
   };
+
+  // Dedicated 3D Horse Head Portrait Rig (renders ONLY the horse's head for top-left HUD)
+  HC.buildHorseHeadPortrait = function () {
+    const S = HC.vs;
+    const root = new THREE.Group();
+    root.name = 'horse-head-portrait';
+
+    const head = new THREE.Group();
+    head.position.set(-3.4 * S, -1.2 * S, 0);
+    root.add(head);
+
+    const hb = new V();
+    // Short upper neck bust + mane crest for tight head framing (no body)
+    hb.box(-2.8, -4.6, -2.6, 1.4, 2.2, 2.6, P.coatMid);
+    hb.box(-3.4, -4.2, -1.2, -2.5, 4.4, 1.2, P.mane, 0.04);
+    hb.box(0, -1.4, -2.7, 4.2, 4.2, 2.7, P.coatMid);
+    hb.box(3.4, 0.6, -2.5, 5.0, 3.8, 2.5, P.coatLite);
+    hb.box(0.6, -2.4, -2.9, 3.8, -0.6, 2.9, P.coatWarm);
+    hb.box(4.6, -1.0, -2.2, 7.8, 2.2, 2.2, P.coatMid);
+    hb.box(7.0, -0.6, -2.3, 8.2, 2.0, 2.3, P.muzzle);
+    hb.box(7.6, 1.0, -1.9, 8.3, 1.7, -1.1, P.nostril);
+    hb.box(7.6, 1.0, 1.1, 8.3, 1.7, 1.9, P.nostril);
+    hb.box(7.4, -0.8, -2.0, 8.3, -0.2, 2.0, P.muzzle, 0.02);
+    hb.box(3.6, 1.6, -1.0, 7.2, 3.2, 1.0, P.blaze, 0.02);
+    for (const s of [-1, 1]) {
+      hb.box(2.0, 1.6, s * 2.7, 3.0, 2.8, s * 2.9, P.eyeWhite, 0.0);
+      hb.box(2.2, 1.9, s * 2.9, 2.8, 2.6, s * 3.0, P.eyePupil, 0.0);
+      hb.box(1.7, 2.8, s * 2.6, 3.1, 3.2, s * 2.9, P.coatDark, 0.02);
+      hb.box(1.0, 0.0, s * 2.6, 3.6, 1.4, s * 2.8, P.coatLite, 0.02);
+    }
+    hb.box(-0.4, 4.0, -1.6, 1.6, 5.8, 1.6, P.mane, 0.04);
+    // Bridle & brass bit
+    hb.box(0.4, 3.3, -2.8, 1.6, 3.9, 2.8, P.leather, 0.02);
+    hb.box(3.0, -0.4, -2.6, 3.8, 3.4, -2.3, P.leather, 0.02);
+    hb.box(3.0, -0.4, 2.3, 3.8, 3.4, 2.6, P.leather, 0.02);
+    hb.box(6.2, 0.0, -2.5, 7.0, 1.2, 2.5, P.leather2, 0.02);
+    hb.box(2.6, -1.6, -2.6, 3.2, 0.2, 2.6, P.leather, 0.02);
+    hb.box(3.0, -2.0, -2.5, 3.6, -1.4, -1.9, P.brass);
+    hb.box(3.0, -2.0, 1.9, 3.6, -1.4, 2.5, P.brass);
+    head.add(hb.build(0, 0, 0));
+
+    const jaw = new THREE.Group();
+    jaw.position.set(1.2 * S, -1.2 * S, 0);
+    head.add(jaw);
+    const jb = new V();
+    jb.box(0.6, -1.6, -2.2, 6.6, 0.3, 2.2, P.coatWarm);
+    jb.box(5.6, -1.4, -2.0, 7.2, 0.2, 2.0, P.muzzle);
+    jb.box(6.4, -1.2, -1.6, 7.4, 0.0, 1.6, P.nostril, 0.02);
+    jaw.add(jb.build(0, 0, 0));
+
+    const ears = [];
+    for (const s of [-1, 1]) {
+      const g = new THREE.Group();
+      g.position.set(0.3 * S, 4.6 * S, s * 1.7 * S);
+      head.add(g);
+      const eb = new V();
+      eb.box(-0.9, 0, -0.7, 1.1, 3.0, 0.7, P.coatWarm);
+      eb.box(-0.6, 0.2, -0.45, 0.8, 2.6, 0.45, P.coatDark, 0.02);
+      g.add(eb.build(0, 0, 0));
+      ears.push(g);
+    }
+
+    return { root, head, jaw, ears };
+  };

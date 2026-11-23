@@ -208,6 +208,7 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
       this.applySpec(cart);
       this.joltScale = 1;   // straps upgrade lowers this (cargo bounces less)
       this.damageScale = 1; // pengawal NPC di bangku buritan nurunin damage roda
+      this.pullPowerScale = 1.0; // horse Pull Power stat multiplier
       const capMass = (cart.specs && cart.specs.capSpec && cart.specs.capSpec.massAdd) || 0;
       this.mass += capMass;
       this.flipped = false;
@@ -557,8 +558,9 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
           const relN = (vAx - vB.x) * nx + (0 - vB.y) * ny + (vAz - vB.z) * nz;
 
           // damping: laju regangan = (vB - vA)·n  ->  -cTrace*relN
-          let F = this.kTrace * (L - this.traceRest[i]) - this.cTrace * relN;
-          F = Math.max(0, Math.min(22000, F));
+          const pwr = this.pullPowerScale || 1.0;
+          let F = this.kTrace * pwr * (L - this.traceRest[i]) - this.cTrace * relN;
+          F = Math.max(0, Math.min(22000 * pwr, F));
           if (F > 0) addForce(-nx * F, -ny * F, -nz * F, bx, by, bz);
         }
       }
@@ -2272,10 +2274,14 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
       if (this.q) this.cart.chassis.quaternion.copy(this.q);
       if (this.wheels) {
         for (const w of this.wheels) {
-          w.ref.wheelPivot.position.set(w.ref.localX, w.ref.radius - this.pivotY, w.ref.localZ);
+          if (w.detached) continue;
           if (this.q) {
+            const rl = this._w4.copy(w.wa).applyQuaternion(this.q);
+            w.ref.wheelPivot.position.set(rl.x, rl.y + (w.comp || 0), rl.z);
             w.ref.wheelPivot.quaternion.copy(this.q);
             if (w.ref.front) w.ref.wheelPivot.quaternion.multiply(this._qAy.setFromAxisAngle(UP, this.axleYaw));
+          } else {
+            w.ref.wheelPivot.position.set(w.ref.localX, w.ref.radius - this.pivotY, w.ref.localZ);
           }
         }
       }
@@ -2318,6 +2324,95 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
       this.syncVisual();
     }
   }
+
+  /**
+   * Solid horizontal collision against Horse (two-circle capsule) & Cart (oriented box).
+   * Prevents NPCs/mobs from clipping through and supplies ram impact velocity.
+   */
+  HC.resolveRigObstacle = function (x, z, r = 0.4, horseCtx = null, cartCtx = null) {
+    let px = x;
+    let pz = z;
+    let hit = false;
+    let nx = 0;
+    let nz = 0;
+    let source = null;
+    let hitFromX = x;
+    let hitFromZ = z;
+    let impactSpeed = 0;
+
+    if (horseCtx && Number.isFinite(horseCtx.x) && Number.isFinite(horseCtx.z)) {
+      const hyaw = horseCtx.yaw || 0;
+      const hfx = Math.cos(hyaw);
+      const hfz = -Math.sin(hyaw);
+      const hSpd = Math.abs(horseCtx.speed || 0);
+      const minD = 0.58 + r;
+      for (const off of [0.46, -0.48]) {
+        const cx = horseCtx.x + hfx * off;
+        const cz = horseCtx.z + hfz * off;
+        const dx = px - cx;
+        const dz = pz - cz;
+        const dSq = dx * dx + dz * dz;
+        if (dSq < minD * minD) {
+          const d = Math.sqrt(dSq);
+          const unx = d > 1e-4 ? dx / d : hfx;
+          const unz = d > 1e-4 ? dz / d : hfz;
+          px = cx + unx * minD;
+          pz = cz + unz * minD;
+          hit = true;
+          nx = unx;
+          nz = unz;
+          source = 'horse';
+          hitFromX = horseCtx.x;
+          hitFromZ = horseCtx.z;
+          impactSpeed = Math.max(impactSpeed, hSpd);
+        }
+      }
+    }
+
+    if (cartCtx && cartCtx.active && Number.isFinite(cartCtx.x) && Number.isFinite(cartCtx.z)) {
+      const cyaw = cartCtx.yaw || 0;
+      const cfx = Math.cos(cyaw);
+      const cfz = -Math.sin(cyaw);
+      const clx = -cfz;
+      const clz = cfx;
+      const dx = px - cartCtx.x;
+      const dz = pz - cartCtx.z;
+      const lx = dx * cfx + dz * cfz;
+      const lz = dx * clx + dz * clz;
+      const hl = 2.02 + r;
+      const hw = 1.16 + r;
+      if (Math.abs(lx) < hl && Math.abs(lz) < hw) {
+        const penX = hl - Math.abs(lx);
+        const penZ = hw - Math.abs(lz);
+        let unx = 0, unz = 0;
+        let nlx = lx, nlz = lz;
+        if (penX < penZ) {
+          const s = lx >= 0 ? 1 : -1;
+          nlx = s * hl;
+          unx = s * cfx;
+          unz = s * cfz;
+        } else {
+          const s = lz >= 0 ? 1 : -1;
+          nlz = s * hw;
+          unx = s * clx;
+          unz = s * clz;
+        }
+        px = cartCtx.x + cfx * nlx + clx * nlz;
+        pz = cartCtx.z + cfz * nlx + clz * nlz;
+        hit = true;
+        nx = unx;
+        nz = unz;
+        source = 'cart';
+        hitFromX = cartCtx.x;
+        hitFromZ = cartCtx.z;
+        const cSpd = Math.abs(cartCtx.speed || 0);
+        const hSpd = horseCtx ? Math.abs(horseCtx.speed || 0) : 0;
+        impactSpeed = Math.max(impactSpeed, cSpd, hSpd * 0.9);
+      }
+    }
+
+    return { hit, x: px, z: pz, nx, nz, source, impactSpeed, hitFromX, hitFromZ };
+  };
 
   HC.Rope = Rope;
   HC.CartPhysics = CartPhysics;

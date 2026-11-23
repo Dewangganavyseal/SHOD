@@ -9,7 +9,9 @@
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
-export function initTouchControls({ animator, survival, onJump, onEat, onDrink, onSleep, onRunToggle, onHitch, onInspect, isTouchDevice }) {
+const tr = (k, fb) => (typeof globalThis !== 'undefined' && globalThis.HC && typeof globalThis.HC.t === 'function' ? globalThis.HC.t(k) : fb);
+
+export function initTouchControls({ animator, survival, onJump, onEat, onInteract, onSleep, onRunToggle, onHitch, onInspect, isTouchDevice }) {
   const touch = isTouchDevice || matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
   document.body.classList.toggle('is-touch', !!touch);
 
@@ -17,9 +19,9 @@ export function initTouchControls({ animator, survival, onJump, onEat, onDrink, 
   const rotate = document.createElement('div');
   rotate.id = 'rotate-hint';
   rotate.innerHTML = '<div class="rh-card"><div class="rh-icon">📱↻</div>' +
-    '<div class="rh-title">Putar HP ke LANDSCAPE</div>' +
-    '<div class="rh-sub">Game ini butuh layar melebar. Analog di kiri, tombol di kanan.</div>' +
-    '<button id="btn-fullscreen" type="button">Layar Penuh + Kunci</button></div>';
+    `<div class="rh-title" id="rh-title">${tr('touch_rotate_title', 'Rotate Phone to LANDSCAPE')}</div>` +
+    `<div class="rh-sub" id="rh-sub">${tr('touch_rotate_sub', 'Analog stick on the left, action buttons on the right.')}</div>` +
+    `<button id="btn-fullscreen" type="button">${tr('touch_fullscreen', 'Fullscreen + Lock')}</button></div>`;
   document.body.appendChild(rotate);
 
   async function goFullscreenLandscape() {
@@ -135,13 +137,13 @@ export function initTouchControls({ animator, survival, onJump, onEat, onDrink, 
   const padBtns = document.createElement('div');
   padBtns.id = 'action-pad';
   const defs = [
-    { id: 'act-jump', icon: '⤴', label: 'LOMPAT', cls: 'jump hero' },
-    { id: 'act-run', icon: '⚡', label: 'LARI', sub: 'toggle', cls: 'run' },
-    { id: 'act-hitch', icon: '🔗', label: 'TALI', sub: 'lepas', cls: 'hitch' },
-    { id: 'act-inspect', icon: '👁️', label: 'CEK', cls: 'inspect' },
-    { id: 'act-eat', icon: '🌿', label: 'MAKAN', cls: 'eat' },
-    { id: 'act-drink', icon: '💧', label: 'MINUM', cls: 'drink' },
-    { id: 'act-sleep', icon: '😴', label: 'TIDUR', cls: 'sleep' },
+    { id: 'act-jump', icon: '⤴', labelKey: 'touch_jump', label: 'JUMP', cls: 'jump hero' },
+    { id: 'act-run', icon: '⚡', labelKey: 'touch_run', label: 'RUN', subKey: 'touch_sub_toggle', sub: 'toggle', cls: 'run' },
+    { id: 'act-hitch', icon: '🔗', labelKey: 'touch_hitch', label: 'ROPE', subKey: 'touch_sub_detach', sub: 'unhitch', cls: 'hitch' },
+    { id: 'act-inspect', icon: '👁️', labelKey: 'touch_inspect', label: 'CHECK', subKey: 'touch_sub_hold', sub: 'hold', cls: 'inspect' },
+    { id: 'act-eat', icon: '🌿', labelKey: 'touch_eat', label: 'GRAZE', cls: 'eat' },
+    { id: 'act-interact', icon: '💬', labelKey: 'touch_interact', label: 'TALK', cls: 'drink interact' },
+    { id: 'act-sleep', icon: '😴', labelKey: 'touch_sleep', label: 'SLEEP', cls: 'sleep' },
   ];
   for (const d of defs) {
     const b = document.createElement('button');
@@ -149,8 +151,8 @@ export function initTouchControls({ animator, survival, onJump, onEat, onDrink, 
     b.className = 'act ' + d.cls;
     b.innerHTML =
       `<span class="ic" aria-hidden="true">${d.icon}</span>` +
-      `<span class="lbl">${d.label}</span>` +
-      (d.sub ? `<span class="sub">${d.sub}</span>` : '');
+      `<span class="lbl">${tr(d.labelKey, d.label)}</span>` +
+      (d.sub ? `<span class="sub">${tr(d.subKey, d.sub)}</span>` : '');
     padBtns.appendChild(b);
   }
   document.body.appendChild(padBtns);
@@ -183,7 +185,7 @@ export function initTouchControls({ animator, survival, onJump, onEat, onDrink, 
   press(runBtn, () => onRunToggle && onRunToggle());
   press(padBtns.querySelector('#act-jump'), () => onJump && onJump());
   press(padBtns.querySelector('#act-eat'), () => onEat && onEat());
-  press(padBtns.querySelector('#act-drink'), () => onDrink && onDrink());
+  press(padBtns.querySelector('#act-interact'), () => onInteract && onInteract());
   press(hitchBtn, () => onHitch && onHitch());
   if (inspectBtn) {
     const startInsp = (e) => {
@@ -212,6 +214,24 @@ export function initTouchControls({ animator, survival, onJump, onEat, onDrink, 
       if (disabled) inspectBtn.classList.remove('on');
     },
     setSleepState(on) { if (sleepBtn) sleepBtn.classList.toggle('on', !!on); },
+    refreshLang() {
+      const rt = rotate.querySelector('#rh-title');
+      const rs = rotate.querySelector('#rh-sub');
+      const rbtn = rotate.querySelector('#btn-fullscreen');
+      if (rt) rt.textContent = tr('touch_rotate_title', 'Rotate Phone to LANDSCAPE');
+      if (rs) rs.textContent = tr('touch_rotate_sub', 'Analog stick on the left, action buttons on the right.');
+      if (rbtn) rbtn.textContent = tr('touch_fullscreen', 'Fullscreen + Lock');
+      for (const d of defs) {
+        const el = padBtns.querySelector(`#${d.id}`);
+        if (!el) continue;
+        const lbl = el.querySelector('.lbl');
+        if (lbl) lbl.textContent = tr(d.labelKey, d.label);
+        if (d.subKey) {
+          const s = el.querySelector('.sub');
+          if (s) s.textContent = tr(d.subKey, d.sub);
+        }
+      }
+    },
     setHitchState({ free = false, disabled = false, sub = '' } = {}) {
       if (!hitchBtn) return;
       hitchBtn.classList.toggle('free', !!free);

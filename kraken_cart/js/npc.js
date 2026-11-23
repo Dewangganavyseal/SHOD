@@ -65,7 +65,7 @@ HC.NPC_ROLES = [
     robe:0x161a20, hood:0x2f8a4e, hp:380, dmg:42, speed:3.2,
     skill:{ id:'lich_wrath', name:'Lich Wrath', e:'☠️', desc:'⚡ Sambaran Petir Ungu beruntun · 🧟 Bangkitkan 3 Zombie Pembantai dari tanah kubur (HP, Damage & Durasi scaling level) · 🩸 Sedot Nyawa memulihkan HP' } },
 ];
-HC.NPC_TEAM_MAX = 3;
+HC.NPC_TEAM_MAX = 2;
 HC.NPC_RECRUITABLE = HC.NPC_ROLES.filter((r) => r.recruitable);
 HC.NPC_BY_ID = (id) => HC.NPC_ROLES.find((r) => r.id === id);
 HC.NPC_SKILL = (id) => {
@@ -681,11 +681,24 @@ function updateVillageResident(item, dt, horse, world) {
 
 /* Satu tick AI untuk NPC liar: pilih fase (diam/jalan/kerja), gerakkan root di
    atas terrain, isi state yang dibaca animate(), lalu animasikan. */
-HC.updateWildNPC = function (item, dt, horse, world) {
+HC.updateWildNPC = function (item, dt, horse, world, rigCtx = null) {
   const root = item.root, st = root && root.userData && root.userData.npc;
   if (!st) return;
+  const activeRig = rigCtx || HC._activeRigCtx || (world && world._rigObsCtx) || null;
   if (HC.combatAI && HC.mobs && HC.combatAI.stepWild(item, dt || 1 / 60, horse, world)) return;
-  if (item.villageProfile && updateVillageResident(item, dt || 1 / 60, horse, world)) return;
+  if (item.villageProfile && updateVillageResident(item, dt || 1 / 60, horse, world)) {
+    if (activeRig && HC.resolveRigObstacle) {
+      const rigRes = HC.resolveRigObstacle(item.x, item.z, 0.36, activeRig.horse, activeRig.cart);
+      if (rigRes.hit) {
+        item.x = rigRes.x;
+        item.z = rigRes.z;
+        const gyR = (world && world.heightAt) ? world.heightAt(item.x, item.z) : (world && world.terrainHeightAt) ? world.terrainHeightAt(item.x, item.z) : 0;
+        root.position.set(item.x, gyR, item.z);
+        st.pos.copy(root.position);
+      }
+    }
+    return;
+  }
   const prof = HC.NPC_BEHAVIOR[st.role.id] || { mode: 'post', radius: 2.5, walk: 0.5, pause: [3, 6], work: null, act: 6, face: 7 };
   const b = item.brain || (item.brain = { phase: 'idle', t: _rnd(0.5, 2.0), dir: root.rotation.y, actT: _rnd(2, prof.act || 8), swingT: -1, healT: -1, harvest: true });
 
@@ -758,6 +771,16 @@ HC.updateWildNPC = function (item, dt, horse, world) {
     }
   }
 
+  if (activeRig && HC.resolveRigObstacle) {
+    const rigRes = HC.resolveRigObstacle(item.x, item.z, 0.36, activeRig.horse, activeRig.cart);
+    if (rigRes.hit) {
+      item.x = rigRes.x;
+      item.z = rigRes.z;
+      b.dir = Math.atan2(rigRes.nx, rigRes.nz);
+      walkSpeed = 0;
+    }
+  }
+
   const gy = (world && world.heightAt) ? world.heightAt(item.x, item.z) : (world && world.terrainHeightAt) ? world.terrainHeightAt(item.x, item.z) : 0;
   root.position.set(item.x, gy, item.z);
   // model Sylvan menghadap +Z lokal -> rotasi root = sudut arah
@@ -813,6 +836,8 @@ HC.NPCParty = class {
     this.roles = HC.NPC_RECRUITABLE;
     this.squad = [];
     this.members = [];
+    this.questPassengers = [];
+    this.hasCart = true;
     this._nextUid = 1;
     this.cart = null;
     this.onChange = null;
@@ -880,7 +905,67 @@ HC.NPCParty = class {
       { x: xA, z: z, rot: Math.PI },
       { x: xA, z: -z, rot: 0 },
       { x: xB, z: z, rot: Math.PI },
+      { x: xB, z: -z, rot: 0 },
     ];
+  }
+  clearQuestPassengers(cart = this.cart) {
+    if (cart && cart.body) {
+      for (const qp of this.questPassengers || []) {
+        if (qp.seatRoot && qp.seatRoot.parent) qp.seatRoot.parent.remove(qp.seatRoot);
+        if (Array.isArray(cart.npcPassengers)) {
+          const i = cart.npcPassengers.indexOf(qp.seatRoot);
+          if (i >= 0) cart.npcPassengers.splice(i, 1);
+        }
+      }
+    }
+    this.questPassengers = [];
+  }
+  boardQuestPassengers(roles = [], cart = this.cart) {
+    const c = cart || this.cart;
+    this.clearQuestPassengers(c);
+    const list = Array.isArray(roles) ? roles.slice(0, 2) : [];
+    for (let i = 0; i < list.length; i++) {
+      const r = list[i];
+      if (!r) continue;
+      const role = typeof r === 'string' ? (HC.NPC_BY_ID(r) || HC.NPC_ROLES[0]) : r;
+      const seatIndex = 2 + i;
+      let seatRoot = null;
+      if (c && c.body) {
+        const seats = this._seatDefs(c);
+        const seat = seats[seatIndex % seats.length];
+        seatRoot = HC.buildNPC(role, 'sit');
+        const vs = HC.cartVS || 0.075;
+        seatRoot.position.x = seat.x * vs;
+        seatRoot.position.z = seat.z * vs;
+        seatRoot.rotation.y = seat.rot;
+        seatRoot.userData.npcRoleId = role.id;
+        seatRoot.userData.isQuestPassenger = true;
+        c.body.add(seatRoot);
+        c.npcPassengers = c.npcPassengers || [];
+        c.npcPassengers.push(seatRoot);
+      }
+      this.questPassengers.push({ role, seatIndex, seatRoot });
+    }
+    return this.questPassengers.length;
+  }
+  _attachQuestPassengers(cart = this.cart) {
+    const c = cart || this.cart;
+    if (!c || !c.body || !this.questPassengers || !this.questPassengers.length) return;
+    const seats = this._seatDefs(c);
+    const vs = HC.cartVS || 0.075;
+    c.npcPassengers = c.npcPassengers || [];
+    for (const qp of this.questPassengers) {
+      const seat = seats[qp.seatIndex % seats.length];
+      const seatRoot = HC.buildNPC(qp.role, 'sit');
+      seatRoot.position.x = seat.x * vs;
+      seatRoot.position.z = seat.z * vs;
+      seatRoot.rotation.y = seat.rot;
+      seatRoot.userData.npcRoleId = qp.role.id;
+      seatRoot.userData.isQuestPassenger = true;
+      c.body.add(seatRoot);
+      c.npcPassengers.push(seatRoot);
+      qp.seatRoot = seatRoot;
+    }
   }
   _cartCenterWorld(cart) {
     if (cart && cart.root && cart.root.position && HC.THREE) {
@@ -1003,6 +1088,56 @@ HC.NPCParty = class {
     m.carryingCargo = false;
     m.haulPickT = 0;
   }
+  _clearWaterTask(m, reason = null) {
+    if (!m) return;
+    if (m.bucketMesh && m.bucketMesh.parent) m.bucketMesh.parent.remove(m.bucketMesh);
+    m.bucketMesh = null;
+    if (m.waterTask) {
+      const cb = m.waterTask.onCancel;
+      m.waterTask = null;
+      if (reason && typeof cb === 'function') {
+        try { cb(reason); } catch (e) { /* no-op */ }
+      }
+    }
+  }
+  startWaterRefillTask(waterSource, barrelItem, cart = this.cart, callbacks = {}) {
+    if (!waterSource || !barrelItem) return { ok: false, reason: 'invalid' };
+    if ((barrelItem.charges || 0) >= (barrelItem.maxCharges || 5)) return { ok: false, reason: 'full' };
+    if (this.physics && this.physics.flipped) return { ok: false, reason: 'flipped' };
+    if (!this.members || !this.members.length) return { ok: false, reason: 'no_npc' };
+    const existing = this.members.find((it) => it.state === 'fetching_water');
+    if (existing) return { ok: false, reason: 'busy', member: existing };
+
+    const m = this.members.find((it) => it.state === 'following') || this.members[0];
+    if (m.state === 'seated' || m.state === 'hopping_in' || m.state === 'boarding') {
+      this.disembarkMember(m.uid);
+    }
+    this._dropMemberCargo(m, this.physics);
+    if (m.cBrain) m.cBrain.targetBoar = null;
+    m.inCombat = false;
+
+    if (m.root && HC.makeWaterBucketMesh) {
+      if (m.bucketMesh && m.bucketMesh.parent) m.bucketMesh.parent.remove(m.bucketMesh);
+      const bk = HC.makeWaterBucketMesh();
+      bk.position.set(0.28, 0.56, 0.24);
+      m.root.add(bk);
+      m.bucketMesh = bk;
+    }
+
+    m.state = 'fetching_water';
+    m.waterTask = {
+      waterSource,
+      barrelItem,
+      cart: cart || this.cart,
+      step: 'to_water',
+      waitT: 0,
+      onProgress: callbacks.onProgress || null,
+      onDone: callbacks.onDone || null,
+      onCancel: callbacks.onCancel || null,
+    };
+    this._notify();
+    return { ok: true, member: m };
+  }
   _updateMember(m, dt, hx, hz, hyaw, cart, physics) {
     const root = m.root;
     if (!root || !HC.THREE) return;
@@ -1011,12 +1146,155 @@ HC.NPCParty = class {
     const cc = this._cartCenterWorld(c);
     const rigSpd = physics ? Math.hypot(physics.vel.x, physics.vel.z) : 0;
     const flipLock = !!(physics && physics.flipped);
-    const resolveProps = (rad = 0.34) => {
+    const resolveProps = (rad = 0.34, skipRig = false) => {
+      let hitAny = false;
       if (this.world && typeof this.world.resolveCircleCollision === 'function') {
         const res = this.world.resolveCircleCollision(m.x, m.z, rad);
-        if (res.hit) { m.x = res.x; m.z = res.z; }
+        if (res.hit) { m.x = res.x; m.z = res.z; hitAny = true; }
       }
+      if (!skipRig && HC.resolveRigObstacle) {
+        const rigRes = HC.resolveRigObstacle(
+          m.x,
+          m.z,
+          rad,
+          { x: hx, z: hz, yaw: hyaw, speed: this._horseMoveSpd || 0 },
+          (this.hasCart !== false && c && physics) ? { x: cc.x, z: cc.z, yaw: cc.yaw, speed: physics.forwardSpeed || 0, active: true } : null
+        );
+        if (rigRes.hit) { m.x = rigRes.x; m.z = rigRes.z; hitAny = true; }
+      }
+      return hitAny;
     };
+
+    if (m.state === 'fetching_water') {
+      const wt = m.waterTask;
+      const ws = wt && wt.waterSource;
+      const bar = wt && wt.barrelItem;
+      const maxC = (bar && bar.maxCharges) || 5;
+      const cartDistWater = ws ? Math.hypot(cc.x - ws.x, cc.z - ws.z) : 999;
+      if (!wt || !ws || !bar || flipLock || bar.spilled || (bar.charges || 0) >= maxC || cartDistWater > 28.0) {
+        const doneCb = wt && wt.onDone;
+        const alreadyFull = !!(bar && (bar.charges || 0) >= maxC);
+        this._clearWaterTask(m, alreadyFull ? null : 'cancelled');
+        if (alreadyFull && typeof doneCb === 'function') {
+          try { doneCb(bar.charges, maxC, m); } catch (e) { /* no-op */ }
+        }
+        m.state = flipLock ? 'following' : 'boarding';
+        m.boardT = 0;
+        this._notify();
+        return;
+      }
+
+      const cfx = Math.cos(cc.yaw), cfz = -Math.sin(cc.yaw);
+      const clx = -cfz, clz = cfx;
+      let tx = ws.x, tz = ws.z;
+      let walkingNow = false;
+      let workingNow = false;
+      let swingT = 0;
+      const preMoveX = m.x, preMoveZ = m.z;
+
+      if (wt.step === 'to_water') {
+        tx = ws.x; tz = ws.z;
+        const dx = tx - m.x, dz = tz - m.z;
+        const d = Math.hypot(dx, dz);
+        if (d > 0.78) {
+          const sp = 3.2;
+          const mv = Math.min(d, sp * dt);
+          m.x += (dx / d) * mv;
+          m.z += (dz / d) * mv;
+          m.dir = this._turnToward(m.dir, Math.atan2(dx, dz), 9.0, dt);
+          walkingNow = true;
+        } else {
+          wt.step = 'scooping';
+          wt.waitT = 0.72;
+        }
+      } else if (wt.step === 'scooping') {
+        m.dir = this._turnToward(m.dir, Math.atan2(ws.waterX - m.x, ws.waterZ - m.z), 9.0, dt);
+        workingNow = true;
+        swingT = ((0.72 - wt.waitT) * 2.2) % 0.9;
+        wt.waitT -= dt;
+        if (wt.waitT <= 0) {
+          if (m.bucketMesh && m.bucketMesh.userData && m.bucketMesh.userData.waterDisc) {
+            m.bucketMesh.userData.waterDisc.visible = true;
+          }
+          wt.step = 'to_cart';
+        }
+      } else if (wt.step === 'to_cart') {
+        const side = ((ws.x - cc.x) * clx + (ws.z - cc.z) * clz) >= 0 ? 1 : -1;
+        tx = cc.x + cfx * 0.45 + clx * side * 1.66;
+        tz = cc.z + cfz * 0.45 + clz * side * 1.66;
+        const dx = tx - m.x, dz = tz - m.z;
+        const d = Math.hypot(dx, dz);
+        if (d > 0.75) {
+          const sp = 2.85;
+          const mv = Math.min(d, sp * dt);
+          m.x += (dx / d) * mv;
+          m.z += (dz / d) * mv;
+          m.dir = this._turnToward(m.dir, Math.atan2(dx, dz), 9.0, dt);
+          walkingNow = true;
+        } else {
+          wt.step = 'pouring';
+          wt.waitT = 0.55;
+        }
+      } else if (wt.step === 'pouring') {
+        m.dir = this._turnToward(m.dir, Math.atan2(cc.x - m.x, cc.z - m.z), 9.0, dt);
+        workingNow = true;
+        swingT = ((0.55 - wt.waitT) * 2.6) % 0.9;
+        wt.waitT -= dt;
+        if (wt.waitT <= 0) {
+          bar.charges = Math.min(maxC, (bar.charges || 0) + 1);
+          if (m.bucketMesh && m.bucketMesh.userData && m.bucketMesh.userData.waterDisc) {
+            m.bucketMesh.userData.waterDisc.visible = false;
+          }
+          if (typeof wt.onProgress === 'function') {
+            try { wt.onProgress(bar.charges, maxC, m); } catch (e) { /* no-op */ }
+          }
+          if (bar.charges >= maxC) {
+            const doneCb = wt.onDone;
+            this._clearWaterTask(m);
+            m.state = 'boarding';
+            m.boardT = 0;
+            this._notify();
+            if (typeof doneCb === 'function') {
+              try { doneCb(bar.charges, maxC, m); } catch (e) { /* no-op */ }
+            }
+            return;
+          }
+          wt.step = 'to_water';
+        }
+      }
+
+      const blocked = resolveProps(0.32);
+      if (walkingNow && blocked) {
+        const ddx = tx - m.x, ddz = tz - m.z;
+        const dd = Math.hypot(ddx, ddz);
+        if (dd > 1e-4) {
+          const px = -ddz / dd, pz = ddx / dd;
+          if (!wt._skirtSign) {
+            const crossC = (m.x - cc.x) * px + (m.z - cc.z) * pz;
+            wt._skirtSign = crossC >= 0 ? 1 : -1;
+          }
+          m.x += px * wt._skirtSign * 3.1 * dt;
+          m.z += pz * wt._skirtSign * 3.1 * dt;
+          resolveProps(0.32);
+        }
+      } else if (!blocked) {
+        wt._skirtSign = 0;
+      }
+      const gy = this._groundY(m.x, m.z);
+      root.position.set(m.x, gy, m.z);
+      root.rotation.set(0, m.dir, 0);
+      if (st) {
+        st.pos.copy(root.position);
+        st.walking = walkingNow;
+        st.working = workingNow;
+        st.swing = swingT;
+        st.vel.x = walkingNow ? Math.sin(m.dir) * 2.9 : 0;
+        st.vel.z = walkingNow ? Math.cos(m.dir) * 2.9 : 0;
+        st.headAngle = 0;
+      }
+      HC.animateNPC(root, dt);
+      return;
+    }
 
     if (m.state === 'boarding') {
       if (flipLock) {
@@ -1465,21 +1743,32 @@ HC.NPCParty = class {
     if (cart) this.cart = cart;
     if (physics) this.physics = physics;
     this._clock += stepDt;
-    for (let i = 0; i < this.wild.length; i++) {
-      const w = this.wild[i];
-      if (w.respawnAt && this._clock >= w.respawnAt) {
-        const prevVp = w.villageProfile;
-        const nw = this._spawnFromAnchor(i, w.anchor);
-        if (nw && prevVp) {
-          nw.villageProfile = prevVp;
-          nw.homeRadius = 18.0;
-          nw.isIndoors = false;
+    const rigCtx = {
+      horse: { x, z, yaw, speed: this._horseMoveSpd || 0 },
+      cart: (this.hasCart !== false && this.cart && this.cart.root && physics)
+        ? { x: this.cart.root.position.x, z: this.cart.root.position.z, yaw: physics.yaw || 0, speed: physics.forwardSpeed || 0, active: true }
+        : null,
+    };
+    HC._activeRigCtx = rigCtx;
+    try {
+      for (let i = 0; i < this.wild.length; i++) {
+        const w = this.wild[i];
+        if (w.respawnAt && this._clock >= w.respawnAt) {
+          const prevVp = w.villageProfile;
+          const nw = this._spawnFromAnchor(i, w.anchor);
+          if (nw && prevVp) {
+            nw.villageProfile = prevVp;
+            nw.homeRadius = 18.0;
+            nw.isIndoors = false;
+          }
+          w.respawnAt = null;
         }
-        w.respawnAt = null;
+        if (w.recruited) continue;
+        // Tetap berkelompok di kamp/pos; TIDAK respawn random di depan kuda.
+        if (w.root) HC.updateWildNPC(w, dt || 1 / 60, { x, z }, this.world);
       }
-      if (w.recruited) continue;
-      // Tetap berkelompok di kamp/pos; TIDAK respawn random di depan kuda.
-      if (w.root) HC.updateWildNPC(w, dt || 1 / 60, { x, z }, this.world);
+    } finally {
+      HC._activeRigCtx = null;
     }
     for (const m of this.members) {
       if (m.state !== 'seated') {
@@ -1571,7 +1860,9 @@ HC.NPCParty = class {
   }
   recruit(x, z) {
     if (this.squad.length >= HC.NPC_TEAM_MAX) {
-      this.lastMessage = 'Regu penuh (3/3). Lepas anggota dulu.'; return null;
+      const fn = HC.t;
+      this.lastMessage = typeof fn === 'function' ? fn('npc_team_full_2') : 'Regu penuh (2/2). Lepas anggota dulu.';
+      return null;
     }
     const hit = this.nearby(x, z);
     if (!hit) { this.lastMessage = 'Belum ada NPC dalam jangkauan 3.8 m. Deketin kelompoknya dulu.'; return null; }
@@ -1699,6 +1990,7 @@ HC.NPCParty = class {
   disembarkMember(uid) {
     const m = this.members.find((it) => it.uid === uid);
     if (!m || m.state === 'following') return false;
+    this._clearWaterTask(m);
     if (m.state === 'seated') {
       this._detachSeated(m, this.cart);
       const rear = this._cartRearWorld(this.cart, 1.15, (m.seatIndex - 1) * 0.65);
@@ -1721,6 +2013,7 @@ HC.NPCParty = class {
     const idx = this.members.findIndex((it) => it.uid === uid);
     if (idx < 0) return null;
     const [m] = this.members.splice(idx, 1);
+    this._clearWaterTask(m);
     this._dropMemberCargo(m, this.physics);
     const sIdx = this.squad.indexOf(m.role);
     if (sIdx >= 0) this.squad.splice(sIdx, 1);
@@ -1755,5 +2048,6 @@ HC.NPCParty = class {
     for (const m of this.members) {
       if (m.state === 'seated') this._attachSeated(m, cart);
     }
+    this._attachQuestPassengers(cart);
   }
 };

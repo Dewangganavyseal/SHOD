@@ -71,6 +71,7 @@ const THREE = HC.THREE, S = HC.vs;
       this.targetSpeed = 0;
       this.throttle = 0;        // gas -1..1 dari input (diam sampai ditekan maju/mundur)
       this.speedScale = 1;      // limiter kondisi badan (survival)
+      this.statSpeedScale = 1;  // bonus upgrade Top Speed kuda
       this.unhitched = false;   // tanpa gerobak: kuda jauh lebih lincah & cepat
       this.docking = null;      // animasi ngepasin posisi kuda ke pangkal batang gerobak
       this.phase = 0;
@@ -97,6 +98,8 @@ const THREE = HC.THREE, S = HC.vs;
       // Cart/wheel inspect mode (Q): kepala & leher menoleh ke samping/belakang ke arah roda gerobak
       this.inspectMode = false;
       this.inspectBlend = 0;
+      this.menuIdleMode = false;
+      this._menuT = 0;
 
       // Per-leg phase offsets:
       // Walk 4-beat: HL(0.0), FL(0.25), HR(0.50), FR(0.75)
@@ -148,9 +151,10 @@ const THREE = HC.THREE, S = HC.vs;
       dt = Math.min(dt, 0.033);
       this.time += dt;
 
-      const walkMax = this.unhitched ? 2.30 : 1.95;
-      const runMax = this.unhitched ? 6.15 : 5.25;
-      const revMax = this.unhitched ? 1.55 : 1.05;
+      const statSpd = this.statSpeedScale || 1;
+      const walkMax = (this.unhitched ? 2.30 : 1.95) * statSpd;
+      const runMax = (this.unhitched ? 6.15 : 5.25) * statSpd;
+      const revMax = (this.unhitched ? 1.55 : 1.05) * statSpd;
       let moving = false;
       let pivoting = false;
 
@@ -220,17 +224,23 @@ const THREE = HC.THREE, S = HC.vs;
         if (this.state === 'sleep' && moving) {
           this.state = this.prevMoveState || 'walk';
         }
-        const isSleep = this.state === 'sleep' && !this.jumpActive && !moving;
-        const isGraze = this.state === 'graze' && !this.jumpActive && !isSleep;
+        const isSleep = !this.menuIdleMode && this.state === 'sleep' && !this.jumpActive && !moving;
+        const isGraze = this.menuIdleMode ? ((this._menuT % 11.0) < 6.0) : (this.state === 'graze' && !this.jumpActive && !isSleep);
         const isRun = wantRun || (this.jumpActive && this.prevMoveState === 'run' && movingFwd);
 
+        if (this.menuIdleMode) this._menuT += dt;
+        const menuPhase = this.menuIdleMode ? (this._menuT % 11.0) : 0;
+        const menuLookYaw = (this.menuIdleMode && menuPhase >= 6.0)
+          ? Math.sin(((menuPhase - 6.0) / 5.0) * Math.PI * 2) * 0.58
+          : 0;
+
         this.sleepBlend = HC.damp(this.sleepBlend, isSleep ? 1 : 0, 2.6, dt);
-        this.grazeBlend = HC.damp(this.grazeBlend, isGraze ? 1 : 0, 5.5, dt);
-        this.inspectBlend = HC.damp(this.inspectBlend, (this.inspectMode && !isGraze && !isSleep) ? 1 : 0, 6.5, dt);
+        this.grazeBlend = HC.damp(this.grazeBlend, isGraze ? 1 : 0, this.menuIdleMode ? 3.2 : 5.5, dt);
+        this.inspectBlend = HC.damp(this.inspectBlend, (this.inspectMode && !isGraze && !isSleep && !this.menuIdleMode) ? 1 : 0, 6.5, dt);
         this.runBlend = HC.damp(this.runBlend, isRun ? 1 : 0, 6.0, dt);
 
         // Desired speed (+ maju, - mundur); kondisi badan (survival) menskalakan semua.
-        if (isGraze || isSleep || !moving) {
+        if (this.menuIdleMode || isGraze || isSleep || !moving) {
           this.targetSpeed = 0;
         } else if (movingRev) {
           this.targetSpeed = -revMax * Math.min(1, Math.abs(thr)) * this.speedScale;
@@ -248,7 +258,7 @@ const THREE = HC.THREE, S = HC.vs;
         if (this.jumpActive) this.speed = Math.max(this.speed, this.jumpTakeoff);
 
         // ---- Steering: kepala menoleh dulu, badan menyusul; radius belok jauh lebih lincah ----
-        this.steer = HC.damp(this.steer, this.steerInput, this.unhitched ? 10.5 : 8.0, dt);
+        this.steer = HC.damp(this.steer, this.menuIdleMode ? 0 : this.steerInput, this.unhitched ? 10.5 : 8.0, dt);
         const turnCap = this.unhitched ? 1.65 : 1.15;
         const turnMul = this.unhitched ? 0.85 : 0.62;
         const absSpd = Math.abs(this.speed);
@@ -261,8 +271,10 @@ const THREE = HC.THREE, S = HC.vs;
         this.yaw += this.yawRate * dt;
 
         // kepala + leher mendahului putaran badan (anticipation), badan menyusul dengan lag
-        const headWant = HC.clamp(this.steer * 0.62 + this.yawRate * 0.24, -0.85, 0.85) * (1 - this.sleepBlend);
-        this.headLead = HC.damp(this.headLead, headWant, 10.0, dt);
+        const headWant = (this.menuIdleMode
+          ? menuLookYaw
+          : HC.clamp(this.steer * 0.62 + this.yawRate * 0.24, -0.85, 0.85)) * (1 - this.sleepBlend);
+        this.headLead = HC.damp(this.headLead, headWant, this.menuIdleMode ? 4.2 : 10.0, dt);
         this.bodyLag = HC.damp(this.bodyLag, HC.clamp(-this.yawRate * 0.18, -0.26, 0.26), 5.0, dt);
 
         this.forwardX = Math.cos(this.yaw);

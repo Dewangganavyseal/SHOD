@@ -854,9 +854,9 @@ class World {
             const jitterCount = Math.floor(Math.random() * 2) * (Math.random() < 0.5 ? -1 : 1);
             const targetCount = Math.max(5, Math.min(8, countChoices[vIdx % countChoices.length] + jitterCount));
 
-            // Wajib ada stall (penjual), barn (petani), tavern & cottage (hunian/petarung), sisanya diacak
-            const kinds = ['stall', 'barn', 'tavern', 'cottage'];
-            const extraPool = ['cottage', 'blacksmith', 'stall', 'barn', 'cottage'];
+            // Wajib ada blacksmith (Bengkel Gerobak), stall (penjual), barn (petani), tavern & cottage
+            const kinds = ['blacksmith', 'stall', 'barn', 'tavern', 'cottage'];
+            const extraPool = ['cottage', 'stall', 'barn', 'cottage', 'blacksmith'];
             while (kinds.length < targetCount) {
                 const pick = extraPool[Math.floor(Math.random() * extraPool.length)];
                 kinds.push(pick);
@@ -4961,6 +4961,8 @@ class World {
             wellWaters: [],
             bucketPivots: [],
         };
+        const villageWorkshops = [];
+        const villageWells = [];
         const villageData = {
             buildings: {},
             buildingList: [],
@@ -5164,6 +5166,37 @@ class World {
                     if (lot.kind === 'blacksmith' && !vRec.stations.forge) {
                         const forgeStand = localToWorldXZ(hx, hz, yaw, sc, 1.45, -2.55);
                         vRec.stations.forge = { x: forgeStand.x, z: forgeStand.z, faceX: hx, faceZ: hz };
+                        // Zona Bengkel Gerobak tepat di depan bangunan pandai besi menghadap jalan & rumput sekitar
+                        const wsBay = localToWorldXZ(hx, hz, yaw, sc, 0.2, -lot.d * 0.5 - 2.65);
+                        const bayY = getTerrainHeight(wsBay.x, wsBay.z);
+                        const apronMat = new THREE.MeshLambertMaterial({ color: 0xa68358 });
+                        const apron = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.045, 2.0), apronMat);
+                        apron.position.set(wsBay.x, bayY + 0.02, wsBay.z);
+                        apron.rotation.y = yaw;
+                        apron.receiveShadow = true;
+                        villageGroup.add(apron);
+                        // Roda kayu cadangan bersandar di depan toko sebagai penanda bengkel
+                        const wheelMarker = new THREE.Mesh(
+                            new THREE.TorusGeometry(0.42, 0.08, 6, 12),
+                            new THREE.MeshLambertMaterial({ color: 0x5c3c20 })
+                        );
+                        const wheelPt = localToWorldXZ(hx, hz, yaw, sc, -1.35, -lot.d * 0.5 - 0.55);
+                        wheelMarker.position.set(wheelPt.x, getTerrainHeight(wheelPt.x, wheelPt.z) + 0.44, wheelPt.z);
+                        wheelMarker.rotation.y = yaw + 0.15;
+                        wheelMarker.rotation.x = -0.18;
+                        villageGroup.add(wheelMarker);
+                        const wsRec = {
+                            villageId: v.id,
+                            villageName: v.name,
+                            x: wsBay.x,
+                            z: wsBay.z,
+                            bayYaw: yaw,
+                            shopX: hx,
+                            shopZ: hz,
+                            shopYaw: yaw,
+                        };
+                        vRec.stations.workshop = wsRec;
+                        villageWorkshops.push(wsRec);
                     } else if (lot.kind === 'tavern' && !vRec.stations.tavernPorch) {
                         const tavFront = localToWorldXZ(hx, hz, yaw, sc, 1.2, -5.35);
                         vRec.stations.tavernPorch = { x: tavFront.x, z: tavFront.z, faceX: hx, faceZ: hz };
@@ -5204,6 +5237,14 @@ class World {
                 const plazaStand = streetPt(-1.5, 2.8);
                 vRec.stations.well = { x: wellStand.x, z: wellStand.z, faceX: wellX, faceZ: wellZ };
                 vRec.stations.plaza = { x: plazaStand.x, z: plazaStand.z, faceX: wellX, faceZ: wellZ };
+                villageWells.push({
+                    villageId: v.id,
+                    villageName: v.title,
+                    x: wellStand.x,
+                    z: wellStand.z,
+                    wellX,
+                    wellZ,
+                });
 
                 const plazaPath = createVillageStonePath(villageCtx, {
                     points: [
@@ -5521,6 +5562,8 @@ class World {
     this._populateGrassTile = populateGrassTile;
     this._lastGrassTileX = 0;
     this._lastGrassTileZ = 0;
+    this.VILLAGE_WORKSHOPS = villageWorkshops;
+    this.VILLAGE_WELLS = villageWells;
     this.cycleEnabled = true;
     this.cycleDuration = 600.0; // Siklus penuh siang-malam 10 menit
     this.timeOfDay = 0.08;      // Mulai pagi cerah (~07:55)
@@ -5996,13 +6039,121 @@ class World {
     return this.targetMood;
   }
 
+  findNearestWorkshop(x, z, maxDist = 11.0) {
+    const list = this.VILLAGE_WORKSHOPS || [];
+    let best = null;
+    let bestD = maxDist;
+    for (let i = 0; i < list.length; i++) {
+      const ws = list[i];
+      const d = Math.hypot(x - ws.x, z - ws.z);
+      const dShop = Math.hypot(x - ws.shopX, z - ws.shopZ);
+      const effectiveD = Math.min(d, dShop - 1.5);
+      if (effectiveD <= bestD) {
+        bestD = effectiveD;
+        best = { ...ws, dist: effectiveD };
+      }
+    }
+    return best;
+  }
+
+  findNearestWaterSource(x, z, maxDist = 18.0) {
+    let best = null;
+    let bestD = maxDist;
+
+    // 1) Village stone wells
+    const wells = this.VILLAGE_WELLS || [];
+    for (let i = 0; i < wells.length; i++) {
+      const w = wells[i];
+      const d = Math.hypot(x - w.wellX, z - w.wellZ);
+      if (d <= bestD) {
+        bestD = d;
+        best = {
+          kind: 'well',
+          x: w.x,
+          z: w.z,
+          waterX: w.wellX,
+          waterZ: w.wellZ,
+          label: w.villageName,
+          dist: d,
+        };
+      }
+    }
+
+    // 2) Origin pond (center 8.2, 6.2, shore radius ~4.4m)
+    const pdx = x - 8.2;
+    const pdz = z - 6.2;
+    const pDistCenter = Math.hypot(pdx, pdz);
+    const pEdgeDist = Math.max(0, pDistCenter - 4.8);
+    if (pEdgeDist <= bestD) {
+      bestD = pEdgeDist;
+      const ux = pDistCenter > 1e-4 ? pdx / pDistCenter : 0;
+      const uz = pDistCenter > 1e-4 ? pdz / pDistCenter : -1;
+      best = {
+        kind: 'pond',
+        x: 8.2 + ux * 4.75,
+        z: 6.2 + uz * 4.75,
+        waterX: 8.2 + ux * 3.8,
+        waterZ: 6.2 + uz * 3.8,
+        label: 'Pond',
+        dist: pEdgeDist,
+      };
+    }
+
+    // 3) River crossing
+    if (typeof this._riverCenterZ === 'function') {
+      const rcZ = this._riverCenterZ(x);
+      const riverHalf = 5.4;
+      const dz = z - rcZ;
+      const absDz = Math.abs(dz);
+      const rDist = Math.max(0, absDz - riverHalf);
+      if (rDist <= bestD) {
+        bestD = rDist;
+        const side = dz >= 0 ? 1 : -1;
+        best = {
+          kind: 'river',
+          x,
+          z: rcZ + side * 4.2,
+          waterX: x,
+          waterZ: rcZ + side * 2.8,
+          label: 'River',
+          dist: rDist,
+        };
+      }
+    }
+
+    return best;
+  }
+
+  getOldCartSpot() {
+    const rad = (this.VILLAGES || []).find((v) => v.id === 'radnar') || (this.VILLAGES && this.VILLAGES[0]);
+    const baseZ = (rad ? rad.cz : 76.0) + 23.5;
+    const roadX = this._getRoadCenterX ? this._getRoadCenterX(baseZ) : 0;
+    const candidates = [
+      [roadX + 8.5, baseZ + 1.5],
+      [roadX - 9.0, baseZ + 2.0],
+      [roadX + 7.5, baseZ + 5.5],
+      [roadX - 7.5, baseZ + 6.0],
+      [roadX, baseZ + 7.5],
+    ];
+    for (const [cx, cz] of candidates) {
+      const col = this.resolveCircleCollision ? this.resolveCircleCollision(cx, cz, 2.35) : { hit: false };
+      if (!col.hit) {
+        return { x: cx, z: cz, yaw: -Math.PI * 0.55, villageId: 'radnar' };
+      }
+    }
+    return { x: roadX + 8.5, z: baseZ + 4.0, yaw: -Math.PI * 0.55, villageId: 'radnar' };
+  }
+
   getTimeLabel() {
     const t = ((this.timeOfDay || 0) % 1 + 1) % 1;
     // t=0 -> 06:00, t=0.25 -> 12:00, t=0.5 -> 18:00, t=0.75 -> 00:00
     const totalMin = Math.floor(((t * 24 + 6) % 24) * 60);
     const hh = String(Math.floor(totalMin / 60)).padStart(2, '0');
     const mm = String(totalMin % 60).padStart(2, '0');
-    const phase = this.currentMoodKey === 'night' ? 'Malam' : (this.currentMoodKey === 'sunset' ? 'Senja' : 'Siang');
+    const trFn = typeof HC !== 'undefined' && typeof HC.t === 'function' ? HC.t : null;
+    const phaseKey = this.currentMoodKey === 'night' ? 'phase_night' : (this.currentMoodKey === 'sunset' ? 'phase_sunset' : 'phase_morning');
+    const fallback = this.currentMoodKey === 'night' ? 'Night' : (this.currentMoodKey === 'sunset' ? 'Evening' : 'Morning');
+    const phase = trFn ? trFn(phaseKey) : fallback;
     return `${hh}:${mm} • ${phase}`;
   }
 
@@ -6318,23 +6469,23 @@ class World {
       this.triggerPondRipple(hitPoint.x, hitPoint.z);
       this.spawnBurst(new THREE.Vector3(hitPoint.x, this.POND_WATER_Y + 0.12, hitPoint.z), 0xa5f3fc, 12, true, false);
       this.spawnBurst(new THREE.Vector3(hitPoint.x, this.POND_WATER_Y + 0.18, hitPoint.z), 0xffffff, 6, true, false);
-      return 'Cipratan air & riak kolam BotW!';
+      return (HC.getLang && HC.getLang() === 'id') ? 'Cipratan air & riak kolam!' : 'Cool pond ripples splash!';
     }
     if (obj.userData.type === 'river') {
       this.triggerRiverRipple(hitPoint.x, hitPoint.z);
       const wy = this.RIVER ? this.RIVER.waterY : -0.22;
       this.spawnBurst(new THREE.Vector3(hitPoint.x, wy + 0.12, hitPoint.z), 0xa5f3fc, 12, true, false);
       this.spawnBurst(new THREE.Vector3(hitPoint.x, wy + 0.18, hitPoint.z), 0xffffff, 6, true, false);
-      return 'Cipratan air & riak sungai jernih!';
+      return (HC.getLang && HC.getLang() === 'id') ? 'Cipratan air & riak sungai jernih!' : 'Clear river ripples splash!';
     }
     if (obj.userData.type === 'campfire') {
       if (!this.isCampfireLit) {
         this.toggleCampfire(true);
-        return 'Api unggun dinyalakan kembali!';
+        return (HC.getLang && HC.getLang() === 'id') ? 'Api unggun dinyalakan kembali!' : 'Campfire lit up again!';
       }
       obj.userData.flareBoost = 1.6;
       this.spawnBurst(new THREE.Vector3(0, this.cfY + 0.8, 0), 0xffbe0b, 14, true, false);
-      return 'Percikan api hangat membubung!';
+      return (HC.getLang && HC.getLang() === 'id') ? 'Percikan api hangat membubung!' : 'Warm embers crackle upward!';
     }
     if (obj.userData.type === 'mushroom') {
       obj.userData.pulse = 1.5;
@@ -6342,7 +6493,7 @@ class World {
       obj.getWorldPosition(wp);
       wp.y += 0.35;
       this.spawnBurst(wp, 0x72efdd, 12, true, false);
-      return 'Spora ajaib jamur hutan berpendar!';
+      return (HC.getLang && HC.getLang() === 'id') ? 'Spora ajaib jamur hutan berpendar!' : 'Forest mushroom spores glow softly!';
     }
     if (obj.userData.type === 'bush') {
       obj.userData.rustleBoost = 1.6;
@@ -6350,7 +6501,7 @@ class World {
       obj.getWorldPosition(wp);
       wp.y += 0.6;
       this.spawnBurst(wp, obj.userData.burstColor || 0x76cc4b, 12, true, true);
-      return (obj.userData.name || 'Semak') + ' bergoyang rimbun!';
+      return (HC.getLang && HC.getLang() === 'id') ? `${obj.userData.name || 'Semak'} bergoyang rimbun!` : 'Forest bush rustles briskly!';
     }
     if (obj.userData.type === 'tree') {
       obj.userData.rustleBoost = 1.5;
@@ -6358,7 +6509,7 @@ class World {
       obj.getWorldPosition(wp);
       wp.y += 3.2;
       this.spawnBurst(wp, obj.userData.leafColor || 0xf9c74f, 12, false, false);
-      return (obj.userData.name || 'Pohon') + ' berdesir menjatuhkan dedaunan!';
+      return (HC.getLang && HC.getLang() === 'id') ? `${obj.userData.name || 'Pohon'} berdesir menjatuhkan dedaunan!` : 'Tree rustles and sheds autumn leaves!';
     }
     return null;
   }

@@ -182,8 +182,8 @@ function buildMobs() {
 function buildUpgrades() {
   let src = read('js/upgrades.js');
   src = mustReplace(src, /^\s*import\s*\{\s*HC\s*\}\s*from\s*'\.\/hc\.js';\s*\r?\n/m, '', 'js/upgrades.js (import)');
-  src = src.replace(/\bexport\s+(const|class)\s+/g, '$1 ');
-  src += '\nreturn { UPGRADE_LINES, STRAP_JOLT, DEFAULT_LEVELS, UpgradeStore };\n';
+  src = src.replace(/\bexport\s+(const|class|function)\s+/g, '$1 ');
+  src += '\nreturn { UPGRADE_LINES, STRAP_JOLT, DEFAULT_LEVELS, MATERIAL_DEFS, UPGRADE_COSTS, HORSE_STAT_DEFS, UpgradeStore, HorseStatsStore };\n';
   return wrapIIFE('js/upgrades.js', src, '__MOD_UPGRADES');
 }
 
@@ -191,9 +191,15 @@ function buildUI() {
   let src = read('js/ui.js');
   src = mustReplace(
     src,
-    /^\s*import\s*\{\s*UPGRADE_LINES\s*\}\s*from\s*'\.\/upgrades\.js';\s*\r?\n/m,
-    'const { UPGRADE_LINES } = __MOD_UPGRADES;\n',
-    'js/ui.js (import)'
+    /^\s*import\s*\{[^}]*\}\s*from\s*'\.\/upgrades\.js';\s*\r?\n/m,
+    'const { UPGRADE_LINES, MATERIAL_DEFS } = __MOD_UPGRADES;\n',
+    'js/ui.js (import upgrades)'
+  );
+  src = mustReplace(
+    src,
+    /^\s*import\s*\{[^}]*\}\s*from\s*'\.\/i18n\.js';\s*\r?\n/m,
+    'const { t } = __MOD_I18N;\n',
+    'js/ui.js (import i18n)'
   );
   src = mustReplace(src, /\bexport\s+function\s+initUpgradeUI\b/, 'function initUpgradeUI', 'js/ui.js (export)');
   src += '\nreturn { initUpgradeUI };\n';
@@ -218,7 +224,7 @@ function buildQuests() {
   let src = read('js/quests.js');
   src = src.replace(/^\s*export\s*\{[^}]*\};\s*\r?\n?/gm, '');
   src = src.replace(/\bexport\s+(class|const|function)\s+/g, '$1 ');
-  src += '\nreturn { DeliveryQuestSystem, GOODS_POOL };\n';
+  src += '\nreturn { DeliveryQuestSystem, GOODS_POOL, PASSENGER_POOL };\n';
   return wrapIIFE('js/quests.js', src, '__MOD_QUESTS');
 }
 
@@ -236,6 +242,15 @@ function buildPerf() {
   return wrapIIFE('js/perf.js', src, '__MOD_PERF');
 }
 
+function buildI18n() {
+  let src = read('js/i18n.js');
+  src = mustReplace(src, /^\s*import\s*\{\s*HC\s*\}\s*from\s*'\.\/hc\.js';\s*\r?\n/m, '', 'js/i18n.js (HC)');
+  src = src.replace(/^\s*export\s*\{[^}]*\};\s*\r?\n?/gm, '');
+  src = src.replace(/\bexport\s+(const|class|function)\s+/g, '$1 ');
+  src += '\nreturn { DICT, getLang, setLang, onLangChange, t };\n';
+  return wrapIIFE('js/i18n.js', src, '__MOD_I18N');
+}
+
 function buildMain() {
   let src = read('js/main.js');
   // Urutan PENTING: blok touch_controls diganti duluan. Regex-nya menelan semua
@@ -245,10 +260,11 @@ function buildMain() {
     src,
     /^[\s\S]*?import\s*\{\s*initTouchControls\s*\}\s*from\s*'\.\/touch_controls\.js';\s*\r?\n/,
     [
-      'const { UpgradeStore } = __MOD_UPGRADES;',
+      'const { getLang, setLang, onLangChange, t } = __MOD_I18N;',
+      'const { UpgradeStore, HorseStatsStore, MATERIAL_DEFS, UPGRADE_COSTS, HORSE_STAT_DEFS } = __MOD_UPGRADES;',
       'const { initUpgradeUI } = __MOD_UI;',
       'const { Survival } = __MOD_SURVIVAL;',
-      'const { DeliveryQuestSystem } = __MOD_QUESTS;',
+      'const { DeliveryQuestSystem, GOODS_POOL, PASSENGER_POOL } = __MOD_QUESTS;',
       'const { MapUI } = __MOD_MINIMAP;',
       'const { initTouchControls } = __MOD_TOUCH;',
       ''
@@ -275,6 +291,7 @@ const chunks = [
   buildThree(),
   buildOrbitControls(),
   buildHC(),
+  buildI18n(),
   buildMap(),
   buildSideEffectModule('js/voxel.js'),
   buildSideEffectModule('js/horse.js'),

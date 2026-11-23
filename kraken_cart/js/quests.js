@@ -1,23 +1,39 @@
 /* ============================================================================
-   QUESTS — Sistem Quest Pengantaran Barang Antar-Desa
-   Bebas THREE.DOM: dapat diuji headless maupun di browser.
+   QUESTS — Inter-Village Delivery Quest System (Headless + DOM safe)
    ========================================================================= */
 
+function tr(key, fallback, vars = null) {
+  const fn = typeof globalThis !== 'undefined' && globalThis.HC && globalThis.HC.t;
+  if (typeof fn === 'function') return fn(key, vars);
+  let out = fallback;
+  if (vars) {
+    for (const [k, v] of Object.entries(vars)) out = out.replaceAll(`{${k}}`, String(v));
+  }
+  return out;
+}
+
 export const GOODS_POOL = [
-  { kind: 'spices', name: 'Peti Rempah', icon: '🧂' },
-  { kind: 'wheat', name: 'Karung Gandum', icon: '🌾' },
-  { kind: 'cloth', name: 'Kain Tenun', icon: '🧵' },
-  { kind: 'potions', name: 'Ramuan Hutan', icon: '🧪' },
-  { kind: 'iron_tools', name: 'Perkakas Besi', icon: '⚒️' },
-  { kind: 'honey', name: 'Madu Hutan', icon: '🍯' },
-  { kind: 'coffee', name: 'Biji Kopi', icon: '☕' },
-  { kind: 'ceramics', name: 'Keramik Desa', icon: '🏺' },
+  { kind: 'spices', name: 'Spice Crate', nameKey: 'goods_spices', icon: '🧂', mats: { wood: 1, cloth: 1 } },
+  { kind: 'wheat', name: 'Wheat Sack', nameKey: 'goods_wheat', icon: '🌾', mats: { leather: 2, wood: 1 } },
+  { kind: 'cloth', name: 'Woven Cloth', nameKey: 'goods_cloth', icon: '🧵', mats: { cloth: 2, leather: 1 } },
+  { kind: 'potions', name: 'Forest Potions', nameKey: 'goods_potions', icon: '🧪', mats: { wood: 2, iron: 1 } },
+  { kind: 'iron_tools', name: 'Iron Tools', nameKey: 'goods_iron_tools', icon: '⚒️', mats: { iron: 2, wood: 1 } },
+  { kind: 'honey', name: 'Wild Honey', nameKey: 'goods_honey', icon: '🍯', mats: { wood: 2, leather: 1 } },
+  { kind: 'coffee', name: 'Coffee Beans', nameKey: 'goods_coffee', icon: '☕', mats: { cloth: 1, iron: 1, wood: 1 } },
+  { kind: 'ceramics', name: 'Village Ceramics', nameKey: 'goods_ceramics', icon: '🏺', mats: { wood: 1, iron: 2 } },
+];
+
+export const PASSENGER_POOL = [
+  { roleId: 'merchant', labelEn: 'Silk Merchant', labelId: 'Pedagang Sutra', icon: '🧳' },
+  { roleId: 'herbal', labelEn: 'Village Herbalist', labelId: 'Tabib Desa', icon: '🌿' },
+  { roleId: 'farmer', labelEn: 'Harvest Farmer', labelId: 'Petani Panen', icon: '🌾' },
+  { roleId: 'petmerchant', labelEn: 'Traveling Trader', labelId: 'Pedagang Keliling', icon: '🎒' },
 ];
 
 function shortNameOf(v) {
   if (!v) return '';
   if (v.name) return v.name;
-  const raw = String(v.title || v.id || 'Desa');
+  const raw = String(v.title || v.id || 'Village');
   return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
 }
 
@@ -104,24 +120,64 @@ export class DeliveryQuestSystem {
     const others = list.filter((v) => v.id !== villageId);
     const destIdx = (fromIdx * 2 + this._offerCounter) % others.length;
     const toV = others[destIdx];
-    const goods = GOODS_POOL[(fromIdx * 3 + this._offerCounter) % GOODS_POOL.length];
+    const isPassenger = !(fromIdx === 0 && this._offerCounter === 0) && ((fromIdx + this._offerCounter) % 3 === 1);
     const dist = Math.round(Math.hypot(toV.cx - fromV.cx, toV.cz - fromV.cz));
-    const rewardGold = Math.max(25, Math.round(25 + dist * 0.14));
-    const offer = {
-      id: `q_${this._questSeq++}`,
-      fromId: fromV.id,
-      fromName: shortNameOf(fromV),
-      toId: toV.id,
-      toName: shortNameOf(toV),
-      toX: toV.cx,
-      toZ: toV.cz,
-      cargoKind: goods.kind,
-      cargoName: goods.name,
-      cargoIcon: goods.icon,
-      giverName: giverName || `Warga ${shortNameOf(fromV)}`,
-      distance: dist,
-      rewardGold,
-    };
+    const rewardGold = Math.max(25, Math.round(25 + dist * 0.14 + (isPassenger ? 12 : 0)));
+
+    let offer;
+    if (isPassenger) {
+      const pCount = ((fromIdx + this._offerCounter) % 2) + 1;
+      const p1 = PASSENGER_POOL[(fromIdx + this._offerCounter) % PASSENGER_POOL.length];
+      const p2 = PASSENGER_POOL[(fromIdx + this._offerCounter + 1) % PASSENGER_POOL.length];
+      const roles = pCount === 2 ? [p1.roleId, p2.roleId] : [p1.roleId];
+      const langId = typeof HC !== 'undefined' && typeof HC.getLang === 'function' && HC.getLang() === 'id';
+      const label = pCount === 2
+        ? (langId ? `2 Penumpang (${p1.labelId})` : `2 Travelers (${p1.labelEn})`)
+        : (langId ? p1.labelId : p1.labelEn);
+      offer = {
+        id: `q_${this._questSeq++}`,
+        questType: 'passenger',
+        passengerCount: pCount,
+        passengerRoles: roles,
+        fromId: fromV.id,
+        fromName: shortNameOf(fromV),
+        toId: toV.id,
+        toName: shortNameOf(toV),
+        toX: toV.cx,
+        toZ: toV.cz,
+        cargoKind: null,
+        cargoNameKey: null,
+        cargoName: label,
+        cargoIcon: p1.icon || '🧳',
+        giverName: giverName || `${shortNameOf(fromV)} Villager`,
+        distance: dist,
+        rewardGold,
+        rewardMaterials: { cloth: 1, leather: 1, wood: 1 },
+      };
+    } else {
+      const goods = GOODS_POOL[(fromIdx * 3 + this._offerCounter) % GOODS_POOL.length];
+      const localizedCargo = tr(goods.nameKey, goods.name);
+      offer = {
+        id: `q_${this._questSeq++}`,
+        questType: 'cargo',
+        passengerCount: 0,
+        passengerRoles: [],
+        fromId: fromV.id,
+        fromName: shortNameOf(fromV),
+        toId: toV.id,
+        toName: shortNameOf(toV),
+        toX: toV.cx,
+        toZ: toV.cz,
+        cargoKind: goods.kind,
+        cargoNameKey: goods.nameKey,
+        cargoName: localizedCargo,
+        cargoIcon: goods.icon,
+        giverName: giverName || `${shortNameOf(fromV)} Villager`,
+        distance: dist,
+        rewardGold,
+        rewardMaterials: { ...(goods.mats || { wood: 1, iron: 1 }) },
+      };
+    }
     this._offersByVillage.set(villageId, offer);
     return offer;
   }
@@ -130,16 +186,16 @@ export class DeliveryQuestSystem {
     if (this.activeQuest) {
       return {
         ok: false,
-        msg: `Masih ada pengantaran aktif ke ${this.activeQuest.toName}.`,
+        msg: tr('quest_active_err', 'Already carrying an active delivery to {to}.', { to: this.activeQuest.toName }),
         quest: this.activeQuest,
       };
     }
     const offer = this.getOfferForVillage(villageId, wildNpcs);
     if (!offer) {
-      return { ok: false, msg: 'Tidak ada quest tersedia di sini.', quest: null };
+      return { ok: false, msg: tr('quest_none_err', 'No quest available here.'), quest: null };
     }
     let receiverNpc = null;
-    let receiverName = `Warga ${offer.toName}`;
+    let receiverName = `${offer.toName} Villager`;
     if (Array.isArray(wildNpcs)) {
       const destPool = wildNpcs.filter((w) => w && !w.recruited && w.site === offer.toId);
       if (destPool.length > 0) {
@@ -147,8 +203,10 @@ export class DeliveryQuestSystem {
         if (receiverNpc.role && receiverNpc.role.name) receiverName = receiverNpc.role.name;
       }
     }
+    const localizedCargo = offer.cargoNameKey ? tr(offer.cargoNameKey, offer.cargoName) : offer.cargoName;
     this.activeQuest = {
       ...offer,
+      cargoName: localizedCargo,
       receiverNpc,
       receiverName,
       startedAt: Date.now(),
@@ -156,7 +214,13 @@ export class DeliveryQuestSystem {
     this._offersByVillage.delete(villageId);
     return {
       ok: true,
-      msg: `Quest diterima dari ${offer.giverName}: Antar ${offer.cargoName} ke ${receiverName} di ${offer.toName} (+${offer.rewardGold} Emas)!`,
+      msg: tr('quest_accepted_toast', 'Quest accepted from {giver}: Deliver {cargo} to {receiver} in {to} (+{gold} G)!', {
+        giver: offer.giverName,
+        cargo: localizedCargo,
+        receiver: receiverName,
+        to: offer.toName,
+        gold: offer.rewardGold,
+      }),
       quest: this.activeQuest,
     };
   }

@@ -1489,6 +1489,591 @@ return { HC };
 })();
 const { HC } = __MOD_HC;
 
+// --- js/i18n.js ---
+const __MOD_I18N = (() => {
+'use strict';
+const LANG_KEY = 'shod_lang_v1';
+
+const DICT = {
+  en: {
+    page_title: 'KrakenOne Studio — Voxel Horse & Custom Supply Cart',
+    portrait_title: 'Click to open Horse Stats & Upgrades',
+    settings_title: 'Settings',
+    settings_heading: '⚙️ SETTINGS',
+    language_label: 'Language',
+    lang_en: 'English',
+    lang_id: 'Indonesia',
+    quality_label: 'Visual Quality',
+    quality_high: 'Ultra',
+    quality_med: 'Medium',
+    quality_low: 'Low',
+    settings_note: 'Day–night cycle runs automatically every 10 minutes.',
+    stats_heading: '🐴 HORSE STATS & UPGRADES',
+    horse_upgrades_title: 'Horse Attribute Upgrades',
+    upgrade_btn: 'Upgrade',
+    max_btn: 'MAX',
+    not_enough_gold: 'Need {g} G',
+    stat_speed: 'Top Speed',
+    stat_stamina: 'Stamina Pool',
+    stat_power: 'Pull Power',
+    stat_vitality: 'Toughness HP',
+    stat_mode: 'Mode',
+    stat_cur_speed: 'Speed',
+    stat_heading: 'Steering',
+    stat_roll: 'Tilt',
+    stat_cargo: 'Cargo',
+    stat_wheels: 'Wheels',
+    stat_squad: 'NPC Squad',
+    stat_gold: 'Gold',
+    stat_time: 'Time',
+    npc_hint_default: 'Village NPCs can be recruited.',
+    close_btn: 'Close',
+    map_badge: '[M] Map',
+    map_modal_title: '🗺️ WORLD MAP',
+    map_close_btn: '✕ Close (M)',
+    map_legend_horse: 'Horse Position',
+    map_legend_villages: '5 Villages (Radnar, Zenoa, Casna, Kohona, Valen)',
+    map_legend_quest: 'Quest Target',
+    map_legend_water: 'River & Roads',
+    loc_camp: 'Starting Camp',
+    loc_forest: 'Forest & Trail',
+    loc_river: 'Bridge & River',
+    loc_village_prefix: 'Village',
+    phase_morning: 'Morning',
+    phase_sunset: 'Evening',
+    phase_night: 'Night',
+    state_walk: 'WALK',
+    state_run: 'RUN',
+    state_jump: 'JUMP',
+    state_graze: 'GRAZING',
+    state_sleep: 'SLEEP',
+    state_dock: 'DOCKING',
+    state_rev: 'REVERSE',
+    steer_left: 'TURN LEFT',
+    steer_right: 'TURN RIGHT',
+    steer_straight: 'STRAIGHT',
+    flipped_tag: 'FLIPPED',
+    // Controls bar (PC)
+    ctrl_left: 'Left',
+    ctrl_right: 'Right',
+    ctrl_walk: 'Forward',
+    ctrl_rev: 'Reverse',
+    ctrl_run: 'Run',
+    ctrl_jump: 'Jump',
+    ctrl_graze: 'Graze',
+    ctrl_interact: 'Interact',
+    ctrl_sleep: 'Sleep',
+    ctrl_inspect: 'Inspect',
+    ctrl_recruit: 'Recruit',
+    ctrl_release: 'Release',
+    ctrl_hitch_free: 'Hitch [V]',
+    ctrl_hitch_detach: 'Unhitch [V]',
+    ctrl_hitch_stop: 'Stop First',
+    ctrl_hitch_flipped: 'Flipped!',
+    ctrl_hitch_align_yaw: 'Align Horse',
+    ctrl_hitch_align_lat: 'Center Shafts',
+    ctrl_hitch_reverse: 'Back to Shafts',
+    ctrl_hitch_pos: 'Align to Cart',
+    ctrl_map: 'Map',
+    ctrl_pebble: 'Pebbles',
+    ctrl_ramp: 'Slope',
+    ctrl_reset: 'Reset',
+    // Touch controls
+    touch_rotate_title: 'Rotate Phone to LANDSCAPE',
+    touch_rotate_sub: 'Analog stick on the left, action buttons on the right.',
+    touch_fullscreen: 'Fullscreen + Lock',
+    touch_jump: 'JUMP',
+    touch_run: 'RUN',
+    touch_hitch: 'ROPE',
+    touch_inspect: 'CHECK',
+    touch_eat: 'GRAZE',
+    touch_sleep: 'SLEEP',
+    touch_interact: 'TALK',
+    touch_sub_toggle: 'toggle',
+    touch_sub_hold: 'hold',
+    touch_sub_flipped: 'flipped',
+    touch_sub_align: 'aligning',
+    touch_sub_stop: 'stop first',
+    touch_sub_detach: 'unhitch',
+    touch_sub_attach: 'hitch!',
+    touch_sub_near: 'move closer',
+    // Flip banner / minigame
+    flip_banner_text: '⚠️ Cart flipped! Wheels -20% HP · Horse unhitched',
+    flip_banner_btn: '🔄 Right Cart',
+    flip_title: '💪 LIFT THE CART',
+    flip_hint: 'Press SPACE or PUSH when needle is in the green zone!',
+    flip_push_btn: '💪 PUSH! (Space)',
+    flip_cancel_btn: 'Cancel',
+    flip_perfect: 'PERFECT! Strong lift (+{p}%)',
+    flip_good: 'GOOD! Keep pushing (+{p}%)',
+    flip_miss: 'MISSED! (-{p}%) Wait for green zone',
+    flip_solo: '0 NPC (Solo — Heavy!)',
+    flip_help: '{n} NPCs Helping (+Easier)',
+    flip_done_spilled: 'Cart righted! {n} NPCs picking up {s} dropped items...',
+    flip_done_spilled_solo: 'Cart righted! {s} items still on the ground (recruit NPCs to load them).',
+    flip_done_clean: 'Cart righted with {n} NPCs! Approach shafts to hitch.',
+    flip_done_clean_solo: 'Cart righted! Approach shafts to hitch.',
+    // Quests
+    quest_hint_title: '❗ Quest in {village}',
+    quest_hint_body: 'Meet {giver} [!] and press [F] to take a delivery quest.',
+    quest_offer_title: '📜 {giver} ({village})',
+    quest_offer_sub: 'Deliver {icon} {cargo} to {to} ({dist}m)',
+    quest_accept_btn: '[F] Accept Quest',
+    quest_active_head: '{icon} Deliver to {to}',
+    quest_active_sub: '{cargo} → {receiver} • +{gold} G + Materials',
+    quest_deliver_prompt: '[F] Deliver {cargo} to {receiver}',
+    quest_abandon_btn: 'Abandon',
+    quest_abandoned_toast: 'Delivery quest abandoned.',
+    quest_accepted_toast: 'Quest accepted from {giver}: Deliver {cargo} to {receiver} in {to} (+{gold} G)!',
+    quest_complete_toast: '🎉 {cargo} delivered to {receiver} in {to}! +{gold} G, +{mats}, wheels +25 HP!',
+    quest_active_err: 'Already carrying an active delivery to {to}.',
+    quest_none_err: 'No quest available here.',
+    // Workshop
+    ws_prompt: '🔧 [F] Open Cart Workshop ({village})',
+    ws_title: '🔧 CART WORKSHOP — {village}',
+    ws_exit: 'Done [Esc / F]',
+    ws_refill_btn: '🍎💧 Refill Supplies (10 G)',
+    ws_refill_ok: 'Water Barrel & Fruit Box refilled (-10 G)!',
+    ws_refill_full: 'Supplies are already full.',
+    ws_upgrade_btn: 'Upgrade',
+    ws_need_gold: 'Not enough Gold ({g} G needed).',
+    ws_need_items: 'Missing required items ({items}).',
+    ws_upgraded: '✅ Upgraded {name} to {lv}!',
+    // Inspect / Supply / Spilled item labels
+    wheel_cart: 'Cart',
+    wheel_fl: 'Wheel FL',
+    wheel_fr: 'Wheel FR',
+    wheel_rl: 'Wheel RL',
+    wheel_rr: 'Wheel RR',
+    wheel_detached: 'DETACHED',
+    inspect_far: 'Move closer to the cart to inspect wheels and supplies.',
+    item_quest_tag: 'QUEST',
+    item_fallen_tag: 'FALLEN',
+    item_click_drink: 'Click to Drink',
+    item_click_eat: 'Click to Eat',
+    item_empty: 'Empty',
+    item_water_barrel: 'Water Barrel',
+    item_fruit_box: 'Fruit Box',
+    item_hay_bale: 'Hay Bale',
+    item_oat_sack: 'Oat Sack',
+    item_travel_tarp: 'Bedroll Tarp',
+    item_tool_crate: 'Supply Crate',
+    item_storage_chest: 'Travel Chest',
+    item_oil_cask: 'Oil Cask',
+    // Goods
+    goods_spices: 'Spice Crate',
+    goods_wheat: 'Wheat Sack',
+    goods_cloth: 'Woven Cloth',
+    goods_potions: 'Forest Potions',
+    goods_iron_tools: 'Iron Tools',
+    goods_honey: 'Wild Honey',
+    goods_coffee: 'Coffee Beans',
+    goods_ceramics: 'Village Ceramics',
+    // Materials
+    mat_wood: 'Oak Timber',
+    mat_iron: 'Forged Iron',
+    mat_leather: 'Hide Rope',
+    mat_cloth: 'Heavy Canvas',
+    // Upgrade lines
+    ug_capacity_name: 'Bed & Cargo Bay',
+    ug_wheels_name: 'Wheels & Rims',
+    ug_suspension_name: 'Suspension & Springs',
+    ug_straps_name: 'Cargo Straps',
+    ug_canopy_name: 'Frame & Canopy',
+    ug_capacity_lv1: 'Lv1 Compact',
+    ug_capacity_lv2: 'Lv2 Standard',
+    ug_capacity_lv3: 'Lv3 Expedition',
+    ug_wheels_lv1: 'Lv1 Oak Wood',
+    ug_wheels_lv2: 'Lv2 Iron Tyre',
+    ug_wheels_lv3: 'Lv3 Forged Steel',
+    ug_suspension_lv1: 'Lv1 Rigid Axle',
+    ug_suspension_lv2: 'Lv2 Leaf Spring',
+    ug_suspension_lv3: 'Lv3 Twin-Coil',
+    ug_straps_lv1: 'Lv1 Unstrapped',
+    ug_straps_lv2: 'Lv2 Hemp Rope',
+    ug_straps_lv3: 'Lv3 Chain Net',
+    ug_canopy_lv1: 'Lv1 Open Bed',
+    ug_canopy_lv2: 'Lv2 Iron Guard',
+    ug_canopy_lv3: 'Lv3 Canvas Canopy',
+    // Messages & Survival & Combat
+    msg_sleep_on: '💤 Horse is sleeping — Stamina & HP recover faster.',
+    msg_sleep_off: '☀️ Horse is awake and ready to move.',
+    msg_sleep_deny: 'Cannot sleep right now.',
+    msg_stamina_jump: 'Not enough stamina to jump.',
+    msg_stop_eat: 'Stop first to graze.',
+    msg_need_grass: 'Must stand directly on grass to graze.',
+    msg_stop_drink: 'Stop first to drink.',
+    msg_need_water: 'Stand right by the river or pond to drink.',
+    msg_grazing: 'Horse is grazing...',
+    msg_drinking: 'Horse is drinking water...',
+    msg_drank_barrel: '💧 Drank fresh water from barrel! ({c}/{m} left)',
+    msg_ate_fruit: '🍎 Ate fresh fruit from box! ({c}/{m} left)',
+    msg_supply_empty: 'That supply is empty! Refill at a Cart Workshop (or drink at river).',
+    msg_unhitched: 'Unhitched — horse can move and turn freely.',
+    msg_hitched: 'Hitched — cart is ready to pull.',
+    msg_docking: 'Aligning horse to cart shafts...',
+    msg_ambush: '🌙⚠️ {n} Night Bandit(s) ambushing on the road!',
+    msg_cart_attacked: '⚠️ {who} attacked the cart (-{dmg} wheel HP)! Deploy NPCs to fight!',
+    bandit_small: 'Bandit',
+    bandit_big: 'Big Bandit',
+    horse_upgraded: '🐴 Upgraded {stat} to Lv {lv} (-{g} G)!',
+    no_interact_near: 'Nothing to interact with nearby. Approach a [!] NPC or Village Workshop.',
+    boot_fail: 'Failed to load game: ',
+    // Main Menu & Save/Load
+    menu_title: 'KRKAEN CART',
+    menu_subtitle: 'The Hero\'s Loyal Steed & Supply Expedition',
+    menu_new_game: 'New Game',
+    menu_load_game: 'Load Game',
+    menu_no_save: 'No saved expedition found',
+    menu_save_info: 'Saved: {gold} G · {stage}',
+    menu_save_btn: '💾 Save Expedition',
+    menu_saved_toast: '💾 Game progress saved!',
+    menu_return_btn: '🏠 Main Menu',
+    // Cutscene & Early Story
+    story_obj_radnar: 'Follow the northern road to Radnar village',
+    story_obj_radnar_sub: 'Your master never returned. Seek answers in Radnar ({d}m).',
+    story_obj_cart: 'Claim the Old Cart behind Radnar',
+    story_obj_cart_sub: 'Approach the Hero\'s old cart behind Radnar and press [F] or [V] ({d}m).',
+    story_claim_cart_btn: '🔧 [F] Claim Old Cart',
+    story_cart_claimed: '🪵 You hitched your master\'s old cart! Deliver goods and honor his memory.',
+    cutscene_guard_name: 'Village Guard (Radnar)',
+    cutscene_next_btn: 'Continue →',
+    cutscene_finish_btn: 'Follow Letter →',
+    cutscene_line_1: 'Whoa there, noble steed... Wait — I recognize that blaze and bridle anywhere.',
+    cutscene_line_2: 'I am sorry to tell you, faithful friend. Your master, the Hero of the valley, fell in battle on the frontier and did not make it home.',
+    cutscene_line_3: 'Before riding out, he left this sealed letter and his old supply cart just in case you came looking for him:',
+    cutscene_line_4: 'Go around the back of Radnar village to find the old cart. Help our villages carry goods and travelers, and we will keep you fed and strong.',
+    letter_title: 'Hero\'s Last Note',
+    letter_body: 'My loyal friend, if you are reading this through the villagers\' eyes, I did not return. Behind Radnar rests my old expedition cart. Take it, help the five villages haul their goods, and let them care for you with grain, water, and shelter.',
+    letter_sign: '— Forever grateful, Your Rider',
+    // Water Refill by NPC
+    item_refill_btn: '🪣 Refill (+1/5)',
+    item_refill_active: 'Refilling ({c}/{m})...',
+    refill_started: '🪣 {npc} is fetching water with a bucket (1/5 per trip)...',
+    refill_step: '💧 {npc} poured a bucket into Water Barrel ({c}/{m})!',
+    refill_done: '✅ Water Barrel is completely refilled ({c}/{m})!',
+    refill_need_npc: 'Recruit a villager NPC [G] first so they can carry water buckets!',
+    refill_no_water: 'Bring the cart closer to a river, pond, or village well to refill.',
+    refill_cancelled: 'Water refill interrupted (cart moved away or flipped).',
+    // Passenger Escort Quests & Combat
+    quest_pass_offer_sub: 'Escort {count} villager(s) ({cargo}) to {to} ({dist}m)',
+    quest_pass_active_sub: 'Passenger: {cargo} → {receiver} • +{gold} G + Materials',
+    quest_pass_complete_toast: '🎉 Escorted {cargo} safely to {to}! +{gold} G, +{mats}, wheels +25 HP!',
+    quest_need_cart: 'Claim the Hero\'s Old Cart behind Radnar first to accept village quests!',
+    npc_team_full_2: 'Squad full (2/2 companions + 2 seats reserved for passengers).',
+    msg_horse_attacked: '⚠️ {who} struck your horse (-{dmg} HP)!',
+    msg_ram_hit: '💥 Charged into {who} (-{dmg} HP, Stunned)!',
+  },
+  id: {
+    page_title: 'KrakenOne Studio — Kuda Voxel & Gerobak Ekspedisi',
+    portrait_title: 'Klik untuk Stat Kuda Lanjutan & Upgrade',
+    settings_title: 'Pengaturan',
+    settings_heading: '⚙️ PENGATURAN',
+    language_label: 'Bahasa',
+    lang_en: 'English',
+    lang_id: 'Indonesia',
+    quality_label: 'Kualitas Grafis',
+    quality_high: 'Ultra',
+    quality_med: 'Sedang',
+    quality_low: 'Ringan',
+    settings_note: 'Siklus siang–malam berjalan otomatis tiap 10 menit.',
+    stats_heading: '🐴 STAT & UPGRADE KUDA',
+    horse_upgrades_title: 'Upgrade Kemampuan Kuda',
+    upgrade_btn: 'Upgrade',
+    max_btn: 'MAKS',
+    not_enough_gold: 'Butuh {g} G',
+    stat_speed: 'Kecepatan Maks',
+    stat_stamina: 'Kapasitas Stamina',
+    stat_power: 'Kekuatan Tarik',
+    stat_vitality: 'Ketahanan HP',
+    stat_mode: 'Mode',
+    stat_cur_speed: 'Kecepatan',
+    stat_heading: 'Arah',
+    stat_roll: 'Kemiringan',
+    stat_cargo: 'Muatan',
+    stat_wheels: 'Nyawa Roda',
+    stat_squad: 'Regu NPC',
+    stat_gold: 'Emas',
+    stat_time: 'Waktu',
+    npc_hint_default: 'NPC di desa bisa direkrut.',
+    close_btn: 'Tutup',
+    map_badge: '[M] Peta',
+    map_modal_title: '🗺️ PETA DUNIA',
+    map_close_btn: '✕ Tutup (M)',
+    map_legend_horse: 'Posisi Kuda',
+    map_legend_villages: '5 Desa (Radnar, Zenoa, Casna, Kohona, Valen)',
+    map_legend_quest: 'Target Quest',
+    map_legend_water: 'Sungai & Jalan',
+    loc_camp: 'Perkemahan Awal',
+    loc_forest: 'Hutan & Jalan',
+    loc_river: 'Jembatan & Sungai',
+    loc_village_prefix: 'Desa',
+    phase_morning: 'Pagi',
+    phase_sunset: 'Senja',
+    phase_night: 'Malam',
+    state_walk: 'JALAN',
+    state_run: 'LARI',
+    state_jump: 'LOMPAT',
+    state_graze: 'MAKAN',
+    state_sleep: 'TIDUR',
+    state_dock: 'NGEPASIN',
+    state_rev: 'MUNDUR',
+    steer_left: 'BELOK KIRI',
+    steer_right: 'BELOK KANAN',
+    steer_straight: 'LURUS',
+    flipped_tag: 'TERBALIK',
+    ctrl_left: 'Kiri',
+    ctrl_right: 'Kanan',
+    ctrl_walk: 'Maju',
+    ctrl_rev: 'Mundur',
+    ctrl_run: 'Lari',
+    ctrl_jump: 'Lompat',
+    ctrl_graze: 'Rumput',
+    ctrl_interact: 'Interaksi',
+    ctrl_sleep: 'Tidur',
+    ctrl_inspect: 'Cek/Bekal',
+    ctrl_recruit: 'Rekrut',
+    ctrl_release: 'Lepas',
+    ctrl_hitch_free: 'Pasang Tali',
+    ctrl_hitch_detach: 'Lepas Tali',
+    ctrl_hitch_stop: 'Berhenti Dulu',
+    ctrl_hitch_flipped: 'Terbalik',
+    ctrl_hitch_align_yaw: 'Luruskan Arah',
+    ctrl_hitch_align_lat: 'Tengahkan',
+    ctrl_hitch_reverse: 'Mundur Pas',
+    ctrl_hitch_pos: 'Dekat Batang',
+    ctrl_map: 'Peta',
+    ctrl_pebble: 'Kerikil',
+    ctrl_ramp: 'Miring',
+    ctrl_reset: 'Reset',
+    touch_rotate_title: 'Putar HP ke LANDSCAPE',
+    touch_rotate_sub: 'Analog di kiri, tombol aksi di kanan.',
+    touch_fullscreen: 'Layar Penuh + Kunci',
+    touch_jump: 'LOMPAT',
+    touch_run: 'LARI',
+    touch_hitch: 'TALI',
+    touch_inspect: 'CEK',
+    touch_eat: 'RUMPUT',
+    touch_sleep: 'TIDUR',
+    touch_interact: 'INTERAKSI',
+    touch_sub_toggle: 'toggle',
+    touch_sub_hold: 'tahan',
+    touch_sub_flipped: 'terbalik',
+    touch_sub_align: 'ngepasin',
+    touch_sub_stop: 'berhenti',
+    touch_sub_detach: 'lepas',
+    touch_sub_attach: 'pasang!',
+    touch_sub_near: 'dekatkan',
+    flip_banner_text: '⚠️ Gerobak terguling! Ban -20% HP · Kuda terlepas',
+    flip_banner_btn: '🔄 Balikkan Gerobak',
+    flip_title: '💪 ANGKAT GEROBAK',
+    flip_hint: 'Tekan SPASI atau DORONG saat jarum di zona hijau!',
+    flip_push_btn: '💪 DORONG! (Spasi)',
+    flip_cancel_btn: 'Batal',
+    flip_perfect: 'SEMPURNA! Angkatan kuat (+{p}%)',
+    flip_good: 'BAGUS! Terus dorong (+{p}%)',
+    flip_miss: 'MELESET! (-{p}%) Tunggu zona hijau',
+    flip_solo: '0 NPC (Sendirian — Berat!)',
+    flip_help: '{n} NPC Membantu (+Mudah)',
+    flip_done_spilled: 'Gerobak tegak! {n} NPC memungut {s} barang jatuh...',
+    flip_done_spilled_solo: 'Gerobak tegak! {s} barang jatuh (rekrut NPC untuk memungut).',
+    flip_done_clean: 'Gerobak ditegakkan bersama {n} NPC! Dekati untuk pasang tali.',
+    flip_done_clean_solo: 'Gerobak tegak! Dekati batang untuk pasang tali.',
+    quest_hint_title: '❗ Quest di {village}',
+    quest_hint_body: 'Temui {giver} [!] lalu tekan [F] untuk mengambil quest.',
+    quest_offer_title: '📜 {giver} ({village})',
+    quest_offer_sub: 'Antar {icon} {cargo} ke {to} ({dist}m)',
+    quest_accept_btn: '[F] Ambil Quest',
+    quest_active_head: '{icon} Antar ke {to}',
+    quest_active_sub: '{cargo} → {receiver} • +{gold} G + Bahan',
+    quest_deliver_prompt: '[F] Serahkan {cargo} ke {receiver}',
+    quest_abandon_btn: 'Batalkan',
+    quest_abandoned_toast: 'Quest pengantaran dibatalkan.',
+    quest_accepted_toast: 'Quest diterima dari {giver}: Antar {cargo} ke {receiver} di {to} (+{gold} G)!',
+    quest_complete_toast: '🎉 {cargo} diserahkan ke {receiver} di {to}! +{gold} G, +{mats}, roda +25 HP!',
+    quest_active_err: 'Masih ada pengantaran aktif ke {to}.',
+    quest_none_err: 'Tidak ada quest tersedia di sini.',
+    ws_prompt: '🔧 [F] Buka Bengkel Gerobak ({village})',
+    ws_title: '🔧 BENGKEL GEROBAK — {village}',
+    ws_exit: 'Keluar [Esc / F]',
+    ws_refill_btn: '🍎💧 Isi Bekal (10 G)',
+    ws_refill_ok: 'Tong Air & Kotak Buah terisi penuh (-10 G)!',
+    ws_refill_full: 'Perbekalan kuda sudah penuh.',
+    ws_upgrade_btn: 'Upgrade',
+    ws_need_gold: 'Emas tidak cukup (butuh {g} G).',
+    ws_need_items: 'Bahan kurang ({items}).',
+    ws_upgraded: '✅ {name} naik ke {lv}!',
+    wheel_cart: 'Gerobak',
+    wheel_fl: 'Roda DL',
+    wheel_fr: 'Roda DR',
+    wheel_rl: 'Roda BL',
+    wheel_rr: 'Roda BR',
+    wheel_detached: 'LEPAS',
+    inspect_far: 'Dekati gerobak untuk memeriksa roda dan perbekalan.',
+    item_quest_tag: 'QUEST',
+    item_fallen_tag: 'JATUH',
+    item_click_drink: 'Klik Minum',
+    item_click_eat: 'Klik Makan',
+    item_empty: 'Habis',
+    item_water_barrel: 'Tong Air',
+    item_fruit_box: 'Kotak Buah',
+    item_hay_bale: 'Jerami',
+    item_oat_sack: 'Karung Gandum',
+    item_travel_tarp: 'Terpal Gulung',
+    item_tool_crate: 'Peti Perkakas',
+    item_storage_chest: 'Peti Bekal',
+    item_oil_cask: 'Tong Minyak',
+    goods_spices: 'Peti Rempah',
+    goods_wheat: 'Karung Gandum',
+    goods_cloth: 'Kain Tenun',
+    goods_potions: 'Ramuan Hutan',
+    goods_iron_tools: 'Perkakas Besi',
+    goods_honey: 'Madu Hutan',
+    goods_coffee: 'Biji Kopi',
+    goods_ceramics: 'Keramik Desa',
+    mat_wood: 'Kayu Ek',
+    mat_iron: 'Besi Tempa',
+    mat_leather: 'Tali Kulit',
+    mat_cloth: 'Kanvas Tebal',
+    ug_capacity_name: 'Kapasitas Bak',
+    ug_wheels_name: 'Roda & Pelek',
+    ug_suspension_name: 'Suspensi & Per',
+    ug_straps_name: 'Pengikat Muatan',
+    ug_canopy_name: 'Rangka & Kanopi',
+    ug_capacity_lv1: 'Lv1 Ringkas',
+    ug_capacity_lv2: 'Lv2 Standar',
+    ug_capacity_lv3: 'Lv3 Ekspedisi',
+    ug_wheels_lv1: 'Lv1 Kayu Ek',
+    ug_wheels_lv2: 'Lv2 Sabuk Besi',
+    ug_wheels_lv3: 'Lv3 Baja Tempa',
+    ug_suspension_lv1: 'Lv1 Poros Kaku',
+    ug_suspension_lv2: 'Lv2 Per Daun',
+    ug_suspension_lv3: 'Lv3 Twin-Coil',
+    ug_straps_lv1: 'Lv1 Tanpa Ikat',
+    ug_straps_lv2: 'Lv2 Tali Tambang',
+    ug_straps_lv3: 'Lv3 Jaring Rantai',
+    ug_canopy_lv1: 'Lv1 Bak Terbuka',
+    ug_canopy_lv2: 'Lv2 Perisai Besi',
+    ug_canopy_lv3: 'Lv3 Kanopi',
+    msg_sleep_on: '💤 Kuda berbaring tidur — stamina & HP pulih lebih cepat.',
+    msg_sleep_off: '☀️ Kuda bangun dan siap jalan.',
+    msg_sleep_deny: 'Tidak bisa tidur saat ini.',
+    msg_stamina_jump: 'Stamina kurang untuk melompat.',
+    msg_stop_eat: 'Berhenti dulu untuk makan.',
+    msg_need_grass: 'Harus berdiri tepat di rumput.',
+    msg_stop_drink: 'Berhenti dulu untuk minum.',
+    msg_need_water: 'Dekati tepi sungai atau kolam untuk minum.',
+    msg_grazing: 'Kuda makan rumput...',
+    msg_drinking: 'Kuda minum air...',
+    msg_drank_barrel: '💧 Minum air segar dari tong! (sisa {c}/{m})',
+    msg_ate_fruit: '🍎 Makan buah segar dari kotak! (sisa {c}/{m})',
+    msg_supply_empty: 'Perbekalan habis! Isi ulang di Bengkel Gerobak desa.',
+    msg_unhitched: 'Tali dilepas — kuda bergerak bebas.',
+    msg_hitched: 'Tali terpasang — gerobak siap ditarik.',
+    msg_docking: 'Mengepaskan posisi ke batang gerobak...',
+    msg_ambush: '🌙⚠️ {n} Bandit malam menghadang di jalan!',
+    msg_cart_attacked: '⚠️ {who} menyerang gerobak (-{dmg} HP roda)! Turunkan NPC untuk melawan!',
+    bandit_small: 'Bandit',
+    bandit_big: 'Bandit Besar',
+    horse_upgraded: '🐴 {stat} naik ke Lv {lv} (-{g} G)!',
+    no_interact_near: 'Tidak ada objek interaksi di dekatmu. Dekati NPC [!] atau Bengkel Desa.',
+    boot_fail: 'Gagal memuat game: ',
+    // Menu Utama & Simpan/Muat
+    menu_title: 'KRKAEN CART',
+    menu_subtitle: 'Kuda Setia Sang Pahlawan & Ekspedisi Gerobak',
+    menu_new_game: 'Game Baru',
+    menu_load_game: 'Muat Game',
+    menu_no_save: 'Belum ada data tersimpan',
+    menu_save_info: 'Tersimpan: {gold} G · {stage}',
+    menu_save_btn: '💾 Simpan Progres',
+    menu_saved_toast: '💾 Progres permainan tersimpan!',
+    menu_return_btn: '🏠 Menu Utama',
+    // Cutscene & Cerita Awal
+    story_obj_radnar: 'Ikuti jalan ke utara menuju Desa Radnar',
+    story_obj_radnar_sub: 'Pemilikmu tak kunjung kembali. Cari kabar di Desa Radnar ({d}m).',
+    story_obj_cart: 'Ambil Gerobak Tua di belakang Desa Radnar',
+    story_obj_cart_sub: 'Dekati gerobak tua milik pahlawan di belakang Radnar lalu tekan [F] atau [V] ({d}m).',
+    story_claim_cart_btn: '🔧 [F] Ambil Gerobak Tua',
+    story_cart_claimed: '🪵 Gerobak tua pahlawan kini terpasang! Bantu warga desa mengantar barang dan penumpang.',
+    cutscene_guard_name: 'Penjaga Desa (Radnar)',
+    cutscene_next_btn: 'Lanjut →',
+    cutscene_finish_btn: 'Baca & Lanjutkan →',
+    cutscene_line_1: 'Tenanglah, kuda gagah... Tunggu — aku sangat mengenali tanda dahi dan kekang itu.',
+    cutscene_line_2: 'Maaf harus menyampaikan kabar duka ini, sahabat setia. Pemilikmu, sang Pahlawan lembah ini, telah gugur saat bertugas dan tak pernah kembali.',
+    cutscene_line_3: 'Sebelum berangkat perang, ia menitipkan secarik surat dan gerobak tuanya untukmu kalau-kalau kau datang mencarinya:',
+    cutscene_line_4: 'Pergilah ke belakang Desa Radnar untuk mengambil gerobak tuanya. Bantulah warga desa mengantar barang dan bertahan hiduplah bersama kami.',
+    letter_title: 'Secarik Surat Sang Pahlawan',
+    letter_body: 'Sahabat setiaku, jika kau mendengar pesan ini lewat warga, berarti aku tak dapat kembali. Di belakang Desa Radnar ada gerobak tua peninggalanku. Pakailah untuk membantu warga lima desa, dan mereka akan memberimu makanan serta perawatan agar kau tetap hidup.',
+    letter_sign: '— Dengan penuh terima kasih, Penunggangmu',
+    // Isi Ulang Tong Air oleh NPC
+    item_refill_btn: '🪣 Isi Tong (+1/5)',
+    item_refill_active: 'Mengisi ({c}/{m})...',
+    refill_started: '🪣 {npc} turun membawa ember untuk menimba air (1/5 per timba)...',
+    refill_step: '💧 {npc} menuangkan ember ke Tong Air ({c}/{m})!',
+    refill_done: '✅ Tong Air sudah terisi penuh ({c}/{m})!',
+    refill_need_npc: 'Rekrut minimal 1 NPC [G] terlebih dahulu agar ada yang menimba air!',
+    refill_no_water: 'Dekatkan gerobak ke sungai, kolam, atau sumur desa untuk menimba air.',
+    refill_cancelled: 'Pengisian air batal (gerobak menjauh atau terguling).',
+    // Quest Penumpang & Pertarungan
+    quest_pass_offer_sub: 'Antar {count} warga ({cargo}) ke {to} ({dist}m)',
+    quest_pass_active_sub: 'Penumpang: {cargo} → {receiver} • +{gold} G + Material',
+    quest_pass_complete_toast: '🎉 {cargo} selamat sampai di {to}! +{gold} G, +{mats}, roda +25 HP!',
+    quest_need_cart: 'Ambil Gerobak Tua pahlawan di belakang Radnar dulu untuk mengambil quest!',
+    npc_team_full_2: 'Regu penuh (2/2 pengawal + 2 kursi kosong khusus penumpang quest).',
+    msg_horse_attacked: '⚠️ {who} menyerang kudamu (-{dmg} HP)!',
+    msg_ram_hit: '💥 Menabrak {who} (-{dmg} HP, Pingsan)!',
+  },
+};
+
+let currentLang = 'en';
+try {
+  const saved = typeof localStorage !== 'undefined' && localStorage.getItem(LANG_KEY);
+  if (saved === 'id' || saved === 'en') currentLang = saved;
+} catch (e) { /* ignore */ }
+
+const listeners = new Set();
+
+function getLang() {
+  return currentLang;
+}
+
+function setLang(lang) {
+  const next = lang === 'id' ? 'id' : 'en';
+  if (next === currentLang) return currentLang;
+  currentLang = next;
+  try {
+    if (typeof localStorage !== 'undefined') localStorage.setItem(LANG_KEY, next);
+  } catch (e) { /* ignore */ }
+  for (const fn of listeners) {
+    try { fn(next); } catch (e) { /* ignore */ }
+  }
+  return currentLang;
+}
+
+function onLangChange(fn) {
+  if (typeof fn === 'function') listeners.add(fn);
+  return () => listeners.delete(fn);
+}
+
+function t(key, vars = null) {
+  const tbl = DICT[currentLang] || DICT.en;
+  let str = tbl[key] !== undefined ? tbl[key] : (DICT.en[key] !== undefined ? DICT.en[key] : key);
+  if (vars && typeof str === 'string') {
+    for (const [k, v] of Object.entries(vars)) {
+      str = str.replaceAll(`{${k}}`, String(v));
+    }
+  }
+  return str;
+}
+
+HC.getLang = getLang;
+HC.setLang = setLang;
+HC.t = t;
+
+return { DICT, getLang, setLang, onLangChange, t };
+
+})();
+
 // --- js/map.js ---
 const __MOD_MAP = (() => {
 'use strict';
@@ -2205,6 +2790,70 @@ const THREE = HC.THREE, V = HC.VoxelBuilder, P = HC.PAL;
     };
   };
 
+  // Dedicated 3D Horse Head Portrait Rig (renders ONLY the horse's head for top-left HUD)
+  HC.buildHorseHeadPortrait = function () {
+    const S = HC.vs;
+    const root = new THREE.Group();
+    root.name = 'horse-head-portrait';
+
+    const head = new THREE.Group();
+    head.position.set(-3.4 * S, -1.2 * S, 0);
+    root.add(head);
+
+    const hb = new V();
+    // Short upper neck bust + mane crest for tight head framing (no body)
+    hb.box(-2.8, -4.6, -2.6, 1.4, 2.2, 2.6, P.coatMid);
+    hb.box(-3.4, -4.2, -1.2, -2.5, 4.4, 1.2, P.mane, 0.04);
+    hb.box(0, -1.4, -2.7, 4.2, 4.2, 2.7, P.coatMid);
+    hb.box(3.4, 0.6, -2.5, 5.0, 3.8, 2.5, P.coatLite);
+    hb.box(0.6, -2.4, -2.9, 3.8, -0.6, 2.9, P.coatWarm);
+    hb.box(4.6, -1.0, -2.2, 7.8, 2.2, 2.2, P.coatMid);
+    hb.box(7.0, -0.6, -2.3, 8.2, 2.0, 2.3, P.muzzle);
+    hb.box(7.6, 1.0, -1.9, 8.3, 1.7, -1.1, P.nostril);
+    hb.box(7.6, 1.0, 1.1, 8.3, 1.7, 1.9, P.nostril);
+    hb.box(7.4, -0.8, -2.0, 8.3, -0.2, 2.0, P.muzzle, 0.02);
+    hb.box(3.6, 1.6, -1.0, 7.2, 3.2, 1.0, P.blaze, 0.02);
+    for (const s of [-1, 1]) {
+      hb.box(2.0, 1.6, s * 2.7, 3.0, 2.8, s * 2.9, P.eyeWhite, 0.0);
+      hb.box(2.2, 1.9, s * 2.9, 2.8, 2.6, s * 3.0, P.eyePupil, 0.0);
+      hb.box(1.7, 2.8, s * 2.6, 3.1, 3.2, s * 2.9, P.coatDark, 0.02);
+      hb.box(1.0, 0.0, s * 2.6, 3.6, 1.4, s * 2.8, P.coatLite, 0.02);
+    }
+    hb.box(-0.4, 4.0, -1.6, 1.6, 5.8, 1.6, P.mane, 0.04);
+    // Bridle & brass bit
+    hb.box(0.4, 3.3, -2.8, 1.6, 3.9, 2.8, P.leather, 0.02);
+    hb.box(3.0, -0.4, -2.6, 3.8, 3.4, -2.3, P.leather, 0.02);
+    hb.box(3.0, -0.4, 2.3, 3.8, 3.4, 2.6, P.leather, 0.02);
+    hb.box(6.2, 0.0, -2.5, 7.0, 1.2, 2.5, P.leather2, 0.02);
+    hb.box(2.6, -1.6, -2.6, 3.2, 0.2, 2.6, P.leather, 0.02);
+    hb.box(3.0, -2.0, -2.5, 3.6, -1.4, -1.9, P.brass);
+    hb.box(3.0, -2.0, 1.9, 3.6, -1.4, 2.5, P.brass);
+    head.add(hb.build(0, 0, 0));
+
+    const jaw = new THREE.Group();
+    jaw.position.set(1.2 * S, -1.2 * S, 0);
+    head.add(jaw);
+    const jb = new V();
+    jb.box(0.6, -1.6, -2.2, 6.6, 0.3, 2.2, P.coatWarm);
+    jb.box(5.6, -1.4, -2.0, 7.2, 0.2, 2.0, P.muzzle);
+    jb.box(6.4, -1.2, -1.6, 7.4, 0.0, 1.6, P.nostril, 0.02);
+    jaw.add(jb.build(0, 0, 0));
+
+    const ears = [];
+    for (const s of [-1, 1]) {
+      const g = new THREE.Group();
+      g.position.set(0.3 * S, 4.6 * S, s * 1.7 * S);
+      head.add(g);
+      const eb = new V();
+      eb.box(-0.9, 0, -0.7, 1.1, 3.0, 0.7, P.coatWarm);
+      eb.box(-0.6, 0.2, -0.45, 0.8, 2.6, 0.45, P.coatDark, 0.02);
+      g.add(eb.build(0, 0, 0));
+      ears.push(g);
+    }
+
+    return { root, head, jaw, ears };
+  };
+
 })();
 
 // --- js/cart.js ---
@@ -2489,25 +3138,69 @@ function buildPassengers(body, capSpec = {}) {
   return list;
 }
 
+function makeWaterBarrelMesh() {
+  const b = new V(S);
+  for (let y = -5; y <= 5; y++) {
+    const r = 4.4 - Math.abs(y) * 0.14;
+    const isHoop = Math.abs(y) === 4 || Math.abs(y) === 1;
+    const col = isHoop ? P.ironDark : (Math.abs(y) === 2 ? 0x2563eb : P.oakMid);
+    b.cylY(0, 0, y, y, r, col, 0, 0.04);
+  }
+  // Open/shimmering fresh turquoise water disc on top + brass tap spout on side
+  b.cylY(0, 0, 5, 5, 3.6, 0x38bdf8, 0, 0.02);
+  b.cylY(0, 0, 5.2, 5.2, 2.4, 0x7dd3fc, 0, 0.01);
+  b.box(-0.7, 5, -0.7, 0.7, 6, 0.7, P.brass, 0.01);
+  b.box(3.8, -1, -0.6, 5.0, 0, 0.6, P.brass, 0.01);
+  b.box(4.5, -2, -0.5, 5.1, -1, 0.5, P.brass, 0.01);
+  return b.build(0, 0, 0);
+}
+
+function makeFruitBoxMesh() {
+  const b = new V(S);
+  // Slatted wooden pine box
+  b.box(-4.4, -3.2, -3.8, 4.4, -2.2, 3.8, P.oakMid, 0.04);
+  b.box(-4.4, -2.2, -3.8, -3.6, 1.4, 3.8, P.oakLite, 0.04);
+  b.box(3.6, -2.2, -3.8, 4.4, 1.4, 3.8, P.oakLite, 0.04);
+  b.box(-3.6, -2.2, -3.8, 3.6, 1.4, -3.0, P.oakMid, 0.04);
+  b.box(-3.6, -2.2, 3.0, 3.6, 1.4, 3.8, P.oakMid, 0.04);
+  // Colorful fresh apples, oranges, pears & leaves packed inside
+  const fruits = [
+    [-2.0, 0.2, -1.5, 1.35, 0xef4444],
+    [ 0.2, 0.4, -1.4, 1.40, 0xf97316],
+    [ 2.2, 0.2, -1.2, 1.30, 0xfacc15],
+    [-1.8, 0.3,  1.4, 1.35, 0xf97316],
+    [ 0.4, 0.5,  1.5, 1.35, 0xef4444],
+    [ 2.1, 0.2,  1.3, 1.30, 0xef4444],
+    [-0.7, 1.6,  0.0, 1.30, 0xfacc15],
+    [ 1.2, 1.5, -0.1, 1.25, 0xef4444],
+  ];
+  for (const [fx, fy, fz, fr, col] of fruits) {
+    b.ellipsoid(fx, fy, fz, fr, fr * 0.9, fr, col, 0.05);
+  }
+  b.box(-2.4, 1.4, -1.9, -1.6, 2.0, -1.1, 0x22c55e, 0.02);
+  b.box(0.0, 2.1, -0.2, 0.8, 2.7, 0.6, 0x16a34a, 0.02);
+  return b.build(0, 0, 0);
+}
+
 function buildCargoItems(capTier = 1) {
-  // Cargo ditempatkan di kompartemen DEPAN (x: 2..22, z: -13..13) dengan tata letak organik
-  // dan terlindungi rapat di bawah pagar kayu samping.
+  // Cargo ditempatkan di kompartemen DEPAN (x: 2..22, z: -13..13) dengan tata letak organik.
+  // Item starter mencakup perbekalan kuda (Tong Air & Kotak Buah) di sisi depan agar mudah diklik saat tekan Q!
   const allDefs = [
-    // Lv1 (6 barang) — bervariasi, asimetris alami, pas di dalam pagar
-    { build: () => makeBarrelMesh(P.oakMid), pos: [6.2, 12.1, -8.2], rot: [0, 0.22, 0], r: 5.0 },
-    { build: () => makeCrateMesh(5, 4, 5, P.oakLite, P.oakDark), pos: [15.4, 10.1, -7.6], rot: [0, 0.14, 0], r: 4.8 },
-    { build: () => makeSackMesh(P.sack), pos: [10.6, 9.6, 7.8], rot: [0.04, -0.34, 0], r: 4.0 },
-    { build: () => makeTarpMesh(), pos: [19.4, 9.2, 0.4], rot: [0, 0.18, 0], r: 3.8 },
-    { build: () => makeCrateMesh(4, 3.5, 4, P.oakMid, P.oakDark), pos: [6.4, 9.6, 7.4], rot: [0, -0.19, 0], r: 4.3 },
-    { build: () => makeSackMesh(P.canvas), pos: [11.2, 9.6, -1.2], rot: [0.06, 0.42, 0], r: 3.9 },
-    // Lv2 (+2 = 8) — peti perjalanan & tong persediaan
-    { build: () => makeTreasureChestMesh(), pos: [16.2, 9.1, 7.2], rot: [0, -0.26, 0], r: 4.5 },
-    { build: () => makeBarrelMesh(P.oakDark), pos: [6.0, 12.1, 0.5], rot: [0, 0.35, 0], r: 4.9 },
+    // Lv1 (6 barang): Starter perbekalan kuda + perlengkapan ekspedisi
+    { build: () => makeWaterBarrelMesh(), pos: [18.0, 11.4, -7.8], rot: [0, 0.14, 0], r: 4.5, nameKey: 'item_water_barrel', supplyKind: 'water', charges: 5, maxCharges: 5 },
+    { build: () => makeFruitBoxMesh(), pos: [18.0, 9.6, 7.6], rot: [0, -0.16, 0], r: 4.6, nameKey: 'item_fruit_box', supplyKind: 'food', charges: 5, maxCharges: 5 },
+    { build: () => makeBarrelMesh(P.oakDark), pos: [6.0, 12.1, -8.2], rot: [0, 0.22, 0], r: 5.0, nameKey: 'item_oil_cask' },
+    { build: () => makeSackMesh(P.sack), pos: [10.4, 9.6, 7.8], rot: [0.04, -0.34, 0], r: 4.0, nameKey: 'item_oat_sack' },
+    { build: () => makeCrateMesh(4, 3.5, 4, P.oakMid, P.oakDark), pos: [6.4, 9.6, 7.4], rot: [0, -0.19, 0], r: 4.3, nameKey: 'item_hay_bale' },
+    { build: () => makeTarpMesh(), pos: [11.2, 9.2, -1.0], rot: [0, 0.18, 0], r: 3.8, nameKey: 'item_travel_tarp' },
+    // Lv2 (+2 = 8)
+    { build: () => makeTreasureChestMesh(), pos: [14.2, 9.1, 0.6], rot: [0, -0.26, 0], r: 4.5, nameKey: 'item_storage_chest' },
+    { build: () => makeCrateMesh(5, 4, 5, P.oakLite, P.oakDark), pos: [6.0, 10.1, 0.5], rot: [0, 0.35, 0], r: 4.8, nameKey: 'item_tool_crate' },
     // Lv3 (+4 = 12)
-    { build: () => makeTreasureChestMesh(), pos: [18.8, 9.1, -7.4], rot: [0, 0.19, 0], r: 4.4 },
-    { build: () => makeSackMesh(P.sack), pos: [13.2, 9.6, 4.2], rot: [0.08, -0.45, 0], r: 3.9 },
-    { build: () => makeCrateMesh(4, 3, 4, P.oakLite, P.oakDark), pos: [14.6, 9.1, -2.8], rot: [0, 0.28, 0], r: 4.2 },
-    { build: () => makeSackMesh(P.canvas), pos: [8.8, 9.6, -4.6], rot: [-0.04, 0.52, 0], r: 3.9 }
+    { build: () => makeTreasureChestMesh(), pos: [14.8, 9.1, -7.2], rot: [0, 0.19, 0], r: 4.4, nameKey: 'item_storage_chest' },
+    { build: () => makeSackMesh(P.sack), pos: [13.2, 9.6, 4.4], rot: [0.08, -0.45, 0], r: 3.9, nameKey: 'item_oat_sack' },
+    { build: () => makeCrateMesh(4, 3, 4, P.oakLite, P.oakDark), pos: [19.4, 9.1, 0.2], rot: [0, 0.28, 0], r: 4.2, nameKey: 'item_tool_crate' },
+    { build: () => makeSackMesh(P.canvas), pos: [8.8, 9.6, -4.6], rot: [-0.04, 0.52, 0], r: 3.9, nameKey: 'item_oat_sack' }
   ];
 
   const spec = HC.CART_UPGRADES.capacity[capTier] || HC.CART_UPGRADES.capacity[1];
@@ -2517,6 +3210,10 @@ function buildCargoItems(capTier = 1) {
     const d = allDefs[i];
     items.push({
       mesh: d.build(),
+      nameKey: d.nameKey || 'item_tool_crate',
+      supplyKind: d.supplyKind || null,
+      charges: d.charges != null ? d.charges : 0,
+      maxCharges: d.maxCharges != null ? d.maxCharges : 0,
       homePos: new THREE.Vector3(d.pos[0] * S, d.pos[1] * S, d.pos[2] * S),
       homeRot: new THREE.Euler(d.rot[0], d.rot[1], d.rot[2]),
       radius: d.r * S
@@ -2633,33 +3330,65 @@ HC.clearQuestCargoFromCart = function (cart, physics) {
   return removed;
 };
 
-HC.setQuestCargoOnCart = function (cart, physics, cargoKind = 'spices', count = 3) {
+HC.refillCartSupplies = function (cart) {
+  if (!cart || !Array.isArray(cart.cargoItems)) return 0;
+  let refilled = 0;
+  for (const it of cart.cargoItems) {
+    if (!it || !it.supplyKind) continue;
+    const mx = it.maxCharges || 5;
+    if ((it.charges || 0) < mx) {
+      refilled += mx - (it.charges || 0);
+      it.charges = mx;
+    }
+  }
+  return refilled;
+};
+
+HC.makeWaterBucketMesh = function (sc = S) {
+  const grp = new THREE.Group();
+  const b = new V(sc);
+  b.cylY(0, 0, -2.2, 2.2, 2.1, P.oakMid, 0, 0.03);
+  b.cylY(0, 0, 0.8, 1.5, 2.25, P.ironDark, 0, 0.01);
+  b.cylY(0, 0, -1.7, -1.0, 2.22, P.ironDark, 0, 0.01);
+  b.box(-2.2, 2.2, -0.35, -1.7, 4.0, 0.35, P.ironDark, 0.01);
+  b.box(1.7, 2.2, -0.35, 2.2, 4.0, 0.35, P.ironDark, 0.01);
+  b.box(-2.2, 3.8, -0.35, 2.2, 4.3, 0.35, P.oakLite, 0.02);
+  grp.add(b.build(0, 0, 0));
+
+  const wGeo = new THREE.CylinderGeometry(1.75 * sc, 1.75 * sc, 0.4 * sc, 10);
+  const wMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.25, metalness: 0.1 });
+  const wDisc = new THREE.Mesh(wGeo, wMat);
+  wDisc.position.y = 1.65 * sc;
+  wDisc.visible = false;
+  grp.add(wDisc);
+  grp.userData.waterDisc = wDisc;
+  return grp;
+};
+
+HC.setQuestCargoOnCart = function (cart, physics, cargoKind = 'spices', count = 3, questMeta = null) {
   if (!cart || !cart.body) return [];
   HC.clearQuestCargoFromCart(cart, physics);
 
-  // Tempatkan barang quest pada 3 titik strategis depan-tengah-kanan bak; sembunyikan sementara
-  // filler di slot tersebut agar tidak bertabrakan lalu hidupkan fisika dinamisnya.
+  // Tempatkan barang quest di kompartemen kargo tanpa menumpuk barang pengisi
   const qSlots = [
-    { pos: [17.8, 9.2, -6.8], rot: [0, 0.16, 0] },
-    { pos: [12.4, 9.2, 0.4],  rot: [0, -0.22, 0] },
-    { pos: [17.0, 9.2, 7.2],  rot: [0, 0.28, 0] },
+    { pos: [11.0, 10.2, -6.2], rot: [0, 0.16, 0] },
+    { pos: [13.8, 10.2, 0.2],  rot: [0, -0.22, 0] },
+    { pos: [10.8, 10.2, 6.2],  rot: [0, 0.28, 0] },
   ];
   const n = Math.max(1, Math.min(qSlots.length, count | 0));
   const placed = [];
+
+  // Sembunyikan semua barang filler statis selain perbekalan kuda (Water Barrel & Fruit Box) agar barang quest terlihat jelas
+  for (const ex of cart.cargoItems) {
+    if (!ex || ex.isQuestCargo || ex.supplyKind || ex.spilled || ex.hiddenForQuest) continue;
+    ex.hiddenForQuest = true;
+    if (ex.mesh) ex.mesh.visible = false;
+  }
 
   for (let i = 0; i < n; i++) {
     const slot = qSlots[i];
     const hp = new THREE.Vector3(slot.pos[0] * S, slot.pos[1] * S, slot.pos[2] * S);
     const hr = new THREE.Euler(slot.rot[0], slot.rot[1], slot.rot[2]);
-
-    // Redam filler statis yang terlalu dekat dari titik penempatan quest ini
-    for (const ex of cart.cargoItems) {
-      if (!ex || ex.isQuestCargo || ex.spilled || ex.hiddenForQuest) continue;
-      if (Math.hypot((ex.homePos ? ex.homePos.x : 0) - hp.x, (ex.homePos ? ex.homePos.z : 0) - hp.z) < 0.34) {
-        ex.hiddenForQuest = true;
-        if (ex.mesh) ex.mesh.visible = false;
-      }
-    }
 
     const mesh = HC.buildQuestCargoMesh(cargoKind, S);
     mesh.position.copy(hp);
@@ -2677,6 +3406,8 @@ HC.setQuestCargoOnCart = function (cart, physics, cargoKind = 'spices', count = 
       mesh,
       isQuestCargo: true,
       cargoKind,
+      nameKey: `goods_${cargoKind}`,
+      questToName: questMeta ? questMeta.toName : null,
       homePos: hp,
       homeRot: hr,
       localPos: hp.clone(),
@@ -2695,6 +3426,7 @@ HC.setQuestCargoOnCart = function (cart, physics, cargoKind = 'spices', count = 
       _onTopPrev: false,
       _restT: 0,
     };
+    mesh.userData.cartItem = item;
     cart.cargoItems.push(item);
     placed.push(item);
   }
@@ -2994,6 +3726,7 @@ HC.buildCart = function (pivotY = 0.58, upgrades = {}) {
   for (const item of cargoItems) {
     item.mesh.position.copy(item.homePos);
     item.mesh.rotation.copy(item.homeRot);
+    item.mesh.userData.cartItem = item;
     body.add(item.mesh);
     item.vel = new THREE.Vector3();
     item.angVel = new THREE.Vector3();
@@ -10514,9 +11247,9 @@ class World {
             const jitterCount = Math.floor(Math.random() * 2) * (Math.random() < 0.5 ? -1 : 1);
             const targetCount = Math.max(5, Math.min(8, countChoices[vIdx % countChoices.length] + jitterCount));
 
-            // Wajib ada stall (penjual), barn (petani), tavern & cottage (hunian/petarung), sisanya diacak
-            const kinds = ['stall', 'barn', 'tavern', 'cottage'];
-            const extraPool = ['cottage', 'blacksmith', 'stall', 'barn', 'cottage'];
+            // Wajib ada blacksmith (Bengkel Gerobak), stall (penjual), barn (petani), tavern & cottage
+            const kinds = ['blacksmith', 'stall', 'barn', 'tavern', 'cottage'];
+            const extraPool = ['cottage', 'stall', 'barn', 'cottage', 'blacksmith'];
             while (kinds.length < targetCount) {
                 const pick = extraPool[Math.floor(Math.random() * extraPool.length)];
                 kinds.push(pick);
@@ -14621,6 +15354,8 @@ class World {
             wellWaters: [],
             bucketPivots: [],
         };
+        const villageWorkshops = [];
+        const villageWells = [];
         const villageData = {
             buildings: {},
             buildingList: [],
@@ -14824,6 +15559,37 @@ class World {
                     if (lot.kind === 'blacksmith' && !vRec.stations.forge) {
                         const forgeStand = localToWorldXZ(hx, hz, yaw, sc, 1.45, -2.55);
                         vRec.stations.forge = { x: forgeStand.x, z: forgeStand.z, faceX: hx, faceZ: hz };
+                        // Zona Bengkel Gerobak tepat di depan bangunan pandai besi menghadap jalan & rumput sekitar
+                        const wsBay = localToWorldXZ(hx, hz, yaw, sc, 0.2, -lot.d * 0.5 - 2.65);
+                        const bayY = getTerrainHeight(wsBay.x, wsBay.z);
+                        const apronMat = new THREE.MeshLambertMaterial({ color: 0xa68358 });
+                        const apron = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.045, 2.0), apronMat);
+                        apron.position.set(wsBay.x, bayY + 0.02, wsBay.z);
+                        apron.rotation.y = yaw;
+                        apron.receiveShadow = true;
+                        villageGroup.add(apron);
+                        // Roda kayu cadangan bersandar di depan toko sebagai penanda bengkel
+                        const wheelMarker = new THREE.Mesh(
+                            new THREE.TorusGeometry(0.42, 0.08, 6, 12),
+                            new THREE.MeshLambertMaterial({ color: 0x5c3c20 })
+                        );
+                        const wheelPt = localToWorldXZ(hx, hz, yaw, sc, -1.35, -lot.d * 0.5 - 0.55);
+                        wheelMarker.position.set(wheelPt.x, getTerrainHeight(wheelPt.x, wheelPt.z) + 0.44, wheelPt.z);
+                        wheelMarker.rotation.y = yaw + 0.15;
+                        wheelMarker.rotation.x = -0.18;
+                        villageGroup.add(wheelMarker);
+                        const wsRec = {
+                            villageId: v.id,
+                            villageName: v.name,
+                            x: wsBay.x,
+                            z: wsBay.z,
+                            bayYaw: yaw,
+                            shopX: hx,
+                            shopZ: hz,
+                            shopYaw: yaw,
+                        };
+                        vRec.stations.workshop = wsRec;
+                        villageWorkshops.push(wsRec);
                     } else if (lot.kind === 'tavern' && !vRec.stations.tavernPorch) {
                         const tavFront = localToWorldXZ(hx, hz, yaw, sc, 1.2, -5.35);
                         vRec.stations.tavernPorch = { x: tavFront.x, z: tavFront.z, faceX: hx, faceZ: hz };
@@ -14864,6 +15630,14 @@ class World {
                 const plazaStand = streetPt(-1.5, 2.8);
                 vRec.stations.well = { x: wellStand.x, z: wellStand.z, faceX: wellX, faceZ: wellZ };
                 vRec.stations.plaza = { x: plazaStand.x, z: plazaStand.z, faceX: wellX, faceZ: wellZ };
+                villageWells.push({
+                    villageId: v.id,
+                    villageName: v.title,
+                    x: wellStand.x,
+                    z: wellStand.z,
+                    wellX,
+                    wellZ,
+                });
 
                 const plazaPath = createVillageStonePath(villageCtx, {
                     points: [
@@ -15181,6 +15955,8 @@ class World {
     this._populateGrassTile = populateGrassTile;
     this._lastGrassTileX = 0;
     this._lastGrassTileZ = 0;
+    this.VILLAGE_WORKSHOPS = villageWorkshops;
+    this.VILLAGE_WELLS = villageWells;
     this.cycleEnabled = true;
     this.cycleDuration = 600.0; // Siklus penuh siang-malam 10 menit
     this.timeOfDay = 0.08;      // Mulai pagi cerah (~07:55)
@@ -15656,13 +16432,121 @@ class World {
     return this.targetMood;
   }
 
+  findNearestWorkshop(x, z, maxDist = 11.0) {
+    const list = this.VILLAGE_WORKSHOPS || [];
+    let best = null;
+    let bestD = maxDist;
+    for (let i = 0; i < list.length; i++) {
+      const ws = list[i];
+      const d = Math.hypot(x - ws.x, z - ws.z);
+      const dShop = Math.hypot(x - ws.shopX, z - ws.shopZ);
+      const effectiveD = Math.min(d, dShop - 1.5);
+      if (effectiveD <= bestD) {
+        bestD = effectiveD;
+        best = { ...ws, dist: effectiveD };
+      }
+    }
+    return best;
+  }
+
+  findNearestWaterSource(x, z, maxDist = 18.0) {
+    let best = null;
+    let bestD = maxDist;
+
+    // 1) Village stone wells
+    const wells = this.VILLAGE_WELLS || [];
+    for (let i = 0; i < wells.length; i++) {
+      const w = wells[i];
+      const d = Math.hypot(x - w.wellX, z - w.wellZ);
+      if (d <= bestD) {
+        bestD = d;
+        best = {
+          kind: 'well',
+          x: w.x,
+          z: w.z,
+          waterX: w.wellX,
+          waterZ: w.wellZ,
+          label: w.villageName,
+          dist: d,
+        };
+      }
+    }
+
+    // 2) Origin pond (center 8.2, 6.2, shore radius ~4.4m)
+    const pdx = x - 8.2;
+    const pdz = z - 6.2;
+    const pDistCenter = Math.hypot(pdx, pdz);
+    const pEdgeDist = Math.max(0, pDistCenter - 4.8);
+    if (pEdgeDist <= bestD) {
+      bestD = pEdgeDist;
+      const ux = pDistCenter > 1e-4 ? pdx / pDistCenter : 0;
+      const uz = pDistCenter > 1e-4 ? pdz / pDistCenter : -1;
+      best = {
+        kind: 'pond',
+        x: 8.2 + ux * 4.75,
+        z: 6.2 + uz * 4.75,
+        waterX: 8.2 + ux * 3.8,
+        waterZ: 6.2 + uz * 3.8,
+        label: 'Pond',
+        dist: pEdgeDist,
+      };
+    }
+
+    // 3) River crossing
+    if (typeof this._riverCenterZ === 'function') {
+      const rcZ = this._riverCenterZ(x);
+      const riverHalf = 5.4;
+      const dz = z - rcZ;
+      const absDz = Math.abs(dz);
+      const rDist = Math.max(0, absDz - riverHalf);
+      if (rDist <= bestD) {
+        bestD = rDist;
+        const side = dz >= 0 ? 1 : -1;
+        best = {
+          kind: 'river',
+          x,
+          z: rcZ + side * 4.2,
+          waterX: x,
+          waterZ: rcZ + side * 2.8,
+          label: 'River',
+          dist: rDist,
+        };
+      }
+    }
+
+    return best;
+  }
+
+  getOldCartSpot() {
+    const rad = (this.VILLAGES || []).find((v) => v.id === 'radnar') || (this.VILLAGES && this.VILLAGES[0]);
+    const baseZ = (rad ? rad.cz : 76.0) + 23.5;
+    const roadX = this._getRoadCenterX ? this._getRoadCenterX(baseZ) : 0;
+    const candidates = [
+      [roadX + 8.5, baseZ + 1.5],
+      [roadX - 9.0, baseZ + 2.0],
+      [roadX + 7.5, baseZ + 5.5],
+      [roadX - 7.5, baseZ + 6.0],
+      [roadX, baseZ + 7.5],
+    ];
+    for (const [cx, cz] of candidates) {
+      const col = this.resolveCircleCollision ? this.resolveCircleCollision(cx, cz, 2.35) : { hit: false };
+      if (!col.hit) {
+        return { x: cx, z: cz, yaw: -Math.PI * 0.55, villageId: 'radnar' };
+      }
+    }
+    return { x: roadX + 8.5, z: baseZ + 4.0, yaw: -Math.PI * 0.55, villageId: 'radnar' };
+  }
+
   getTimeLabel() {
     const t = ((this.timeOfDay || 0) % 1 + 1) % 1;
     // t=0 -> 06:00, t=0.25 -> 12:00, t=0.5 -> 18:00, t=0.75 -> 00:00
     const totalMin = Math.floor(((t * 24 + 6) % 24) * 60);
     const hh = String(Math.floor(totalMin / 60)).padStart(2, '0');
     const mm = String(totalMin % 60).padStart(2, '0');
-    const phase = this.currentMoodKey === 'night' ? 'Malam' : (this.currentMoodKey === 'sunset' ? 'Senja' : 'Siang');
+    const trFn = typeof HC !== 'undefined' && typeof HC.t === 'function' ? HC.t : null;
+    const phaseKey = this.currentMoodKey === 'night' ? 'phase_night' : (this.currentMoodKey === 'sunset' ? 'phase_sunset' : 'phase_morning');
+    const fallback = this.currentMoodKey === 'night' ? 'Night' : (this.currentMoodKey === 'sunset' ? 'Evening' : 'Morning');
+    const phase = trFn ? trFn(phaseKey) : fallback;
     return `${hh}:${mm} • ${phase}`;
   }
 
@@ -15978,23 +16862,23 @@ class World {
       this.triggerPondRipple(hitPoint.x, hitPoint.z);
       this.spawnBurst(new THREE.Vector3(hitPoint.x, this.POND_WATER_Y + 0.12, hitPoint.z), 0xa5f3fc, 12, true, false);
       this.spawnBurst(new THREE.Vector3(hitPoint.x, this.POND_WATER_Y + 0.18, hitPoint.z), 0xffffff, 6, true, false);
-      return 'Cipratan air & riak kolam BotW!';
+      return (HC.getLang && HC.getLang() === 'id') ? 'Cipratan air & riak kolam!' : 'Cool pond ripples splash!';
     }
     if (obj.userData.type === 'river') {
       this.triggerRiverRipple(hitPoint.x, hitPoint.z);
       const wy = this.RIVER ? this.RIVER.waterY : -0.22;
       this.spawnBurst(new THREE.Vector3(hitPoint.x, wy + 0.12, hitPoint.z), 0xa5f3fc, 12, true, false);
       this.spawnBurst(new THREE.Vector3(hitPoint.x, wy + 0.18, hitPoint.z), 0xffffff, 6, true, false);
-      return 'Cipratan air & riak sungai jernih!';
+      return (HC.getLang && HC.getLang() === 'id') ? 'Cipratan air & riak sungai jernih!' : 'Clear river ripples splash!';
     }
     if (obj.userData.type === 'campfire') {
       if (!this.isCampfireLit) {
         this.toggleCampfire(true);
-        return 'Api unggun dinyalakan kembali!';
+        return (HC.getLang && HC.getLang() === 'id') ? 'Api unggun dinyalakan kembali!' : 'Campfire lit up again!';
       }
       obj.userData.flareBoost = 1.6;
       this.spawnBurst(new THREE.Vector3(0, this.cfY + 0.8, 0), 0xffbe0b, 14, true, false);
-      return 'Percikan api hangat membubung!';
+      return (HC.getLang && HC.getLang() === 'id') ? 'Percikan api hangat membubung!' : 'Warm embers crackle upward!';
     }
     if (obj.userData.type === 'mushroom') {
       obj.userData.pulse = 1.5;
@@ -16002,7 +16886,7 @@ class World {
       obj.getWorldPosition(wp);
       wp.y += 0.35;
       this.spawnBurst(wp, 0x72efdd, 12, true, false);
-      return 'Spora ajaib jamur hutan berpendar!';
+      return (HC.getLang && HC.getLang() === 'id') ? 'Spora ajaib jamur hutan berpendar!' : 'Forest mushroom spores glow softly!';
     }
     if (obj.userData.type === 'bush') {
       obj.userData.rustleBoost = 1.6;
@@ -16010,7 +16894,7 @@ class World {
       obj.getWorldPosition(wp);
       wp.y += 0.6;
       this.spawnBurst(wp, obj.userData.burstColor || 0x76cc4b, 12, true, true);
-      return (obj.userData.name || 'Semak') + ' bergoyang rimbun!';
+      return (HC.getLang && HC.getLang() === 'id') ? `${obj.userData.name || 'Semak'} bergoyang rimbun!` : 'Forest bush rustles briskly!';
     }
     if (obj.userData.type === 'tree') {
       obj.userData.rustleBoost = 1.5;
@@ -16018,7 +16902,7 @@ class World {
       obj.getWorldPosition(wp);
       wp.y += 3.2;
       this.spawnBurst(wp, obj.userData.leafColor || 0xf9c74f, 12, false, false);
-      return (obj.userData.name || 'Pohon') + ' berdesir menjatuhkan dedaunan!';
+      return (HC.getLang && HC.getLang() === 'id') ? `${obj.userData.name || 'Pohon'} berdesir menjatuhkan dedaunan!` : 'Tree rustles and sheds autumn leaves!';
     }
     return null;
   }
@@ -17317,6 +18201,7 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
       this.applySpec(cart);
       this.joltScale = 1;   // straps upgrade lowers this (cargo bounces less)
       this.damageScale = 1; // pengawal NPC di bangku buritan nurunin damage roda
+      this.pullPowerScale = 1.0; // horse Pull Power stat multiplier
       const capMass = (cart.specs && cart.specs.capSpec && cart.specs.capSpec.massAdd) || 0;
       this.mass += capMass;
       this.flipped = false;
@@ -17666,8 +18551,9 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
           const relN = (vAx - vB.x) * nx + (0 - vB.y) * ny + (vAz - vB.z) * nz;
 
           // damping: laju regangan = (vB - vA)·n  ->  -cTrace*relN
-          let F = this.kTrace * (L - this.traceRest[i]) - this.cTrace * relN;
-          F = Math.max(0, Math.min(22000, F));
+          const pwr = this.pullPowerScale || 1.0;
+          let F = this.kTrace * pwr * (L - this.traceRest[i]) - this.cTrace * relN;
+          F = Math.max(0, Math.min(22000 * pwr, F));
           if (F > 0) addForce(-nx * F, -ny * F, -nz * F, bx, by, bz);
         }
       }
@@ -19381,10 +20267,14 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
       if (this.q) this.cart.chassis.quaternion.copy(this.q);
       if (this.wheels) {
         for (const w of this.wheels) {
-          w.ref.wheelPivot.position.set(w.ref.localX, w.ref.radius - this.pivotY, w.ref.localZ);
+          if (w.detached) continue;
           if (this.q) {
+            const rl = this._w4.copy(w.wa).applyQuaternion(this.q);
+            w.ref.wheelPivot.position.set(rl.x, rl.y + (w.comp || 0), rl.z);
             w.ref.wheelPivot.quaternion.copy(this.q);
             if (w.ref.front) w.ref.wheelPivot.quaternion.multiply(this._qAy.setFromAxisAngle(UP, this.axleYaw));
+          } else {
+            w.ref.wheelPivot.position.set(w.ref.localX, w.ref.radius - this.pivotY, w.ref.localZ);
           }
         }
       }
@@ -19427,6 +20317,95 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
       this.syncVisual();
     }
   }
+
+  /**
+   * Solid horizontal collision against Horse (two-circle capsule) & Cart (oriented box).
+   * Prevents NPCs/mobs from clipping through and supplies ram impact velocity.
+   */
+  HC.resolveRigObstacle = function (x, z, r = 0.4, horseCtx = null, cartCtx = null) {
+    let px = x;
+    let pz = z;
+    let hit = false;
+    let nx = 0;
+    let nz = 0;
+    let source = null;
+    let hitFromX = x;
+    let hitFromZ = z;
+    let impactSpeed = 0;
+
+    if (horseCtx && Number.isFinite(horseCtx.x) && Number.isFinite(horseCtx.z)) {
+      const hyaw = horseCtx.yaw || 0;
+      const hfx = Math.cos(hyaw);
+      const hfz = -Math.sin(hyaw);
+      const hSpd = Math.abs(horseCtx.speed || 0);
+      const minD = 0.58 + r;
+      for (const off of [0.46, -0.48]) {
+        const cx = horseCtx.x + hfx * off;
+        const cz = horseCtx.z + hfz * off;
+        const dx = px - cx;
+        const dz = pz - cz;
+        const dSq = dx * dx + dz * dz;
+        if (dSq < minD * minD) {
+          const d = Math.sqrt(dSq);
+          const unx = d > 1e-4 ? dx / d : hfx;
+          const unz = d > 1e-4 ? dz / d : hfz;
+          px = cx + unx * minD;
+          pz = cz + unz * minD;
+          hit = true;
+          nx = unx;
+          nz = unz;
+          source = 'horse';
+          hitFromX = horseCtx.x;
+          hitFromZ = horseCtx.z;
+          impactSpeed = Math.max(impactSpeed, hSpd);
+        }
+      }
+    }
+
+    if (cartCtx && cartCtx.active && Number.isFinite(cartCtx.x) && Number.isFinite(cartCtx.z)) {
+      const cyaw = cartCtx.yaw || 0;
+      const cfx = Math.cos(cyaw);
+      const cfz = -Math.sin(cyaw);
+      const clx = -cfz;
+      const clz = cfx;
+      const dx = px - cartCtx.x;
+      const dz = pz - cartCtx.z;
+      const lx = dx * cfx + dz * cfz;
+      const lz = dx * clx + dz * clz;
+      const hl = 2.02 + r;
+      const hw = 1.16 + r;
+      if (Math.abs(lx) < hl && Math.abs(lz) < hw) {
+        const penX = hl - Math.abs(lx);
+        const penZ = hw - Math.abs(lz);
+        let unx = 0, unz = 0;
+        let nlx = lx, nlz = lz;
+        if (penX < penZ) {
+          const s = lx >= 0 ? 1 : -1;
+          nlx = s * hl;
+          unx = s * cfx;
+          unz = s * cfz;
+        } else {
+          const s = lz >= 0 ? 1 : -1;
+          nlz = s * hw;
+          unx = s * clx;
+          unz = s * clz;
+        }
+        px = cartCtx.x + cfx * nlx + clx * nlz;
+        pz = cartCtx.z + cfz * nlx + clz * nlz;
+        hit = true;
+        nx = unx;
+        nz = unz;
+        source = 'cart';
+        hitFromX = cartCtx.x;
+        hitFromZ = cartCtx.z;
+        const cSpd = Math.abs(cartCtx.speed || 0);
+        const hSpd = horseCtx ? Math.abs(horseCtx.speed || 0) : 0;
+        impactSpeed = Math.max(impactSpeed, cSpd, hSpd * 0.9);
+      }
+    }
+
+    return { hit, x: px, z: pz, nx, nz, source, impactSpeed, hitFromX, hitFromZ };
+  };
 
   HC.Rope = Rope;
   HC.CartPhysics = CartPhysics;
@@ -19506,6 +20485,7 @@ const THREE = HC.THREE, S = HC.vs;
       this.targetSpeed = 0;
       this.throttle = 0;        // gas -1..1 dari input (diam sampai ditekan maju/mundur)
       this.speedScale = 1;      // limiter kondisi badan (survival)
+      this.statSpeedScale = 1;  // bonus upgrade Top Speed kuda
       this.unhitched = false;   // tanpa gerobak: kuda jauh lebih lincah & cepat
       this.docking = null;      // animasi ngepasin posisi kuda ke pangkal batang gerobak
       this.phase = 0;
@@ -19532,6 +20512,8 @@ const THREE = HC.THREE, S = HC.vs;
       // Cart/wheel inspect mode (Q): kepala & leher menoleh ke samping/belakang ke arah roda gerobak
       this.inspectMode = false;
       this.inspectBlend = 0;
+      this.menuIdleMode = false;
+      this._menuT = 0;
 
       // Per-leg phase offsets:
       // Walk 4-beat: HL(0.0), FL(0.25), HR(0.50), FR(0.75)
@@ -19583,9 +20565,10 @@ const THREE = HC.THREE, S = HC.vs;
       dt = Math.min(dt, 0.033);
       this.time += dt;
 
-      const walkMax = this.unhitched ? 2.30 : 1.95;
-      const runMax = this.unhitched ? 6.15 : 5.25;
-      const revMax = this.unhitched ? 1.55 : 1.05;
+      const statSpd = this.statSpeedScale || 1;
+      const walkMax = (this.unhitched ? 2.30 : 1.95) * statSpd;
+      const runMax = (this.unhitched ? 6.15 : 5.25) * statSpd;
+      const revMax = (this.unhitched ? 1.55 : 1.05) * statSpd;
       let moving = false;
       let pivoting = false;
 
@@ -19655,17 +20638,23 @@ const THREE = HC.THREE, S = HC.vs;
         if (this.state === 'sleep' && moving) {
           this.state = this.prevMoveState || 'walk';
         }
-        const isSleep = this.state === 'sleep' && !this.jumpActive && !moving;
-        const isGraze = this.state === 'graze' && !this.jumpActive && !isSleep;
+        const isSleep = !this.menuIdleMode && this.state === 'sleep' && !this.jumpActive && !moving;
+        const isGraze = this.menuIdleMode ? ((this._menuT % 11.0) < 6.0) : (this.state === 'graze' && !this.jumpActive && !isSleep);
         const isRun = wantRun || (this.jumpActive && this.prevMoveState === 'run' && movingFwd);
 
+        if (this.menuIdleMode) this._menuT += dt;
+        const menuPhase = this.menuIdleMode ? (this._menuT % 11.0) : 0;
+        const menuLookYaw = (this.menuIdleMode && menuPhase >= 6.0)
+          ? Math.sin(((menuPhase - 6.0) / 5.0) * Math.PI * 2) * 0.58
+          : 0;
+
         this.sleepBlend = HC.damp(this.sleepBlend, isSleep ? 1 : 0, 2.6, dt);
-        this.grazeBlend = HC.damp(this.grazeBlend, isGraze ? 1 : 0, 5.5, dt);
-        this.inspectBlend = HC.damp(this.inspectBlend, (this.inspectMode && !isGraze && !isSleep) ? 1 : 0, 6.5, dt);
+        this.grazeBlend = HC.damp(this.grazeBlend, isGraze ? 1 : 0, this.menuIdleMode ? 3.2 : 5.5, dt);
+        this.inspectBlend = HC.damp(this.inspectBlend, (this.inspectMode && !isGraze && !isSleep && !this.menuIdleMode) ? 1 : 0, 6.5, dt);
         this.runBlend = HC.damp(this.runBlend, isRun ? 1 : 0, 6.0, dt);
 
         // Desired speed (+ maju, - mundur); kondisi badan (survival) menskalakan semua.
-        if (isGraze || isSleep || !moving) {
+        if (this.menuIdleMode || isGraze || isSleep || !moving) {
           this.targetSpeed = 0;
         } else if (movingRev) {
           this.targetSpeed = -revMax * Math.min(1, Math.abs(thr)) * this.speedScale;
@@ -19683,7 +20672,7 @@ const THREE = HC.THREE, S = HC.vs;
         if (this.jumpActive) this.speed = Math.max(this.speed, this.jumpTakeoff);
 
         // ---- Steering: kepala menoleh dulu, badan menyusul; radius belok jauh lebih lincah ----
-        this.steer = HC.damp(this.steer, this.steerInput, this.unhitched ? 10.5 : 8.0, dt);
+        this.steer = HC.damp(this.steer, this.menuIdleMode ? 0 : this.steerInput, this.unhitched ? 10.5 : 8.0, dt);
         const turnCap = this.unhitched ? 1.65 : 1.15;
         const turnMul = this.unhitched ? 0.85 : 0.62;
         const absSpd = Math.abs(this.speed);
@@ -19696,8 +20685,10 @@ const THREE = HC.THREE, S = HC.vs;
         this.yaw += this.yawRate * dt;
 
         // kepala + leher mendahului putaran badan (anticipation), badan menyusul dengan lag
-        const headWant = HC.clamp(this.steer * 0.62 + this.yawRate * 0.24, -0.85, 0.85) * (1 - this.sleepBlend);
-        this.headLead = HC.damp(this.headLead, headWant, 10.0, dt);
+        const headWant = (this.menuIdleMode
+          ? menuLookYaw
+          : HC.clamp(this.steer * 0.62 + this.yawRate * 0.24, -0.85, 0.85)) * (1 - this.sleepBlend);
+        this.headLead = HC.damp(this.headLead, headWant, this.menuIdleMode ? 4.2 : 10.0, dt);
         this.bodyLag = HC.damp(this.bodyLag, HC.clamp(-this.yawRate * 0.18, -0.26, 0.26), 5.0, dt);
 
         this.forwardX = Math.cos(this.yaw);
@@ -31618,7 +32609,7 @@ HC.NPC_ROLES = [
     robe:0x161a20, hood:0x2f8a4e, hp:380, dmg:42, speed:3.2,
     skill:{ id:'lich_wrath', name:'Lich Wrath', e:'☠️', desc:'⚡ Sambaran Petir Ungu beruntun · 🧟 Bangkitkan 3 Zombie Pembantai dari tanah kubur (HP, Damage & Durasi scaling level) · 🩸 Sedot Nyawa memulihkan HP' } },
 ];
-HC.NPC_TEAM_MAX = 3;
+HC.NPC_TEAM_MAX = 2;
 HC.NPC_RECRUITABLE = HC.NPC_ROLES.filter((r) => r.recruitable);
 HC.NPC_BY_ID = (id) => HC.NPC_ROLES.find((r) => r.id === id);
 HC.NPC_SKILL = (id) => {
@@ -32234,11 +33225,24 @@ function updateVillageResident(item, dt, horse, world) {
 
 /* Satu tick AI untuk NPC liar: pilih fase (diam/jalan/kerja), gerakkan root di
    atas terrain, isi state yang dibaca animate(), lalu animasikan. */
-HC.updateWildNPC = function (item, dt, horse, world) {
+HC.updateWildNPC = function (item, dt, horse, world, rigCtx = null) {
   const root = item.root, st = root && root.userData && root.userData.npc;
   if (!st) return;
+  const activeRig = rigCtx || HC._activeRigCtx || (world && world._rigObsCtx) || null;
   if (HC.combatAI && HC.mobs && HC.combatAI.stepWild(item, dt || 1 / 60, horse, world)) return;
-  if (item.villageProfile && updateVillageResident(item, dt || 1 / 60, horse, world)) return;
+  if (item.villageProfile && updateVillageResident(item, dt || 1 / 60, horse, world)) {
+    if (activeRig && HC.resolveRigObstacle) {
+      const rigRes = HC.resolveRigObstacle(item.x, item.z, 0.36, activeRig.horse, activeRig.cart);
+      if (rigRes.hit) {
+        item.x = rigRes.x;
+        item.z = rigRes.z;
+        const gyR = (world && world.heightAt) ? world.heightAt(item.x, item.z) : (world && world.terrainHeightAt) ? world.terrainHeightAt(item.x, item.z) : 0;
+        root.position.set(item.x, gyR, item.z);
+        st.pos.copy(root.position);
+      }
+    }
+    return;
+  }
   const prof = HC.NPC_BEHAVIOR[st.role.id] || { mode: 'post', radius: 2.5, walk: 0.5, pause: [3, 6], work: null, act: 6, face: 7 };
   const b = item.brain || (item.brain = { phase: 'idle', t: _rnd(0.5, 2.0), dir: root.rotation.y, actT: _rnd(2, prof.act || 8), swingT: -1, healT: -1, harvest: true });
 
@@ -32311,6 +33315,16 @@ HC.updateWildNPC = function (item, dt, horse, world) {
     }
   }
 
+  if (activeRig && HC.resolveRigObstacle) {
+    const rigRes = HC.resolveRigObstacle(item.x, item.z, 0.36, activeRig.horse, activeRig.cart);
+    if (rigRes.hit) {
+      item.x = rigRes.x;
+      item.z = rigRes.z;
+      b.dir = Math.atan2(rigRes.nx, rigRes.nz);
+      walkSpeed = 0;
+    }
+  }
+
   const gy = (world && world.heightAt) ? world.heightAt(item.x, item.z) : (world && world.terrainHeightAt) ? world.terrainHeightAt(item.x, item.z) : 0;
   root.position.set(item.x, gy, item.z);
   // model Sylvan menghadap +Z lokal -> rotasi root = sudut arah
@@ -32366,6 +33380,8 @@ HC.NPCParty = class {
     this.roles = HC.NPC_RECRUITABLE;
     this.squad = [];
     this.members = [];
+    this.questPassengers = [];
+    this.hasCart = true;
     this._nextUid = 1;
     this.cart = null;
     this.onChange = null;
@@ -32433,7 +33449,67 @@ HC.NPCParty = class {
       { x: xA, z: z, rot: Math.PI },
       { x: xA, z: -z, rot: 0 },
       { x: xB, z: z, rot: Math.PI },
+      { x: xB, z: -z, rot: 0 },
     ];
+  }
+  clearQuestPassengers(cart = this.cart) {
+    if (cart && cart.body) {
+      for (const qp of this.questPassengers || []) {
+        if (qp.seatRoot && qp.seatRoot.parent) qp.seatRoot.parent.remove(qp.seatRoot);
+        if (Array.isArray(cart.npcPassengers)) {
+          const i = cart.npcPassengers.indexOf(qp.seatRoot);
+          if (i >= 0) cart.npcPassengers.splice(i, 1);
+        }
+      }
+    }
+    this.questPassengers = [];
+  }
+  boardQuestPassengers(roles = [], cart = this.cart) {
+    const c = cart || this.cart;
+    this.clearQuestPassengers(c);
+    const list = Array.isArray(roles) ? roles.slice(0, 2) : [];
+    for (let i = 0; i < list.length; i++) {
+      const r = list[i];
+      if (!r) continue;
+      const role = typeof r === 'string' ? (HC.NPC_BY_ID(r) || HC.NPC_ROLES[0]) : r;
+      const seatIndex = 2 + i;
+      let seatRoot = null;
+      if (c && c.body) {
+        const seats = this._seatDefs(c);
+        const seat = seats[seatIndex % seats.length];
+        seatRoot = HC.buildNPC(role, 'sit');
+        const vs = HC.cartVS || 0.075;
+        seatRoot.position.x = seat.x * vs;
+        seatRoot.position.z = seat.z * vs;
+        seatRoot.rotation.y = seat.rot;
+        seatRoot.userData.npcRoleId = role.id;
+        seatRoot.userData.isQuestPassenger = true;
+        c.body.add(seatRoot);
+        c.npcPassengers = c.npcPassengers || [];
+        c.npcPassengers.push(seatRoot);
+      }
+      this.questPassengers.push({ role, seatIndex, seatRoot });
+    }
+    return this.questPassengers.length;
+  }
+  _attachQuestPassengers(cart = this.cart) {
+    const c = cart || this.cart;
+    if (!c || !c.body || !this.questPassengers || !this.questPassengers.length) return;
+    const seats = this._seatDefs(c);
+    const vs = HC.cartVS || 0.075;
+    c.npcPassengers = c.npcPassengers || [];
+    for (const qp of this.questPassengers) {
+      const seat = seats[qp.seatIndex % seats.length];
+      const seatRoot = HC.buildNPC(qp.role, 'sit');
+      seatRoot.position.x = seat.x * vs;
+      seatRoot.position.z = seat.z * vs;
+      seatRoot.rotation.y = seat.rot;
+      seatRoot.userData.npcRoleId = qp.role.id;
+      seatRoot.userData.isQuestPassenger = true;
+      c.body.add(seatRoot);
+      c.npcPassengers.push(seatRoot);
+      qp.seatRoot = seatRoot;
+    }
   }
   _cartCenterWorld(cart) {
     if (cart && cart.root && cart.root.position && HC.THREE) {
@@ -32556,6 +33632,56 @@ HC.NPCParty = class {
     m.carryingCargo = false;
     m.haulPickT = 0;
   }
+  _clearWaterTask(m, reason = null) {
+    if (!m) return;
+    if (m.bucketMesh && m.bucketMesh.parent) m.bucketMesh.parent.remove(m.bucketMesh);
+    m.bucketMesh = null;
+    if (m.waterTask) {
+      const cb = m.waterTask.onCancel;
+      m.waterTask = null;
+      if (reason && typeof cb === 'function') {
+        try { cb(reason); } catch (e) { /* no-op */ }
+      }
+    }
+  }
+  startWaterRefillTask(waterSource, barrelItem, cart = this.cart, callbacks = {}) {
+    if (!waterSource || !barrelItem) return { ok: false, reason: 'invalid' };
+    if ((barrelItem.charges || 0) >= (barrelItem.maxCharges || 5)) return { ok: false, reason: 'full' };
+    if (this.physics && this.physics.flipped) return { ok: false, reason: 'flipped' };
+    if (!this.members || !this.members.length) return { ok: false, reason: 'no_npc' };
+    const existing = this.members.find((it) => it.state === 'fetching_water');
+    if (existing) return { ok: false, reason: 'busy', member: existing };
+
+    const m = this.members.find((it) => it.state === 'following') || this.members[0];
+    if (m.state === 'seated' || m.state === 'hopping_in' || m.state === 'boarding') {
+      this.disembarkMember(m.uid);
+    }
+    this._dropMemberCargo(m, this.physics);
+    if (m.cBrain) m.cBrain.targetBoar = null;
+    m.inCombat = false;
+
+    if (m.root && HC.makeWaterBucketMesh) {
+      if (m.bucketMesh && m.bucketMesh.parent) m.bucketMesh.parent.remove(m.bucketMesh);
+      const bk = HC.makeWaterBucketMesh();
+      bk.position.set(0.28, 0.56, 0.24);
+      m.root.add(bk);
+      m.bucketMesh = bk;
+    }
+
+    m.state = 'fetching_water';
+    m.waterTask = {
+      waterSource,
+      barrelItem,
+      cart: cart || this.cart,
+      step: 'to_water',
+      waitT: 0,
+      onProgress: callbacks.onProgress || null,
+      onDone: callbacks.onDone || null,
+      onCancel: callbacks.onCancel || null,
+    };
+    this._notify();
+    return { ok: true, member: m };
+  }
   _updateMember(m, dt, hx, hz, hyaw, cart, physics) {
     const root = m.root;
     if (!root || !HC.THREE) return;
@@ -32564,12 +33690,155 @@ HC.NPCParty = class {
     const cc = this._cartCenterWorld(c);
     const rigSpd = physics ? Math.hypot(physics.vel.x, physics.vel.z) : 0;
     const flipLock = !!(physics && physics.flipped);
-    const resolveProps = (rad = 0.34) => {
+    const resolveProps = (rad = 0.34, skipRig = false) => {
+      let hitAny = false;
       if (this.world && typeof this.world.resolveCircleCollision === 'function') {
         const res = this.world.resolveCircleCollision(m.x, m.z, rad);
-        if (res.hit) { m.x = res.x; m.z = res.z; }
+        if (res.hit) { m.x = res.x; m.z = res.z; hitAny = true; }
       }
+      if (!skipRig && HC.resolveRigObstacle) {
+        const rigRes = HC.resolveRigObstacle(
+          m.x,
+          m.z,
+          rad,
+          { x: hx, z: hz, yaw: hyaw, speed: this._horseMoveSpd || 0 },
+          (this.hasCart !== false && c && physics) ? { x: cc.x, z: cc.z, yaw: cc.yaw, speed: physics.forwardSpeed || 0, active: true } : null
+        );
+        if (rigRes.hit) { m.x = rigRes.x; m.z = rigRes.z; hitAny = true; }
+      }
+      return hitAny;
     };
+
+    if (m.state === 'fetching_water') {
+      const wt = m.waterTask;
+      const ws = wt && wt.waterSource;
+      const bar = wt && wt.barrelItem;
+      const maxC = (bar && bar.maxCharges) || 5;
+      const cartDistWater = ws ? Math.hypot(cc.x - ws.x, cc.z - ws.z) : 999;
+      if (!wt || !ws || !bar || flipLock || bar.spilled || (bar.charges || 0) >= maxC || cartDistWater > 28.0) {
+        const doneCb = wt && wt.onDone;
+        const alreadyFull = !!(bar && (bar.charges || 0) >= maxC);
+        this._clearWaterTask(m, alreadyFull ? null : 'cancelled');
+        if (alreadyFull && typeof doneCb === 'function') {
+          try { doneCb(bar.charges, maxC, m); } catch (e) { /* no-op */ }
+        }
+        m.state = flipLock ? 'following' : 'boarding';
+        m.boardT = 0;
+        this._notify();
+        return;
+      }
+
+      const cfx = Math.cos(cc.yaw), cfz = -Math.sin(cc.yaw);
+      const clx = -cfz, clz = cfx;
+      let tx = ws.x, tz = ws.z;
+      let walkingNow = false;
+      let workingNow = false;
+      let swingT = 0;
+      const preMoveX = m.x, preMoveZ = m.z;
+
+      if (wt.step === 'to_water') {
+        tx = ws.x; tz = ws.z;
+        const dx = tx - m.x, dz = tz - m.z;
+        const d = Math.hypot(dx, dz);
+        if (d > 0.78) {
+          const sp = 3.2;
+          const mv = Math.min(d, sp * dt);
+          m.x += (dx / d) * mv;
+          m.z += (dz / d) * mv;
+          m.dir = this._turnToward(m.dir, Math.atan2(dx, dz), 9.0, dt);
+          walkingNow = true;
+        } else {
+          wt.step = 'scooping';
+          wt.waitT = 0.72;
+        }
+      } else if (wt.step === 'scooping') {
+        m.dir = this._turnToward(m.dir, Math.atan2(ws.waterX - m.x, ws.waterZ - m.z), 9.0, dt);
+        workingNow = true;
+        swingT = ((0.72 - wt.waitT) * 2.2) % 0.9;
+        wt.waitT -= dt;
+        if (wt.waitT <= 0) {
+          if (m.bucketMesh && m.bucketMesh.userData && m.bucketMesh.userData.waterDisc) {
+            m.bucketMesh.userData.waterDisc.visible = true;
+          }
+          wt.step = 'to_cart';
+        }
+      } else if (wt.step === 'to_cart') {
+        const side = ((ws.x - cc.x) * clx + (ws.z - cc.z) * clz) >= 0 ? 1 : -1;
+        tx = cc.x + cfx * 0.45 + clx * side * 1.66;
+        tz = cc.z + cfz * 0.45 + clz * side * 1.66;
+        const dx = tx - m.x, dz = tz - m.z;
+        const d = Math.hypot(dx, dz);
+        if (d > 0.75) {
+          const sp = 2.85;
+          const mv = Math.min(d, sp * dt);
+          m.x += (dx / d) * mv;
+          m.z += (dz / d) * mv;
+          m.dir = this._turnToward(m.dir, Math.atan2(dx, dz), 9.0, dt);
+          walkingNow = true;
+        } else {
+          wt.step = 'pouring';
+          wt.waitT = 0.55;
+        }
+      } else if (wt.step === 'pouring') {
+        m.dir = this._turnToward(m.dir, Math.atan2(cc.x - m.x, cc.z - m.z), 9.0, dt);
+        workingNow = true;
+        swingT = ((0.55 - wt.waitT) * 2.6) % 0.9;
+        wt.waitT -= dt;
+        if (wt.waitT <= 0) {
+          bar.charges = Math.min(maxC, (bar.charges || 0) + 1);
+          if (m.bucketMesh && m.bucketMesh.userData && m.bucketMesh.userData.waterDisc) {
+            m.bucketMesh.userData.waterDisc.visible = false;
+          }
+          if (typeof wt.onProgress === 'function') {
+            try { wt.onProgress(bar.charges, maxC, m); } catch (e) { /* no-op */ }
+          }
+          if (bar.charges >= maxC) {
+            const doneCb = wt.onDone;
+            this._clearWaterTask(m);
+            m.state = 'boarding';
+            m.boardT = 0;
+            this._notify();
+            if (typeof doneCb === 'function') {
+              try { doneCb(bar.charges, maxC, m); } catch (e) { /* no-op */ }
+            }
+            return;
+          }
+          wt.step = 'to_water';
+        }
+      }
+
+      const blocked = resolveProps(0.32);
+      if (walkingNow && blocked) {
+        const ddx = tx - m.x, ddz = tz - m.z;
+        const dd = Math.hypot(ddx, ddz);
+        if (dd > 1e-4) {
+          const px = -ddz / dd, pz = ddx / dd;
+          if (!wt._skirtSign) {
+            const crossC = (m.x - cc.x) * px + (m.z - cc.z) * pz;
+            wt._skirtSign = crossC >= 0 ? 1 : -1;
+          }
+          m.x += px * wt._skirtSign * 3.1 * dt;
+          m.z += pz * wt._skirtSign * 3.1 * dt;
+          resolveProps(0.32);
+        }
+      } else if (!blocked) {
+        wt._skirtSign = 0;
+      }
+      const gy = this._groundY(m.x, m.z);
+      root.position.set(m.x, gy, m.z);
+      root.rotation.set(0, m.dir, 0);
+      if (st) {
+        st.pos.copy(root.position);
+        st.walking = walkingNow;
+        st.working = workingNow;
+        st.swing = swingT;
+        st.vel.x = walkingNow ? Math.sin(m.dir) * 2.9 : 0;
+        st.vel.z = walkingNow ? Math.cos(m.dir) * 2.9 : 0;
+        st.headAngle = 0;
+      }
+      HC.animateNPC(root, dt);
+      return;
+    }
 
     if (m.state === 'boarding') {
       if (flipLock) {
@@ -33018,21 +34287,32 @@ HC.NPCParty = class {
     if (cart) this.cart = cart;
     if (physics) this.physics = physics;
     this._clock += stepDt;
-    for (let i = 0; i < this.wild.length; i++) {
-      const w = this.wild[i];
-      if (w.respawnAt && this._clock >= w.respawnAt) {
-        const prevVp = w.villageProfile;
-        const nw = this._spawnFromAnchor(i, w.anchor);
-        if (nw && prevVp) {
-          nw.villageProfile = prevVp;
-          nw.homeRadius = 18.0;
-          nw.isIndoors = false;
+    const rigCtx = {
+      horse: { x, z, yaw, speed: this._horseMoveSpd || 0 },
+      cart: (this.hasCart !== false && this.cart && this.cart.root && physics)
+        ? { x: this.cart.root.position.x, z: this.cart.root.position.z, yaw: physics.yaw || 0, speed: physics.forwardSpeed || 0, active: true }
+        : null,
+    };
+    HC._activeRigCtx = rigCtx;
+    try {
+      for (let i = 0; i < this.wild.length; i++) {
+        const w = this.wild[i];
+        if (w.respawnAt && this._clock >= w.respawnAt) {
+          const prevVp = w.villageProfile;
+          const nw = this._spawnFromAnchor(i, w.anchor);
+          if (nw && prevVp) {
+            nw.villageProfile = prevVp;
+            nw.homeRadius = 18.0;
+            nw.isIndoors = false;
+          }
+          w.respawnAt = null;
         }
-        w.respawnAt = null;
+        if (w.recruited) continue;
+        // Tetap berkelompok di kamp/pos; TIDAK respawn random di depan kuda.
+        if (w.root) HC.updateWildNPC(w, dt || 1 / 60, { x, z }, this.world);
       }
-      if (w.recruited) continue;
-      // Tetap berkelompok di kamp/pos; TIDAK respawn random di depan kuda.
-      if (w.root) HC.updateWildNPC(w, dt || 1 / 60, { x, z }, this.world);
+    } finally {
+      HC._activeRigCtx = null;
     }
     for (const m of this.members) {
       if (m.state !== 'seated') {
@@ -33124,7 +34404,9 @@ HC.NPCParty = class {
   }
   recruit(x, z) {
     if (this.squad.length >= HC.NPC_TEAM_MAX) {
-      this.lastMessage = 'Regu penuh (3/3). Lepas anggota dulu.'; return null;
+      const fn = HC.t;
+      this.lastMessage = typeof fn === 'function' ? fn('npc_team_full_2') : 'Regu penuh (2/2). Lepas anggota dulu.';
+      return null;
     }
     const hit = this.nearby(x, z);
     if (!hit) { this.lastMessage = 'Belum ada NPC dalam jangkauan 3.8 m. Deketin kelompoknya dulu.'; return null; }
@@ -33252,6 +34534,7 @@ HC.NPCParty = class {
   disembarkMember(uid) {
     const m = this.members.find((it) => it.uid === uid);
     if (!m || m.state === 'following') return false;
+    this._clearWaterTask(m);
     if (m.state === 'seated') {
       this._detachSeated(m, this.cart);
       const rear = this._cartRearWorld(this.cart, 1.15, (m.seatIndex - 1) * 0.65);
@@ -33274,6 +34557,7 @@ HC.NPCParty = class {
     const idx = this.members.findIndex((it) => it.uid === uid);
     if (idx < 0) return null;
     const [m] = this.members.splice(idx, 1);
+    this._clearWaterTask(m);
     this._dropMemberCargo(m, this.physics);
     const sIdx = this.squad.indexOf(m.role);
     if (sIdx >= 0) this.squad.splice(sIdx, 1);
@@ -33308,6 +34592,7 @@ HC.NPCParty = class {
     for (const m of this.members) {
       if (m.state === 'seated') this._attachSeated(m, cart);
     }
+    this._attachQuestPassengers(cart);
   }
 };
 
@@ -37574,31 +38859,48 @@ class BanditMob {
     }
     if (best || npcOnly) return best;
 
-    // Jika pemain tidak punya NPC rekrutan yang diturunkan bertarung, bandit menyerang gerobak di luar desa
+    // Jika pemain tidak punya NPC rekrutan yang diturunkan bertarung, bandit menyerang Kuda atau Gerobak di luar desa
     const hasDeployedRecruits = !!(party && (party.members || []).some((m) =>
       m.state === 'following' && !(m.cBrain && m.cBrain.phase === 'ko')
     ));
-    if (!hasDeployedRecruits && fullCtx && fullCtx.physics && !fullCtx.physics.flipped) {
-      const phys = fullCtx.physics;
+    if (!hasDeployedRecruits && fullCtx) {
+      const anim = fullCtx.animator;
+      const phys = (fullCtx.hasCart !== false && fullCtx.physics && !fullCtx.physics.flipped) ? fullCtx.physics : null;
+      const refX = anim ? anim.x : (phys ? phys.pos.x : 0);
+      const refZ = anim ? anim.z : (phys ? phys.pos.z : 0);
       let inVillage = false;
       if (this.world && typeof this.world.isInsideVillage === 'function') {
-        inVillage = this.world.isInsideVillage(phys.pos.x, phys.pos.z, 2.0);
+        inVillage = this.world.isInsideVillage(refX, refZ, 2.0);
       } else {
         const vCx = (this.world && typeof this.world._getRoadCenterX === 'function')
-          ? this.world._getRoadCenterX(phys.pos.z) : -5.4;
-        inVillage = phys.pos.z > 42 && phys.pos.z < 110 && Math.abs(phys.pos.x - vCx) < 30;
+          ? this.world._getRoadCenterX(refZ) : -5.4;
+        inVillage = refZ > 42 && refZ < 110 && Math.abs(refX - vCx) < 30;
       }
-      const dCart = Math.hypot(phys.pos.x - this.x, phys.pos.z - this.z);
-      const cartAggroRange = this.isRoadAmbush ? 24.0 : 13.5;
-      if (!inVillage && dCart < cartAggroRange) {
-        return {
-          id: phys,
-          isCart: true,
-          isKO: false,
-          isAlive: () => !phys.flipped,
-          getPos: () => ({ x: phys.pos.x, z: phys.pos.z }),
-          takeHit: (dmg, fx, fz, isHeavy) => phys.takeBanditHit ? phys.takeBanditHit(dmg, fx, fz, isHeavy) : 0,
-        };
+      if (!inVillage) {
+        const aggroRange = this.isRoadAmbush ? 24.0 : 13.5;
+        const dHorse = anim ? Math.hypot(anim.x - this.x, anim.z - this.z) : Infinity;
+        const dCart = phys ? Math.hypot(phys.pos.x - this.x, phys.pos.z - this.z) : Infinity;
+        const horseAlive = fullCtx.horseHp === undefined || fullCtx.horseHp > 1;
+        if (dHorse < aggroRange && horseAlive && dHorse <= dCart + 0.6) {
+          return {
+            id: anim,
+            isHorse: true,
+            isKO: false,
+            isAlive: () => fullCtx.horseHp === undefined || fullCtx.horseHp > 1,
+            getPos: () => ({ x: anim.x, z: anim.z }),
+            takeHit: (dmg) => Math.max(1, Math.round((dmg || 10) * 0.72)),
+          };
+        }
+        if (dCart < aggroRange && phys) {
+          return {
+            id: phys,
+            isCart: true,
+            isKO: false,
+            isAlive: () => !phys.flipped,
+            getPos: () => ({ x: phys.pos.x, z: phys.pos.z }),
+            takeHit: (dmg, fx, fz, isHeavy) => phys.takeBanditHit ? phys.takeBanditHit(dmg, fx, fz, isHeavy) : 0,
+          };
+        }
       }
     }
     return null;
@@ -37650,7 +38952,7 @@ class BanditMob {
       const tgtCap = this.isRoadAmbush ? 28.0 : 17.5;
       if (!this.target.isAlive() || dHome > homeCap || dTgt > tgtCap) {
         this.target = null;
-      } else if (this.target.isCart && fullCtx) {
+      } else if ((this.target.isCart || this.target.isHorse) && fullCtx) {
         this._cartReaggroT = (this._cartReaggroT || 0) + dt;
         if (this._cartReaggroT >= 0.45) {
           this._cartReaggroT = 0;
@@ -37675,7 +38977,11 @@ class BanditMob {
     let forwardSpeed = 0;
     let strafeSpeed = 0;
     let teleTarget = 0;
-    const effReach = (this.target && this.target.isCart) ? (this.reach + 1.15) : this.reach;
+    const effReach = (this.target && this.target.isCart)
+      ? (this.reach + 1.15)
+      : (this.target && this.target.isHorse)
+        ? (this.reach + 0.78)
+        : this.reach;
 
     if (this.state === 'hitstun' || this.state === 'stagger') {
       if (this.stateTime >= this.stateDur) {
@@ -37722,18 +39028,21 @@ class BanditMob {
           const d = Math.hypot(tp.x - this.x, tp.z - this.z);
           if (d < effReach + 0.55) {
             const dealt = this.target.takeHit(this.dmg, this.x, this.z, isBig);
-            if (this.target.isCart && dealt > 0) {
+            if ((this.target.isCart || this.target.isHorse) && dealt > 0) {
               if (this.vfx) {
                 const hitV = new THREE.Vector3(
                   (tp.x + this.x) * 0.5,
                   this.y + 0.95,
                   (tp.z + this.z) * 0.5
                 );
-                this.vfx.spawnHitImpact(hitV, 0xff9f43, isBig);
-                this.vfx.spawnDamageText(hitV.clone().add(new THREE.Vector3(0, 0.7, 0)), `GEROBAK -${dealt}!`, 'npcHit');
+                this.vfx.spawnHitImpact(hitV, this.target.isHorse ? 0xf87171 : 0xff9f43, isBig);
+                const dmgLbl = this.target.isHorse ? `-${dealt} HP!` : `CART -${dealt}!`;
+                this.vfx.spawnDamageText(hitV.clone().add(new THREE.Vector3(0, 0.7, 0)), dmgLbl, 'npcHit');
                 this.vfx.playSfx('hit');
               }
-              if (fullCtx && typeof fullCtx.onCartAttacked === 'function') {
+              if (this.target.isHorse && fullCtx && typeof fullCtx.onHorseAttacked === 'function') {
+                fullCtx.onHorseAttacked(dealt, this.variant);
+              } else if (this.target.isCart && fullCtx && typeof fullCtx.onCartAttacked === 'function') {
                 fullCtx.onCartAttacked(dealt, this.variant);
               }
             }
@@ -39021,6 +40330,52 @@ class ForestMobs {
     }
   }
 
+  _applyRigRamAndCollision(mob, dt, horseCtx, cartCtx, onMobRammed) {
+    if (!mob || mob.dead || !HC.resolveRigObstacle) return;
+    if (mob._ramCd > 0) mob._ramCd = Math.max(0, mob._ramCd - dt);
+    const rad = mob.kind === 'boar' ? 0.56 : mob.kind === 'bandit' ? (mob.radius || 0.44) : 0.28;
+    const res = HC.resolveRigObstacle(mob.x, mob.z, rad, horseCtx, cartCtx);
+    if (!res.hit) return;
+
+    mob.x = res.x;
+    mob.z = res.z;
+    mob.y = groundY(this.world, mob.x, mob.z);
+
+    if (res.impactSpeed >= 2.2 && (mob._ramCd || 0) <= 0) {
+      mob._ramCd = 0.70;
+      if (mob.kind === 'rabbit') {
+        mob.targetHeading = Math.atan2(res.nx, res.nz);
+        mob.heading = mob.targetHeading;
+        mob.x += res.nx * 0.14;
+        mob.z += res.nz * 0.14;
+      } else if (typeof mob.takeDamage === 'function') {
+        const dmg = Math.max(5, Math.round(5 + (res.impactSpeed - 2.0) * (res.source === 'cart' ? 6.5 : 5.0)));
+        const kb = Math.min(8.5, 4.2 + res.impactSpeed * 0.65);
+        mob.takeDamage(dmg, res.hitFromX, res.hitFromZ, {
+          knockback: kb,
+          isCrit: res.impactSpeed >= 4.6,
+          textStyle: 'crit',
+        });
+        if (!mob.dead) {
+          mob.hitstunTimer = 0.90;
+          if (typeof mob._setState === 'function') mob._setState('stagger', 0.90);
+          mob.x += res.nx * 0.16;
+          mob.z += res.nz * 0.16;
+        }
+        if (this.vfx) {
+          this.vfx.spawnRing(new THREE.Vector3(mob.x, mob.y + 0.35, mob.z), 0xfbbf24, 0.45, 2.1, 0.28, true);
+        }
+        if (typeof onMobRammed === 'function') {
+          onMobRammed(mob, dmg, res.impactSpeed, res.source);
+        }
+      }
+      mob.y = groundY(this.world, mob.x, mob.z);
+    }
+
+    if (mob.mesh && mob.mesh.position) mob.mesh.position.set(mob.x, mob.y, mob.z);
+    else if (mob.rig && mob.rig.root && mob.rig.root.position) mob.rig.root.position.set(mob.x, mob.y, mob.z);
+  }
+
   update(dt, ctx = {}) {
     const rawDt = Math.min(0.05, Math.max(0.001, dt || 1 / 60));
     this.vfx.update(rawDt, ctx.camera);
@@ -39035,24 +40390,35 @@ class ForestMobs {
       this._updateNightRoadBandits(anim.x, anim.z, anim.yaw || 0, simDt, ctx.world || this.world, ctx.onNightAmbush);
     }
 
+    const phys = ctx.physics;
+    const hasCart = ctx.hasCart !== false && !!phys;
+    const horseCtx = anim ? { x: anim.x, z: anim.z, yaw: anim.yaw || 0, speed: anim.speed || 0 } : null;
+    const cartCtx = (hasCart && phys.pos) ? { x: phys.pos.x, z: phys.pos.z, yaw: phys.yaw || 0, speed: phys.forwardSpeed || 0, active: true } : null;
+
     const fullCtx = {
       animator: anim,
-      physics: ctx.physics,
+      physics: phys,
+      hasCart,
+      horseHp: ctx.horseHp,
       party: ctx.party,
       rabbits: this.rabbits,
       boars: this.boars,
       bandits: this.bandits,
       onCartAttacked: ctx.onCartAttacked,
+      onHorseAttacked: ctx.onHorseAttacked,
     };
 
     for (const r of this.rabbits) {
       r.update(simDt, this.clock, fullCtx);
+      this._applyRigRamAndCollision(r, simDt, horseCtx, cartCtx, ctx.onMobRammed);
     }
     for (const b of this.boars) {
       b.update(simDt, this.clock);
+      this._applyRigRamAndCollision(b, simDt, horseCtx, cartCtx, ctx.onMobRammed);
     }
     for (const bd of this.bandits) {
       bd.update(simDt, this.clock, fullCtx);
+      this._applyRigRamAndCollision(bd, simDt, horseCtx, cartCtx, ctx.onMobRammed);
     }
   }
 }
@@ -39064,75 +40430,98 @@ HC.ForestMobs = ForestMobs;
 // --- js/upgrades.js ---
 const __MOD_UPGRADES = (() => {
 'use strict';
+const tr = (k, fb) => (HC && typeof HC.t === 'function' ? HC.t(k) : fb);
+
 // ============================================================
-//  CART CUSTOMISATION / UPGRADE SYSTEM (FREE SANDBOX MODE)
-//  Kapasitas bak -> Roda -> Suspensi -> Tali pengikat -> Kanopi
+//  CART UPGRADE SYSTEM (VILLAGE WORKSHOP: GOLD + ITEMS)
+//  & HORSE ATTRIBUTE UPGRADES
 // ============================================================
+const MATERIAL_DEFS = {
+  wood: { key: 'wood', icon: '🪵', nameKey: 'mat_wood', name: 'Oak Timber' },
+  iron: { key: 'iron', icon: '⚙️', nameKey: 'mat_iron', name: 'Forged Iron' },
+  leather: { key: 'leather', icon: '🪢', nameKey: 'mat_leather', name: 'Hide Rope' },
+  cloth: { key: 'cloth', icon: '🧵', nameKey: 'mat_cloth', name: 'Heavy Canvas' },
+};
+
+const UPGRADE_COSTS = {
+  capacity: [null, { gold: 70, items: { wood: 2, leather: 1 } }, { gold: 130, items: { wood: 4, iron: 2 } }],
+  wheels: [null, { gold: 65, items: { wood: 2, iron: 1 } }, { gold: 120, items: { iron: 3, wood: 2 } }],
+  suspension: [null, { gold: 75, items: { iron: 2, leather: 1 } }, { gold: 140, items: { iron: 4, leather: 2 } }],
+  straps: [null, { gold: 55, items: { leather: 2 } }, { gold: 105, items: { leather: 3, iron: 2 } }],
+  canopy: [null, { gold: 65, items: { iron: 2, wood: 1 } }, { gold: 125, items: { cloth: 3, wood: 2 } }],
+};
+
 const UPGRADE_LINES = [
   {
     key: 'capacity',
-    name: 'Kapasitas Bak & Kabin',
-    icon: 'BED',
-    desc: '4 kursi penumpang di depan + bak barang di belakang.',
+    nameKey: 'ug_capacity_name',
+    name: 'Bed & Cargo Bay',
+    icon: '🪵',
+    desc: 'Cargo deck size & fence rails height.',
     levels: [
-      { short: 'Lv1 Ringkas', label: 'Lv1 Ringkas', detail: '4 penumpang • 6 barang' },
-      { short: 'Lv2 Standar', label: 'Lv2 Standar', detail: '4 penumpang • 8 barang' },
-      { short: 'Lv3 Ekspedisi', label: 'Lv3 Ekspedisi', detail: '4 penumpang • 12 barang' }
+      { shortKey: 'ug_capacity_lv1', short: 'Lv1 Compact', label: 'Lv1 Compact', detail: '4 seats • 6 supplies' },
+      { shortKey: 'ug_capacity_lv2', short: 'Lv2 Standard', label: 'Lv2 Standard', detail: '4 seats • 8 supplies' },
+      { shortKey: 'ug_capacity_lv3', short: 'Lv3 Expedition', label: 'Lv3 Expedition', detail: '4 seats • 12 supplies' }
     ]
   },
   {
     key: 'wheels',
-    name: 'Roda',
-    icon: 'WHEEL',
-    desc: 'Roda lebih besar & lebar menyerap kerikil lebih halus.',
+    nameKey: 'ug_wheels_name',
+    name: 'Wheels & Rims',
+    icon: '🛞',
+    desc: 'Larger, iron-bound wheels roll smoothly over rocks.',
     levels: [
-      { short: 'Lv1 Kayu Ek (rigid)', label: 'Lv1 Kayu Ek', detail: 'poros mati — kerikil mengguncang rangka' },
-      { short: 'Lv2 Sabuk Besi + Per', label: 'Lv2 Sabuk Besi + Per', detail: 'pegas meredam benturan kecil' },
-      { short: 'Lv3 Baja Tempa + Twin-Coil', label: 'Lv3 Baja Tempa + Twin-Coil', detail: 'langkah suspensi terjauh, offroad' }
+      { shortKey: 'ug_wheels_lv1', short: 'Lv1 Oak Wood', label: 'Lv1 Oak Wood', detail: 'Rigid wooden axle' },
+      { shortKey: 'ug_wheels_lv2', short: 'Lv2 Iron Tyre', label: 'Lv2 Iron Tyre', detail: 'Iron rim + springs' },
+      { shortKey: 'ug_wheels_lv3', short: 'Lv3 Forged Steel', label: 'Lv3 Forged Steel', detail: 'Offroad wide steel' }
     ]
   },
   {
     key: 'suspension',
-    name: 'Suspensi & Per',
-    icon: 'SPRING',
-    desc: 'Lv1 poros kaku tanpa suspensi; Lv2–Lv3 menambah travel dan redaman.',
+    nameKey: 'ug_suspension_name',
+    name: 'Suspension & Springs',
+    icon: '⚙️',
+    desc: 'Adds travel & shock absorption.',
     levels: [
-      { short: 'Lv1 Tanpa Suspensi', label: 'Lv1 Poros Kaku', detail: 'tanpa per — rangka ikut terguncang' },
-      { short: 'Lv2 Per Daun', label: 'Lv2 Per Daun', detail: 'pegas + travel 0.24 m' },
-      { short: 'Lv3 Twin-Coil', label: 'Lv3 Twin-Coil', detail: 'pegas ganda + travel 0.34 m' }
+      { shortKey: 'ug_suspension_lv1', short: 'Lv1 Rigid Axle', label: 'Lv1 Rigid Axle', detail: 'No suspension' },
+      { shortKey: 'ug_suspension_lv2', short: 'Lv2 Leaf Spring', label: 'Lv2 Leaf Spring', detail: '0.24 m spring travel' },
+      { shortKey: 'ug_suspension_lv3', short: 'Lv3 Twin-Coil', label: 'Lv3 Twin-Coil', detail: '0.34 m offroad coils' }
     ]
   },
   {
     key: 'straps',
-    name: 'Tali Pengikat',
-    icon: 'STRAP',
-    desc: 'Muatan diikat, guncangan & kemungkinan tumpah turun.',
+    nameKey: 'ug_straps_name',
+    name: 'Cargo Straps',
+    icon: '🪢',
+    desc: 'Ties down cargo, reducing bounce.',
     levels: [
-      { short: 'Lv1 Tanpa Ikat', label: 'Lv1 Tanpa Ikat', detail: 'muatan bebas melompat' },
-      { short: 'Lv2 Tali Tambang', label: 'Lv2 Tali Tambang', detail: 'guncangan -38%' },
-      { short: 'Lv3 Jaring Rantai', label: 'Lv3 Jaring + Rantai', detail: 'guncangan -70%' }
+      { shortKey: 'ug_straps_lv1', short: 'Lv1 Unstrapped', label: 'Lv1 Unstrapped', detail: 'Loose cargo movement' },
+      { shortKey: 'ug_straps_lv2', short: 'Lv2 Hemp Rope', label: 'Lv2 Hemp Rope', detail: '-38% cargo jolt' },
+      { shortKey: 'ug_straps_lv3', short: 'Lv3 Chain Net', label: 'Lv3 Chain Net', detail: '-70% cargo jolt' }
     ]
   },
   {
     key: 'canopy',
-    name: 'Rangka & Kanopi',
-    icon: 'CANOPY',
-    desc: 'Pelat besi, bemper, sampai kanopi tenda ekspedisi.',
+    nameKey: 'ug_canopy_name',
+    name: 'Frame & Canopy',
+    icon: '⛺',
+    desc: 'Iron armor trim & expedition canvas roof.',
     levels: [
-      { short: 'Lv1 Terbuka', label: 'Lv1 Bak Terbuka', detail: 'kayu polos' },
-      { short: 'Lv2 Siku Besi', label: 'Lv2 Perisai Besi', detail: 'trim besi + bemper' },
-      { short: 'Lv3 Kanopi', label: 'Lv3 Kanopi Ekspedisi', detail: 'kanopi kanvas lengkung' }
+      { shortKey: 'ug_canopy_lv1', short: 'Lv1 Open Bed', label: 'Lv1 Open Bed', detail: 'Plain oak frame' },
+      { shortKey: 'ug_canopy_lv2', short: 'Lv2 Iron Guard', label: 'Lv2 Iron Guard', detail: 'Iron plates + lantern' },
+      { shortKey: 'ug_canopy_lv3', short: 'Lv3 Canvas Canopy', label: 'Lv3 Canvas Canopy', detail: 'Arched expedition roof' }
     ]
   }
 ];
 
 const STRAP_JOLT = [1, 0.62, 0.30];
-const DEFAULT_LEVELS = { capacity: 1, wheels: 1, suspension: 1, straps: 0, canopy: 0 };
-const SAVE_KEY = 'kraken_cart_sim_v2';
+const DEFAULT_LEVELS = { capacity: 0, wheels: 0, suspension: 0, straps: 0, canopy: 0 };
+const SAVE_KEY = 'kraken_cart_sim_v3';
 
 class UpgradeStore {
   constructor() {
     this.levels = { ...DEFAULT_LEVELS };
+    this.materials = { wood: 4, iron: 3, leather: 3, cloth: 2 };
     this.load();
   }
 
@@ -39147,13 +40536,73 @@ class UpgradeStore {
           if (Number.isInteger(v)) this.levels[line.key] = Math.max(0, Math.min(2, v));
         }
       }
+      if (data && data.materials) {
+        for (const k of Object.keys(MATERIAL_DEFS)) {
+          const v = data.materials[k];
+          if (Number.isFinite(v)) this.materials[k] = Math.max(0, v | 0);
+        }
+      }
     } catch (e) { /* ignore corrupt save */ }
   }
 
   save() {
     try {
-      localStorage.setItem(SAVE_KEY, JSON.stringify({ levels: this.levels }));
+      localStorage.setItem(SAVE_KEY, JSON.stringify({ levels: this.levels, materials: this.materials }));
     } catch (e) { /* storage may be blocked */ }
+  }
+
+  addMaterials(delta = {}) {
+    if (!delta) return;
+    for (const [k, n] of Object.entries(delta)) {
+      if (!(k in MATERIAL_DEFS)) continue;
+      this.materials[k] = Math.max(0, (this.materials[k] || 0) + (n | 0));
+    }
+    this.save();
+  }
+
+  nextCost(key) {
+    const cur = this.levels[key] ?? 0;
+    const nextIdx = cur + 1;
+    const tbl = UPGRADE_COSTS[key];
+    if (!tbl || nextIdx >= tbl.length) return null;
+    return tbl[nextIdx];
+  }
+
+  canAffordNext(key, gold = 0) {
+    const cost = this.nextCost(key);
+    if (!cost) return { ok: false, maxed: true, missingGold: 0, missingItems: {} };
+    const missingGold = Math.max(0, (cost.gold || 0) - gold);
+    const missingItems = {};
+    let itemsOk = true;
+    for (const [mk, req] of Object.entries(cost.items || {})) {
+      const have = this.materials[mk] || 0;
+      if (have < req) {
+        missingItems[mk] = req - have;
+        itemsOk = false;
+      }
+    }
+    return {
+      ok: missingGold === 0 && itemsOk,
+      maxed: false,
+      cost,
+      missingGold,
+      missingItems,
+    };
+  }
+
+  upgradeNextWithCost(key, questSys) {
+    const gold = questSys ? (questSys.gold || 0) : 0;
+    const chk = this.canAffordNext(key, gold);
+    if (chk.maxed) return { ok: false, reason: 'maxed' };
+    if (!chk.ok) return { ok: false, reason: chk.missingGold > 0 ? 'gold' : 'items', check: chk };
+    if (questSys) questSys.gold = Math.max(0, gold - (chk.cost.gold || 0));
+    for (const [mk, req] of Object.entries(chk.cost.items || {})) {
+      this.materials[mk] = Math.max(0, (this.materials[mk] || 0) - req);
+    }
+    const nextIdx = (this.levels[key] ?? 0) + 1;
+    this.levels[key] = nextIdx;
+    this.save();
+    return { ok: true, newLevel: nextIdx, cost: chk.cost };
   }
 
   setLevel(key, idx) {
@@ -39167,7 +40616,6 @@ class UpgradeStore {
   }
 
   buy(key) {
-    // Backwards-compatible step-up helper
     const cur = this.levels[key] ?? 0;
     return this.setLevel(key, Math.min(2, cur + 1));
   }
@@ -39191,106 +40639,258 @@ class UpgradeStore {
   }
 }
 
-return { UPGRADE_LINES, STRAP_JOLT, DEFAULT_LEVELS, UpgradeStore };
+// ============================================================
+//  HORSE STATS & LEVEL UPGRADES
+// ============================================================
+const HORSE_STAT_DEFS = [
+  { key: 'speed', nameKey: 'stat_speed', name: 'Top Speed', icon: '⚡', maxLv: 5, costs: [0, 50, 85, 130, 185], format: (lv) => `${(5.25 * (1 + (lv - 1) * 0.10)).toFixed(2)} m/s` },
+  { key: 'stamina', nameKey: 'stat_stamina', name: 'Stamina Pool', icon: '💨', maxLv: 5, costs: [0, 45, 80, 120, 175], format: (lv) => `${100 + (lv - 1) * 20} cap` },
+  { key: 'power', nameKey: 'stat_power', name: 'Pull Power', icon: '💪', maxLv: 5, costs: [0, 50, 85, 130, 185], format: (lv) => `${100 + (lv - 1) * 14}%` },
+  { key: 'vitality', nameKey: 'stat_vitality', name: 'Toughness HP', icon: '❤️', maxLv: 5, costs: [0, 45, 80, 120, 175], format: (lv) => `${100 + (lv - 1) * 20} HP` },
+];
+
+const HORSE_SAVE_KEY = 'shod_horse_stats_v1';
+
+class HorseStatsStore {
+  constructor() {
+    this.levels = { speed: 1, stamina: 1, power: 1, vitality: 1 };
+    this.load();
+  }
+
+  load() {
+    try {
+      const raw = localStorage.getItem(HORSE_SAVE_KEY);
+      if (!raw) return;
+      const data = JSON.parse(raw);
+      if (data && data.levels) {
+        for (const d of HORSE_STAT_DEFS) {
+          const v = data.levels[d.key];
+          if (Number.isInteger(v)) this.levels[d.key] = Math.max(1, Math.min(d.maxLv, v));
+        }
+      }
+    } catch (e) { /* ignore */ }
+  }
+
+  save() {
+    try {
+      localStorage.setItem(HORSE_SAVE_KEY, JSON.stringify({ levels: this.levels }));
+    } catch (e) { /* ignore */ }
+  }
+
+  totalLevel() {
+    return (this.levels.speed || 1) + (this.levels.stamina || 1) + (this.levels.power || 1) + (this.levels.vitality || 1) - 3;
+  }
+
+  nextCost(key) {
+    const def = HORSE_STAT_DEFS.find((d) => d.key === key);
+    if (!def) return null;
+    const cur = this.levels[key] || 1;
+    if (cur >= def.maxLv) return null;
+    return def.costs[cur] || 100;
+  }
+
+  upgradeStat(key, questSys) {
+    const cost = this.nextCost(key);
+    if (cost == null) return { ok: false, reason: 'maxed' };
+    const gold = questSys ? (questSys.gold || 0) : 0;
+    if (gold < cost) return { ok: false, reason: 'gold', cost };
+    if (questSys) questSys.gold = gold - cost;
+    this.levels[key] = (this.levels[key] || 1) + 1;
+    this.save();
+    return { ok: true, key, level: this.levels[key], cost, label: tr(HORSE_STAT_DEFS.find((d) => d.key === key).nameKey, key) };
+  }
+
+  speedMul() { return 1 + ((this.levels.speed || 1) - 1) * 0.10; }
+  staminaMax() { return 100 + ((this.levels.stamina || 1) - 1) * 20; }
+  staminaDrainMul() { return Math.max(0.65, 1 - ((this.levels.stamina || 1) - 1) * 0.08); }
+  pullMul() { return 1 + ((this.levels.power || 1) - 1) * 0.14; }
+  hpMax() { return 100 + ((this.levels.vitality || 1) - 1) * 20; }
+  healMul() { return 1 + ((this.levels.vitality || 1) - 1) * 0.15; }
+}
+
+return { UPGRADE_LINES, STRAP_JOLT, DEFAULT_LEVELS, MATERIAL_DEFS, UPGRADE_COSTS, HORSE_STAT_DEFS, UpgradeStore, HorseStatsStore };
 
 })();
 
 // --- js/ui.js ---
 const __MOD_UI = (() => {
 'use strict';
-const { UPGRADE_LINES } = __MOD_UPGRADES;
-function lineCard(line, onSelect) {
-  const card = document.createElement('div');
-  card.className = 'up-card';
-  card.dataset.key = line.key;
+const { UPGRADE_LINES, MATERIAL_DEFS } = __MOD_UPGRADES;
+const { t } = __MOD_I18N;
+/**
+ * Village Cart Workshop bottom-bar UI controller.
+ * Upgrades only happen inside a village workshop using Gold + Materials.
+ */
+function initUpgradeUI({ store, quests, onUpgrade, onRefill, onClose }) {
+  const bar = document.getElementById('workshop-bar');
+  const titleEl = document.getElementById('ws-title');
+  const goldEl = document.getElementById('ws-gold');
+  const matsEl = document.getElementById('ws-mats');
+  const itemsEl = document.getElementById('ws-items');
+  const refillBtn = document.getElementById('btn-ws-refill');
+  const closeBtn = document.getElementById('btn-ws-close');
 
-  const head = document.createElement('div');
-  head.className = 'up-head';
-  head.innerHTML = '<span class="up-name">' + line.name + '</span>' +
-    '<span class="up-detail" data-detail></span>';
-  card.appendChild(head);
+  let isOpen = false;
+  let currentWorkshop = null;
 
-  const seg = document.createElement('div');
-  seg.className = 'up-seg';
-  line.levels.forEach((lv, idx) => {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'seg-btn';
-    b.dataset.level = String(idx);
-    b.dataset.buy = '';
-    b.textContent = lv.short || lv.label;
-    b.addEventListener('click', (e) => {
-      e.preventDefault();
-      onSelect(line.key, idx);
-    });
-    seg.appendChild(b);
-  });
-  card.appendChild(seg);
-
-  return card;
-}
-
-function initUpgradeUI({ store, onSelect, onPreset }) {
-  const list = document.getElementById('upgrade-list');
-  const totalEl = document.getElementById('upgrade-total');
-  const resetBtn = document.getElementById('btn-ug-reset');
-  const minBtn = document.getElementById('btn-ug-min');
-  const maxBtn = document.getElementById('btn-ug-max');
-  const toggle = document.getElementById('btn-ug-toggle');
-  const toggleTop = document.getElementById('btn-ug-toggle-top');
-  const panel = document.getElementById('upgrade-panel');
-  const cards = new Map();
-
-  for (const line of UPGRADE_LINES) {
-    const card = lineCard(line, onSelect);
-    list.appendChild(card);
-    cards.set(line.key, card);
+  function renderMaterials(gold) {
+    if (goldEl) goldEl.textContent = `💰 ${gold} G`;
+    if (!matsEl) return;
+    matsEl.innerHTML = '';
+    for (const [key, def] of Object.entries(MATERIAL_DEFS)) {
+      const pill = document.createElement('span');
+      pill.className = 'ws-mat-pill';
+      pill.textContent = `${def.icon} ${t(def.nameKey)}: ${store.materials[key] || 0}`;
+      matsEl.appendChild(pill);
+    }
   }
 
-  function syncToggleText() {
-    if (!panel) return;
-    const isCollapsed = panel.classList.contains('collapsed');
-    if (toggle) toggle.textContent = isCollapsed ? 'Buka' : 'Tutup';
-    if (toggleTop) toggleTop.classList.toggle('active', !isCollapsed);
+  function formatMissingItems(missingMap) {
+    return Object.entries(missingMap || {})
+      .map(([mk, miss]) => {
+        const def = MATERIAL_DEFS[mk];
+        const name = def ? `${def.icon} ${t(def.nameKey)}` : mk;
+        return `${name} ×${miss}`;
+      })
+      .join(', ');
   }
 
-  // Bengkel selalu dimulai terlipat supaya layar lega baik di PC maupun Mobile
-  if (panel && !panel.dataset.userToggled) {
-    panel.classList.add('collapsed');
-  }
-  syncToggleText();
+  function renderCards(gold) {
+    if (!itemsEl) return;
+    itemsEl.innerHTML = '';
 
-  const onToggleClick = (e) => {
-    e.preventDefault();
-    if (!panel) return;
-    panel.dataset.userToggled = '1';
-    panel.classList.toggle('collapsed');
-    syncToggleText();
-  };
-  if (toggle && panel) toggle.addEventListener('click', onToggleClick);
-  if (toggleTop && panel) toggleTop.addEventListener('click', onToggleClick);
-  if (resetBtn) resetBtn.addEventListener('click', (e) => { e.preventDefault(); onPreset('default'); });
-  if (minBtn) minBtn.addEventListener('click', (e) => { e.preventDefault(); onPreset('min'); });
-  if (maxBtn) maxBtn.addEventListener('click', (e) => { e.preventDefault(); onPreset('max'); });
+    for (const line of UPGRADE_LINES) {
+      const curIdx = store.levels[line.key] ?? 0;
+      const maxIdx = line.levels.length - 1;
+      const curLv = curIdx + 1;
+      const isMax = curIdx >= maxIdx;
+      const chk = store.canAffordNext(line.key, gold);
+      const nextTier = !isMax ? line.levels[curIdx + 1] : line.levels[curIdx];
+
+      const card = document.createElement('div');
+      card.className = `ws-card${isMax ? ' maxed' : ''}`;
+      card.dataset.key = line.key;
+
+      const top = document.createElement('div');
+      top.className = 'ws-card-top';
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'ws-card-name';
+      nameSpan.textContent = `${line.icon} ${t(line.nameKey)}`;
+      const lvSpan = document.createElement('span');
+      lvSpan.className = 'ws-card-lv';
+      lvSpan.textContent = `Lv.${curLv}/${maxIdx + 1}`;
+      top.append(nameSpan, lvSpan);
+
+      const nextEl = document.createElement('div');
+      nextEl.className = 'ws-card-next';
+      const tierLabel = nextTier ? (nextTier.shortKey ? t(nextTier.shortKey) : nextTier.short) : '';
+      nextEl.textContent = isMax
+        ? `✓ ${tierLabel}`
+        : `→ ${tierLabel} (${nextTier.detail})`;
+
+      const costRow = document.createElement('div');
+      costRow.className = 'ws-cost-row';
+      if (!isMax && chk.cost) {
+        const gChip = document.createElement('span');
+        gChip.className = `ws-cost-chip${chk.missingGold > 0 ? ' short' : ''}`;
+        gChip.textContent = `🪙 ${chk.cost.gold} G`;
+        costRow.appendChild(gChip);
+
+        for (const [mk, req] of Object.entries(chk.cost.items || {})) {
+          const mDef = MATERIAL_DEFS[mk];
+          const have = store.materials[mk] || 0;
+          const mChip = document.createElement('span');
+          mChip.className = `ws-cost-chip${have < req ? ' short' : ''}`;
+          mChip.textContent = `${mDef ? mDef.icon : ''} ${have}/${req}`;
+          mChip.title = mDef ? t(mDef.nameKey) : mk;
+          costRow.appendChild(mChip);
+        }
+      }
+
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'ws-up-btn';
+      if (isMax) {
+        btn.disabled = true;
+        btn.textContent = t('max_btn');
+      } else {
+        btn.textContent = chk.ok
+          ? t('ws_upgrade_btn')
+          : (chk.missingGold > 0
+            ? t('not_enough_gold', { g: chk.cost.gold })
+            : t('ws_upgrade_btn'));
+        btn.addEventListener('click', () => {
+          const res = store.upgradeNextWithCost(line.key, quests);
+          if (!res.ok) {
+            const msg = res.reason === 'gold'
+              ? t('ws_need_gold', { g: res.check.cost.gold })
+              : t('ws_need_items', { items: formatMissingItems(res.check.missingItems) });
+            if (onUpgrade) onUpgrade(line.key, false, msg);
+            refresh();
+            return;
+          }
+          const upgradedTier = line.levels[res.newLevel];
+          const lvName = upgradedTier.shortKey ? t(upgradedTier.shortKey) : upgradedTier.short;
+          const msg = t('ws_upgraded', { name: t(line.nameKey), lv: lvName });
+          refresh();
+          if (onUpgrade) onUpgrade(line.key, true, msg);
+        });
+      }
+
+      card.append(top, nextEl, costRow, btn);
+      itemsEl.appendChild(card);
+    }
+  }
 
   function refresh() {
-    let total = 0;
-    for (const line of UPGRADE_LINES) {
-      const card = cards.get(line.key);
-      const lvl = store.levels[line.key] ?? 0;
-      total += lvl + 1;
-      const detail = card.querySelector('[data-detail]');
-      detail.textContent = line.levels[lvl].detail;
-      card.querySelectorAll('.seg-btn').forEach((btn, i) => {
-        btn.classList.toggle('active', i === lvl);
+    const gold = quests ? Math.floor(quests.gold || 0) : 0;
+    if (titleEl) {
+      titleEl.textContent = t('ws_title', {
+        village: currentWorkshop ? currentWorkshop.villageName : 'Village',
       });
     }
-    if (totalEl) totalEl.textContent = 'Bebas Pilih • ' + total + '/' + (UPGRADE_LINES.length * 3);
-    syncToggleText();
+    if (refillBtn) refillBtn.textContent = t('ws_refill_btn');
+    if (closeBtn) closeBtn.textContent = t('ws_exit');
+    renderMaterials(gold);
+    renderCards(gold);
   }
 
-  refresh();
-  return { refresh, syncToggleText };
+  function open(workshopRec = null) {
+    currentWorkshop = workshopRec;
+    isOpen = true;
+    document.body.classList.add('workshop-open');
+    if (bar) bar.hidden = false;
+    refresh();
+  }
+
+  function close() {
+    isOpen = false;
+    document.body.classList.remove('workshop-open');
+    if (bar) bar.hidden = true;
+  }
+
+  if (refillBtn) {
+    refillBtn.addEventListener('click', () => {
+      if (onRefill) onRefill();
+      refresh();
+    });
+  }
+  if (closeBtn) {
+    closeBtn.addEventListener('click', () => {
+      close();
+      if (onClose) onClose();
+    });
+  }
+
+  return {
+    open,
+    close,
+    refresh,
+    refreshLang: refresh,
+    isOpen: () => isOpen,
+    currentWorkshop: () => currentWorkshop,
+    setDisabled() { /* no-op */ },
+  };
 }
 
 return { initUpgradeUI };
@@ -39313,12 +40913,26 @@ const __MOD_SURVIVAL = (() => {
 
 const SURV_CAP = 100;
 
+function tr(key, fallback, vars = null) {
+  const fn = typeof globalThis !== 'undefined' && globalThis.HC && globalThis.HC.t;
+  if (typeof fn === 'function') return fn(key, vars);
+  let out = fallback;
+  if (vars) {
+    for (const [k, v] of Object.entries(vars)) out = out.replaceAll(`{${k}}`, String(v));
+  }
+  return out;
+}
+
 class Survival {
   constructor(opts = {}) {
     this.map = opts.map || null;             // HC.MAP (roadCenterZ, roadHalf)
     this.world = opts.world || null;         // buat cek sungai
-    this.hp = SURV_CAP;
-    this.stamina = SURV_CAP;
+    this.hpMax = SURV_CAP;
+    this.staminaMax = SURV_CAP;
+    this.drainScale = 1.0;
+    this.healScale = 1.0;
+    this.hp = this.hpMax;
+    this.stamina = this.staminaMax;
     this.hunger = SURV_CAP;
     this.thirst = SURV_CAP;
     this.eatT = 0;                            // sisa detik lagi makan
@@ -39333,6 +40947,20 @@ class Survival {
   get parched() { return this.thirst <= 0.01; }
   get exhausted() { return this.stamina <= 0.01; }
 
+  applyHorseStats(horseStats) {
+    if (!horseStats) return;
+    const prevHpMax = this.hpMax || SURV_CAP;
+    const prevStamMax = this.staminaMax || SURV_CAP;
+    const nextHpMax = horseStats.hpMax ? horseStats.hpMax() : SURV_CAP;
+    const nextStamMax = horseStats.staminaMax ? horseStats.staminaMax() : SURV_CAP;
+    this.hpMax = nextHpMax;
+    this.staminaMax = nextStamMax;
+    if (nextHpMax > prevHpMax) this.hp = Math.min(nextHpMax, this.hp + (nextHpMax - prevHpMax));
+    if (nextStamMax > prevStamMax) this.stamina = Math.min(nextStamMax, this.stamina + (nextStamMax - prevStamMax));
+    this.drainScale = horseStats.staminaDrainMul ? horseStats.staminaDrainMul() : 1.0;
+    this.healScale = horseStats.healMul ? horseStats.healMul() : 1.0;
+  }
+
   onRoad(x, z) {
     if (this.world && this.world.isOnRoad) return this.world.isOnRoad(x, z);
     const m = this.map;
@@ -39343,36 +40971,71 @@ class Survival {
     return (w && w.riverDistX) ? w.riverDistX(x, z) : Infinity;
   }
 
-  /* --- aksi: makan (harus tepat di rumput) --- */
+  /* --- action: graze on grass --- */
   tryEat(ctx) {
-    if (Math.abs(ctx.speed) > 1.0) return this._deny('Berhenti dulu buat makan.');
+    if (Math.abs(ctx.speed) > 1.0) return this._deny(tr('msg_stop_eat', 'Stop first to graze.'));
     if (this.world && typeof this.world.isOnGrass === 'function') {
       if (!this.world.isOnGrass(ctx.x, ctx.z)) {
-        return this._deny('Harus berdiri tepat di rumput untuk makan.');
+        return this._deny(tr('msg_need_grass', 'Must stand directly on grass to graze.'));
       }
     } else {
-      if (this.onRoad(ctx.x, ctx.z)) return this._deny('Di jalan gak ada rumput. Ke pinggir dulu.');
-      if (this.riverDistance(ctx.x, ctx.z) < 8.5) return this._deny('Di air kuda gak makan rumput.');
+      if (this.onRoad(ctx.x, ctx.z)) return this._deny(tr('msg_need_grass', 'Must stand directly on grass to graze.'));
+      if (this.riverDistance(ctx.x, ctx.z) < 8.5) return this._deny(tr('msg_need_grass', 'Must stand directly on grass to graze.'));
     }
     this.eatT = 2.6;
     this.drinkT = 0;
-    this.msg = 'Kuda makan rumput...';
+    this.msg = tr('msg_grazing', 'Horse is grazing...');
     return true;
   }
 
-  /* --- aksi: minum (harus tepat di tepi/dalam air) --- */
+  /* --- action: drink from river/pond --- */
   tryDrink(ctx) {
-    if (Math.abs(ctx.speed) > 1.0) return this._deny('Berhenti dulu buat minum.');
+    if (Math.abs(ctx.speed) > 1.0) return this._deny(tr('msg_stop_drink', 'Stop first to drink.'));
     if (this.world && typeof this.world.isAtWater === 'function') {
       if (!this.world.isAtWater(ctx.x, ctx.z)) {
-        return this._deny('Harus tepat di tepi atau dalam air untuk minum.');
+        return this._deny(tr('msg_need_water', 'Stand right by the river or pond to drink.'));
       }
     } else if (this.riverDistance(ctx.x, ctx.z) > 9.5) {
-      return this._deny('Terlalu jauh dari sungai.');
+      return this._deny(tr('msg_need_water', 'Stand right by the river or pond to drink.'));
     }
     this.drinkT = 2.2;
     this.eatT = 0;
-    this.msg = 'Kuda minum air...';
+    this.msg = tr('msg_drinking', 'Horse is drinking water...');
+    return true;
+  }
+
+  /* --- action: eat from Fruit Box inside cart (Hold Q + Click Item) --- */
+  eatFromSupply(item) {
+    if (!item || (item.charges || 0) <= 0) {
+      return this._deny(tr('msg_supply_empty', 'That supply is empty! Refill at a Cart Workshop (or drink at river).'));
+    }
+    item.charges = Math.max(0, (item.charges || 0) - 1);
+    this.hunger = Math.min(SURV_CAP, this.hunger + 38);
+    this.stamina = Math.min(this.staminaMax, this.stamina + 16);
+    this.hp = Math.min(this.hpMax, this.hp + 8);
+    this.eatT = 1.4;
+    this.drinkT = 0;
+    this.msg = tr('msg_ate_fruit', '🍎 Ate fresh fruit from box! ({c}/{m} left)', {
+      c: item.charges,
+      m: item.maxCharges || 5,
+    });
+    return true;
+  }
+
+  /* --- action: drink from Water Barrel inside cart (Hold Q + Click Item) --- */
+  drinkFromSupply(item) {
+    if (!item || (item.charges || 0) <= 0) {
+      return this._deny(tr('msg_supply_empty', 'That supply is empty! Refill at a Cart Workshop (or drink at river).'));
+    }
+    item.charges = Math.max(0, (item.charges || 0) - 1);
+    this.thirst = Math.min(SURV_CAP, this.thirst + 42);
+    this.stamina = Math.min(this.staminaMax, this.stamina + 16);
+    this.drinkT = 1.4;
+    this.eatT = 0;
+    this.msg = tr('msg_drank_barrel', '💧 Drank fresh water from barrel! ({c}/{m} left)', {
+      c: item.charges,
+      m: item.maxCharges || 5,
+    });
     return true;
   }
 
@@ -39384,7 +41047,7 @@ class Survival {
     if (this.starving) s *= 0.62;
     if (this.parched) s *= 0.72;
     if (this.exhausted) s *= 0.5;
-    if (this.hp < 25) s *= 0.75;
+    if (this.hp < this.hpMax * 0.25) s *= 0.75;
     return s;
   }
 
@@ -39398,13 +41061,14 @@ class Survival {
     const grazing = this.eating;
     const unhitched = !!ctx.unhitched;
     const vitalMul = (unhitched ? 0.60 : 1.0) * (sleeping ? 0.40 : 1.0);
-    const stamMul = unhitched ? 0.55 : 1.0;
+    const stamMul = (unhitched ? 0.55 : 1.0) * (this.drainScale || 1.0);
+    const healMul = this.healScale || 1.0;
 
     if (this.eatT > 0) {
       this.eatT = Math.max(0, this.eatT - dt);
       this.hunger = Math.min(SURV_CAP, this.hunger + 38.5 * dt);
-      this.stamina = Math.min(SURV_CAP, this.stamina + 14.0 * dt);
-      if (this.eatT === 0) this.msg = 'Kenyang. Gas lagi.';
+      this.stamina = Math.min(this.staminaMax, this.stamina + 14.0 * dt);
+      if (this.eatT === 0) this.msg = '';
     } else {
       this.hunger = Math.max(0, this.hunger - dt * (0.45 + (running ? 0.30 : moving ? 0.10 : 0)) * vitalMul);
     }
@@ -39412,17 +41076,17 @@ class Survival {
     if (this.drinkT > 0) {
       this.drinkT = Math.max(0, this.drinkT - dt);
       this.thirst = Math.min(SURV_CAP, this.thirst + 46.0 * dt);
-      this.stamina = Math.min(SURV_CAP, this.stamina + 12.0 * dt);
-      if (this.drinkT === 0) this.msg = 'Udah minum.';
+      this.stamina = Math.min(this.staminaMax, this.stamina + 12.0 * dt);
+      if (this.drinkT === 0) this.msg = '';
     } else {
       this.thirst = Math.max(0, this.thirst - dt * (0.32 + (running ? 0.38 : moving ? 0.10 : 0)) * vitalMul);
     }
 
     // Stamina: saat tidur pulih cepat (+22/s); saat lepas tali pemakaian stamina lebih hemat.
-    if (sleeping) this.stamina = Math.min(SURV_CAP, this.stamina + 22.0 * dt);
+    if (sleeping) this.stamina = Math.min(this.staminaMax, this.stamina + 22.0 * healMul * dt);
     else if (running) this.stamina = Math.max(0, this.stamina - 3.2 * stamMul * dt);
     else if (moving) this.stamina = Math.max(0, this.stamina - 0.25 * stamMul * dt);
-    else if (!grazing && !this.drinking) this.stamina = Math.min(SURV_CAP, this.stamina + (unhitched ? 14.0 : 12.0) * dt);
+    else if (!grazing && !this.drinking) this.stamina = Math.min(this.staminaMax, this.stamina + (unhitched ? 14.0 : 12.0) * dt);
 
     // HP: lapar/haus akut dan gerobak rebah menggerus; tidur & istirahat kenyang memulihkan HP.
     let dmg = 0;
@@ -39432,11 +41096,11 @@ class Survival {
     if (this.landedHard > 0) { dmg += this.landedHard; this.landedHard = 0; }
     if (dmg > 0) this.hp = Math.max(0, this.hp - dmg * dt);
     else if (sleeping && this.hunger > 25 && this.thirst > 25) {
-      this.hp = Math.min(SURV_CAP, this.hp + 4.0 * dt);
+      this.hp = Math.min(this.hpMax, this.hp + 4.0 * healMul * dt);
     } else if (!running && !moving && this.hunger > 55 && this.thirst > 55) {
-      this.hp = Math.min(SURV_CAP, this.hp + 1.5 * dt);
+      this.hp = Math.min(this.hpMax, this.hp + 1.5 * healMul * dt);
     }
-    this.hp = Math.min(SURV_CAP, Math.max(0, this.hp));
+    this.hp = Math.min(this.hpMax, Math.max(0, this.hp));
   }
 }
 
@@ -39448,25 +41112,41 @@ return { SURV_CAP, Survival };
 const __MOD_QUESTS = (() => {
 'use strict';
 /* ============================================================================
-   QUESTS — Sistem Quest Pengantaran Barang Antar-Desa
-   Bebas THREE.DOM: dapat diuji headless maupun di browser.
+   QUESTS — Inter-Village Delivery Quest System (Headless + DOM safe)
    ========================================================================= */
 
+function tr(key, fallback, vars = null) {
+  const fn = typeof globalThis !== 'undefined' && globalThis.HC && globalThis.HC.t;
+  if (typeof fn === 'function') return fn(key, vars);
+  let out = fallback;
+  if (vars) {
+    for (const [k, v] of Object.entries(vars)) out = out.replaceAll(`{${k}}`, String(v));
+  }
+  return out;
+}
+
 const GOODS_POOL = [
-  { kind: 'spices', name: 'Peti Rempah', icon: '🧂' },
-  { kind: 'wheat', name: 'Karung Gandum', icon: '🌾' },
-  { kind: 'cloth', name: 'Kain Tenun', icon: '🧵' },
-  { kind: 'potions', name: 'Ramuan Hutan', icon: '🧪' },
-  { kind: 'iron_tools', name: 'Perkakas Besi', icon: '⚒️' },
-  { kind: 'honey', name: 'Madu Hutan', icon: '🍯' },
-  { kind: 'coffee', name: 'Biji Kopi', icon: '☕' },
-  { kind: 'ceramics', name: 'Keramik Desa', icon: '🏺' },
+  { kind: 'spices', name: 'Spice Crate', nameKey: 'goods_spices', icon: '🧂', mats: { wood: 1, cloth: 1 } },
+  { kind: 'wheat', name: 'Wheat Sack', nameKey: 'goods_wheat', icon: '🌾', mats: { leather: 2, wood: 1 } },
+  { kind: 'cloth', name: 'Woven Cloth', nameKey: 'goods_cloth', icon: '🧵', mats: { cloth: 2, leather: 1 } },
+  { kind: 'potions', name: 'Forest Potions', nameKey: 'goods_potions', icon: '🧪', mats: { wood: 2, iron: 1 } },
+  { kind: 'iron_tools', name: 'Iron Tools', nameKey: 'goods_iron_tools', icon: '⚒️', mats: { iron: 2, wood: 1 } },
+  { kind: 'honey', name: 'Wild Honey', nameKey: 'goods_honey', icon: '🍯', mats: { wood: 2, leather: 1 } },
+  { kind: 'coffee', name: 'Coffee Beans', nameKey: 'goods_coffee', icon: '☕', mats: { cloth: 1, iron: 1, wood: 1 } },
+  { kind: 'ceramics', name: 'Village Ceramics', nameKey: 'goods_ceramics', icon: '🏺', mats: { wood: 1, iron: 2 } },
+];
+
+const PASSENGER_POOL = [
+  { roleId: 'merchant', labelEn: 'Silk Merchant', labelId: 'Pedagang Sutra', icon: '🧳' },
+  { roleId: 'herbal', labelEn: 'Village Herbalist', labelId: 'Tabib Desa', icon: '🌿' },
+  { roleId: 'farmer', labelEn: 'Harvest Farmer', labelId: 'Petani Panen', icon: '🌾' },
+  { roleId: 'petmerchant', labelEn: 'Traveling Trader', labelId: 'Pedagang Keliling', icon: '🎒' },
 ];
 
 function shortNameOf(v) {
   if (!v) return '';
   if (v.name) return v.name;
-  const raw = String(v.title || v.id || 'Desa');
+  const raw = String(v.title || v.id || 'Village');
   return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
 }
 
@@ -39553,24 +41233,64 @@ class DeliveryQuestSystem {
     const others = list.filter((v) => v.id !== villageId);
     const destIdx = (fromIdx * 2 + this._offerCounter) % others.length;
     const toV = others[destIdx];
-    const goods = GOODS_POOL[(fromIdx * 3 + this._offerCounter) % GOODS_POOL.length];
+    const isPassenger = !(fromIdx === 0 && this._offerCounter === 0) && ((fromIdx + this._offerCounter) % 3 === 1);
     const dist = Math.round(Math.hypot(toV.cx - fromV.cx, toV.cz - fromV.cz));
-    const rewardGold = Math.max(25, Math.round(25 + dist * 0.14));
-    const offer = {
-      id: `q_${this._questSeq++}`,
-      fromId: fromV.id,
-      fromName: shortNameOf(fromV),
-      toId: toV.id,
-      toName: shortNameOf(toV),
-      toX: toV.cx,
-      toZ: toV.cz,
-      cargoKind: goods.kind,
-      cargoName: goods.name,
-      cargoIcon: goods.icon,
-      giverName: giverName || `Warga ${shortNameOf(fromV)}`,
-      distance: dist,
-      rewardGold,
-    };
+    const rewardGold = Math.max(25, Math.round(25 + dist * 0.14 + (isPassenger ? 12 : 0)));
+
+    let offer;
+    if (isPassenger) {
+      const pCount = ((fromIdx + this._offerCounter) % 2) + 1;
+      const p1 = PASSENGER_POOL[(fromIdx + this._offerCounter) % PASSENGER_POOL.length];
+      const p2 = PASSENGER_POOL[(fromIdx + this._offerCounter + 1) % PASSENGER_POOL.length];
+      const roles = pCount === 2 ? [p1.roleId, p2.roleId] : [p1.roleId];
+      const langId = typeof HC !== 'undefined' && typeof HC.getLang === 'function' && HC.getLang() === 'id';
+      const label = pCount === 2
+        ? (langId ? `2 Penumpang (${p1.labelId})` : `2 Travelers (${p1.labelEn})`)
+        : (langId ? p1.labelId : p1.labelEn);
+      offer = {
+        id: `q_${this._questSeq++}`,
+        questType: 'passenger',
+        passengerCount: pCount,
+        passengerRoles: roles,
+        fromId: fromV.id,
+        fromName: shortNameOf(fromV),
+        toId: toV.id,
+        toName: shortNameOf(toV),
+        toX: toV.cx,
+        toZ: toV.cz,
+        cargoKind: null,
+        cargoNameKey: null,
+        cargoName: label,
+        cargoIcon: p1.icon || '🧳',
+        giverName: giverName || `${shortNameOf(fromV)} Villager`,
+        distance: dist,
+        rewardGold,
+        rewardMaterials: { cloth: 1, leather: 1, wood: 1 },
+      };
+    } else {
+      const goods = GOODS_POOL[(fromIdx * 3 + this._offerCounter) % GOODS_POOL.length];
+      const localizedCargo = tr(goods.nameKey, goods.name);
+      offer = {
+        id: `q_${this._questSeq++}`,
+        questType: 'cargo',
+        passengerCount: 0,
+        passengerRoles: [],
+        fromId: fromV.id,
+        fromName: shortNameOf(fromV),
+        toId: toV.id,
+        toName: shortNameOf(toV),
+        toX: toV.cx,
+        toZ: toV.cz,
+        cargoKind: goods.kind,
+        cargoNameKey: goods.nameKey,
+        cargoName: localizedCargo,
+        cargoIcon: goods.icon,
+        giverName: giverName || `${shortNameOf(fromV)} Villager`,
+        distance: dist,
+        rewardGold,
+        rewardMaterials: { ...(goods.mats || { wood: 1, iron: 1 }) },
+      };
+    }
     this._offersByVillage.set(villageId, offer);
     return offer;
   }
@@ -39579,16 +41299,16 @@ class DeliveryQuestSystem {
     if (this.activeQuest) {
       return {
         ok: false,
-        msg: `Masih ada pengantaran aktif ke ${this.activeQuest.toName}.`,
+        msg: tr('quest_active_err', 'Already carrying an active delivery to {to}.', { to: this.activeQuest.toName }),
         quest: this.activeQuest,
       };
     }
     const offer = this.getOfferForVillage(villageId, wildNpcs);
     if (!offer) {
-      return { ok: false, msg: 'Tidak ada quest tersedia di sini.', quest: null };
+      return { ok: false, msg: tr('quest_none_err', 'No quest available here.'), quest: null };
     }
     let receiverNpc = null;
-    let receiverName = `Warga ${offer.toName}`;
+    let receiverName = `${offer.toName} Villager`;
     if (Array.isArray(wildNpcs)) {
       const destPool = wildNpcs.filter((w) => w && !w.recruited && w.site === offer.toId);
       if (destPool.length > 0) {
@@ -39596,8 +41316,10 @@ class DeliveryQuestSystem {
         if (receiverNpc.role && receiverNpc.role.name) receiverName = receiverNpc.role.name;
       }
     }
+    const localizedCargo = offer.cargoNameKey ? tr(offer.cargoNameKey, offer.cargoName) : offer.cargoName;
     this.activeQuest = {
       ...offer,
+      cargoName: localizedCargo,
       receiverNpc,
       receiverName,
       startedAt: Date.now(),
@@ -39605,7 +41327,13 @@ class DeliveryQuestSystem {
     this._offersByVillage.delete(villageId);
     return {
       ok: true,
-      msg: `Quest diterima dari ${offer.giverName}: Antar ${offer.cargoName} ke ${receiverName} di ${offer.toName} (+${offer.rewardGold} Emas)!`,
+      msg: tr('quest_accepted_toast', 'Quest accepted from {giver}: Deliver {cargo} to {receiver} in {to} (+{gold} G)!', {
+        giver: offer.giverName,
+        cargo: localizedCargo,
+        receiver: receiverName,
+        to: offer.toName,
+        gold: offer.rewardGold,
+      }),
       quest: this.activeQuest,
     };
   }
@@ -39670,7 +41398,7 @@ class DeliveryQuestSystem {
   }
 }
 
-return { DeliveryQuestSystem, GOODS_POOL };
+return { DeliveryQuestSystem, GOODS_POOL, PASSENGER_POOL };
 
 })();
 
@@ -39822,6 +41550,7 @@ class MapUI {
 
     // Village clearing circles
     const villages = (this.world && Array.isArray(this.world.VILLAGES)) ? this.world.VILLAGES : [];
+    const workshops = (this.world && Array.isArray(this.world.VILLAGE_WORKSHOPS)) ? this.world.VILLAGE_WORKSHOPS : [];
     for (const v of villages) {
       const [vx, vy] = toPx(v.cx, v.cz);
       const vr = Math.max(5.5, ((v.radius * 1.45) / T) * S);
@@ -39882,10 +41611,11 @@ class MapUI {
 
   update(horseX, horseZ, horseYaw, cartX, cartZ, activeQuest, nearbyVillage) {
     this._frame++;
+    const trFn = typeof globalThis !== 'undefined' && globalThis.HC && globalThis.HC.t;
     if (this.locLabelEl) {
       this.locLabelEl.textContent = nearbyVillage
-        ? `Desa ${villageLabel(nearbyVillage)}`
-        : (Math.hypot(horseX, horseZ) < 16 ? 'Perkemahan' : 'Hutan & Jalan');
+        ? `${trFn ? trFn('loc_village_prefix') : 'Village'} ${villageLabel(nearbyVillage)}`
+        : (Math.hypot(horseX, horseZ) < 16 ? (trFn ? trFn('loc_camp') : 'Starting Camp') : (trFn ? trFn('loc_forest') : 'Forest & Trail'));
     }
     if (this.isOpen && this.coordLabelEl) {
       this.coordLabelEl.textContent = `X: ${Math.round(horseX)}m • Z: ${Math.round(horseZ)}m`;
@@ -39896,6 +41626,7 @@ class MapUI {
 
     const T = this._terrainSize();
     const villages = (this.world && Array.isArray(this.world.VILLAGES)) ? this.world.VILLAGES : [];
+    const workshops = (this.world && Array.isArray(this.world.VILLAGE_WORKSHOPS)) ? this.world.VILLAGE_WORKSHOPS : [];
     const pulse = 0.5 + 0.5 * Math.sin(performance.now() * 0.006);
 
     // 1) Top-right Minimap (cropped local 480m view centered on horse)
@@ -39984,6 +41715,17 @@ class MapUI {
         ctx.fillText(lbl, vx, vy + 5);
       }
 
+      // Cart workshop bays on minimap
+      for (const ws of workshops) {
+        const [wx, wy] = toMini(ws.x, ws.z);
+        if (wx < -12 || wx > W + 12 || wy < -12 || wy > H + 12) continue;
+        ctx.fillStyle = '#38bdf8';
+        ctx.strokeStyle = '#0f172a';
+        ctx.lineWidth = 1.2;
+        ctx.fillRect(wx - 2.5, wy - 2.5, 5, 5);
+        ctx.strokeRect(wx - 2.5, wy - 2.5, 5, 5);
+      }
+
       // Cart marker
       if (Number.isFinite(cartX) && Number.isFinite(cartZ)) {
         const [cx, cy] = toMini(cartX, cartZ);
@@ -40030,7 +41772,8 @@ class MapUI {
         ctx.font = '600 11px system-ui, sans-serif';
         ctx.textAlign = 'center';
         ctx.fillStyle = '#fff7ed';
-        ctx.fillText('Kemah Awal', fx, fy + 16);
+        const trFn = typeof globalThis !== 'undefined' && globalThis.HC && globalThis.HC.t;
+        ctx.fillText(trFn ? trFn('loc_camp') : 'Starting Camp', fx, fy + 16);
       }
 
       // Quest route line
@@ -40083,6 +41826,18 @@ class MapUI {
         ctx.fillText(lbl, vx, by + 10);
       }
 
+      // Workshop bays on fullscreen map
+      for (const ws of workshops) {
+        const [wx, wy] = toFull(ws.x, ws.z);
+        ctx.fillStyle = '#38bdf8';
+        ctx.strokeStyle = '#0f172a';
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        ctx.rect(wx - 4.5, wy - 4.5, 9, 9);
+        ctx.fill();
+        ctx.stroke();
+      }
+
       // Cart marker
       if (Number.isFinite(cartX) && Number.isFinite(cartZ)) {
         const [cx, cy] = toFull(cartX, cartZ);
@@ -40118,7 +41873,9 @@ const __MOD_TOUCH = (() => {
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
-function initTouchControls({ animator, survival, onJump, onEat, onDrink, onSleep, onRunToggle, onHitch, onInspect, isTouchDevice }) {
+const tr = (k, fb) => (typeof globalThis !== 'undefined' && globalThis.HC && typeof globalThis.HC.t === 'function' ? globalThis.HC.t(k) : fb);
+
+function initTouchControls({ animator, survival, onJump, onEat, onInteract, onSleep, onRunToggle, onHitch, onInspect, isTouchDevice }) {
   const touch = isTouchDevice || matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
   document.body.classList.toggle('is-touch', !!touch);
 
@@ -40126,9 +41883,9 @@ function initTouchControls({ animator, survival, onJump, onEat, onDrink, onSleep
   const rotate = document.createElement('div');
   rotate.id = 'rotate-hint';
   rotate.innerHTML = '<div class="rh-card"><div class="rh-icon">📱↻</div>' +
-    '<div class="rh-title">Putar HP ke LANDSCAPE</div>' +
-    '<div class="rh-sub">Game ini butuh layar melebar. Analog di kiri, tombol di kanan.</div>' +
-    '<button id="btn-fullscreen" type="button">Layar Penuh + Kunci</button></div>';
+    `<div class="rh-title" id="rh-title">${tr('touch_rotate_title', 'Rotate Phone to LANDSCAPE')}</div>` +
+    `<div class="rh-sub" id="rh-sub">${tr('touch_rotate_sub', 'Analog stick on the left, action buttons on the right.')}</div>` +
+    `<button id="btn-fullscreen" type="button">${tr('touch_fullscreen', 'Fullscreen + Lock')}</button></div>`;
   document.body.appendChild(rotate);
 
   async function goFullscreenLandscape() {
@@ -40244,13 +42001,13 @@ function initTouchControls({ animator, survival, onJump, onEat, onDrink, onSleep
   const padBtns = document.createElement('div');
   padBtns.id = 'action-pad';
   const defs = [
-    { id: 'act-jump', icon: '⤴', label: 'LOMPAT', cls: 'jump hero' },
-    { id: 'act-run', icon: '⚡', label: 'LARI', sub: 'toggle', cls: 'run' },
-    { id: 'act-hitch', icon: '🔗', label: 'TALI', sub: 'lepas', cls: 'hitch' },
-    { id: 'act-inspect', icon: '👁️', label: 'CEK', cls: 'inspect' },
-    { id: 'act-eat', icon: '🌿', label: 'MAKAN', cls: 'eat' },
-    { id: 'act-drink', icon: '💧', label: 'MINUM', cls: 'drink' },
-    { id: 'act-sleep', icon: '😴', label: 'TIDUR', cls: 'sleep' },
+    { id: 'act-jump', icon: '⤴', labelKey: 'touch_jump', label: 'JUMP', cls: 'jump hero' },
+    { id: 'act-run', icon: '⚡', labelKey: 'touch_run', label: 'RUN', subKey: 'touch_sub_toggle', sub: 'toggle', cls: 'run' },
+    { id: 'act-hitch', icon: '🔗', labelKey: 'touch_hitch', label: 'ROPE', subKey: 'touch_sub_detach', sub: 'unhitch', cls: 'hitch' },
+    { id: 'act-inspect', icon: '👁️', labelKey: 'touch_inspect', label: 'CHECK', subKey: 'touch_sub_hold', sub: 'hold', cls: 'inspect' },
+    { id: 'act-eat', icon: '🌿', labelKey: 'touch_eat', label: 'GRAZE', cls: 'eat' },
+    { id: 'act-interact', icon: '💬', labelKey: 'touch_interact', label: 'TALK', cls: 'drink interact' },
+    { id: 'act-sleep', icon: '😴', labelKey: 'touch_sleep', label: 'SLEEP', cls: 'sleep' },
   ];
   for (const d of defs) {
     const b = document.createElement('button');
@@ -40258,8 +42015,8 @@ function initTouchControls({ animator, survival, onJump, onEat, onDrink, onSleep
     b.className = 'act ' + d.cls;
     b.innerHTML =
       `<span class="ic" aria-hidden="true">${d.icon}</span>` +
-      `<span class="lbl">${d.label}</span>` +
-      (d.sub ? `<span class="sub">${d.sub}</span>` : '');
+      `<span class="lbl">${tr(d.labelKey, d.label)}</span>` +
+      (d.sub ? `<span class="sub">${tr(d.subKey, d.sub)}</span>` : '');
     padBtns.appendChild(b);
   }
   document.body.appendChild(padBtns);
@@ -40292,7 +42049,7 @@ function initTouchControls({ animator, survival, onJump, onEat, onDrink, onSleep
   press(runBtn, () => onRunToggle && onRunToggle());
   press(padBtns.querySelector('#act-jump'), () => onJump && onJump());
   press(padBtns.querySelector('#act-eat'), () => onEat && onEat());
-  press(padBtns.querySelector('#act-drink'), () => onDrink && onDrink());
+  press(padBtns.querySelector('#act-interact'), () => onInteract && onInteract());
   press(hitchBtn, () => onHitch && onHitch());
   if (inspectBtn) {
     const startInsp = (e) => {
@@ -40321,6 +42078,24 @@ function initTouchControls({ animator, survival, onJump, onEat, onDrink, onSleep
       if (disabled) inspectBtn.classList.remove('on');
     },
     setSleepState(on) { if (sleepBtn) sleepBtn.classList.toggle('on', !!on); },
+    refreshLang() {
+      const rt = rotate.querySelector('#rh-title');
+      const rs = rotate.querySelector('#rh-sub');
+      const rbtn = rotate.querySelector('#btn-fullscreen');
+      if (rt) rt.textContent = tr('touch_rotate_title', 'Rotate Phone to LANDSCAPE');
+      if (rs) rs.textContent = tr('touch_rotate_sub', 'Analog stick on the left, action buttons on the right.');
+      if (rbtn) rbtn.textContent = tr('touch_fullscreen', 'Fullscreen + Lock');
+      for (const d of defs) {
+        const el = padBtns.querySelector(`#${d.id}`);
+        if (!el) continue;
+        const lbl = el.querySelector('.lbl');
+        if (lbl) lbl.textContent = tr(d.labelKey, d.label);
+        if (d.subKey) {
+          const s = el.querySelector('.sub');
+          if (s) s.textContent = tr(d.subKey, d.sub);
+        }
+      }
+    },
     setHitchState({ free = false, disabled = false, sub = '' } = {}) {
       if (!hitchBtn) return;
       hitchBtn.classList.toggle('free', !!free);
@@ -40836,10 +42611,11 @@ return { QUALITY_PRESETS, QUALITY_ORDER, detectQualityKey, resolveQuality, saveQ
 // --- js/main.js ---
 (() => {
 'use strict';
-const { UpgradeStore } = __MOD_UPGRADES;
+const { getLang, setLang, onLangChange, t } = __MOD_I18N;
+const { UpgradeStore, HorseStatsStore, MATERIAL_DEFS, UPGRADE_COSTS, HORSE_STAT_DEFS } = __MOD_UPGRADES;
 const { initUpgradeUI } = __MOD_UI;
 const { Survival } = __MOD_SURVIVAL;
-const { DeliveryQuestSystem } = __MOD_QUESTS;
+const { DeliveryQuestSystem, GOODS_POOL, PASSENGER_POOL } = __MOD_QUESTS;
 const { MapUI } = __MOD_MINIMAP;
 const { initTouchControls } = __MOD_TOUCH;
 const { QUALITY_ORDER, QUALITY_PRESETS, resolveQuality, saveQualityKey, bakeNpcLod, setNpcLod, updateNpcLod, cullDistantNpcs } = __MOD_PERF;
@@ -40880,6 +42656,7 @@ container.appendChild(renderer.domElement);
 
 // ---------------- upgrade store & rig ----------------
 const store = new UpgradeStore();
+const horseStats = new HorseStatsStore();
 const world = new HC.World(scene);
 const startPose = world.initialHorsePose ? world.initialHorsePose() : { x: 0, z: 0, yaw: 0 };
 const startY = world.terrainHeightAt ? world.terrainHeightAt(startPose.x, startPose.z) : 0;
@@ -40950,13 +42727,20 @@ HC.onNPCSpawn = (item) => { if (item && item.root && quality.npcLod) makeNpcLod(
 
 world.bindRenderer(renderer);
 
+function qualityLabelText(key, fallback) {
+  const k = key === 'high' ? 'quality_high' : key === 'med' ? 'quality_med' : 'quality_low';
+  return t(k) || fallback;
+}
 const qualityBar = document.getElementById('quality-bar');
 function refreshQualityBar() {
   if (!qualityBar) return;
   qualityBar.querySelectorAll('button').forEach((b) => {
-    b.classList.toggle('active', b.dataset.quality === quality.key);
+    const qKey = b.dataset.quality;
+    const p = QUALITY_PRESETS[qKey];
+    if (p) b.textContent = `${p.icon} ${qualityLabelText(qKey, p.label)}`;
+    b.classList.toggle('active', qKey === quality.key);
   });
-  qualityBar.title = `Grafis: ${quality.label} — ${quality.hint}`;
+  qualityBar.title = `${t('quality_label')}: ${qualityLabelText(quality.key, quality.label)} — ${quality.hint}`;
 }
 function applyQualityLive(key, persist = true) {
   const preset = QUALITY_PRESETS[key];
@@ -40985,7 +42769,7 @@ if (qualityBar) {
     btn.type = 'button';
     btn.className = 'mood-chip quality-chip';
     btn.dataset.quality = key;
-    btn.textContent = p.icon + ' ' + p.label;
+    btn.textContent = `${p.icon} ${qualityLabelText(key, p.label)}`;
     const tap = (e) => { e.preventDefault(); applyQualityLive(key); };
     btn.addEventListener('click', tap);
     btn.addEventListener('touchstart', tap, { passive: false });
@@ -41143,32 +42927,23 @@ function rebuildCartFromStore() {
   const newCart = HC.buildCart(PIVOT_Y, store.cartConfig());
   physics.swapCart(newCart, animator.x, animator.z, animator.yaw);
   physics.joltScale = store.joltScale();
+  physics.pullPowerScale = horseStats.pullMul();
   cart = newCart;
   window.RIG.cart = newCart;
   party.bindCart(cart);
-  if (party.members.length) party.mount(cart);   // penumpang NPC duduk ikut pindah ke bak baru
-  if (typeof quests !== 'undefined' && quests && quests.activeQuest && HC.setQuestCargoOnCart) {
-    HC.setQuestCargoOnCart(cart, physics, quests.activeQuest.cargoKind, 3);
+  if (party.members.length || (party.questPassengers && party.questPassengers.length)) {
+    party.mount(cart);
+  }
+  if (typeof quests !== 'undefined' && quests && quests.activeQuest && quests.activeQuest.questType !== 'passenger' && HC.setQuestCargoOnCart) {
+    HC.setQuestCargoOnCart(cart, physics, quests.activeQuest.cargoKind, 3, {
+      toName: quests.activeQuest.toName,
+      cargoName: quests.activeQuest.cargoName,
+    });
   }
   reanchorRopes();
 }
 
-const ui = initUpgradeUI({
-  store,
-  onSelect(key, idx) {
-    if (store.setLevel(key, idx)) {
-      rebuildCartFromStore();
-      ui.refresh();
-    }
-  },
-  onPreset(kind) {
-    if (kind === 'max') store.maxAll();
-    else if (kind === 'min') store.minAll();
-    else store.reset();
-    rebuildCartFromStore();
-    ui.refresh();
-  }
-});
+let ui = null;
 
 // ---------------- camera / controls ----------------
 const controls = new HC.OrbitControls(camera, renderer.domElement);
@@ -41189,7 +42964,6 @@ if (isPortraitMobile()) {
 controls.update();
 if (world.syncCamera) world.syncCamera(camera);
 
-const panelEl = document.getElementById('upgrade-panel');
 const followTarget = new THREE.Vector3();
 
 // ---------------- UI ----------------
@@ -41204,17 +42978,68 @@ const hudNpcMsg = document.getElementById('hud-npc-msg');
 const hudGold = document.getElementById('hud-gold');
 const hudTime = document.getElementById('hud-time');
 const portraitHpFill = document.getElementById('portrait-hp-fill');
+const portraitLvBadge = document.getElementById('portrait-lv-badge');
+const portraitCanvasEl = document.getElementById('horse-portrait-canvas');
 const btnHorsePortrait = document.getElementById('btn-horse-portrait');
 const btnSettings = document.getElementById('btn-settings');
 const statsPanelEl = document.getElementById('horse-stats-panel');
 const settingsPanelEl = document.getElementById('settings-panel');
+const horseUpgradeListEl = document.getElementById('horse-upgrade-list');
+const langBarEl = document.getElementById('lang-bar');
 const btnStatsClose = document.getElementById('btn-stats-close');
 const btnSettingsClose = document.getElementById('btn-settings-close');
+const btnSaveGame = document.getElementById('btn-save-game');
+const btnReturnMenu = document.getElementById('btn-return-menu');
+const mainMenuEl = document.getElementById('main-menu');
+const btnMenuLoad = document.getElementById('btn-menu-load');
+const btnMenuNew = document.getElementById('btn-menu-new');
+const menuSaveInfoEl = document.getElementById('menu-save-info');
+const menuLangBarEl = document.getElementById('menu-lang-bar');
+const letterCardEl = document.getElementById('letter-card');
+const cutsceneBoxEl = document.getElementById('cutscene-box');
+const csSpeakerEl = document.getElementById('cs-speaker');
+const csTextEl = document.getElementById('cs-text');
+const btnCutsceneNext = document.getElementById('btn-cutscene-next');
 const npcMiniBarEl = document.getElementById('npc-mini-bar');
 const questHudEl = document.getElementById('quest-hud');
 const toastBannerEl = document.getElementById('toast-banner');
 const wheelHpOverlayEl = document.getElementById('wheel-hp-overlay');
+const cargoLabelOverlayEl = document.getElementById('cargo-label-overlay');
 const btnInspectEl = document.getElementById('btn-inspect');
+
+// Live 3D Horse Head Portrait renderer (head-only bust)
+let portraitRender = null;
+if (portraitCanvasEl && HC.buildHorseHeadPortrait) {
+  try {
+    const pScene = new THREE.Scene();
+    const pCam = new THREE.PerspectiveCamera(34, 1, 0.08, 12);
+    pCam.position.set(0.64, 0.24, 0.96);
+    pCam.lookAt(-0.01, 0.06, 0.0);
+    pScene.add(new THREE.HemisphereLight(0xfff7e6, 0x263238, 1.35));
+    const pKey = new THREE.DirectionalLight(0xfff1d6, 1.35);
+    pKey.position.set(1.4, 2.2, 1.6);
+    pScene.add(pKey);
+    const pRim = new THREE.DirectionalLight(0x93c5fd, 0.55);
+    pRim.position.set(-1.5, 0.6, -1.2);
+    pScene.add(pRim);
+    const pBust = HC.buildHorseHeadPortrait();
+    pBust.root.rotation.y = 0.12;
+    pScene.add(pBust.root);
+    const pRen = new THREE.WebGLRenderer({
+      canvas: portraitCanvasEl,
+      alpha: true,
+      antialias: true,
+      powerPreference: 'low-power',
+    });
+    pRen.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    pRen.setSize(128, 128, false);
+    pRen.outputColorSpace = THREE.SRGBColorSpace;
+    pRen.render(pScene, pCam);
+    portraitRender = { scene: pScene, camera: pCam, renderer: pRen, bust: pBust, frameCount: 0 };
+  } catch (_err) {
+    portraitRender = null;
+  }
+}
 
 let _toastTimer = null;
 let _lastToastText = '';
@@ -41230,12 +43055,15 @@ function showToast(text) {
   }, 3400);
 }
 
+let renderHorseUpgrades = () => {};
+
 function setStatsPanelOpen(open) {
   if (!statsPanelEl || !btnHorsePortrait) return;
   const show = !!open;
   statsPanelEl.hidden = !show;
   btnHorsePortrait.classList.toggle('open', show);
   btnHorsePortrait.setAttribute('aria-expanded', show ? 'true' : 'false');
+  if (show) renderHorseUpgrades();
   if (show && settingsPanelEl && btnSettings) {
     settingsPanelEl.hidden = true;
     btnSettings.classList.remove('open');
@@ -41275,8 +43103,72 @@ if (btnSettingsClose) {
   btnSettingsClose.addEventListener('click', (e) => { e.preventDefault(); setSettingsPanelOpen(false); });
 }
 
-// ---- Quest Pengantaran & Peta Dunia + Minimap ----
+for (const lbEl of [langBarEl, menuLangBarEl]) {
+  if (!lbEl) continue;
+  lbEl.querySelectorAll('.lang-chip').forEach((btn) => {
+    const pick = (e) => {
+      e.preventDefault();
+      const lang = btn.dataset.lang;
+      if (lang) setLang(lang);
+    };
+    btn.addEventListener('click', pick);
+    btn.addEventListener('touchstart', pick, { passive: false });
+  });
+}
+
+// ---- Main Menu, Story Cutscene (Hero's Old Cart), Save & Load ----
+const GAME_SAVE_KEY = 'shod_save_v1';
+let gameMode = 'menu';      // 'menu' | 'cutscene' | 'play'
+let hasCart = true;
+let storyStage = 'done';    // 'to_radnar' | 'find_cart' | 'done'
+let _radnarCutscenePlayed = false;
+let _cutsceneIdx = 0;
+let _cutsceneGuardNpc = null;
+const _csCamPos = new THREE.Vector3();
+const _csCamTarget = new THREE.Vector3();
+const _menuCamPos = new THREE.Vector3();
+const _menuCamTarget = new THREE.Vector3();
+let _menuCamT = 0;
+
+function syncMenuLangChips() {
+  const cur = getLang();
+  for (const lbEl of [langBarEl, menuLangBarEl]) {
+    if (!lbEl) continue;
+    lbEl.querySelectorAll('.lang-chip').forEach((b) => {
+      b.classList.toggle('active', b.dataset.lang === cur);
+    });
+  }
+}
+
+function readSavedData() {
+  try {
+    const raw = localStorage.getItem(GAME_SAVE_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    return data && typeof data === 'object' ? data : null;
+  } catch (_e) {
+    return null;
+  }
+}
+
+function refreshMainMenuUI() {
+  const save = readSavedData();
+  if (btnMenuLoad) btnMenuLoad.disabled = !save;
+  if (menuSaveInfoEl) {
+    if (save) {
+      const stageLbl = save.storyStage === 'done'
+        ? (save.hasCart ? 'Expedition' : 'Quest')
+        : (save.storyStage === 'find_cart' ? 'Old Cart' : 'Radnar');
+      menuSaveInfoEl.textContent = t('menu_save_info', { gold: Math.floor(save.gold || 0), stage: stageLbl });
+    } else {
+      menuSaveInfoEl.textContent = t('menu_no_save');
+    }
+  }
+}
+
+// ---- Delivery Quests & World Map + Minimap ----
 const quests = new DeliveryQuestSystem({ world });
+quests.gold = 120;
 quests.assignVillageQuestNpcs(party.wild);
 const mapUI = new MapUI({
   world,
@@ -41383,76 +43275,136 @@ function syncQuestNpcMarkers(dt) {
   }
 }
 
+function tryAcceptQuestAtGiver(nearGiver) {
+  if (!nearGiver || quests.activeQuest) return false;
+  if (!hasCart) {
+    showToast(t('quest_need_cart'));
+    return false;
+  }
+  const res = quests.acceptQuest(nearGiver.villageId, party.wild);
+  if (res.ok && res.quest) {
+    if (res.quest.questType === 'passenger') {
+      if (party.boardQuestPassengers) party.boardQuestPassengers(res.quest.passengerRoles, cart);
+      if (HC.clearQuestCargoFromCart) HC.clearQuestCargoFromCart(cart, physics);
+    } else {
+      if (party.clearQuestPassengers) party.clearQuestPassengers(cart);
+      if (HC.setQuestCargoOnCart) {
+        HC.setQuestCargoOnCart(cart, physics, res.quest.cargoKind, 3, {
+          toName: res.quest.toName,
+          cargoName: res.quest.cargoName,
+        });
+      }
+    }
+  }
+  _tagCartRef = null;
+  _lastQuestSig = '';
+  _lastDockSig = '';
+  showToast(res.msg);
+  survival.msg = res.msg;
+  syncVitals();
+  renderQuestHud(quests.getNearbyVillage(animator.x, animator.z));
+  renderNpcDock();
+  return !!res.ok;
+}
+
 let _lastQuestSig = '';
 function renderQuestHud(nearVillage) {
   if (!questHudEl) return;
   const q = quests.activeQuest;
-  const nearGiver = !q ? quests.getNearbyQuestNpc(animator.x, animator.z, party.wild, 5.8) : null;
+  const radnarV = (world.VILLAGES && world.VILLAGES[0]) || { cx: 0, cz: 76 };
+  const langKey = getLang();
+
+  if (!hasCart) {
+    const dDest = storyStage === 'find_cart'
+      ? Math.round(Math.hypot(physics.pos.x - animator.x, physics.pos.z - animator.z))
+      : Math.round(Math.hypot(radnarV.cx - animator.x, radnarV.cz - animator.z));
+    const sig = `STORY|${langKey}|${storyStage}|${Math.floor(dDest / 2)}`;
+    if (sig === _lastQuestSig) return;
+    _lastQuestSig = sig;
+    questHudEl.innerHTML = '';
+    const pill = document.createElement('div');
+    pill.className = 'q-pill';
+    if (storyStage === 'find_cart') {
+      pill.innerHTML =
+        `<div class="q-pill-head"><span>🪵 ${t('story_obj_cart')}</span><span>${dDest}m</span></div>` +
+        `<div class="q-pill-sub">${t('story_obj_cart_sub', { d: dDest })}</div>`;
+    } else {
+      pill.innerHTML =
+        `<div class="q-pill-head"><span>📜 ${t('story_obj_radnar')}</span><span>${dDest}m</span></div>` +
+        `<div class="q-pill-sub">${t('story_obj_radnar_sub', { d: dDest })}</div>`;
+    }
+    questHudEl.appendChild(pill);
+    return;
+  }
+
+  const nearGiver = !q ? quests.getNearbyQuestNpc(animator.x, animator.z, party.wild, 6.2) : null;
   const offer = nearGiver ? quests.getOfferForVillage(nearGiver.villageId, party.wild) : null;
   const vGiver = (!q && !nearGiver && nearVillage) ? quests.getQuestNpcForVillage(nearVillage.id, party.wild) : null;
   const dGiver = vGiver ? Math.round(Math.hypot(vGiver.x - animator.x, vGiver.z - animator.z)) : 0;
   const distM = q ? Math.round(quests.distanceToTarget(animator.x, animator.z)) : 0;
   const sig = q
-    ? `A|${q.id}|${Math.floor(distM / 5)}|${quests.gold}`
+    ? `A|${langKey}|${q.id}|${Math.floor(distM / 5)}|${quests.gold}`
     : (offer && nearGiver)
-      ? `G|${offer.id}|${nearGiver.npc.uid}|${quests.gold}`
+      ? `G|${langKey}|${offer.id}|${nearGiver.npc.uid}|${quests.gold}`
       : nearVillage
-        ? `H|${nearVillage.id}|${vGiver ? vGiver.uid : '0'}|${Math.floor(dGiver / 3)}|${quests.gold}`
-        : `I|${quests.gold}|${quests.completedCount}`;
+        ? `H|${langKey}|${nearVillage.id}|${vGiver ? vGiver.uid : '0'}|${Math.floor(dGiver / 3)}|${quests.gold}`
+        : `I|${langKey}|${quests.gold}|${quests.completedCount}`;
   if (sig === _lastQuestSig) return;
   _lastQuestSig = sig;
   questHudEl.innerHTML = '';
 
   if (q) {
+    const isPass = q.questType === 'passenger';
+    const subTxt = isPass
+      ? t('quest_pass_active_sub', { cargo: q.cargoName, receiver: q.receiverName || q.toName, gold: q.rewardGold })
+      : t('quest_active_sub', { cargo: q.cargoName, receiver: q.receiverName || q.toName, gold: q.rewardGold });
     const pill = document.createElement('div');
     pill.className = 'q-pill';
     pill.innerHTML =
-      `<div class="q-pill-head"><span>${q.cargoIcon || '📦'} Antar ke ${q.toName}</span><span>${distM}m</span></div>` +
-      `<div class="q-pill-sub">${q.cargoName} → ${q.receiverName || q.toName} • +${q.rewardGold} G</div>` +
-      `<div class="q-actions"><span class="q-gold-chip">🪙 ${quests.gold} G</span><button type="button" class="q-btn-abandon" id="btn-quest-abandon" title="Batalkan Quest">Batalkan</button></div>`;
+      `<div class="q-pill-head"><span>${q.cargoIcon || '📦'} ${t('quest_active_head', { icon: '', to: q.toName }).trim()}</span><span>${distM}m</span></div>` +
+      `<div class="q-pill-sub">${subTxt}</div>` +
+      `<div class="q-actions"><span class="q-gold-chip">🪙 ${quests.gold} G</span><button type="button" class="q-btn-abandon" id="btn-quest-abandon">${t('quest_abandon_btn')}</button></div>`;
     questHudEl.appendChild(pill);
     const ab = pill.querySelector('#btn-quest-abandon');
     if (ab) ab.addEventListener('click', (e) => {
       e.preventDefault();
       quests.abandonQuest();
       if (HC.clearQuestCargoFromCart) HC.clearQuestCargoFromCart(cart, physics);
+      if (party.clearQuestPassengers) party.clearQuestPassengers(cart);
+      _tagCartRef = null;
       _lastQuestSig = '';
-      showToast('Quest pengantaran dibatalkan.');
+      showToast(t('quest_abandoned_toast'));
       renderQuestHud(quests.getNearbyVillage(animator.x, animator.z));
     });
   } else if (offer && nearGiver) {
+    const isPass = offer.questType === 'passenger';
+    const subTxt = isPass
+      ? t('quest_pass_offer_sub', { count: offer.passengerCount || 1, cargo: offer.cargoName, to: offer.toName, dist: offer.distance })
+      : t('quest_offer_sub', { icon: offer.cargoIcon || '', cargo: offer.cargoName, to: offer.toName, dist: offer.distance });
     const pill = document.createElement('div');
     pill.className = 'q-pill';
     pill.innerHTML =
-      `<div class="q-pill-head"><span>📜 ${offer.giverName} (${offer.fromName})</span><span>+${offer.rewardGold} G</span></div>` +
-      `<div class="q-pill-sub">Antar ${offer.cargoIcon || ''} ${offer.cargoName} ke ${offer.toName} (${offer.distance}m)</div>` +
-      `<div class="q-actions"><button type="button" class="q-btn-accept" id="btn-quest-accept">Ambil Quest</button></div>`;
+      `<div class="q-pill-head"><span>${t('quest_offer_title', { giver: offer.giverName, village: offer.fromName })}</span><span>+${offer.rewardGold} G</span></div>` +
+      `<div class="q-pill-sub">${subTxt}</div>` +
+      `<div class="q-actions"><button type="button" class="q-btn-accept" id="btn-quest-accept">${t('quest_accept_btn')}</button></div>`;
     questHudEl.appendChild(pill);
     const acc = pill.querySelector('#btn-quest-accept');
     if (acc) acc.addEventListener('click', (e) => {
       e.preventDefault();
-      const res = quests.acceptQuest(nearGiver.villageId, party.wild);
-      if (res.ok && res.quest && HC.setQuestCargoOnCart) {
-        HC.setQuestCargoOnCart(cart, physics, res.quest.cargoKind, 3);
-      }
-      _lastQuestSig = '';
-      showToast(res.msg);
-      survival.msg = res.msg;
-      syncVitals();
-      renderQuestHud(nearVillage);
+      tryAcceptQuestAtGiver(nearGiver);
     });
   } else if (nearVillage) {
     const pill = document.createElement('div');
     pill.className = 'q-pill';
-    const gLabel = (vGiver && vGiver.role && vGiver.role.name) ? vGiver.role.name : 'warga';
+    const gLabel = (vGiver && vGiver.role && vGiver.role.name) ? vGiver.role.name : 'NPC';
     pill.innerHTML =
-      `<div class="q-pill-head"><span>❗ Quest Desa ${nearVillage.name}</span><span>${vGiver ? `${dGiver}m` : ''}</span></div>` +
-      `<div class="q-pill-sub">${vGiver ? `Temui ${gLabel} bertanda [!] untuk mengambil quest barang.` : 'Cari warga di desa untuk misi antar barang.'}</div>`;
+      `<div class="q-pill-head"><span>${t('quest_hint_title', { village: nearVillage.name })}</span><span>${vGiver ? `${dGiver}m` : ''}</span></div>` +
+      `<div class="q-pill-sub">${t('quest_hint_body', { giver: gLabel })}</div>`;
     questHudEl.appendChild(pill);
-  } else if (quests.gold > 0) {
+  } else {
     const chip = document.createElement('div');
     chip.className = 'q-gold-chip';
-    chip.textContent = `🪙 ${quests.gold} G (${quests.completedCount} selesai)`;
+    chip.textContent = `🪙 ${quests.gold} G · ${quests.completedCount} ✓`;
     questHudEl.appendChild(chip);
   }
 }
@@ -41475,14 +43427,16 @@ controls.addEventListener('start', () => {
 
 const INSPECT_MAX_DIST = Math.max(8.5, HITCH_DIST + 4.5);
 function canInspectCart() {
+  if (!hasCart || gameMode !== 'play') return false;
   if (physics.hitched) return true;
   return Math.hypot(animator.x - physics.pos.x, animator.z - physics.pos.z) <= INSPECT_MAX_DIST;
 }
 
 function setInspectMode(on, notifyDenied = false) {
   const next = !!on;
+  if (next && workshopOpen) return false;
   if (next && !canInspectCart()) {
-    if (notifyDenied) showToast('Dekati gerobak terlebih dahulu untuk cek HP roda.');
+    if (notifyDenied) showToast(t('inspect_far'));
     if (_inspectWasActive) on = false;
     else {
       animator.inspectMode = false;
@@ -41523,21 +43477,23 @@ const VITAL_ROWS = [['hp', 'v-hp'], ['stamina', 'v-sta'], ['hunger', 'v-food'], 
 function syncVitals() {
   for (const [key, id] of VITAL_ROWS) {
     const val = Math.round(survival[key]);
+    const maxVal = key === 'hp' ? (survival.hpMax || 100) : key === 'stamina' ? (survival.staminaMax || 100) : 100;
+    const pct = Math.max(0, Math.min(100, Math.round((val / maxVal) * 100)));
     const el = document.getElementById(id);
-    if (el) el.style.width = val + '%';
+    if (el) el.style.width = pct + '%';
     const txt = document.getElementById(id + '-t');
     if (txt) txt.textContent = String(val);
     if (el && el.parentElement && el.parentElement.parentElement) {
-      el.parentElement.parentElement.classList.toggle('low', val < 25);
+      el.parentElement.parentElement.classList.toggle('low', pct < 25);
     }
   }
-  if (portraitHpFill) portraitHpFill.style.width = Math.max(0, Math.min(100, Math.round(survival.hp))) + '%';
+  const hpPct = Math.max(0, Math.min(100, Math.round((survival.hp / (survival.hpMax || 100)) * 100)));
+  if (portraitHpFill) portraitHpFill.style.width = hpPct + '%';
   const msg = document.getElementById('v-msg');
   if (msg && msg.textContent !== survival.msg) msg.textContent = survival.msg;
   if (survival.msg) showToast(survival.msg);
 }
 
-const stateLabel = { walk: 'JALAN', run: 'LARI', jump: 'LOMPAT', graze: 'MAKAN RUMPUT', sleep: 'TIDUR' };
 const btnSleepEl = document.getElementById('btn-sleep');
 
 function bindBtn(id, fn) {
@@ -41548,8 +43504,616 @@ function bindBtn(id, fn) {
   el.addEventListener('touchstart', handler, { passive: false });
 }
 
-// ---- kondisi kuda: stamina / HP / lapar / haus ----
+// ---- Survival, Horse Upgrades & Village Cart Workshop ----
 const survival = new Survival({ map: HC.MAP, world });
+
+function syncHorseStats() {
+  survival.applyHorseStats(horseStats);
+  animator.statSpeedScale = horseStats.speedMul();
+  physics.pullPowerScale = horseStats.pullMul();
+  if (portraitLvBadge) portraitLvBadge.textContent = `Lv${horseStats.totalLevel()}`;
+  syncVitals();
+}
+
+renderHorseUpgrades = function renderHorseUpgradeRows() {
+  if (!horseUpgradeListEl) return;
+  horseUpgradeListEl.innerHTML = '';
+  const gold = Math.floor(quests.gold || 0);
+  if (hudGold) hudGold.textContent = `${gold} G`;
+  for (const def of HORSE_STAT_DEFS) {
+    const curLv = horseStats.levels[def.key] || 1;
+    const isMax = curLv >= def.maxLv;
+    const cost = horseStats.nextCost(def.key);
+    const canBuy = !isMax && cost != null && gold >= cost;
+
+    const row = document.createElement('div');
+    row.className = 'hu-row';
+
+    const info = document.createElement('div');
+    info.className = 'hu-info';
+    const nameDiv = document.createElement('div');
+    nameDiv.className = 'hu-name';
+    nameDiv.innerHTML = `<span>${def.icon} ${t(def.nameKey)}</span><span class="hu-lv">Lv.${curLv}/${def.maxLv}</span>`;
+    const effDiv = document.createElement('div');
+    effDiv.className = 'hu-effect';
+    effDiv.textContent = isMax
+      ? `${def.format(curLv)} (MAX)`
+      : `${def.format(curLv)} → ${def.format(curLv + 1)}`;
+    info.append(nameDiv, effDiv);
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'hu-btn';
+    if (isMax) {
+      btn.disabled = true;
+      btn.textContent = t('max_btn');
+    } else {
+      btn.textContent = `${t('upgrade_btn')} (${cost} G)`;
+      if (!canBuy) btn.style.opacity = '0.72';
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const res = horseStats.upgradeStat(def.key, quests);
+        if (!res.ok) {
+          showToast(t('not_enough_gold', { g: cost }));
+          return;
+        }
+        syncHorseStats();
+        renderHorseUpgrades();
+        if (ui && ui.refresh) ui.refresh();
+        _lastQuestSig = '';
+        showToast(t('horse_upgraded', { stat: t(def.nameKey), lv: res.level, g: res.cost }));
+      });
+    }
+    row.append(info, btn);
+    horseUpgradeListEl.appendChild(row);
+  }
+};
+
+// Village Cart Workshop camera & mode
+let workshopOpen = false;
+let _wsRecord = null;
+const _wsSavedCamPos = new THREE.Vector3();
+const _wsSavedTarget = new THREE.Vector3();
+const _wsCamGoalPos = new THREE.Vector3();
+const _wsCamGoalTarget = new THREE.Vector3();
+
+function computeWorkshopCamera(ws) {
+  const cx = physics.pos.x;
+  const cz = physics.pos.z;
+  const cy = world.terrainHeightAt ? world.terrainHeightAt(cx, cz) : 0;
+  // Direction from workshop shopfront toward cart so building sits cleanly in backdrop
+  let vx = cx - (ws ? ws.shopX : cx);
+  let vz = cz - (ws ? ws.shopZ : cz + 1);
+  let len = Math.hypot(vx, vz);
+  if (len < 0.8) {
+    const yaw = ws ? (ws.shopYaw || 0) : physics.yaw;
+    vx = Math.sin(yaw);
+    vz = Math.cos(yaw);
+  } else {
+    vx /= len;
+    vz /= len;
+  }
+  // Rotate slightly (~34 deg) for rich isometric 3/4 view framing horse + cart + grass + shopfront
+  const ang = 0.58;
+  const ca = Math.cos(ang), sa = Math.sin(ang);
+  const rx = vx * ca - vz * sa;
+  const rz = vx * sa + vz * ca;
+  _wsCamGoalTarget.set(
+    HC.lerp(cx, animator.x, 0.25),
+    cy + 0.55,
+    HC.lerp(cz, animator.z, 0.25)
+  );
+  _wsCamGoalPos.set(
+    _wsCamGoalTarget.x + rx * 7.6,
+    cy + 4.25,
+    _wsCamGoalTarget.z + rz * 7.6
+  );
+}
+
+function openWorkshop(ws) {
+  if (!ws || physics.flipped) return false;
+  if (animator.state === 'sleep') doSleepToggle();
+  if (animator.inspectMode) setInspectMode(false);
+  setStatsPanelOpen(false);
+  setSettingsPanelOpen(false);
+  if (mapUI && mapUI.isOpen) mapUI.close();
+
+  _wsSavedCamPos.copy(camera.position);
+  _wsSavedTarget.copy(controls.target);
+  workshopOpen = true;
+  _wsRecord = ws;
+
+  keysHeld.forward = false;
+  keysHeld.backward = false;
+  keysHeld.left = false;
+  keysHeld.right = false;
+  btnForwardHeld = false;
+  btnBackwardHeld = false;
+  animator.setThrottle(0);
+  animator.setSteer(0);
+
+  computeWorkshopCamera(ws);
+  if (ui && ui.open) ui.open(ws);
+  return true;
+}
+
+function closeWorkshop() {
+  if (!workshopOpen) return false;
+  workshopOpen = false;
+  _wsRecord = null;
+  if (ui && ui.close) ui.close();
+  controls.target.copy(_wsSavedTarget);
+  camera.position.copy(_wsSavedCamPos);
+  controls.update();
+  _lastDockSig = '';
+  _lastQuestSig = '';
+  renderNpcDock();
+  return true;
+}
+
+ui = initUpgradeUI({
+  store,
+  quests,
+  onUpgrade(_key, ok, msg) {
+    if (ok) {
+      rebuildCartFromStore();
+      if (workshopOpen && _wsRecord) computeWorkshopCamera(_wsRecord);
+    }
+    if (msg) {
+      survival.msg = msg;
+      showToast(msg);
+      syncVitals();
+    }
+    _lastQuestSig = '';
+  },
+  onRefill() {
+    if ((quests.gold || 0) < 10) {
+      showToast(t('not_enough_gold', { g: 10 }));
+      return;
+    }
+    const restored = HC.refillCartSupplies ? HC.refillCartSupplies(cart) : 0;
+    if (restored <= 0) {
+      showToast(t('ws_refill_full'));
+      return;
+    }
+    quests.gold = Math.max(0, (quests.gold || 0) - 10);
+    showToast(t('ws_refill_ok'));
+    _lastQuestSig = '';
+  },
+  onClose() {
+    closeWorkshop();
+  },
+});
+
+function saveGameState(silent = true) {
+  try {
+    const supplies = (cart && Array.isArray(cart.cargoItems))
+      ? cart.cargoItems.filter((it) => it && it.supplyKind).map((it) => ({
+          kind: it.supplyKind,
+          charges: it.charges || 0,
+        }))
+      : [];
+    const payload = {
+      v: 1,
+      storyStage,
+      hasCart: !!hasCart,
+      gold: Math.floor(quests.gold || 0),
+      completedCount: quests.completedCount || 0,
+      materials: { ...store.materials },
+      cartLevels: { ...store.levels },
+      horseStats: { ...horseStats.levels },
+      timeOfDay: world.timeOfDay || 0.08,
+      horse: { x: animator.x, z: animator.z, yaw: animator.yaw },
+      cart: { x: physics.pos.x, z: physics.pos.z, yaw: physics.yaw, hitched: !!physics.hitched },
+      vitals: {
+        hp: survival.hp,
+        stamina: survival.stamina,
+        hunger: survival.hunger,
+        thirst: survival.thirst,
+      },
+      supplies,
+      squad: (party.members || []).map((m) => m.role && m.role.id).filter(Boolean),
+    };
+    localStorage.setItem(GAME_SAVE_KEY, JSON.stringify(payload));
+    refreshMainMenuUI();
+    if (!silent) showToast(t('menu_saved_toast'));
+    return true;
+  } catch (_e) {
+    return false;
+  }
+}
+
+function positionCameraBehindHorse() {
+  const gy = world.terrainHeightAt ? world.terrainHeightAt(animator.x, animator.z) : 0;
+  const fx = Math.cos(animator.yaw), fz = -Math.sin(animator.yaw);
+  const lx = -fz, lz = fx;
+  controls.target.set(animator.x - fx * 1.2, gy + 1.25, animator.z - fz * 1.2);
+  const backD = isPortraitMobile() ? 10.5 : 8.2;
+  const sideD = isPortraitMobile() ? 5.2 : 4.2;
+  const upD = isPortraitMobile() ? 5.8 : 4.9;
+  camera.position.set(
+    controls.target.x - fx * backD + lx * sideD,
+    gy + upD,
+    controls.target.z - fz * backD + lz * sideD
+  );
+  camPrevYaw = animator.yaw;
+  controls.update();
+}
+
+function enterMainMenu() {
+  if (workshopOpen) closeWorkshop();
+  if (animator.inspectMode) setInspectMode(false);
+  if (mapUI && mapUI.isOpen) mapUI.close();
+  setStatsPanelOpen(false);
+  setSettingsPanelOpen(false);
+  if (letterCardEl) letterCardEl.hidden = true;
+  if (cutsceneBoxEl) cutsceneBoxEl.hidden = true;
+
+  gameMode = 'menu';
+  _menuCamT = 0;
+  document.body.classList.remove('cutscene-open');
+  document.body.classList.add('menu-open');
+  if (mainMenuEl) mainMenuEl.hidden = false;
+
+  animator.setThrottle(0);
+  animator.setSteer(0);
+  animator.speed = 0;
+  animator.targetSpeed = 0;
+  animator.menuIdleMode = true;
+
+  // Frame scenic wide meadow + trees + cart + grazing-looking horse on the right side
+  const pose = world.initialHorsePose ? world.initialHorsePose() : { x: 0, z: 0, yaw: 0.4 };
+  animator.x = pose.x + 1.6;
+  animator.z = pose.z - 2.2;
+  animator.yaw = -0.58;
+  animator.forwardX = Math.cos(animator.yaw);
+  animator.forwardZ = -Math.sin(animator.yaw);
+  animator.unhitched = false;
+  if (horse && horse.root) {
+    horse.root.position.set(animator.x, world.terrainHeightAt ? world.terrainHeightAt(animator.x, animator.z) : 0, animator.z);
+    horse.root.rotation.y = animator.yaw;
+  }
+  physics.reset(animator.x, animator.z, animator.yaw);
+  physics.hitched = true;
+  setRopesVisible(true);
+  resetRopes();
+
+  const gy = world.terrainHeightAt ? world.terrainHeightAt(animator.x, animator.z) : 0;
+  _menuCamTarget.set(animator.x - 2.8, gy + 1.0, animator.z + 0.4);
+  _menuCamPos.set(animator.x + 6.4, gy + 3.2, animator.z - 6.8);
+  controls.target.copy(_menuCamTarget);
+  camera.position.copy(_menuCamPos);
+  controls.update();
+  refreshMainMenuUI();
+}
+
+function startNewGame() {
+  if (workshopOpen) closeWorkshop();
+  if (letterCardEl) letterCardEl.hidden = true;
+  if (cutsceneBoxEl) cutsceneBoxEl.hidden = true;
+  if (mainMenuEl) mainMenuEl.hidden = true;
+  document.body.classList.remove('menu-open', 'cutscene-open');
+
+  gameMode = 'play';
+  animator.menuIdleMode = false;
+  animator.inspectMode = false;
+
+  // Release any recruited companions or quest passengers
+  while (party.members && party.members.length) party.releaseLast();
+  if (party.clearQuestPassengers) party.clearQuestPassengers(cart);
+  quests.abandonQuest();
+  if (HC.clearQuestCargoFromCart) HC.clearQuestCargoFromCart(cart, physics);
+
+  // Fresh story & stats: start solo without cart (quest leads to Radnar -> Hero's Old Cart)
+  storyStage = 'to_radnar';
+  hasCart = false;
+  party.hasCart = false;
+  _radnarCutscenePlayed = false;
+
+  quests.gold = 0;
+  quests.completedCount = 0;
+  store.minAll();
+  store.materials = { wood: 0, iron: 0, leather: 0, cloth: 0 };
+  store.save();
+  for (const d of HORSE_STAT_DEFS) horseStats.levels[d.key] = 1;
+  horseStats.save();
+  rebuildCartFromStore();
+  syncHorseStats();
+
+  survival.hp = survival.hpMax;
+  survival.stamina = survival.staminaMax;
+  survival.hunger = 100;
+  survival.thirst = 100;
+  survival.msg = '';
+
+  const pose = world.initialHorsePose ? world.initialHorsePose() : { x: 0, z: -11, yaw: Math.PI * 0.5 };
+  animator.x = pose.x;
+  animator.z = pose.z;
+  animator.yaw = pose.yaw;
+  animator.forwardX = Math.cos(pose.yaw);
+  animator.forwardZ = -Math.sin(pose.yaw);
+  animator.speed = 0;
+  animator.targetSpeed = 0;
+  animator.setThrottle(0);
+  animator.setSteer(0);
+  animator.unhitched = true;
+  animator.setState('walk');
+  if (horse && horse.root) {
+    horse.root.position.set(animator.x, world.terrainHeightAt ? world.terrainHeightAt(animator.x, animator.z) : 0, animator.z);
+    horse.root.rotation.y = animator.yaw;
+  }
+
+  // Park Hero's Old Cart behind Radnar village awaiting the horse
+  const oldSpot = world.getOldCartSpot ? world.getOldCartSpot() : { x: 6, z: 98, yaw: -Math.PI * 0.5 };
+  physics.reset(oldSpot.x + Math.cos(oldSpot.yaw) * HITCH_DIST, oldSpot.z - Math.sin(oldSpot.yaw) * HITCH_DIST, oldSpot.yaw);
+  physics.hitched = false;
+  physics.vel.set(0, 0, 0);
+  physics.angVel = 0;
+  physics.unhitchedDroop = 1;
+  physics.syncVisual();
+  setRopesVisible(false);
+
+  _tagCartRef = null;
+  _lastQuestSig = '';
+  _lastDockSig = '';
+  _lastHitchSig = '';
+  positionCameraBehindHorse();
+  renderQuestHud(quests.getNearbyVillage(animator.x, animator.z));
+  renderNpcDock();
+  syncHitchUi();
+  syncVitals();
+  return true;
+}
+
+function loadGameState() {
+  const save = readSavedData();
+  if (!save) return false;
+
+  if (mainMenuEl) mainMenuEl.hidden = true;
+  if (letterCardEl) letterCardEl.hidden = true;
+  if (cutsceneBoxEl) cutsceneBoxEl.hidden = true;
+  document.body.classList.remove('menu-open', 'cutscene-open');
+
+  animator.menuIdleMode = false;
+  animator.inspectMode = false;
+  gameMode = 'play';
+  storyStage = save.storyStage || 'done';
+  hasCart = save.hasCart !== false;
+  party.hasCart = hasCart;
+  _radnarCutscenePlayed = storyStage !== 'to_radnar';
+
+  quests.gold = Math.max(0, Math.floor(save.gold || 0));
+  quests.completedCount = Math.max(0, Math.floor(save.completedCount || 0));
+  quests.abandonQuest();
+  if (save.cartLevels) {
+    for (const [k, lv] of Object.entries(save.cartLevels)) store.levels[k] = lv;
+    store.save();
+  }
+  if (save.materials) {
+    store.materials = { wood: 0, iron: 0, leather: 0, cloth: 0, ...save.materials };
+    store.save();
+  }
+  if (save.horseStats) {
+    for (const d of HORSE_STAT_DEFS) {
+      if (save.horseStats[d.key]) horseStats.levels[d.key] = save.horseStats[d.key];
+    }
+    horseStats.save();
+  }
+  rebuildCartFromStore();
+  syncHorseStats();
+
+  if (Array.isArray(save.supplies) && cart && cart.cargoItems) {
+    for (const sRec of save.supplies) {
+      const it = cart.cargoItems.find((c) => c && c.supplyKind === sRec.kind);
+      if (it) it.charges = Math.max(0, Math.min(it.maxCharges || 5, sRec.charges | 0));
+    }
+  }
+  if (save.vitals) {
+    survival.hp = Math.max(10, Math.min(survival.hpMax || 100, save.vitals.hp ?? 100));
+    survival.stamina = Math.max(0, Math.min(survival.staminaMax || 100, save.vitals.stamina ?? 100));
+    survival.hunger = Math.max(0, Math.min(100, save.vitals.hunger ?? 100));
+    survival.thirst = Math.max(0, Math.min(100, save.vitals.thirst ?? 100));
+  }
+  if (typeof save.timeOfDay === 'number') world.timeOfDay = save.timeOfDay;
+
+  while (party.members && party.members.length) party.releaseLast();
+
+  const hPose = save.horse || (world.initialHorsePose ? world.initialHorsePose() : { x: 0, z: 0, yaw: 0 });
+  animator.x = hPose.x;
+  animator.z = hPose.z;
+  animator.yaw = hPose.yaw || 0;
+  animator.forwardX = Math.cos(animator.yaw);
+  animator.forwardZ = -Math.sin(animator.yaw);
+  animator.speed = 0;
+  animator.targetSpeed = 0;
+  animator.unhitched = !hasCart || !(save.cart && save.cart.hitched !== false);
+  if (horse && horse.root) {
+    horse.root.position.set(animator.x, world.terrainHeightAt ? world.terrainHeightAt(animator.x, animator.z) : 0, animator.z);
+    horse.root.rotation.y = animator.yaw;
+  }
+
+  const cPose = save.cart || { x: animator.x, z: animator.z, yaw: animator.yaw, hitched: hasCart };
+  physics.reset(animator.x, animator.z, animator.yaw);
+  physics.pos.set(cPose.x, 0, cPose.z);
+  physics.yaw = cPose.yaw || animator.yaw;
+  physics.hitched = !!hasCart && cPose.hitched !== false;
+  physics.unhitchedDroop = physics.hitched ? 0 : 1;
+  physics.syncVisual();
+  setRopesVisible(physics.hitched);
+  if (physics.hitched) resetRopes();
+
+  _tagCartRef = null;
+  _lastQuestSig = '';
+  _lastDockSig = '';
+  _lastHitchSig = '';
+  positionCameraBehindHorse();
+  renderQuestHud(quests.getNearbyVillage(animator.x, animator.z));
+  renderNpcDock();
+  syncHitchUi();
+  syncVitals();
+  return true;
+}
+
+const CUTSCENE_KEYS = ['cutscene_line_1', 'cutscene_line_2', 'cutscene_line_3', 'cutscene_line_4'];
+function renderCutsceneStep() {
+  if (!cutsceneBoxEl) return;
+  if (csSpeakerEl) csSpeakerEl.textContent = t('cutscene_guard_name');
+  if (csTextEl) csTextEl.textContent = t(CUTSCENE_KEYS[_cutsceneIdx] || CUTSCENE_KEYS[0]);
+  if (letterCardEl) letterCardEl.hidden = (_cutsceneIdx !== 2);
+  if (btnCutsceneNext) {
+    btnCutsceneNext.textContent = _cutsceneIdx >= CUTSCENE_KEYS.length - 1
+      ? t('cutscene_finish_btn')
+      : t('cutscene_next_btn');
+  }
+}
+
+function startRadnarCutscene() {
+  if (_radnarCutscenePlayed) return false;
+  _radnarCutscenePlayed = true;
+  gameMode = 'cutscene';
+  _cutsceneIdx = 0;
+  keysHeld.forward = false;
+  keysHeld.backward = false;
+  keysHeld.left = false;
+  keysHeld.right = false;
+  btnForwardHeld = false;
+  btnBackwardHeld = false;
+  animator.setThrottle(0);
+  animator.setSteer(0);
+  animator.speed = 0;
+  animator.targetSpeed = 0;
+  setStatsPanelOpen(false);
+  setSettingsPanelOpen(false);
+  if (mapUI && mapUI.isOpen) mapUI.close();
+
+  document.body.classList.add('cutscene-open');
+  if (cutsceneBoxEl) cutsceneBoxEl.hidden = false;
+
+  // Bring a Radnar guard/villager beside the horse to speak
+  const radGuard = (party.wild || []).find((w) => !w.recruited && w.site === 'radnar' && (w.role.id === 'guard' || w.role.id === 'warrior'))
+    || (party.wild || []).find((w) => !w.recruited && w.site === 'radnar');
+  if (radGuard && radGuard.root) {
+    _cutsceneGuardNpc = radGuard;
+    const fx = Math.cos(animator.yaw), fz = -Math.sin(animator.yaw);
+    const lx = -fz, lz = fx;
+    const gx = animator.x + fx * 2.1 + lx * 1.1;
+    const gz = animator.z + fz * 2.1 + lz * 1.1;
+    radGuard.x = gx;
+    radGuard.z = gz;
+    const gy = world.terrainHeightAt ? world.terrainHeightAt(gx, gz) : 0;
+    radGuard.root.position.set(gx, gy, gz);
+    radGuard.root.rotation.y = Math.atan2(animator.x - gx, animator.z - gz);
+    _csCamTarget.set((animator.x + gx) * 0.5, gy + 1.1, (animator.z + gz) * 0.5);
+    _csCamPos.set(_csCamTarget.x + lx * 4.4 - fx * 1.8, gy + 2.3, _csCamTarget.z + lz * 4.4 - fz * 1.8);
+  } else {
+    const gy = world.terrainHeightAt ? world.terrainHeightAt(animator.x, animator.z) : 0;
+    const fx = Math.cos(animator.yaw), fz = -Math.sin(animator.yaw);
+    _csCamTarget.set(animator.x, gy + 1.1, animator.z);
+    _csCamPos.set(animator.x - fx * 3.8 + fz * 2.8, gy + 2.4, animator.z - fz * 3.8 - fx * 2.8);
+  }
+  renderCutsceneStep();
+  return true;
+}
+
+function advanceCutscene() {
+  if (gameMode !== 'cutscene') return false;
+  _cutsceneIdx += 1;
+  if (_cutsceneIdx < CUTSCENE_KEYS.length) {
+    renderCutsceneStep();
+    return true;
+  }
+  if (letterCardEl) letterCardEl.hidden = true;
+  if (cutsceneBoxEl) cutsceneBoxEl.hidden = true;
+  document.body.classList.remove('cutscene-open');
+  gameMode = 'play';
+  storyStage = 'find_cart';
+  _cutsceneGuardNpc = null;
+  _lastQuestSig = '';
+  _lastDockSig = '';
+  positionCameraBehindHorse();
+  renderQuestHud(quests.getNearbyVillage(animator.x, animator.z));
+  renderNpcDock();
+  saveGameState(true);
+  return false;
+}
+
+function claimHeroOldCart() {
+  if (hasCart) return false;
+  hasCart = true;
+  party.hasCart = true;
+  storyStage = 'done';
+  animator.unhitched = false;
+  animator.cancelDocking();
+  hitchAnim.active = false;
+  // Snap horse straight in front of cart shafts without altering cart world spot
+  const cfx = Math.cos(physics.yaw), cfz = -Math.sin(physics.yaw);
+  animator.x = physics.pos.x + cfx * HITCH_DIST;
+  animator.z = physics.pos.z + cfz * HITCH_DIST;
+  animator.yaw = physics.yaw;
+  animator.forwardX = cfx;
+  animator.forwardZ = cfz;
+  animator.speed = 0;
+  animator.targetSpeed = 0;
+  if (horse && horse.root) {
+    horse.root.position.set(animator.x, world.terrainHeightAt ? world.terrainHeightAt(animator.x, animator.z) : 0, animator.z);
+    horse.root.rotation.y = animator.yaw;
+  }
+  physics.vel.set(0, 0, 0);
+  physics.angVel = 0;
+  physics.hitched = true;
+  physics.unhitchedDroop = 0;
+  physics.syncVisual();
+  setRopesVisible(true);
+  resetRopes();
+  reanchorRopes();
+
+  _tagCartRef = null;
+  _lastQuestSig = '';
+  _lastDockSig = '';
+  _lastHitchSig = '';
+  showToast(t('story_cart_claimed'));
+  survival.msg = t('story_cart_claimed');
+  syncVitals();
+  renderQuestHud(quests.getNearbyVillage(animator.x, animator.z));
+  renderNpcDock();
+  syncHitchUi();
+  saveGameState(true);
+  return true;
+}
+
+if (btnMenuNew) btnMenuNew.addEventListener('click', (e) => { e.preventDefault(); startNewGame(); });
+if (btnMenuLoad) btnMenuLoad.addEventListener('click', (e) => { e.preventDefault(); loadGameState(); });
+if (btnSaveGame) btnSaveGame.addEventListener('click', (e) => { e.preventDefault(); saveGameState(false); });
+if (btnReturnMenu) btnReturnMenu.addEventListener('click', (e) => { e.preventDefault(); enterMainMenu(); });
+if (btnCutsceneNext) btnCutsceneNext.addEventListener('click', (e) => { e.preventDefault(); advanceCutscene(); });
+
+function applyTranslations() {
+  document.documentElement.lang = getLang();
+  document.title = t('page_title');
+  document.querySelectorAll('[data-i18n]').forEach((el) => {
+    el.textContent = t(el.dataset.i18n);
+  });
+  document.querySelectorAll('[data-i18n-title]').forEach((el) => {
+    el.title = t(el.dataset.i18nTitle);
+  });
+  syncMenuLangChips();
+  refreshMainMenuUI();
+  if (gameMode === 'cutscene') renderCutsceneStep();
+  refreshQualityBar();
+  renderHorseUpgrades();
+  if (ui && ui.refreshLang) ui.refreshLang();
+  if (typeof touchUI !== 'undefined' && touchUI && touchUI.refreshLang) touchUI.refreshLang();
+  _lastQuestSig = '';
+  _lastDockSig = '';
+  _lastHitchSig = '';
+  _lastMiniNpcSig = '';
+  _lastBannerSig = '';
+  syncHitchUi();
+  syncFlipBanner();
+  renderNpcDock();
+  renderQuestHud(quests.getNearbyVillage(animator.x, animator.z));
+}
+onLangChange(() => applyTranslations());
 let runLatched = false;
 const keysHeld = { forward: false, backward: false, left: false, right: false };
 let btnForwardHeld = false;
@@ -41602,23 +44166,50 @@ function doDrink() {
   }
   syncVitals();
 }
+function doInteract() {
+  if (gameMode === 'cutscene') {
+    advanceCutscene();
+    return true;
+  }
+  if (gameMode !== 'play') return false;
+  if (workshopOpen) {
+    closeWorkshop();
+    return true;
+  }
+  if (!hasCart && storyStage === 'find_cart') {
+    const dCart = Math.hypot(animator.x - physics.pos.x, animator.z - physics.pos.z);
+    if (dCart <= 7.5) return claimHeroOldCart();
+  }
+  const nearGiver = (!quests.activeQuest && hasCart) ? quests.getNearbyQuestNpc(animator.x, animator.z, party.wild, 6.2) : null;
+  if (nearGiver) return tryAcceptQuestAtGiver(nearGiver);
+
+  const ws = (hasCart && world.findNearestWorkshop) ? world.findNearestWorkshop(animator.x, animator.z, 11.5) : null;
+  if (ws) return openWorkshop(ws);
+
+  if (survival.canDrink && survival.canDrink()) {
+    doDrink();
+    return true;
+  }
+  showToast(t('no_interact_near'));
+  return false;
+}
 function doJump() {
   const cost = physics.hitched ? 6 : 4;
-  if (survival.stamina < cost) { survival.msg = 'Stamina kurang buat lompat.'; syncVitals(); return; }
+  if (survival.stamina < cost) { survival.msg = t('msg_stamina_jump'); syncVitals(); return; }
   survival.stamina = Math.max(0, survival.stamina - cost);
   animator.setState('jump');
 }
 function doSleepToggle() {
   if (animator.state === 'sleep') {
     animator.setState(runLatched ? 'run' : 'walk');
-    survival.msg = '☀️ Kuda bangun dan siap jalan.';
+    survival.msg = t('msg_sleep_off');
     if (btnSleepEl) btnSleepEl.classList.remove('active');
     if (touchUI && touchUI.setSleepState) touchUI.setSleepState(false);
     syncVitals();
     return false;
   }
   if (physics.flipped || animator.jumpActive) {
-    survival.msg = 'Tidak bisa tidur saat ini.';
+    survival.msg = t('msg_sleep_deny');
     syncVitals();
     return false;
   }
@@ -41627,7 +44218,7 @@ function doSleepToggle() {
   survival.drinkT = 0;
   if (animator.inspectMode) setInspectMode(false);
   animator.setState('sleep');
-  survival.msg = '💤 Kuda berbaring tidur — stamina & HP pulih lebih cepat.';
+  survival.msg = t('msg_sleep_on');
   if (btnSleepEl) btnSleepEl.classList.add('active');
   if (touchUI && touchUI.setSleepState) touchUI.setSleepState(true);
   syncVitals();
@@ -41683,7 +44274,7 @@ if (btnRevEl) {
 bindBtn('btn-run', () => toggleRun());
 bindBtn('btn-jump', () => doJump());
 bindBtn('btn-graze', () => doEat());
-bindBtn('btn-drink', () => doDrink());
+bindBtn('btn-interact', () => doInteract());
 bindBtn('btn-sleep', () => doSleepToggle());
 if (btnInspectEl) {
   const startInsp = (e) => { e.preventDefault(); setInspectMode(true, true); };
@@ -41700,10 +44291,14 @@ bindBtn('btn-map', () => mapUI.toggle());
 
 const touchUI = initTouchControls({
   animator, survival,
-  onJump: doJump, onEat: doEat, onDrink: doDrink, onSleep: doSleepToggle, onRunToggle: toggleRun, onHitch: toggleHitch,
+  onJump: doJump, onEat: doEat, onInteract: doInteract, onSleep: doSleepToggle, onRunToggle: toggleRun, onHitch: toggleHitch,
   onInspect: (on) => setInspectMode(on, !!on),
   isTouchDevice: matchMedia('(pointer: coarse)').matches,
 });
+if (touchUI && touchUI.refreshLang) {
+  onLangChange(() => touchUI.refreshLang());
+}
+syncHorseStats();
 // Kuda mulai diam sampai input maju (W/↑ atau analog) ditekan.
 animator.setThrottle(0);
 function rampPeakForCart() {
@@ -41790,7 +44385,7 @@ function renderNpcMiniBar() {
     chip.style.setProperty('--hood', hood);
     chip.dataset.uid = String(m.uid);
     chip.dataset.state = m.state;
-    const actionHint = m.state === 'following' ? 'Klik: Naik Gerobak' : (m.state === 'seated' ? 'Klik: Turun Kawal' : m.state);
+    const actionHint = m.state === 'following' ? 'Click: Board Cart' : (m.state === 'seated' ? 'Click: Guard Foot' : m.state);
     chip.title = `${r.name || 'NPC'} — ${actionHint}`;
     chip.innerHTML =
       `<span>${r.e || '👤'}</span>` +
@@ -41813,9 +44408,15 @@ function renderNpcDock() {
   renderNpcMiniBar();
   if (!npcDockEl) return;
   const near = party.members.length < HC.NPC_TEAM_MAX ? party.nearby(animator.x, animator.z) : null;
+  const nearOldCart = (!hasCart && storyStage === 'find_cart' && Math.hypot(animator.x - physics.pos.x, animator.z - physics.pos.z) <= 7.5);
+  const nearGiver = (hasCart && !quests.activeQuest) ? quests.getNearbyQuestNpc(animator.x, animator.z, party.wild, 6.2) : null;
+  const offer = nearGiver ? quests.getOfferForVillage(nearGiver.villageId, party.wild) : null;
+  const nearWorkshop = (hasCart && !workshopOpen && world.findNearestWorkshop)
+    ? world.findNearestWorkshop(animator.x, animator.z, 11.5)
+    : null;
   const isStationary = Math.abs(animator.speed) < 0.85 && Math.hypot(physics.vel.x, physics.vel.z) < 0.85;
-  const canHitchAction = !physics.flipped && ((!physics.hitched) || hitchAnim.active);
-  const al = (!physics.hitched && !physics.flipped) ? getHitchAlignment() : null;
+  const canHitchAction = hasCart && !physics.flipped && ((!physics.hitched) || hitchAnim.active);
+  const al = (hasCart && !physics.hitched && !physics.flipped) ? getHitchAlignment() : null;
   const hitchMode = !canHitchAction ? 'none'
     : hitchAnim.active ? 'docking'
     : physics.hitched ? (isStationary ? 'detach' : 'none')
@@ -41824,21 +44425,55 @@ function renderNpcDock() {
     : !al.alignedLat ? 'lat'
     : al.longErr > 1.25 ? 'rev'
     : 'pos';
-  const sig = (near ? near.npc.role.id : '') + '@' + hitchMode + (physics.flipped ? ':F' : '');
+  const langKey = getLang();
+  const sig = `${langKey}|${nearOldCart ? 'C' : ''}|${near ? near.npc.role.id : ''}|${nearGiver ? nearGiver.npc.uid : ''}|${nearWorkshop ? nearWorkshop.villageId : ''}@${hitchMode}${physics.flipped ? ':F' : ''}`;
   if (sig === _lastDockSig) return;
   _lastDockSig = sig;
 
   npcDockEl.innerHTML = '';
-  const hasAny = !!near || (canHitchAction && hitchMode !== 'none');
+  const hasAny = nearOldCart || !!near || !!(offer && nearGiver) || !!nearWorkshop || (canHitchAction && hitchMode !== 'none');
   npcDockEl.hidden = !hasAny;
   if (!hasAny) return;
+
+  if (nearOldCart) {
+    const cBtn = document.createElement('button');
+    cBtn.type = 'button';
+    cBtn.className = 'npc-nearby-card';
+    cBtn.style.background = 'rgba(180, 83, 9, 0.94)';
+    cBtn.style.borderColor = '#fbbf24';
+    cBtn.textContent = t('story_claim_cart_btn');
+    bindTapSafe(cBtn, claimHeroOldCart);
+    npcDockEl.appendChild(cBtn);
+  }
+
+  if (offer && nearGiver) {
+    const qBtn = document.createElement('button');
+    qBtn.type = 'button';
+    qBtn.className = 'npc-nearby-card';
+    qBtn.style.background = 'rgba(180, 83, 9, 0.92)';
+    qBtn.style.borderColor = '#fbbf24';
+    qBtn.textContent = `${t('quest_accept_btn')} (${offer.toName})`;
+    bindTapSafe(qBtn, () => tryAcceptQuestAtGiver(nearGiver));
+    npcDockEl.appendChild(qBtn);
+  }
+
+  if (nearWorkshop) {
+    const wBtn = document.createElement('button');
+    wBtn.type = 'button';
+    wBtn.className = 'npc-nearby-card';
+    wBtn.style.background = 'rgba(14, 116, 144, 0.92)';
+    wBtn.style.borderColor = '#38bdf8';
+    wBtn.textContent = t('ws_prompt', { village: nearWorkshop.villageName });
+    bindTapSafe(wBtn, () => openWorkshop(nearWorkshop));
+    npcDockEl.appendChild(wBtn);
+  }
 
   if (near) {
     const r = near.npc.role;
     const pill = document.createElement('button');
     pill.type = 'button';
     pill.className = 'npc-nearby-card';
-    pill.textContent = `+ Rekrut ${r.e || ''} ${r.name}`;
+    pill.textContent = `+ ${t('ctrl_recruit')} ${r.e || ''} ${r.name}`;
     bindTapSafe(pill, recruitNearbyNPC);
     npcDockEl.appendChild(pill);
   }
@@ -41848,17 +44483,17 @@ function renderNpcDock() {
     hBtn.type = 'button';
     hBtn.className = 'npc-hitch-card' + (!physics.hitched ? ' free' : '');
     if (hitchAnim.active) {
-      hBtn.textContent = '⏳ Ngepasin Posisi...';
+      hBtn.textContent = '⏳ ' + t('state_dock') + '...';
       hBtn.disabled = true;
     } else if (physics.hitched) {
-      hBtn.textContent = '🔓 Lepas Tali Gerobak';
+      hBtn.textContent = '🔓 ' + t('ctrl_hitch_detach');
     } else if (al && al.ready) {
-      hBtn.textContent = '🔗 Pasang Tali Gerobak';
+      hBtn.textContent = '🔗 ' + t('ctrl_hitch_free');
     } else {
-      hBtn.textContent = !al.alignedYaw ? '🔗 Luruskan Arah Kuda'
-        : !al.alignedLat ? '🔗 Tengahkan di Batang'
-        : al.longErr > 1.25 ? '🔗 Mundur ke Batang Depan'
-        : '🔗 Posisikan di Batang Depan';
+      hBtn.textContent = '🔗 ' + (!al.alignedYaw ? t('ctrl_hitch_align_yaw')
+        : !al.alignedLat ? t('ctrl_hitch_align_lat')
+        : al.longErr > 1.25 ? t('ctrl_hitch_reverse')
+        : t('ctrl_hitch_pos'));
       hBtn.disabled = true;
     }
     bindTapSafe(hBtn, toggleHitch);
@@ -41920,6 +44555,17 @@ const btnHitchEl = document.getElementById('btn-hitch');
 let _lastHitchSig = '';
 function syncHitchUi() {
   if (!btnHitchEl) return;
+  if (!hasCart) {
+    const sig = 'NC_' + storyStage + '_' + getLang();
+    if (sig === _lastHitchSig) return;
+    _lastHitchSig = sig;
+    btnHitchEl.style.display = 'none';
+    if (touchUI && touchUI.setHitchState) {
+      touchUI.setHitchState({ free: false, disabled: true, sub: '' });
+    }
+    return;
+  }
+  if (btnHitchEl.style.display === 'none') btnHitchEl.style.display = '';
   const free = !physics.hitched;
   const movingFast = Math.abs(animator.speed) >= 0.85 || Math.hypot(physics.vel.x, physics.vel.z) >= 0.85;
   const al = (free && !physics.flipped) ? getHitchAlignment() : null;
@@ -41935,22 +44581,22 @@ function syncHitchUi() {
   btnHitchEl.classList.toggle('active-free', free);
   if (physics.flipped) {
     btnHitchEl.disabled = true;
-    btnHitchEl.textContent = '⚠ Terbalik';
+    btnHitchEl.textContent = '⚠ ' + t('ctrl_hitch_flipped');
   } else if (hitchAnim.active) {
     btnHitchEl.disabled = true;
-    btnHitchEl.textContent = '⏳ Ngepasin...';
+    btnHitchEl.textContent = '⏳ ' + t('state_dock') + '...';
   } else if (physics.hitched) {
     btnHitchEl.disabled = movingFast;
-    btnHitchEl.textContent = movingFast ? '🔗 Berhenti Dulu' : '🔓 Lepas Tali [V]';
+    btnHitchEl.textContent = movingFast ? ('🔗 ' + t('ctrl_hitch_stop')) : ('🔓 ' + t('ctrl_hitch_detach'));
   } else if (al.ready) {
     btnHitchEl.disabled = false;
-    btnHitchEl.textContent = '🔗 Pasang Tali [V]';
+    btnHitchEl.textContent = '🔗 ' + t('ctrl_hitch_free');
   } else {
     btnHitchEl.disabled = true;
-    btnHitchEl.textContent = !al.alignedYaw ? '🔗 Luruskan Arah'
-      : !al.alignedLat ? '🔗 Tengahkan Posisi'
-      : al.longErr > 1.25 ? '🔗 Mundur ke Batang'
-      : '🔗 Mundur Pas Batang';
+    btnHitchEl.textContent = '🔗 ' + (!al.alignedYaw ? t('ctrl_hitch_align_yaw')
+      : !al.alignedLat ? t('ctrl_hitch_align_lat')
+      : al.longErr > 1.25 ? t('ctrl_hitch_reverse')
+      : t('ctrl_hitch_pos'));
   }
   if (touchUI && touchUI.setHitchState) {
     const sub = physics.flipped ? 'terbalik'
@@ -41965,13 +44611,13 @@ function syncHitchUi() {
 function unhitchCart(fromFlip = false) {
   if (!fromFlip) {
     if (physics.flipped) {
-      survival.msg = 'Gerobak sedang terbalik!';
+      survival.msg = t('ctrl_hitch_flipped');
       syncVitals();
       return false;
     }
     const movingFast = Math.abs(animator.speed) >= 0.85 || Math.hypot(physics.vel.x, physics.vel.z) >= 0.85;
     if (physics.hitched && movingFast) {
-      survival.msg = 'Hentikan kuda & gerobak dulu sebelum melepas tali.';
+      survival.msg = t('ctrl_hitch_stop');
       syncVitals();
       return false;
     }
@@ -41983,7 +44629,7 @@ function unhitchCart(fromFlip = false) {
   animator.unhitched = true;
   setRopesVisible(false);
   if (!fromFlip) {
-    survival.msg = 'Tali dilepas — kuda bebas bergerak & bisa mundur/putar bebas.';
+    survival.msg = t('msg_unhitched');
     syncVitals();
   }
   _lastDockSig = '';
@@ -42016,7 +44662,7 @@ function finalizeReHitch() {
   if (physics.syncVisual) physics.syncVisual();
   setRopesVisible(true);
   resetRopes();
-  survival.msg = 'Tali terpasang — gerobak siap ditarik kembali.';
+  survival.msg = t('msg_hitched');
   syncVitals();
   _lastDockSig = '';
   _lastHitchSig = '';
@@ -42026,17 +44672,17 @@ function finalizeReHitch() {
 
 function reHitchCart() {
   if (physics.flipped) {
-    survival.msg = 'Balikkan gerobak terlebih dahulu.';
+    survival.msg = t('flip_banner_btn');
     syncVitals();
     return false;
   }
   if (physics.hitched || hitchAnim.active) return true;
   const al = getHitchAlignment();
   if (!al.ready) {
-    if (!al.alignedYaw) survival.msg = 'Luruskan arah hadap kuda searah gerobak dulu.';
-    else if (!al.alignedLat) survival.msg = 'Tengahkan posisi kuda di antara kedua batang depan.';
-    else if (al.longErr > 1.25) survival.msg = 'Mundurkan kuda perlahan hingga masuk di antara dua batang depan.';
-    else survival.msg = 'Posisikan kuda tepat di antara kedua pegangan gerobak depan.';
+    if (!al.alignedYaw) survival.msg = t('ctrl_hitch_align_yaw');
+    else if (!al.alignedLat) survival.msg = t('ctrl_hitch_align_lat');
+    else if (al.longErr > 1.25) survival.msg = t('ctrl_hitch_reverse');
+    else survival.msg = t('ctrl_hitch_pos');
     syncVitals();
     return false;
   }
@@ -42050,7 +44696,7 @@ function reHitchCart() {
   hitchAnim.targetZ = al.targetZ;
   hitchAnim.targetYaw = al.targetYaw;
   animator.docking = { x: al.targetX, z: al.targetZ, yaw: al.targetYaw, arrived: false };
-  survival.msg = 'Kuda mengepasin posisi perlahan ke batang gerobak...';
+  survival.msg = t('msg_docking');
   syncVitals();
   _lastDockSig = '';
   _lastHitchSig = '';
@@ -42060,6 +44706,12 @@ function reHitchCart() {
 }
 
 function toggleHitch() {
+  if (!hasCart) {
+    if (storyStage === 'find_cart' && Math.hypot(animator.x - physics.pos.x, animator.z - physics.pos.z) <= 7.5) {
+      return claimHeroOldCart();
+    }
+    return false;
+  }
   if (physics.hitched) return unhitchCart(false);
   return reHitchCart();
 }
@@ -42092,9 +44744,7 @@ function syncFlipBanner() {
   flipBannerEl.hidden = !show;
   flipBannerEl.style.display = show ? '' : 'none';
   if (fbNpcCountEl) {
-    fbNpcCountEl.textContent = npcN > 0
-      ? `${npcN} NPC siap membantu`
-      : 'Sendirian (lebih berat — rekrut NPC jika ada)';
+    fbNpcCountEl.textContent = npcN > 0 ? String(npcN) : '0';
   }
 }
 
@@ -42110,10 +44760,10 @@ const flipGame = {
   configForCount(npcCount) {
     const c = Math.max(0, Math.min(4, Math.floor(npcCount || 0)));
     const table = [
-      { zoneWidth: 0.18, perfectWidth: 0.06, cursorSpeed: 1.45, gainGood: 14, gainPerfect: 22, missPenalty: 12, decayPerSec: 4.2, label: '0 NPC (Sendirian — Berat!)' },
-      { zoneWidth: 0.26, perfectWidth: 0.09, cursorSpeed: 1.22, gainGood: 20, gainPerfect: 30, missPenalty: 9,  decayPerSec: 2.8, label: '1 NPC Membantu (+Mudah)' },
-      { zoneWidth: 0.34, perfectWidth: 0.12, cursorSpeed: 1.04, gainGood: 26, gainPerfect: 38, missPenalty: 6,  decayPerSec: 1.6, label: '2 NPC Membantu (+Lebih Mudah)' },
-      { zoneWidth: 0.42, perfectWidth: 0.16, cursorSpeed: 0.88, gainGood: 32, gainPerfect: 46, missPenalty: 4,  decayPerSec: 0.8, label: '3 NPC Membantu (Sangat Ringan!)' },
+      { zoneWidth: 0.18, perfectWidth: 0.06, cursorSpeed: 1.45, gainGood: 14, gainPerfect: 22, missPenalty: 12, decayPerSec: 4.2, label: t('flip_solo') },
+      { zoneWidth: 0.26, perfectWidth: 0.09, cursorSpeed: 1.22, gainGood: 20, gainPerfect: 30, missPenalty: 9,  decayPerSec: 2.8, label: t('flip_help', { n: 1 }) },
+      { zoneWidth: 0.34, perfectWidth: 0.12, cursorSpeed: 1.04, gainGood: 26, gainPerfect: 38, missPenalty: 6,  decayPerSec: 1.6, label: t('flip_help', { n: 2 }) },
+      { zoneWidth: 0.42, perfectWidth: 0.16, cursorSpeed: 0.88, gainGood: 32, gainPerfect: 46, missPenalty: 4,  decayPerSec: 0.8, label: t('flip_help', { n: 3 }) },
     ];
     return table[Math.min(3, c)];
   },
@@ -42165,7 +44815,7 @@ const flipGame = {
       flipGameEl.hidden = false;
       flipGameEl.style.display = '';
     }
-    this._setFeedback('Tekan SPASI atau DORONG saat jarum di zona hijau!', 'info');
+    this._setFeedback(t('flip_hint'), 'info');
     this._render();
     _lastDockSig = '';
     renderNpcDock();
@@ -42214,15 +44864,15 @@ const flipGame = {
     const dist = Math.abs(this.cursor - this.zoneCenter);
     if (dist <= cfg.perfectWidth * 0.5) {
       this.progress = Math.min(100, this.progress + cfg.gainPerfect);
-      this._setFeedback(`SEMPURNA! Angkatan kuat (+${cfg.gainPerfect}%)`, 'perfect');
+      this._setFeedback(t('flip_perfect', { p: cfg.gainPerfect }), 'perfect');
       this.zoneCenter = 0.34 + Math.random() * 0.32;
     } else if (dist <= cfg.zoneWidth * 0.5) {
       this.progress = Math.min(100, this.progress + cfg.gainGood);
-      this._setFeedback(`BAGUS! Terus dorong (+${cfg.gainGood}%)`, 'good');
+      this._setFeedback(t('flip_good', { p: cfg.gainGood }), 'good');
       this.zoneCenter = 0.34 + Math.random() * 0.32;
     } else {
       this.progress = Math.max(0, this.progress - cfg.missPenalty);
-      this._setFeedback(`MELESET! (-${cfg.missPenalty}%) Tunggu zona hijau`, 'miss');
+      this._setFeedback(t('flip_miss', { p: cfg.missPenalty }), 'miss');
       this._shake();
     }
     physics.liftProgress = Math.max(0, Math.min(1, this.progress / 100));
@@ -42235,11 +44885,11 @@ const flipGame = {
       const spilledLeft = physics.spilled ? physics.spilled.length : 0;
       survival.msg = spilledLeft > 0
         ? (npcN > 0
-          ? `Gerobak tegak! ${npcN} NPC mulai memungut ${spilledLeft} barang jatuh satu per satu...`
-          : `Gerobak tegak! ${spilledLeft} barang masih jatuh di tanah (rekrut NPC untuk memungutnya).`)
+          ? t('flip_done_spilled', { n: npcN, s: spilledLeft })
+          : t('flip_done_spilled_solo', { s: spilledLeft }))
         : (npcN > 0
-          ? `Gerobak berhasil ditegakkan bersama ${npcN} NPC! Dekati gerobak untuk pasang tali.`
-          : 'Gerobak berhasil ditegakkan! Dekati gerobak untuk pasang tali.');
+          ? t('flip_done_clean', { n: npcN })
+          : t('flip_done_clean_solo'));
       syncVitals();
       syncNpcHud();
       syncHitchUi();
@@ -42261,8 +44911,8 @@ physics.onFlip = () => {
   const dmgRep = physics.wheelReport ? physics.wheelReport() : [];
   const broken = dmgRep.filter((r) => r.detached).length;
   survival.msg = broken > 0
-    ? `Gerobak terguling! Kuda terlepas, ${broken} roda lepas, NPC terjatuh.`
-    : 'Gerobak terguling! Kuda terlepas, ban -20% HP, NPC terjatuh.';
+    ? `${t('flip_banner_text')} (${broken} detached)`
+    : t('flip_banner_text');
   _lastDockSig = '';
   _lastBannerSig = '';
   syncVitals();
@@ -42353,6 +45003,14 @@ bindSteer('btn-right', -1);
 
 window.addEventListener('keydown', (e) => {
   const k = e.key.toLowerCase();
+  if (gameMode === 'menu') return;
+  if (gameMode === 'cutscene') {
+    if (k === ' ' || k === 'enter' || k === 'f' || k === 'e') {
+      e.preventDefault();
+      if (!e.repeat) advanceCutscene();
+    }
+    return;
+  }
   if (k === 'w' || k === 'arrowup') {
     keysHeld.forward = true;
     if (!survival.eating && !survival.drinking && (animator.state === 'graze' || animator.state === 'sleep')) {
@@ -42385,7 +45043,8 @@ window.addEventListener('keydown', (e) => {
     }
   }
   else if (k === 'escape') {
-    if (mapUI.isOpen) { e.preventDefault(); mapUI.close(); }
+    if (workshopOpen) { e.preventDefault(); closeWorkshop(); }
+    else if (mapUI.isOpen) { e.preventDefault(); mapUI.close(); }
     else if (statsPanelEl && !statsPanelEl.hidden) { e.preventDefault(); setStatsPanelOpen(false); }
     else if (settingsPanelEl && !settingsPanelEl.hidden) { e.preventDefault(); setSettingsPanelOpen(false); }
     else if (animator.inspectMode) { e.preventDefault(); setInspectMode(false); }
@@ -42403,7 +45062,7 @@ window.addEventListener('keydown', (e) => {
     }
   }
   else if (k === '3' || k === 'e') doEat();
-  else if (k === '4' || k === 'f') doDrink();
+  else if (k === '4' || k === 'f') { e.preventDefault(); if (!e.repeat) doInteract(); }
   else if (k === 'z') { e.preventDefault(); if (!e.repeat) doSleepToggle(); }
   else if (k === 'm') { e.preventDefault(); if (!e.repeat) mapUI.toggle(); }
   else if (k === 'q') { e.preventDefault(); setInspectMode(true, !e.repeat); }
@@ -42413,14 +45072,6 @@ window.addEventListener('keydown', (e) => {
   else if (k === 'h') releaseLastNPC();
   else if (k === 'v') { e.preventDefault(); if (!e.repeat) toggleHitch(); }
   else if (k === 'x') resetRig();
-  else if (k === 'u') {
-    const p = document.getElementById('upgrade-panel');
-    if (p) {
-      p.dataset.userToggled = '1';
-      p.classList.toggle('collapsed');
-      if (ui && ui.syncToggleText) ui.syncToggleText();
-    }
-  }
 });
 window.addEventListener('keyup', (e) => {
   const k = e.key.toLowerCase();
@@ -42491,7 +45142,7 @@ function updateWheelHpOverlay() {
     el.style.top = Math.round(sy) + 'px';
 
     const valEl = el.querySelector('.whp-val');
-    if (valEl) valEl.textContent = w.detached ? 'LEPAS' : `${hp}/${maxHp}`;
+    if (valEl) valEl.textContent = w.detached ? t('wheel_detached') : `${hp}/${maxHp}`;
     el.className = 'whp-badge ' + (w.detached ? 'dead' : hp >= 70 ? 'ok' : hp >= 35 ? 'warn' : 'crit');
   }
 
@@ -42515,6 +45166,256 @@ function updateWheelHpOverlay() {
   }
 }
 
+// Clickable starter supply consumption + 3D mesh raycast + Hold-Q & Fallen item labels
+function consumeCartSupply(item) {
+  if (!item || !item.supplyKind || item.spilled) return false;
+  const ok = item.supplyKind === 'water'
+    ? survival.drinkFromSupply(item)
+    : survival.eatFromSupply(item);
+  syncVitals();
+  updateCargoLabelOverlay();
+  return ok;
+}
+
+const _supplyRay = new THREE.Raycaster();
+const _supplyPointer = new THREE.Vector2();
+let _supplyDownPt = null;
+renderer.domElement.addEventListener('pointerdown', (e) => {
+  if (animator.inspectMode && !workshopOpen) {
+    _supplyDownPt = { x: e.clientX, y: e.clientY };
+  } else {
+    _supplyDownPt = null;
+  }
+});
+renderer.domElement.addEventListener('pointerup', (e) => {
+  if (!_supplyDownPt || !animator.inspectMode || workshopOpen || !cart || !cart.cargoItems) {
+    _supplyDownPt = null;
+    return;
+  }
+  const distPx = Math.hypot(e.clientX - _supplyDownPt.x, e.clientY - _supplyDownPt.y);
+  _supplyDownPt = null;
+  if (distPx > 12) return;
+  const rect = renderer.domElement.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) return;
+  _supplyPointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+  _supplyPointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+  _supplyRay.setFromCamera(_supplyPointer, camera);
+  const targets = [];
+  for (const it of cart.cargoItems) {
+    if (!it.spilled && !it.hiddenForQuest && it.supplyKind && it.mesh) targets.push(it.mesh);
+  }
+  if (targets.length === 0) return;
+  const hits = _supplyRay.intersectObjects(targets, true);
+  if (!hits.length) return;
+  let obj = hits[0].object;
+  while (obj) {
+    if (obj.userData && obj.userData.cartItem) {
+      consumeCartSupply(obj.userData.cartItem);
+      break;
+    }
+    obj = obj.parent;
+  }
+});
+
+const FALLEN_LABEL_DIST = 11.0;
+const _itemWorldPos = new THREE.Vector3();
+let _tagCartRef = null;
+let _tagItemCount = -1;
+
+function requestWaterBarrelRefill(barrelItem, waterSrc = null) {
+  if (!hasCart || gameMode !== 'play' || workshopOpen || !barrelItem || barrelItem.spilled) return false;
+  const nearWater = waterSrc || (world.findNearestWaterSource
+    ? world.findNearestWaterSource(physics.pos.x, physics.pos.z, 18.0)
+    : null);
+  if (!nearWater) {
+    survival.msg = t('refill_no_water');
+    showToast(survival.msg);
+    syncVitals();
+    return false;
+  }
+  const ch = barrelItem.charges || 0;
+  const maxC = barrelItem.maxCharges || 5;
+  if (ch >= maxC) {
+    survival.msg = t('refill_done', { c: ch, m: maxC });
+    showToast(survival.msg);
+    syncVitals();
+    return false;
+  }
+  if (!party.members || !party.members.length) {
+    survival.msg = t('refill_need_npc');
+    showToast(survival.msg);
+    syncVitals();
+    return false;
+  }
+  if (animator.inspectMode) setInspectMode(false);
+  const res = party.startWaterRefillTask(nearWater, barrelItem, cart, {
+    onProgress: (c, m, mem) => {
+      const nm = (mem && mem.role && mem.role.name) ? mem.role.name : 'NPC';
+      survival.msg = t('refill_step', { npc: nm, c, m });
+      showToast(survival.msg);
+      syncVitals();
+    },
+    onDone: (c, m) => {
+      survival.msg = t('refill_done', { c, m });
+      showToast(survival.msg);
+      syncVitals();
+      saveGameState(true);
+    },
+    onCancel: () => {
+      survival.msg = t('refill_cancelled');
+      showToast(survival.msg);
+      syncVitals();
+    },
+  });
+  if (res && res.ok) {
+    const nm = (res.member && res.member.role && res.member.role.name) ? res.member.role.name : 'NPC';
+    survival.msg = t('refill_started', { npc: nm });
+    showToast(survival.msg);
+    syncVitals();
+    return true;
+  }
+  return false;
+}
+
+function syncCargoTagPool() {
+  if (!cargoLabelOverlayEl) return;
+  const items = (cart && cart.cargoItems) || [];
+  if (_tagCartRef !== cart || _tagItemCount !== items.length) {
+    _tagCartRef = cart;
+    _tagItemCount = items.length;
+    cargoLabelOverlayEl.innerHTML = '';
+    for (const item of items) {
+      const tag = document.createElement('div');
+      tag.className = 'cargo-tag';
+      tag.style.display = 'none';
+      const handleTap = (e) => {
+        if (!animator.inspectMode || workshopOpen || !item.supplyKind || item.spilled) return;
+        const actEl = e.target && e.target.closest ? e.target.closest('[data-act]') : null;
+        if (actEl && actEl.dataset.act === 'refill') {
+          e.preventDefault();
+          e.stopPropagation();
+          requestWaterBarrelRefill(item);
+          return;
+        }
+        if ((actEl && actEl.dataset.act === 'consume') || (!actEl && (item.charges || 0) > 0)) {
+          e.preventDefault();
+          e.stopPropagation();
+          consumeCartSupply(item);
+        }
+      };
+      tag.addEventListener('click', handleTap);
+      item._tagEl = tag;
+      cargoLabelOverlayEl.appendChild(tag);
+    }
+  }
+}
+
+function updateCargoLabelOverlay() {
+  if (!cargoLabelOverlayEl || !cart || !cart.cargoItems) return;
+  syncCargoTagPool();
+  const hideAll = !hasCart || gameMode !== 'play' || workshopOpen || (mapUI && mapUI.isOpen);
+  const vw = Math.max(1, window.innerWidth);
+  const vh = Math.max(1, window.innerHeight);
+  const inspectOn = !!animator.inspectMode && !hideAll;
+  const nearWater = (inspectOn && world.findNearestWaterSource)
+    ? world.findNearestWaterSource(physics.pos.x, physics.pos.z, 18.0)
+    : null;
+  const fetchingNpc = inspectOn && party && party.members
+    ? party.members.find((m) => m.state === 'fetching_water')
+    : null;
+
+  for (const item of cart.cargoItems) {
+    const el = item._tagEl;
+    if (!el) continue;
+    if (hideAll || item.hiddenForQuest) {
+      el.style.display = 'none';
+      continue;
+    }
+
+    const isSpilled = !!item.spilled;
+    let show = false;
+    if (isSpilled) {
+      if (item.mesh) item.mesh.getWorldPosition(_itemWorldPos);
+      else if (item.worldPos) _itemWorldPos.copy(item.worldPos);
+      else continue;
+      const dist = Math.hypot(_itemWorldPos.x - animator.x, _itemWorldPos.z - animator.z);
+      show = dist <= FALLEN_LABEL_DIST || inspectOn;
+    } else {
+      show = inspectOn;
+      if (show && item.mesh) item.mesh.getWorldPosition(_itemWorldPos);
+    }
+
+    if (!show || !item.mesh) {
+      el.style.display = 'none';
+      continue;
+    }
+
+    _projTmp.copy(_itemWorldPos);
+    _projTmp.y += isSpilled ? 0.38 : (item.supplyKind ? 0.44 : 0.34);
+    _projTmp.project(camera);
+    if (_projTmp.z > 1 || _projTmp.z < -1) {
+      el.style.display = 'none';
+      continue;
+    }
+    const sx = (_projTmp.x * 0.5 + 0.5) * vw;
+    const sy = (-_projTmp.y * 0.5 + 0.5) * vh;
+    if (sx < -60 || sx > vw + 60 || sy < -30 || sy > vh + 30) {
+      el.style.display = 'none';
+      continue;
+    }
+
+    const itemName = item.isQuestCargo && quests.activeQuest && quests.activeQuest.cargoName
+      ? quests.activeQuest.cargoName
+      : (item.nameKey ? t(item.nameKey) : (item.name || 'Cargo'));
+
+    let cls = 'cargo-tag';
+    if (isSpilled) cls += ' fallen-item';
+    else if (item.isQuestCargo) cls += ' quest-item';
+    else if (item.supplyKind === 'water') cls += ' supply-water';
+    else if (item.supplyKind === 'food') cls += ' supply-food';
+    const ch = item.charges || 0;
+    const maxCh = item.maxCharges || 5;
+    const canRefillHere = !isSpilled && item.supplyKind === 'water' && nearWater && ch < maxCh;
+    if (!isSpilled && item.supplyKind && inspectOn) {
+      if (ch > 0 || canRefillHere) cls += ' clickable';
+      else cls += ' empty';
+    }
+
+    let badgeHtml = '';
+    if (isSpilled) badgeHtml += `<span class="cq-badge">${t('item_fallen_tag')}</span>`;
+    if (item.isQuestCargo) badgeHtml += `<span class="cq-badge">${t('item_quest_tag')}</span>`;
+    const chargeHtml = (!isSpilled && item.supplyKind)
+      ? ` <span>(${ch}/${maxCh})</span>`
+      : '';
+
+    let hintHtml = '';
+    if (!isSpilled && item.supplyKind && inspectOn) {
+      if (item.supplyKind === 'water') {
+        const acts = [];
+        if (ch > 0) acts.push(`<button type="button" class="cargo-act-btn" data-act="consume">${t('item_click_drink')}</button>`);
+        if (fetchingNpc) acts.push(`<span class="cs-hint">${t('item_refill_active', { c: ch, m: maxCh })}</span>`);
+        else if (nearWater && ch < maxCh) acts.push(`<button type="button" class="cargo-act-btn refill" data-act="refill">${t('item_refill_btn')}</button>`);
+        else if (ch <= 0) acts.push(`<span class="cs-hint">${t('item_empty')}</span>`);
+        hintHtml = acts.length ? `<span class="cargo-tag-actions">${acts.join('')}</span>` : '';
+      } else {
+        hintHtml = ch > 0
+          ? `<span class="cargo-tag-actions"><button type="button" class="cargo-act-btn food" data-act="consume">${t('item_click_eat')}</button></span>`
+          : `<span class="cs-hint">${t('item_empty')}</span>`;
+      }
+    }
+    const nextHtml = `<span class="cargo-tag-row">${badgeHtml}<span>${itemName}${chargeHtml}</span></span>${hintHtml}`;
+
+    if (el.className !== cls) el.className = cls;
+    if (el.dataset.html !== nextHtml) {
+      el.dataset.html = nextHtml;
+      el.innerHTML = nextHtml;
+    }
+    el.style.display = '';
+    el.style.left = Math.round(sx) + 'px';
+    el.style.top = Math.round(sy) + 'px';
+  }
+}
+
 let last = performance.now();
 let camPrevYaw = animator.yaw;
 let _sleepZTimer = 0;
@@ -42522,14 +45423,84 @@ const _sleepHeadW = new THREE.Vector3();
 window.__manualSim = false;
 
 function stepSim(dt) {
-  // --- kondisi kuda dihitung sebelum gerak biar limiter berlaku di frame sama ---
+  if (gameMode === 'menu') {
+    animator.menuIdleMode = true;
+    animator.setSteer(0);
+    animator.setThrottle(0);
+    animator.speed = 0;
+    animator.targetSpeed = 0;
+    animator.update(dt);
+    world.setCartPose(physics.pos.x, physics.pos.z, physics.yaw);
+    world.update(animator.x, dt, animator.z, animator.yaw);
+    scene.updateMatrixWorld(true);
+    readAnchors();
+    if (physics.syncVisual) physics.syncVisual();
+    if (physics.hitched) {
+      towL.update(dt, anchors.a, anchors.b);
+      towR.update(dt, anchors.c, anchors.d);
+      traceL.update(dt, anchors.gL, anchors.stL);
+      traceR.update(dt, anchors.gR, anchors.stR);
+      reinL.update(dt, anchors.bitL, anchors.seat);
+      reinR.update(dt, anchors.bitR, anchors.seat);
+    }
+    _menuCamT += dt;
+    controls.target.set(
+      _menuCamTarget.x + Math.sin(_menuCamT * 0.22) * 0.25,
+      _menuCamTarget.y,
+      _menuCamTarget.z + Math.cos(_menuCamT * 0.18) * 0.18
+    );
+    camera.position.set(
+      _menuCamPos.x + Math.sin(_menuCamT * 0.19) * 0.55,
+      _menuCamPos.y + Math.sin(_menuCamT * 0.31) * 0.12,
+      _menuCamPos.z + Math.cos(_menuCamT * 0.21) * 0.45
+    );
+    controls.update();
+    if (world.syncCamera) world.syncCamera(camera);
+    updateWheelHpOverlay();
+    updateCargoLabelOverlay();
+    renderer.render(scene, camera);
+    return;
+  }
+  if (gameMode === 'cutscene') {
+    animator.menuIdleMode = false;
+    animator.setSteer(0);
+    animator.setThrottle(0);
+    animator.speed = 0;
+    animator.targetSpeed = 0;
+    animator.update(dt);
+    if (_cutsceneGuardNpc && _cutsceneGuardNpc.root && HC.animateNPC) {
+      HC.animateNPC(_cutsceneGuardNpc.root, dt);
+    }
+    world.update(animator.x, dt, animator.z, animator.yaw);
+    scene.updateMatrixWorld(true);
+    if (physics.syncVisual) physics.syncVisual();
+    const kCs = 1 - Math.exp(-5.0 * dt);
+    controls.target.lerp(_csCamTarget, kCs);
+    camera.position.lerp(_csCamPos, kCs);
+    controls.update();
+    if (world.syncCamera) world.syncCamera(camera);
+    updateWheelHpOverlay();
+    updateCargoLabelOverlay();
+    renderer.render(scene, camera);
+    return;
+  }
+  animator.menuIdleMode = false;
+  if (storyStage === 'to_radnar' && !_radnarCutscenePlayed && world.VILLAGES && world.VILLAGES[0]) {
+    const rad = world.VILLAGES[0];
+    if (Math.hypot(animator.x - rad.x, animator.z - rad.z) <= 22.0) {
+      if (startRadnarCutscene()) return;
+    }
+  }
+  // --- horse controls & workshop lock ---
   const wasActing = survival.eating || survival.drinking;
   const acting = wasActing;
-  // Baik PC maupun mobile: kuda DIAM jika tombol maju/mundur atau analog tidak ditekan.
-  const pcForward = !!(keysHeld.forward || btnForwardHeld || window.__forceForward);
-  const pcBackward = !!(keysHeld.backward || btnBackwardHeld || window.__forceBackward);
-  const stickActive = !!(touchUI.active && touchUI.joystick && touchUI.joystick.pad && touchUI.joystick.pad.active);
-  if (hitchAnim.active) {
+  const pcForward = !workshopOpen && !!(keysHeld.forward || btnForwardHeld || window.__forceForward);
+  const pcBackward = !workshopOpen && !!(keysHeld.backward || btnBackwardHeld || window.__forceBackward);
+  const stickActive = !workshopOpen && !!(touchUI.active && touchUI.joystick && touchUI.joystick.pad && touchUI.joystick.pad.active);
+  if (workshopOpen) {
+    animator.setSteer(0);
+    animator.setThrottle(0);
+  } else if (hitchAnim.active) {
     // Sedang ngepasin perlahan ke pangkal batang gerobak
   } else if (acting) {
     animator.setThrottle(0);
@@ -42559,7 +45530,7 @@ function stepSim(dt) {
   const stillActing = survival.eating || survival.drinking;
   if (wasActing && !stillActing) animator.setState(runLatched ? 'run' : 'walk');
 
-  animator.unhitched = !physics.hitched;
+  animator.unhitched = !hasCart || !physics.hitched;
   animator.update(dt);
   if (world.keepHorseInValley) world.keepHorseInValley(animator, dt);
   if (world.resolveHorseCollision) {
@@ -42603,21 +45574,40 @@ function stepSim(dt) {
   world.setCartPose(physics.pos.x, physics.pos.z, physics.yaw);
   world.update(animator.x, dt, animator.z, animator.yaw);
   if (vignetteEl) vignetteEl.classList.toggle('night-mist', world.currentMoodKey === 'night');
-  party.update(animator.x, animator.z, animator.yaw, dt, cart, physics);
+  party.hasCart = hasCart;
+  party.update(animator.x, animator.z, animator.yaw, dt, cart, hasCart ? physics : null);
   mobs.update(dt, {
     animator,
     physics,
+    hasCart,
+    horseHp: survival.hp,
     party,
     camera,
     world,
     onCartAttacked: (dmg, variant) => {
-      const label = variant === 'big' ? 'Bandit Besar' : 'Bandit';
-      survival.msg = `⚠️ ${label} menyerang gerobak (-${dmg} HP roda)! Turunkan NPC untuk melawan!`;
+      const label = t(variant === 'big' ? 'bandit_big' : 'bandit_small');
+      survival.msg = t('msg_cart_attacked', { who: label, dmg });
+      syncVitals();
+    },
+    onHorseAttacked: (dmg, variant) => {
+      const label = t(variant === 'big' ? 'bandit_big' : 'bandit_small');
+      survival.hp = Math.max(0, survival.hp - dmg);
+      survival.msg = t('msg_horse_attacked', { who: label, dmg });
+      showToast(survival.msg);
+      syncVitals();
+    },
+    onMobRammed: (mob, dmg) => {
+      const who = mob && mob.kind === 'bandit'
+        ? t(mob.variant === 'big' ? 'bandit_big' : 'bandit_small')
+        : ((mob && mob.kind) || 'Mob');
+      const msg = t('msg_ram_hit', { who, dmg });
+      survival.msg = msg;
+      showToast(msg);
       syncVitals();
     },
     onNightAmbush: (list) => {
       const n = (list && list.length) || 1;
-      const msg = `🌙⚠️ ${n} Bandit malam menghadang di jalan!`;
+      const msg = t('msg_ambush', { n });
       survival.msg = msg;
       showToast(msg);
       syncVitals();
@@ -42637,13 +45627,33 @@ function stepSim(dt) {
   // Quest antar-desa, marker NPC [!]/[?], & peta mini
   syncQuestNpcMarkers(dt);
   const nearVillage = quests.getNearbyVillage(animator.x, animator.z);
-  quests.update(animator.x, animator.z, physics, (done) => {
+  quests.update(animator.x, animator.z, hasCart ? physics : null, (done) => {
     if (HC.clearQuestCargoFromCart) HC.clearQuestCargoFromCart(cart, physics);
-    const msg = `🎉 ${done.cargoName} tiba kepada ${done.receiverName || done.toName} di ${done.toName}! +${done.rewardGold} Emas & perbaikan roda +25 HP!`;
+    if (party.clearQuestPassengers) party.clearQuestPassengers(cart);
+    if (done.rewardMaterials && store.addMaterials) store.addMaterials(done.rewardMaterials);
+    const matTxt = done.rewardMaterials
+      ? Object.entries(done.rewardMaterials).map(([k, n]) => {
+          const d = MATERIAL_DEFS[k];
+          return `${d ? d.icon : ''}${n} ${d ? t(d.nameKey) : k}`;
+        }).join(', ')
+      : '';
+    const toastKey = done.questType === 'passenger' ? 'quest_pass_complete_toast' : 'quest_complete_toast';
+    const msg = t(toastKey, {
+      cargo: done.cargoName,
+      receiver: done.receiverName || done.toName,
+      to: done.toName,
+      gold: done.rewardGold,
+      mats: matTxt || 'Materials',
+    });
     survival.msg = msg;
     showToast(msg);
     syncVitals();
+    if (ui && ui.refresh && ui.isOpen && ui.isOpen()) ui.refresh();
+    _tagCartRef = null;
+    _tagItemCount = -1;
     _lastQuestSig = '';
+    _lastDockSig = '';
+    saveGameState(true);
   }, party.wild);
   renderQuestHud(nearVillage);
   mapUI.update(animator.x, animator.z, animator.yaw, physics.pos.x, physics.pos.z, quests.activeQuest, nearVillage);
@@ -42652,50 +45662,54 @@ function stepSim(dt) {
   // gerobak ditarik lewat tali (traces) + dibimbing batang (thills)
   scene.updateMatrixWorld(true);
   readAnchors();
-  physics.update(dt, animator.x, animator.speed, animator.z, animator.yaw, {
-    collarL: anchors.a, collarR: anchors.c,
-    girthL: anchors.gL, girthR: anchors.gR
-  });
+  if (hasCart) {
+    physics.update(dt, animator.x, animator.speed, animator.z, animator.yaw, {
+      collarL: anchors.a, collarR: anchors.c,
+      girthL: anchors.gL, girthR: anchors.gR
+    });
 
-  if (physics.hitched && !physics.flipped && physics._envHit && physics._envHit.hit) {
-    const tx = animator.x - physics.pos.x;
-    const tz = animator.z - physics.pos.z;
-    const tDist = Math.hypot(tx, tz);
-    const maxTether = HITCH_DIST + 0.40;
-    if (tDist > maxTether && tDist > 1e-4) {
-      const nx = tx / tDist, nz = tz / tDist;
-      animator.x = physics.pos.x + nx * maxTether;
-      animator.z = physics.pos.z + nz * maxTether;
-      const vOut = animator.speed * (animator.forwardX * nx + animator.forwardZ * nz);
-      if (vOut > 0) animator.speed *= 0.20;
-      if (world.resolveHorseCollision) world.resolveHorseCollision(animator);
-      if (animator.horse && animator.horse.root) {
-        animator.horse.root.position.x = animator.x;
-        animator.horse.root.position.z = animator.z;
+    if (physics.hitched && !physics.flipped && physics._envHit && physics._envHit.hit) {
+      const tx = animator.x - physics.pos.x;
+      const tz = animator.z - physics.pos.z;
+      const tDist = Math.hypot(tx, tz);
+      const maxTether = HITCH_DIST + 0.40;
+      if (tDist > maxTether && tDist > 1e-4) {
+        const nx = tx / tDist, nz = tz / tDist;
+        animator.x = physics.pos.x + nx * maxTether;
+        animator.z = physics.pos.z + nz * maxTether;
+        const vOut = animator.speed * (animator.forwardX * nx + animator.forwardZ * nz);
+        if (vOut > 0) animator.speed *= 0.20;
+        if (world.resolveHorseCollision) world.resolveHorseCollision(animator);
+        if (animator.horse && animator.horse.root) {
+          animator.horse.root.position.x = animator.x;
+          animator.horse.root.position.z = animator.z;
+        }
       }
     }
-  }
 
-  updateShafts(dt);
+    updateShafts(dt);
 
-  if (hitchAnim.active) {
-    hitchAnim.elapsed += dt;
-    physics.unhitchedDroop = HC.damp(physics.unhitchedDroop || 0, 0, 7.5, dt);
-    if (physics.syncVisual) physics.syncVisual();
-    if ((animator.docking && animator.docking.arrived) || hitchAnim.elapsed >= 2.2) {
-      finalizeReHitch();
+    if (hitchAnim.active) {
+      hitchAnim.elapsed += dt;
+      physics.unhitchedDroop = HC.damp(physics.unhitchedDroop || 0, 0, 7.5, dt);
+      if (physics.syncVisual) physics.syncVisual();
+      if ((animator.docking && animator.docking.arrived) || hitchAnim.elapsed >= 2.2) {
+        finalizeReHitch();
+      }
     }
-  }
 
-  scene.updateMatrixWorld(true);
-  readAnchors();
-  if (physics.hitched) {
-    towL.update(dt, anchors.a, anchors.b);
-    towR.update(dt, anchors.c, anchors.d);
-    traceL.update(dt, anchors.gL, anchors.stL);
-    traceR.update(dt, anchors.gR, anchors.stR);
-    reinL.update(dt, anchors.bitL, anchors.seat);
-    reinR.update(dt, anchors.bitR, anchors.seat);
+    scene.updateMatrixWorld(true);
+    readAnchors();
+    if (physics.hitched) {
+      towL.update(dt, anchors.a, anchors.b);
+      towR.update(dt, anchors.c, anchors.d);
+      traceL.update(dt, anchors.gL, anchors.stL);
+      traceR.update(dt, anchors.gR, anchors.stR);
+      reinL.update(dt, anchors.bitL, anchors.seat);
+      reinR.update(dt, anchors.bitR, anchors.seat);
+    }
+  } else {
+    if (physics.syncVisual) physics.syncVisual();
   }
 
   flipGame.step(dt);
@@ -42704,58 +45718,67 @@ function stepSim(dt) {
 
   const gyHorse = world.terrainHeightAt ? world.terrainHeightAt(animator.x, animator.z) : 0;
   horseBlob.position.set(animator.x - Math.cos(animator.yaw) * 0.15, gyHorse + 0.02, animator.z + Math.sin(animator.yaw) * 0.15);
+  cartBlob.visible = hasCart || storyStage === 'find_cart';
   cartBlob.position.set(cart.root.position.x, (world.terrainHeightAt ? world.terrainHeightAt(cart.root.position.x, cart.root.position.z) : 0) + 0.02, cart.root.position.z);
 
   const inspAllowed = canInspectCart();
   if (animator.inspectMode && !inspAllowed) setInspectMode(false);
-  if (btnInspectEl) btnInspectEl.disabled = !inspAllowed;
+  if (btnInspectEl) {
+    btnInspectEl.disabled = !inspAllowed;
+    btnInspectEl.style.display = hasCart ? '' : 'none';
+  }
   if (touchUI && touchUI.setInspectDisabled) touchUI.setInspectDisabled(!inspAllowed);
 
-  const panelOpenMobile = isPortraitMobile() && panelEl && !panelEl.classList.contains('collapsed');
-  // Saat Q Inspect ditahan (hold), kamera bergeser fokus ke gerobak + roda, dan saat dilepas kembali ke kamera sebelumnya
-  const focusX = animator.inspectMode
-    ? HC.lerp(animator.x, physics.pos.x, 0.85)
-    : (animator.x - animator.forwardX * 1.2);
-  const focusZ = animator.inspectMode
-    ? HC.lerp(animator.z, physics.pos.z, 0.85)
-    : (animator.z - animator.forwardZ * 1.2);
-  const gyFocus = world.terrainHeightAt ? world.terrainHeightAt(focusX, focusZ) : 0;
-  followTarget.set(focusX, gyFocus + (panelOpenMobile ? 0.35 : (animator.inspectMode ? 0.85 : 1.25)), focusZ);
+  if (workshopOpen) {
+    if (_wsRecord) computeWorkshopCamera(_wsRecord);
+    const kWs = 1 - Math.exp(-7.5 * dt);
+    controls.target.lerp(_wsCamGoalTarget, kWs);
+    camera.position.lerp(_wsCamGoalPos, kWs);
+  } else {
+    // Hold-Q Inspect focuses camera cleanly onto cart & wheels; release returns smoothly
+    const focusX = animator.inspectMode
+      ? HC.lerp(animator.x, physics.pos.x, 0.85)
+      : (animator.x - animator.forwardX * 1.2);
+    const focusZ = animator.inspectMode
+      ? HC.lerp(animator.z, physics.pos.z, 0.85)
+      : (animator.z - animator.forwardZ * 1.2);
+    const gyFocus = world.terrainHeightAt ? world.terrainHeightAt(focusX, focusZ) : 0;
+    followTarget.set(focusX, gyFocus + (animator.inspectMode ? 0.85 : 1.25), focusZ);
 
-  // chase-cam: kamera ikut berputar mengikuti heading kuda, jadi rig selalu ke-frame saat belok
-  const dYawCam = animator.yaw - camPrevYaw;
-  camPrevYaw = animator.yaw;
-  if (Math.abs(dYawCam) > 1e-5) {
-    const ox = camera.position.x - controls.target.x;
-    const oz = camera.position.z - controls.target.z;
-    const cc = Math.cos(dYawCam), ss = Math.sin(dYawCam);
-    camera.position.x = controls.target.x + ox * cc + oz * ss;
-    camera.position.z = controls.target.z - ox * ss + oz * cc;
-  }
-
-  const kRate = animator.inspectMode ? 7.5 : (_inspectReturning ? 8.5 : 4.5);
-  const k = 1 - Math.exp(-kRate * dt);
-  const dx = (followTarget.x - controls.target.x) * k;
-  const dy = (followTarget.y - controls.target.y) * k;
-  const dz = (followTarget.z - controls.target.z) * k;
-  controls.target.x += dx; controls.target.y += dy; controls.target.z += dz;
-  camera.position.x += dx; camera.position.y += dy; camera.position.z += dz;
-
-  if (animator.inspectMode) {
-    _inspectWantOff.copy(_inspectTargetLocalOff).applyAxisAngle(_upY, animator.yaw);
-    _inspectCurOff.copy(camera.position).sub(controls.target);
-    _inspectCurOff.lerp(_inspectWantOff, 1 - Math.exp(-7.5 * dt));
-    camera.position.copy(controls.target).add(_inspectCurOff);
-  } else if (_inspectReturning && _inspectHasSaved) {
-    _inspectWantOff.copy(_inspectSavedLocalOff).applyAxisAngle(_upY, animator.yaw);
-    _inspectCurOff.copy(camera.position).sub(controls.target);
-    _inspectCurOff.lerp(_inspectWantOff, 1 - Math.exp(-8.5 * dt));
-    if (_inspectCurOff.distanceTo(_inspectWantOff) < 0.04) {
-      _inspectCurOff.copy(_inspectWantOff);
-      _inspectReturning = false;
-      _inspectHasSaved = false;
+    const dYawCam = animator.yaw - camPrevYaw;
+    camPrevYaw = animator.yaw;
+    if (Math.abs(dYawCam) > 1e-5) {
+      const ox = camera.position.x - controls.target.x;
+      const oz = camera.position.z - controls.target.z;
+      const cc = Math.cos(dYawCam), ss = Math.sin(dYawCam);
+      camera.position.x = controls.target.x + ox * cc + oz * ss;
+      camera.position.z = controls.target.z - ox * ss + oz * cc;
     }
-    camera.position.copy(controls.target).add(_inspectCurOff);
+
+    const kRate = animator.inspectMode ? 7.5 : (_inspectReturning ? 8.5 : 4.5);
+    const k = 1 - Math.exp(-kRate * dt);
+    const dx = (followTarget.x - controls.target.x) * k;
+    const dy = (followTarget.y - controls.target.y) * k;
+    const dz = (followTarget.z - controls.target.z) * k;
+    controls.target.x += dx; controls.target.y += dy; controls.target.z += dz;
+    camera.position.x += dx; camera.position.y += dy; camera.position.z += dz;
+
+    if (animator.inspectMode) {
+      _inspectWantOff.copy(_inspectTargetLocalOff).applyAxisAngle(_upY, animator.yaw);
+      _inspectCurOff.copy(camera.position).sub(controls.target);
+      _inspectCurOff.lerp(_inspectWantOff, 1 - Math.exp(-7.5 * dt));
+      camera.position.copy(controls.target).add(_inspectCurOff);
+    } else if (_inspectReturning && _inspectHasSaved) {
+      _inspectWantOff.copy(_inspectSavedLocalOff).applyAxisAngle(_upY, animator.yaw);
+      _inspectCurOff.copy(camera.position).sub(controls.target);
+      _inspectCurOff.lerp(_inspectWantOff, 1 - Math.exp(-8.5 * dt));
+      if (_inspectCurOff.distanceTo(_inspectWantOff) < 0.04) {
+        _inspectCurOff.copy(_inspectWantOff);
+        _inspectReturning = false;
+        _inspectHasSaved = false;
+      }
+      camera.position.copy(controls.target).add(_inspectCurOff);
+    }
   }
 
   controls.update();
@@ -42779,7 +45802,7 @@ function stepSim(dt) {
     : hitchAnim.active ? 'dock'
     : animator.speed < -0.08 ? 'rev'
     : animator.state;
-  const label = st === 'dock' ? 'NGEPASIN' : st === 'rev' ? 'MUNDUR' : (stateLabel[st] || st.toUpperCase());
+  const label = t(`state_${st}`) || st.toUpperCase();
   if (hudState) hudState.textContent = label;
   for (const [m, id] of [['walk','btn-walk'],['rev','btn-rev'],['run','btn-run'],['jump','btn-jump'],['graze','btn-graze'],['sleep','btn-sleep']]) {
     const b = document.getElementById(id);
@@ -42787,30 +45810,36 @@ function stepSim(dt) {
   }
   if (btnSleepEl) btnSleepEl.classList.toggle('active', animator.state === 'sleep');
   if (touchUI && touchUI.setSleepState) touchUI.setSleepState(animator.state === 'sleep');
-  if (hudSpeed) hudSpeed.textContent = (Math.abs(animator.speed) * 3.6).toFixed(1) + ' km/j';
+  if (hudSpeed) hudSpeed.textContent = (Math.abs(animator.speed) * 3.6).toFixed(1) + ' km/h';
   syncVitals();
   if (hudHead) {
     const st2 = animator.steer;
-    hudHead.textContent = st2 > 0.12 ? 'BELOK KIRI' : st2 < -0.12 ? 'BELOK KANAN' : 'LURUS';
+    hudHead.textContent = st2 > 0.12 ? t('steer_left') : st2 < -0.12 ? t('steer_right') : t('steer_straight');
   }
   if (hudRoll) {
     const deg = (physics.roll * 180 / Math.PI).toFixed(0);
-    hudRoll.textContent = deg + '°' + (physics.flipped ? ' — TERBALIK' : '');
+    hudRoll.textContent = deg + '°' + (physics.flipped ? ` — ${t('flipped_tag')}` : '');
     hudRoll.style.color = physics.flipped ? '#c0392b' : '';
   }
   if (hudCargo) {
-    const total = cart.cargoItems.length;
-    const spilled = physics.spilled.length;
-    const inBed = total - spilled;
-    const pCount = party.members.filter((m) => m.state === 'seated').length;
-    let maxDy = 0;
-    for (const it of cart.cargoItems) {
-      if (!it.spilled) maxDy = Math.max(maxDy, it.localPos.y - it.floorY);
+    if (!hasCart) {
+      hudCargo.textContent = storyStage === 'find_cart' ? t('story_obj_cart') : '—';
+      hudCargo.style.color = '';
+    } else {
+      const total = cart.cargoItems.length;
+      const spilled = physics.spilled.length;
+      const inBed = total - spilled;
+      const pCount = party.members.filter((m) => m.state === 'seated').length
+        + (party.questPassengers ? party.questPassengers.length : 0);
+      let maxDy = 0;
+      for (const it of cart.cargoItems) {
+        if (!it.spilled) maxDy = Math.max(maxDy, it.localPos.y - it.floorY);
+      }
+      hudCargo.textContent = spilled > 0
+        ? `${pCount} npc · ${inBed}/${total} (${spilled} fallen)`
+        : `${pCount} npc · ${inBed}/${total} · ${(maxDy * 100).toFixed(0)}cm`;
+      hudCargo.style.color = spilled > 0 ? '#f87171' : '';
     }
-    hudCargo.textContent = spilled > 0
-      ? pCount + ' org • ' + inBed + '/' + total + ' brg (' + spilled + ' jatuh)'
-      : pCount + ' org • ' + inBed + '/' + total + ' brg • goyang ' + (maxDy * 100).toFixed(0) + 'cm';
-    hudCargo.style.color = spilled > 0 ? '#f87171' : '';
   }
   if (hudWheel) {
     const rep = physics.wheelReport ? physics.wheelReport() : [];
@@ -42818,18 +45847,32 @@ function stepSim(dt) {
     const parts = rep.map((r) => {
       worst = Math.min(worst, r.hp);
       if (r.detached) lost++;
-      return r.hp;
+      return r.detached ? '✕' : String(Math.round(r.hp));
     });
     hudWheel.textContent = lost > 0
-      ? parts.join(' · ') + '  (' + lost + ' lepas)'
+      ? `${parts.join(' · ')} (${lost} ${t('wheel_detached').toLowerCase()})`
       : parts.join(' · ');
     hudWheel.style.color = lost > 0 ? '#c084fc' : worst <= 0 ? '#f87171' : worst < 45 ? '#fb923c' : '';
   }
   if (hudGold) hudGold.textContent = `${quests.gold} G`;
   if (hudTime && world.getTimeLabel) hudTime.textContent = world.getTimeLabel();
 
+  if (portraitRender && ((portraitRender.frameCount++ & 3) === 0)) {
+    const nowT = world.totalTime || 0;
+    const { bust } = portraitRender;
+    bust.root.rotation.y = 0.12 + Math.sin(nowT * 0.9) * 0.08 + (animator.steer || 0) * 0.22;
+    bust.root.rotation.z = -(animator.sleepBlend || 0) * 0.28 + Math.sin(nowT * 1.4) * 0.02;
+    if (bust.ears && bust.ears.length >= 2) {
+      const eBob = Math.sin(nowT * 2.1) * 0.06;
+      bust.ears[0].rotation.z = 0.08 + eBob;
+      bust.ears[1].rotation.z = -0.08 - eBob;
+    }
+    portraitRender.renderer.render(portraitRender.scene, portraitRender.camera);
+  }
+
   renderer.render(scene, camera);
   updateWheelHpOverlay();
+  updateCargoLabelOverlay();
 }
 
 function frame(now) {
@@ -42837,7 +45880,7 @@ function frame(now) {
   last = now;
   if (!window.__manualSim) {
     if (window.__freeze) {
-      renderer.render(scene, camera);          // bekukan fisika, tapi compositor tetap dapat frame
+      renderer.render(scene, camera);
     } else {
       const dt = Math.min(0.033, Math.max(0.001, rawDt));
       stepSim(dt);
@@ -42846,9 +45889,16 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 
+applyTranslations();
+enterMainMenu();
+
 window.RIG = {
   scene, camera, renderer, controls, animator, physics, world, cart, horse,
-  store, ui, party, mobs, quests, mapUI, toggleInspectMode, setInspectMode, canInspectCart, doSleepToggle,
+  store, horseStats, ui, party, mobs, quests, mapUI,
+  toggleInspectMode, setInspectMode, canInspectCart, doSleepToggle, doInteract,
+  openWorkshop, closeWorkshop, getLang, setLang,
+  startNewGame, loadGameState, saveGameState, enterMainMenu, advanceCutscene, claimHeroOldCart,
+  requestWaterBarrelRefill, getHasCart: () => hasCart, getStoryStage: () => storyStage, getGameMode: () => gameMode,
   rebuildCartFromStore, stepSim, ropes: { towL, towR, traceL, traceR, reinL, reinR }
 };
 window.SURVIVAL = survival;

@@ -279,25 +279,69 @@ function buildPassengers(body, capSpec = {}) {
   return list;
 }
 
+function makeWaterBarrelMesh() {
+  const b = new V(S);
+  for (let y = -5; y <= 5; y++) {
+    const r = 4.4 - Math.abs(y) * 0.14;
+    const isHoop = Math.abs(y) === 4 || Math.abs(y) === 1;
+    const col = isHoop ? P.ironDark : (Math.abs(y) === 2 ? 0x2563eb : P.oakMid);
+    b.cylY(0, 0, y, y, r, col, 0, 0.04);
+  }
+  // Open/shimmering fresh turquoise water disc on top + brass tap spout on side
+  b.cylY(0, 0, 5, 5, 3.6, 0x38bdf8, 0, 0.02);
+  b.cylY(0, 0, 5.2, 5.2, 2.4, 0x7dd3fc, 0, 0.01);
+  b.box(-0.7, 5, -0.7, 0.7, 6, 0.7, P.brass, 0.01);
+  b.box(3.8, -1, -0.6, 5.0, 0, 0.6, P.brass, 0.01);
+  b.box(4.5, -2, -0.5, 5.1, -1, 0.5, P.brass, 0.01);
+  return b.build(0, 0, 0);
+}
+
+function makeFruitBoxMesh() {
+  const b = new V(S);
+  // Slatted wooden pine box
+  b.box(-4.4, -3.2, -3.8, 4.4, -2.2, 3.8, P.oakMid, 0.04);
+  b.box(-4.4, -2.2, -3.8, -3.6, 1.4, 3.8, P.oakLite, 0.04);
+  b.box(3.6, -2.2, -3.8, 4.4, 1.4, 3.8, P.oakLite, 0.04);
+  b.box(-3.6, -2.2, -3.8, 3.6, 1.4, -3.0, P.oakMid, 0.04);
+  b.box(-3.6, -2.2, 3.0, 3.6, 1.4, 3.8, P.oakMid, 0.04);
+  // Colorful fresh apples, oranges, pears & leaves packed inside
+  const fruits = [
+    [-2.0, 0.2, -1.5, 1.35, 0xef4444],
+    [ 0.2, 0.4, -1.4, 1.40, 0xf97316],
+    [ 2.2, 0.2, -1.2, 1.30, 0xfacc15],
+    [-1.8, 0.3,  1.4, 1.35, 0xf97316],
+    [ 0.4, 0.5,  1.5, 1.35, 0xef4444],
+    [ 2.1, 0.2,  1.3, 1.30, 0xef4444],
+    [-0.7, 1.6,  0.0, 1.30, 0xfacc15],
+    [ 1.2, 1.5, -0.1, 1.25, 0xef4444],
+  ];
+  for (const [fx, fy, fz, fr, col] of fruits) {
+    b.ellipsoid(fx, fy, fz, fr, fr * 0.9, fr, col, 0.05);
+  }
+  b.box(-2.4, 1.4, -1.9, -1.6, 2.0, -1.1, 0x22c55e, 0.02);
+  b.box(0.0, 2.1, -0.2, 0.8, 2.7, 0.6, 0x16a34a, 0.02);
+  return b.build(0, 0, 0);
+}
+
 function buildCargoItems(capTier = 1) {
-  // Cargo ditempatkan di kompartemen DEPAN (x: 2..22, z: -13..13) dengan tata letak organik
-  // dan terlindungi rapat di bawah pagar kayu samping.
+  // Cargo ditempatkan di kompartemen DEPAN (x: 2..22, z: -13..13) dengan tata letak organik.
+  // Item starter mencakup perbekalan kuda (Tong Air & Kotak Buah) di sisi depan agar mudah diklik saat tekan Q!
   const allDefs = [
-    // Lv1 (6 barang) — bervariasi, asimetris alami, pas di dalam pagar
-    { build: () => makeBarrelMesh(P.oakMid), pos: [6.2, 12.1, -8.2], rot: [0, 0.22, 0], r: 5.0 },
-    { build: () => makeCrateMesh(5, 4, 5, P.oakLite, P.oakDark), pos: [15.4, 10.1, -7.6], rot: [0, 0.14, 0], r: 4.8 },
-    { build: () => makeSackMesh(P.sack), pos: [10.6, 9.6, 7.8], rot: [0.04, -0.34, 0], r: 4.0 },
-    { build: () => makeTarpMesh(), pos: [19.4, 9.2, 0.4], rot: [0, 0.18, 0], r: 3.8 },
-    { build: () => makeCrateMesh(4, 3.5, 4, P.oakMid, P.oakDark), pos: [6.4, 9.6, 7.4], rot: [0, -0.19, 0], r: 4.3 },
-    { build: () => makeSackMesh(P.canvas), pos: [11.2, 9.6, -1.2], rot: [0.06, 0.42, 0], r: 3.9 },
-    // Lv2 (+2 = 8) — peti perjalanan & tong persediaan
-    { build: () => makeTreasureChestMesh(), pos: [16.2, 9.1, 7.2], rot: [0, -0.26, 0], r: 4.5 },
-    { build: () => makeBarrelMesh(P.oakDark), pos: [6.0, 12.1, 0.5], rot: [0, 0.35, 0], r: 4.9 },
+    // Lv1 (6 barang): Starter perbekalan kuda + perlengkapan ekspedisi
+    { build: () => makeWaterBarrelMesh(), pos: [18.0, 11.4, -7.8], rot: [0, 0.14, 0], r: 4.5, nameKey: 'item_water_barrel', supplyKind: 'water', charges: 5, maxCharges: 5 },
+    { build: () => makeFruitBoxMesh(), pos: [18.0, 9.6, 7.6], rot: [0, -0.16, 0], r: 4.6, nameKey: 'item_fruit_box', supplyKind: 'food', charges: 5, maxCharges: 5 },
+    { build: () => makeBarrelMesh(P.oakDark), pos: [6.0, 12.1, -8.2], rot: [0, 0.22, 0], r: 5.0, nameKey: 'item_oil_cask' },
+    { build: () => makeSackMesh(P.sack), pos: [10.4, 9.6, 7.8], rot: [0.04, -0.34, 0], r: 4.0, nameKey: 'item_oat_sack' },
+    { build: () => makeCrateMesh(4, 3.5, 4, P.oakMid, P.oakDark), pos: [6.4, 9.6, 7.4], rot: [0, -0.19, 0], r: 4.3, nameKey: 'item_hay_bale' },
+    { build: () => makeTarpMesh(), pos: [11.2, 9.2, -1.0], rot: [0, 0.18, 0], r: 3.8, nameKey: 'item_travel_tarp' },
+    // Lv2 (+2 = 8)
+    { build: () => makeTreasureChestMesh(), pos: [14.2, 9.1, 0.6], rot: [0, -0.26, 0], r: 4.5, nameKey: 'item_storage_chest' },
+    { build: () => makeCrateMesh(5, 4, 5, P.oakLite, P.oakDark), pos: [6.0, 10.1, 0.5], rot: [0, 0.35, 0], r: 4.8, nameKey: 'item_tool_crate' },
     // Lv3 (+4 = 12)
-    { build: () => makeTreasureChestMesh(), pos: [18.8, 9.1, -7.4], rot: [0, 0.19, 0], r: 4.4 },
-    { build: () => makeSackMesh(P.sack), pos: [13.2, 9.6, 4.2], rot: [0.08, -0.45, 0], r: 3.9 },
-    { build: () => makeCrateMesh(4, 3, 4, P.oakLite, P.oakDark), pos: [14.6, 9.1, -2.8], rot: [0, 0.28, 0], r: 4.2 },
-    { build: () => makeSackMesh(P.canvas), pos: [8.8, 9.6, -4.6], rot: [-0.04, 0.52, 0], r: 3.9 }
+    { build: () => makeTreasureChestMesh(), pos: [14.8, 9.1, -7.2], rot: [0, 0.19, 0], r: 4.4, nameKey: 'item_storage_chest' },
+    { build: () => makeSackMesh(P.sack), pos: [13.2, 9.6, 4.4], rot: [0.08, -0.45, 0], r: 3.9, nameKey: 'item_oat_sack' },
+    { build: () => makeCrateMesh(4, 3, 4, P.oakLite, P.oakDark), pos: [19.4, 9.1, 0.2], rot: [0, 0.28, 0], r: 4.2, nameKey: 'item_tool_crate' },
+    { build: () => makeSackMesh(P.canvas), pos: [8.8, 9.6, -4.6], rot: [-0.04, 0.52, 0], r: 3.9, nameKey: 'item_oat_sack' }
   ];
 
   const spec = HC.CART_UPGRADES.capacity[capTier] || HC.CART_UPGRADES.capacity[1];
@@ -307,6 +351,10 @@ function buildCargoItems(capTier = 1) {
     const d = allDefs[i];
     items.push({
       mesh: d.build(),
+      nameKey: d.nameKey || 'item_tool_crate',
+      supplyKind: d.supplyKind || null,
+      charges: d.charges != null ? d.charges : 0,
+      maxCharges: d.maxCharges != null ? d.maxCharges : 0,
       homePos: new THREE.Vector3(d.pos[0] * S, d.pos[1] * S, d.pos[2] * S),
       homeRot: new THREE.Euler(d.rot[0], d.rot[1], d.rot[2]),
       radius: d.r * S
@@ -423,33 +471,65 @@ HC.clearQuestCargoFromCart = function (cart, physics) {
   return removed;
 };
 
-HC.setQuestCargoOnCart = function (cart, physics, cargoKind = 'spices', count = 3) {
+HC.refillCartSupplies = function (cart) {
+  if (!cart || !Array.isArray(cart.cargoItems)) return 0;
+  let refilled = 0;
+  for (const it of cart.cargoItems) {
+    if (!it || !it.supplyKind) continue;
+    const mx = it.maxCharges || 5;
+    if ((it.charges || 0) < mx) {
+      refilled += mx - (it.charges || 0);
+      it.charges = mx;
+    }
+  }
+  return refilled;
+};
+
+HC.makeWaterBucketMesh = function (sc = S) {
+  const grp = new THREE.Group();
+  const b = new V(sc);
+  b.cylY(0, 0, -2.2, 2.2, 2.1, P.oakMid, 0, 0.03);
+  b.cylY(0, 0, 0.8, 1.5, 2.25, P.ironDark, 0, 0.01);
+  b.cylY(0, 0, -1.7, -1.0, 2.22, P.ironDark, 0, 0.01);
+  b.box(-2.2, 2.2, -0.35, -1.7, 4.0, 0.35, P.ironDark, 0.01);
+  b.box(1.7, 2.2, -0.35, 2.2, 4.0, 0.35, P.ironDark, 0.01);
+  b.box(-2.2, 3.8, -0.35, 2.2, 4.3, 0.35, P.oakLite, 0.02);
+  grp.add(b.build(0, 0, 0));
+
+  const wGeo = new THREE.CylinderGeometry(1.75 * sc, 1.75 * sc, 0.4 * sc, 10);
+  const wMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.25, metalness: 0.1 });
+  const wDisc = new THREE.Mesh(wGeo, wMat);
+  wDisc.position.y = 1.65 * sc;
+  wDisc.visible = false;
+  grp.add(wDisc);
+  grp.userData.waterDisc = wDisc;
+  return grp;
+};
+
+HC.setQuestCargoOnCart = function (cart, physics, cargoKind = 'spices', count = 3, questMeta = null) {
   if (!cart || !cart.body) return [];
   HC.clearQuestCargoFromCart(cart, physics);
 
-  // Tempatkan barang quest pada 3 titik strategis depan-tengah-kanan bak; sembunyikan sementara
-  // filler di slot tersebut agar tidak bertabrakan lalu hidupkan fisika dinamisnya.
+  // Tempatkan barang quest di kompartemen kargo tanpa menumpuk barang pengisi
   const qSlots = [
-    { pos: [17.8, 9.2, -6.8], rot: [0, 0.16, 0] },
-    { pos: [12.4, 9.2, 0.4],  rot: [0, -0.22, 0] },
-    { pos: [17.0, 9.2, 7.2],  rot: [0, 0.28, 0] },
+    { pos: [11.0, 10.2, -6.2], rot: [0, 0.16, 0] },
+    { pos: [13.8, 10.2, 0.2],  rot: [0, -0.22, 0] },
+    { pos: [10.8, 10.2, 6.2],  rot: [0, 0.28, 0] },
   ];
   const n = Math.max(1, Math.min(qSlots.length, count | 0));
   const placed = [];
+
+  // Sembunyikan semua barang filler statis selain perbekalan kuda (Water Barrel & Fruit Box) agar barang quest terlihat jelas
+  for (const ex of cart.cargoItems) {
+    if (!ex || ex.isQuestCargo || ex.supplyKind || ex.spilled || ex.hiddenForQuest) continue;
+    ex.hiddenForQuest = true;
+    if (ex.mesh) ex.mesh.visible = false;
+  }
 
   for (let i = 0; i < n; i++) {
     const slot = qSlots[i];
     const hp = new THREE.Vector3(slot.pos[0] * S, slot.pos[1] * S, slot.pos[2] * S);
     const hr = new THREE.Euler(slot.rot[0], slot.rot[1], slot.rot[2]);
-
-    // Redam filler statis yang terlalu dekat dari titik penempatan quest ini
-    for (const ex of cart.cargoItems) {
-      if (!ex || ex.isQuestCargo || ex.spilled || ex.hiddenForQuest) continue;
-      if (Math.hypot((ex.homePos ? ex.homePos.x : 0) - hp.x, (ex.homePos ? ex.homePos.z : 0) - hp.z) < 0.34) {
-        ex.hiddenForQuest = true;
-        if (ex.mesh) ex.mesh.visible = false;
-      }
-    }
 
     const mesh = HC.buildQuestCargoMesh(cargoKind, S);
     mesh.position.copy(hp);
@@ -467,6 +547,8 @@ HC.setQuestCargoOnCart = function (cart, physics, cargoKind = 'spices', count = 
       mesh,
       isQuestCargo: true,
       cargoKind,
+      nameKey: `goods_${cargoKind}`,
+      questToName: questMeta ? questMeta.toName : null,
       homePos: hp,
       homeRot: hr,
       localPos: hp.clone(),
@@ -485,6 +567,7 @@ HC.setQuestCargoOnCart = function (cart, physics, cargoKind = 'spices', count = 
       _onTopPrev: false,
       _restT: 0,
     };
+    mesh.userData.cartItem = item;
     cart.cargoItems.push(item);
     placed.push(item);
   }
@@ -784,6 +867,7 @@ HC.buildCart = function (pivotY = 0.58, upgrades = {}) {
   for (const item of cargoItems) {
     item.mesh.position.copy(item.homePos);
     item.mesh.rotation.copy(item.homeRot);
+    item.mesh.userData.cartItem = item;
     body.add(item.mesh);
     item.vel = new THREE.Vector3();
     item.angVel = new THREE.Vector3();
