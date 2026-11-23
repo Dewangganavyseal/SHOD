@@ -1,5 +1,6 @@
 // Headless Chrome smoke test for cargo colliders, stacking, and bed bounds.
-// Usage: node tests/tools/headless-cargo.mjs
+// Local:  node tests/tools/headless-cargo.mjs
+// Remote: SHOD_URL=https://... node tests/tools/headless-cargo.mjs
 import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
@@ -132,9 +133,10 @@ async function waitForRig(cdp, timeoutMs = 25000) {
 
 async function main() {
   const chromePath = findChrome();
-  const { server, port } = await startServer();
+  const externalUrl = process.env.SHOD_URL || '';
+  const local = externalUrl ? null : await startServer();
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'shod-headless-'));
-  const url = `http://127.0.0.1:${port}/index.html?bundle=1&quality=potato&headless=1`;
+  const url = externalUrl || `http://127.0.0.1:${local.port}/index.html?bundle=1&quality=potato&headless=1`;
   const chrome = spawn(chromePath, [
     '--headless=new',
     '--disable-gpu',
@@ -269,7 +271,7 @@ async function main() {
     return result.result.value;
   } finally {
     if (cdp) cdp.close();
-    try { server.close(); } catch {}
+    try { local && local.server.close(); } catch {}
     try {
       execFileSync('taskkill', ['/pid', String(chrome.pid), '/t', '/f'], { stdio: 'ignore' });
     } catch {
