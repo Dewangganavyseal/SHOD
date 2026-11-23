@@ -633,6 +633,10 @@ function syncQuestNpcMarkers(dt) {
   quests.assignVillageQuestNpcs(party.wild);
   const q = quests.activeQuest;
   const givers = new Set(quests._questNpcByVillage.values());
+  const radStoryGuard = (!hasCart && storyStage === 'to_radnar')
+    ? ((party.wild || []).find((w) => !w.recruited && w.site === 'radnar' && (w.role.id === 'guard' || w.role.id === 'warrior'))
+      || (party.wild || []).find((w) => !w.recruited && w.site === 'radnar'))
+    : null;
   const bob = Math.sin(_qMarkerT * 3.4) * 0.11;
 
   for (const m of party.members) {
@@ -645,10 +649,14 @@ function syncQuestNpcMarkers(dt) {
     if (!w || !w.root) continue;
     let showSym = null;
     if (!w.recruited && !w.isIndoors) {
-      if (q) {
-        if (q.receiverNpc === w) showSym = '?';
-      } else if (givers.has(w)) {
-        showSym = '!';
+      if (radStoryGuard) {
+        if (w === radStoryGuard) showSym = '!';
+      } else if (hasCart) {
+        if (q) {
+          if (q.receiverNpc === w) showSym = '?';
+        } else if (givers.has(w)) {
+          showSym = '!';
+        }
       }
     }
     let cache = w.root.userData.__qMarkers;
@@ -1576,6 +1584,14 @@ function doInteract() {
   if (workshopOpen) {
     closeWorkshop();
     return true;
+  }
+  if (!hasCart && storyStage === 'to_radnar' && !_radnarCutscenePlayed && world.VILLAGES && world.VILLAGES[0]) {
+    const rad = world.VILLAGES[0];
+    const rx = (rad.cx !== undefined) ? rad.cx : (rad.x || 0);
+    const rz = (rad.cz !== undefined) ? rad.cz : (rad.z || 76);
+    if (Math.hypot(animator.x - rx, animator.z - rz) <= 30.0) {
+      return startRadnarCutscene();
+    }
   }
   if (!hasCart && storyStage === 'find_cart') {
     const dCart = Math.hypot(animator.x - physics.pos.x, animator.z - physics.pos.z);
@@ -2888,7 +2904,9 @@ function stepSim(dt) {
   animator.menuIdleMode = false;
   if (storyStage === 'to_radnar' && !_radnarCutscenePlayed && world.VILLAGES && world.VILLAGES[0]) {
     const rad = world.VILLAGES[0];
-    if (Math.hypot(animator.x - rad.x, animator.z - rad.z) <= 22.0) {
+    const rx = (rad.cx !== undefined) ? rad.cx : (rad.x || 0);
+    const rz = (rad.cz !== undefined) ? rad.cz : (rad.z || 76);
+    if (Math.hypot(animator.x - rx, animator.z - rz) <= 24.0) {
       if (startRadnarCutscene()) return;
     }
   }
