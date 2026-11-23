@@ -894,3 +894,200 @@ HC.buildCart = function (pivotY = 0.58, upgrades = {}) {
     specs: { capSpec, wheelSpec, susSpec, rigidAxle }
   };
 };
+
+// ============================================================
+//  REAL 3D CART PART PREVIEW & CACHED THUMBNAIL RENDERER
+// ============================================================
+HC.buildCartPartPreview = function buildCartPartPreview(key, tier = 0) {
+  const t = Math.max(0, Math.min(2, tier | 0));
+  const root = new THREE.Group();
+
+  if (key === 'wheels') {
+    const spec = HC.CART_UPGRADES.wheels[t] || HC.CART_UPGRADES.wheels[0];
+    const wheel = buildSpokedWheel(spec.rRear, spec.widthVox, t);
+    wheel.rotation.y = 0.42;
+    wheel.rotation.x = 0.14;
+    root.add(wheel);
+    return root;
+  }
+
+  if (key === 'suspension') {
+    const spring = t === 0 ? buildRigidMount().group : buildSpringAssembly(t).group;
+    const vb = new V(S);
+    // Short axle stub + upper mount plate so suspension geometry reads clearly
+    vb.box(-7, -9, -1, 7, -7, 1, P.ironDark, 0.02);
+    vb.box(-6, 3, -2, 6, 4, 2, P.oakMid, 0.03);
+    const frame = vb.build(0, 0, 0);
+    const holder = new THREE.Group();
+    holder.add(spring);
+    holder.add(frame);
+    holder.rotation.y = 0.48;
+    holder.rotation.x = 0.18;
+    root.add(holder);
+    return root;
+  }
+
+  if (key === 'capacity') {
+    const spec = HC.CART_UPGRADES.capacity[t] || HC.CART_UPGRADES.capacity[0];
+    const vb = new V(S);
+    const halfL = 10 + t * 2;
+    const halfW = 8;
+    // Oak plank bed floor
+    vb.box(-halfL, 0, -halfW, halfL, 1, halfW, P.oakMid, 0.03);
+    vb.box(-halfL, 1, -halfW, halfL, 1, -halfW + 1, P.oakDark, 0.03);
+    vb.box(-halfL, 1, halfW - 1, halfL, 1, halfW, P.oakDark, 0.03);
+    // Corner posts
+    for (const sx of [-halfL, 0, halfL]) {
+      for (const sz of [-halfW, halfW]) {
+        vb.box(sx - 0.6, 1, sz - 0.6, sx + 0.6, 2 + spec.railSlats * 2.2, sz + 0.6, P.oakDark, 0.02);
+      }
+    }
+    // Side rail slats matching tier (2 / 3 / 4)
+    for (let r = 0; r < spec.railSlats; r++) {
+      const ry = 3 + r * 2.2;
+      vb.box(-halfL, ry, -halfW, halfL, ry + 0.8, -halfW + 0.6, P.oakLite, 0.03);
+      vb.box(-halfL, ry, halfW - 0.6, halfL, ry + 0.8, halfW, P.oakLite, 0.03);
+      vb.box(-halfL, ry, -halfW, -halfL + 0.6, ry + 0.8, halfW, P.oakMid, 0.03);
+    }
+    // Sample crates inside bed scaled with tier
+    vb.box(-6, 2, -4, -1, 6, 1, 0xc88e4b, 0.04);
+    if (t >= 1) vb.box(1, 2, -5, 6, 7, 0, 0x9c6633, 0.04);
+    if (t >= 2) vb.box(-3, 2, 1, 4, 8, 6, 0xb87a3d, 0.04);
+    const bed = vb.build(0, 0, 0);
+    bed.rotation.y = 0.65;
+    bed.rotation.x = 0.25;
+    root.add(bed);
+    return root;
+  }
+
+  if (key === 'straps') {
+    const vb = new V(S);
+    // Base oak pallet & cargo crates
+    vb.box(-8, 0, -6, 8, 1, 6, P.oakDark, 0.03);
+    vb.box(-6, 1, -4, 0, 7, 2, 0xc68a47, 0.04);
+    vb.box(1, 1, -3, 6, 6, 3, 0x8f5d2c, 0.04);
+    if (t === 1) {
+      // Lv2: Taut hemp rope bindings
+      const ropeCol = 0xd7b97a;
+      vb.box(-6.5, 3, -4.5, 6.5, 3.8, -4.0, ropeCol, 0.02);
+      vb.box(-6.5, 3, 3.0, 6.5, 3.8, 3.5, ropeCol, 0.02);
+      vb.box(-3.2, 7.1, -4.5, -2.3, 7.6, 3.5, ropeCol, 0.02);
+      vb.box(3.0, 6.1, -3.5, 3.9, 6.6, 3.5, ropeCol, 0.02);
+    } else if (t >= 2) {
+      // Lv3: Heavy iron chain net & brass tension hooks
+      const chainCol = P.iron;
+      vb.box(-6.6, 2.5, -4.5, 6.6, 3.4, -3.9, chainCol, 0.02);
+      vb.box(-6.6, 5.2, -4.5, 6.6, 6.0, -3.9, chainCol, 0.02);
+      vb.box(-6.6, 2.5, 3.0, 6.6, 3.4, 3.6, chainCol, 0.02);
+      vb.box(-3.5, 7.1, -4.6, -2.5, 7.8, 3.6, chainCol, 0.02);
+      vb.box(2.8, 6.1, -3.6, 3.8, 6.8, 3.6, chainCol, 0.02);
+      vb.box(-6.8, 1, -4.6, -5.8, 2.2, -3.6, P.brass, 0.01);
+      vb.box(5.8, 1, 2.6, 6.8, 2.2, 3.6, P.brass, 0.01);
+    }
+    const bundle = vb.build(0, 0, 0);
+    bundle.rotation.y = 0.62;
+    bundle.rotation.x = 0.24;
+    root.add(bundle);
+    return root;
+  }
+
+  // canopy
+  const vb = new V(S);
+  vb.box(-10, 0, -7, 10, 1, 7, P.oakMid, 0.03);
+  vb.box(-10, 1, -7, -9, 7, -6, P.oakDark, 0.02);
+  vb.box(-10, 1, 6, -9, 7, 7, P.oakDark, 0.02);
+  vb.box(9, 1, -7, 10, 7, -6, P.oakDark, 0.02);
+  vb.box(9, 1, 6, 10, 7, 7, P.oakDark, 0.02);
+  vb.box(-10, 4, -7, 10, 5, -6.4, P.oakLite, 0.02);
+  vb.box(-10, 4, 6.4, 10, 5, 7, P.oakLite, 0.02);
+  if (t >= 1) {
+    // Iron corner armor + brass trim + lantern
+    for (const sx of [-10, 9]) {
+      vb.box(sx, 1, -7.2, sx + 1.2, 6, -5.8, P.ironDark, 0.02);
+      vb.box(sx, 1, 5.8, sx + 1.2, 6, 7.2, P.ironDark, 0.02);
+    }
+    vb.box(-10, 6.5, -7.2, 10, 7.3, -6.2, P.brass, 0.01);
+    vb.box(-10, 6.5, 6.2, 10, 7.3, 7.2, P.brass, 0.01);
+    vb.box(9.5, 5.5, 7.2, 11.5, 8.0, 9.0, P.lantern, 0.01);
+  }
+  if (t >= 2) {
+    // Arched expedition canvas roof
+    const canvasHex = 0xe9dec6;
+    const canvasTrim = 0xcbb994;
+    for (const bx of [-9, 0, 9]) {
+      vb.box(bx - 0.5, 7, -7, bx + 0.5, 13, -6, P.oakDark, 0.02);
+      vb.box(bx - 0.5, 7, 6, bx + 0.5, 13, 7, P.oakDark, 0.02);
+      vb.box(bx - 0.5, 13, -6, bx + 0.5, 14, 6, P.oakDark, 0.02);
+    }
+    vb.box(-10, 7.5, -7.3, 10, 12.5, -6.3, canvasTrim, 0.03);
+    vb.box(-10, 7.5, 6.3, 10, 12.5, 7.3, canvasTrim, 0.03);
+    vb.box(-10, 12.5, -6.5, 10, 14.2, 6.5, canvasHex, 0.03);
+  }
+  const top = vb.build(0, 0, 0);
+  top.rotation.y = 0.62;
+  top.rotation.x = 0.22;
+  root.add(top);
+  return root;
+};
+
+const _partThumbCache = new Map();
+let _partThumbCtx = null;
+
+HC.renderCartPartThumbnail = function renderCartPartThumbnail(key, tier = 0) {
+  const t = Math.max(0, Math.min(2, tier | 0));
+  const cacheKey = `${key}:${t}`;
+  if (_partThumbCache.has(cacheKey)) return _partThumbCache.get(cacheKey);
+  if (typeof document === 'undefined') return '';
+
+  try {
+    if (!_partThumbCtx) {
+      const W = 184, H = 132;
+      const canvas = document.createElement('canvas');
+      canvas.width = W;
+      canvas.height = H;
+      const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, preserveDrawingBuffer: true });
+      renderer.setSize(W, H, false);
+      renderer.setPixelRatio(1);
+      if (THREE.SRGBColorSpace) renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(34, W / H, 0.05, 50);
+      const amb = new THREE.AmbientLight(0xfff5e4, 1.35);
+      const keyLight = new THREE.DirectionalLight(0xffe8c2, 1.85);
+      keyLight.position.set(4, 6, 5);
+      const fillLight = new THREE.DirectionalLight(0xa7c9f0, 0.75);
+      fillLight.position.set(-4, 2, -3);
+      scene.add(amb, keyLight, fillLight);
+      _partThumbCtx = { canvas, renderer, scene, camera };
+    }
+
+    const { canvas, renderer, scene, camera } = _partThumbCtx;
+    const part = HC.buildCartPartPreview(key, t);
+    scene.add(part);
+
+    const box = new THREE.Box3().setFromObject(part);
+    const center = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3());
+    part.position.sub(center);
+
+    const maxDim = Math.max(size.x, size.y, size.z, 0.25);
+    const fovRad = (camera.fov * Math.PI) / 180;
+    const dist = (maxDim * 0.62) / Math.tan(fovRad * 0.5);
+    camera.position.set(0, maxDim * 0.14, dist * 1.18);
+    camera.lookAt(0, 0, 0);
+
+    renderer.clear();
+    renderer.render(scene, camera);
+    const dataUrl = canvas.toDataURL('image/png');
+    scene.remove(part);
+    part.traverse((o) => {
+      if (o.isMesh && o.geometry) o.geometry.dispose();
+    });
+
+    _partThumbCache.set(cacheKey, dataUrl);
+    return dataUrl;
+  } catch (err) {
+    console.warn('Part thumbnail render failed:', err);
+    return '';
+  }
+};

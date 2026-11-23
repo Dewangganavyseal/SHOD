@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#f5f5f6" />
   <meta name="mobile-web-app-capable" content="yes" />
   <title>SHOD — KrakenOne Studio</title>
-  <link rel="stylesheet" href="./css/style.css" />
+  <link rel="stylesheet" href="./css/style.css?v=hutan31" />
   <script type="importmap">
   {
     "imports": {
@@ -253,7 +253,7 @@
     (function boot() {
       function loadBundle() {
         const s = document.createElement('script');
-        s.src = './dist/game.bundle.js?v=hutan30';
+        s.src = './dist/game.bundle.js?v=hutan31';
         s.onerror = () => reportBootError('Failed to load ./dist/game.bundle.js');
         document.body.appendChild(s);
       }
@@ -265,7 +265,7 @@
 
       const mod = document.createElement('script');
       mod.type = 'module';
-      mod.src = './js/main.js?v=hutan20';
+      mod.src = './js/main.js?v=hutan21';
       mod.onerror = () => loadBundle();
       document.body.appendChild(mod);
     })();

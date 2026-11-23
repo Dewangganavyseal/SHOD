@@ -324,8 +324,9 @@ function updateShafts(dt) {
   }
 }
 
-function rebuildCartFromStore() {
-  const newCart = HC.buildCart(PIVOT_Y, store.cartConfig());
+function rebuildCartFromStore(overrideConfig = null) {
+  const cfg = overrideConfig || store.cartConfig();
+  const newCart = HC.buildCart(PIVOT_Y, cfg);
   physics.swapCart(newCart, animator.x, animator.z, animator.yaw);
   physics.joltScale = store.joltScale();
   physics.pullPowerScale = horseStats.pullMul();
@@ -1051,6 +1052,7 @@ function closeWorkshop() {
   workshopOpen = false;
   _wsRecord = null;
   if (ui && ui.close) ui.close();
+  rebuildCartFromStore();
   controls.target.copy(_wsSavedTarget);
   camera.position.copy(_wsSavedCamPos);
   controls.update();
@@ -1063,6 +1065,10 @@ function closeWorkshop() {
 ui = initUpgradeUI({
   store,
   quests,
+  onPreview(previewCfg) {
+    if (!workshopOpen) return;
+    rebuildCartFromStore(previewCfg);
+  },
   onUpgrade(_key, ok, msg) {
     if (ok) {
       rebuildCartFromStore();

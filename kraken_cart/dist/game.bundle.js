@@ -1636,6 +1636,12 @@ const DICT = {
     ws_refill_ok: 'Water Barrel & Fruit Box refilled (-10 G)!',
     ws_refill_full: 'Supplies are already full.',
     ws_upgrade_btn: 'Upgrade',
+    ws_equipped: '✓ EQUIPPED',
+    ws_owned: 'OWNED',
+    ws_previewing: 'PREVIEWING',
+    ws_equip_btn: 'Equip',
+    ws_upgrade_to: 'Upgrade to Lv{lv}',
+    ws_slide_hint: 'Slide or click a tier to preview on your cart',
     ws_need_gold: 'Not enough Gold ({g} G needed).',
     ws_need_items: 'Missing required items ({items}).',
     ws_upgraded: '✅ Upgraded {name} to {lv}!',
@@ -1741,11 +1747,11 @@ const DICT = {
     cutscene_finish_btn: 'Follow Letter →',
     cutscene_line_1: 'Whoa there, noble steed... Wait — I recognize that blaze and bridle anywhere.',
     cutscene_line_2: 'I am sorry to tell you, faithful friend. Your master, the Hero of the valley, fell in battle on the frontier and did not make it home.',
-    cutscene_line_3: 'Before riding out, he left this sealed letter and his old supply cart just in case you came looking for him:',
+    cutscene_line_3: 'Before riding out, he left this sealed letter addressed to our village so we could read his last will to you:',
     cutscene_line_4: 'Go around the back of Radnar village to find the old cart. Help our villages carry goods and travelers, and we will keep you fed and strong.',
-    letter_title: 'Hero\'s Last Note',
-    letter_body: 'My loyal friend, if you are reading this through the villagers\' eyes, I did not return. Behind Radnar rests my old expedition cart. Take it, help the five villages haul their goods, and let them care for you with grain, water, and shelter.',
-    letter_sign: '— Forever grateful, Your Rider',
+    letter_title: "THE HERO'S LAST WILL",
+    letter_body: 'To whichever villager finds and reads this letter,\n\nPlease read this aloud and deliver my final will to my loyal horse.\n\n"Old friend, my days on the battlefield are over. I leave my old wooden cart behind Radnar Village to you. Carry the villagers’ goods across the forest roads with pride."\n\nTo the good people of the village, please guide, feed, and watch over my horse as you once did for me.',
+    letter_sign: '— Last Will of the Hero',
     // Water Refill by NPC
     item_refill_btn: '🪣 Refill (+1/5)',
     item_refill_active: 'Refilling ({c}/{m})...',
@@ -1900,6 +1906,12 @@ const DICT = {
     ws_refill_ok: 'Tong Air & Kotak Buah terisi penuh (-10 G)!',
     ws_refill_full: 'Perbekalan kuda sudah penuh.',
     ws_upgrade_btn: 'Upgrade',
+    ws_equipped: '✓ TERPASANG',
+    ws_owned: 'DIMILIKI',
+    ws_previewing: 'PRATINJAU',
+    ws_equip_btn: 'Pasang',
+    ws_upgrade_to: 'Upgrade ke Lv{lv}',
+    ws_slide_hint: 'Geser atau klik tier untuk pratinjau langsung di gerobak',
     ws_need_gold: 'Emas tidak cukup (butuh {g} G).',
     ws_need_items: 'Bahan kurang ({items}).',
     ws_upgraded: '✅ {name} naik ke {lv}!',
@@ -2000,11 +2012,11 @@ const DICT = {
     cutscene_finish_btn: 'Baca & Lanjutkan →',
     cutscene_line_1: 'Tenanglah, kuda gagah... Tunggu — aku sangat mengenali tanda dahi dan kekang itu.',
     cutscene_line_2: 'Maaf harus menyampaikan kabar duka ini, sahabat setia. Pemilikmu, sang Pahlawan lembah ini, telah gugur saat bertugas dan tak pernah kembali.',
-    cutscene_line_3: 'Sebelum berangkat perang, ia menitipkan secarik surat dan gerobak tuanya untukmu kalau-kalau kau datang mencarinya:',
+    cutscene_line_3: 'Sebelum berangkat perang, ia menitipkan surat tersegel ini untuk warga desa agar kami membacakan wasiatnya kepadamu:',
     cutscene_line_4: 'Pergilah ke belakang Desa Radnar untuk mengambil gerobak tuanya. Bantulah warga desa mengantar barang dan bertahan hiduplah bersama kami.',
-    letter_title: 'Secarik Surat Sang Pahlawan',
-    letter_body: 'Sahabat setiaku, jika kau mendengar pesan ini lewat warga, berarti aku tak dapat kembali. Di belakang Desa Radnar ada gerobak tua peninggalanku. Pakailah untuk membantu warga lima desa, dan mereka akan memberimu makanan serta perawatan agar kau tetap hidup.',
-    letter_sign: '— Dengan penuh terima kasih, Penunggangmu',
+    letter_title: 'SURAT WASIAT PAHLAWAN',
+    letter_body: 'Kepada siapa pun warga desa yang menemukan dan membaca surat ini,\n\nTolong bacakan dan sampaikan wasiat terakhirku ini kepada kudaku yang setia.\n\n“Sahabatku, hari-hariku di medan perang telah usai. Aku wariskan gerobak kayu tuaku di belakang Desa Radnar kepadamu. Jadilah penolong bagi warga desa, antarkan barang-barang mereka melintasi jalanan hutan dengan gagah.”\n\nKepada warga desa, mohon bimbing, rawat, dan jaga ia seperti kalian menjagaku dahulu.',
+    letter_sign: '— Wasiat Terakhir sang Pahlawan',
     // Isi Ulang Tong Air oleh NPC
     item_refill_btn: '🪣 Isi Tong (+1/5)',
     item_refill_active: 'Mengisi ({c}/{m})...',
@@ -3753,6 +3765,203 @@ HC.buildCart = function (pivotY = 0.58, upgrades = {}) {
     upgrades: { capacity: capTier, wheels: wheelTier, suspension: susTier, canopy: canopyTier },
     specs: { capSpec, wheelSpec, susSpec, rigidAxle }
   };
+};
+
+// ============================================================
+//  REAL 3D CART PART PREVIEW & CACHED THUMBNAIL RENDERER
+// ============================================================
+HC.buildCartPartPreview = function buildCartPartPreview(key, tier = 0) {
+  const t = Math.max(0, Math.min(2, tier | 0));
+  const root = new THREE.Group();
+
+  if (key === 'wheels') {
+    const spec = HC.CART_UPGRADES.wheels[t] || HC.CART_UPGRADES.wheels[0];
+    const wheel = buildSpokedWheel(spec.rRear, spec.widthVox, t);
+    wheel.rotation.y = 0.42;
+    wheel.rotation.x = 0.14;
+    root.add(wheel);
+    return root;
+  }
+
+  if (key === 'suspension') {
+    const spring = t === 0 ? buildRigidMount().group : buildSpringAssembly(t).group;
+    const vb = new V(S);
+    // Short axle stub + upper mount plate so suspension geometry reads clearly
+    vb.box(-7, -9, -1, 7, -7, 1, P.ironDark, 0.02);
+    vb.box(-6, 3, -2, 6, 4, 2, P.oakMid, 0.03);
+    const frame = vb.build(0, 0, 0);
+    const holder = new THREE.Group();
+    holder.add(spring);
+    holder.add(frame);
+    holder.rotation.y = 0.48;
+    holder.rotation.x = 0.18;
+    root.add(holder);
+    return root;
+  }
+
+  if (key === 'capacity') {
+    const spec = HC.CART_UPGRADES.capacity[t] || HC.CART_UPGRADES.capacity[0];
+    const vb = new V(S);
+    const halfL = 10 + t * 2;
+    const halfW = 8;
+    // Oak plank bed floor
+    vb.box(-halfL, 0, -halfW, halfL, 1, halfW, P.oakMid, 0.03);
+    vb.box(-halfL, 1, -halfW, halfL, 1, -halfW + 1, P.oakDark, 0.03);
+    vb.box(-halfL, 1, halfW - 1, halfL, 1, halfW, P.oakDark, 0.03);
+    // Corner posts
+    for (const sx of [-halfL, 0, halfL]) {
+      for (const sz of [-halfW, halfW]) {
+        vb.box(sx - 0.6, 1, sz - 0.6, sx + 0.6, 2 + spec.railSlats * 2.2, sz + 0.6, P.oakDark, 0.02);
+      }
+    }
+    // Side rail slats matching tier (2 / 3 / 4)
+    for (let r = 0; r < spec.railSlats; r++) {
+      const ry = 3 + r * 2.2;
+      vb.box(-halfL, ry, -halfW, halfL, ry + 0.8, -halfW + 0.6, P.oakLite, 0.03);
+      vb.box(-halfL, ry, halfW - 0.6, halfL, ry + 0.8, halfW, P.oakLite, 0.03);
+      vb.box(-halfL, ry, -halfW, -halfL + 0.6, ry + 0.8, halfW, P.oakMid, 0.03);
+    }
+    // Sample crates inside bed scaled with tier
+    vb.box(-6, 2, -4, -1, 6, 1, 0xc88e4b, 0.04);
+    if (t >= 1) vb.box(1, 2, -5, 6, 7, 0, 0x9c6633, 0.04);
+    if (t >= 2) vb.box(-3, 2, 1, 4, 8, 6, 0xb87a3d, 0.04);
+    const bed = vb.build(0, 0, 0);
+    bed.rotation.y = 0.65;
+    bed.rotation.x = 0.25;
+    root.add(bed);
+    return root;
+  }
+
+  if (key === 'straps') {
+    const vb = new V(S);
+    // Base oak pallet & cargo crates
+    vb.box(-8, 0, -6, 8, 1, 6, P.oakDark, 0.03);
+    vb.box(-6, 1, -4, 0, 7, 2, 0xc68a47, 0.04);
+    vb.box(1, 1, -3, 6, 6, 3, 0x8f5d2c, 0.04);
+    if (t === 1) {
+      // Lv2: Taut hemp rope bindings
+      const ropeCol = 0xd7b97a;
+      vb.box(-6.5, 3, -4.5, 6.5, 3.8, -4.0, ropeCol, 0.02);
+      vb.box(-6.5, 3, 3.0, 6.5, 3.8, 3.5, ropeCol, 0.02);
+      vb.box(-3.2, 7.1, -4.5, -2.3, 7.6, 3.5, ropeCol, 0.02);
+      vb.box(3.0, 6.1, -3.5, 3.9, 6.6, 3.5, ropeCol, 0.02);
+    } else if (t >= 2) {
+      // Lv3: Heavy iron chain net & brass tension hooks
+      const chainCol = P.iron;
+      vb.box(-6.6, 2.5, -4.5, 6.6, 3.4, -3.9, chainCol, 0.02);
+      vb.box(-6.6, 5.2, -4.5, 6.6, 6.0, -3.9, chainCol, 0.02);
+      vb.box(-6.6, 2.5, 3.0, 6.6, 3.4, 3.6, chainCol, 0.02);
+      vb.box(-3.5, 7.1, -4.6, -2.5, 7.8, 3.6, chainCol, 0.02);
+      vb.box(2.8, 6.1, -3.6, 3.8, 6.8, 3.6, chainCol, 0.02);
+      vb.box(-6.8, 1, -4.6, -5.8, 2.2, -3.6, P.brass, 0.01);
+      vb.box(5.8, 1, 2.6, 6.8, 2.2, 3.6, P.brass, 0.01);
+    }
+    const bundle = vb.build(0, 0, 0);
+    bundle.rotation.y = 0.62;
+    bundle.rotation.x = 0.24;
+    root.add(bundle);
+    return root;
+  }
+
+  // canopy
+  const vb = new V(S);
+  vb.box(-10, 0, -7, 10, 1, 7, P.oakMid, 0.03);
+  vb.box(-10, 1, -7, -9, 7, -6, P.oakDark, 0.02);
+  vb.box(-10, 1, 6, -9, 7, 7, P.oakDark, 0.02);
+  vb.box(9, 1, -7, 10, 7, -6, P.oakDark, 0.02);
+  vb.box(9, 1, 6, 10, 7, 7, P.oakDark, 0.02);
+  vb.box(-10, 4, -7, 10, 5, -6.4, P.oakLite, 0.02);
+  vb.box(-10, 4, 6.4, 10, 5, 7, P.oakLite, 0.02);
+  if (t >= 1) {
+    // Iron corner armor + brass trim + lantern
+    for (const sx of [-10, 9]) {
+      vb.box(sx, 1, -7.2, sx + 1.2, 6, -5.8, P.ironDark, 0.02);
+      vb.box(sx, 1, 5.8, sx + 1.2, 6, 7.2, P.ironDark, 0.02);
+    }
+    vb.box(-10, 6.5, -7.2, 10, 7.3, -6.2, P.brass, 0.01);
+    vb.box(-10, 6.5, 6.2, 10, 7.3, 7.2, P.brass, 0.01);
+    vb.box(9.5, 5.5, 7.2, 11.5, 8.0, 9.0, P.lantern, 0.01);
+  }
+  if (t >= 2) {
+    // Arched expedition canvas roof
+    const canvasHex = 0xe9dec6;
+    const canvasTrim = 0xcbb994;
+    for (const bx of [-9, 0, 9]) {
+      vb.box(bx - 0.5, 7, -7, bx + 0.5, 13, -6, P.oakDark, 0.02);
+      vb.box(bx - 0.5, 7, 6, bx + 0.5, 13, 7, P.oakDark, 0.02);
+      vb.box(bx - 0.5, 13, -6, bx + 0.5, 14, 6, P.oakDark, 0.02);
+    }
+    vb.box(-10, 7.5, -7.3, 10, 12.5, -6.3, canvasTrim, 0.03);
+    vb.box(-10, 7.5, 6.3, 10, 12.5, 7.3, canvasTrim, 0.03);
+    vb.box(-10, 12.5, -6.5, 10, 14.2, 6.5, canvasHex, 0.03);
+  }
+  const top = vb.build(0, 0, 0);
+  top.rotation.y = 0.62;
+  top.rotation.x = 0.22;
+  root.add(top);
+  return root;
+};
+
+const _partThumbCache = new Map();
+let _partThumbCtx = null;
+
+HC.renderCartPartThumbnail = function renderCartPartThumbnail(key, tier = 0) {
+  const t = Math.max(0, Math.min(2, tier | 0));
+  const cacheKey = `${key}:${t}`;
+  if (_partThumbCache.has(cacheKey)) return _partThumbCache.get(cacheKey);
+  if (typeof document === 'undefined') return '';
+
+  try {
+    if (!_partThumbCtx) {
+      const W = 184, H = 132;
+      const canvas = document.createElement('canvas');
+      canvas.width = W;
+      canvas.height = H;
+      const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, preserveDrawingBuffer: true });
+      renderer.setSize(W, H, false);
+      renderer.setPixelRatio(1);
+      if (THREE.SRGBColorSpace) renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(34, W / H, 0.05, 50);
+      const amb = new THREE.AmbientLight(0xfff5e4, 1.35);
+      const keyLight = new THREE.DirectionalLight(0xffe8c2, 1.85);
+      keyLight.position.set(4, 6, 5);
+      const fillLight = new THREE.DirectionalLight(0xa7c9f0, 0.75);
+      fillLight.position.set(-4, 2, -3);
+      scene.add(amb, keyLight, fillLight);
+      _partThumbCtx = { canvas, renderer, scene, camera };
+    }
+
+    const { canvas, renderer, scene, camera } = _partThumbCtx;
+    const part = HC.buildCartPartPreview(key, t);
+    scene.add(part);
+
+    const box = new THREE.Box3().setFromObject(part);
+    const center = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3());
+    part.position.sub(center);
+
+    const maxDim = Math.max(size.x, size.y, size.z, 0.25);
+    const fovRad = (camera.fov * Math.PI) / 180;
+    const dist = (maxDim * 0.62) / Math.tan(fovRad * 0.5);
+    camera.position.set(0, maxDim * 0.14, dist * 1.18);
+    camera.lookAt(0, 0, 0);
+
+    renderer.clear();
+    renderer.render(scene, camera);
+    const dataUrl = canvas.toDataURL('image/png');
+    scene.remove(part);
+    part.traverse((o) => {
+      if (o.isMesh && o.geometry) o.geometry.dispose();
+    });
+
+    _partThumbCache.set(cacheKey, dataUrl);
+    return dataUrl;
+  } catch (err) {
+    console.warn('Part thumbnail render failed:', err);
+    return '';
+  }
 };
 
 })();
@@ -40524,6 +40733,7 @@ const SAVE_KEY = 'kraken_cart_sim_v3';
 class UpgradeStore {
   constructor() {
     this.levels = { ...DEFAULT_LEVELS };
+    this.unlocked = { capacity: [0], wheels: [0], suspension: [0], straps: [0], canopy: [0] };
     this.materials = { wood: 4, iron: 3, leather: 3, cloth: 2 };
     this.load();
   }
@@ -40539,6 +40749,16 @@ class UpgradeStore {
           if (Number.isInteger(v)) this.levels[line.key] = Math.max(0, Math.min(2, v));
         }
       }
+      for (const line of UPGRADE_LINES) {
+        const saved = data && data.unlocked && Array.isArray(data.unlocked[line.key]) ? data.unlocked[line.key] : null;
+        const set = new Set([0, this.levels[line.key] ?? 0]);
+        if (saved) {
+          for (const idx of saved) {
+            if (Number.isInteger(idx) && idx >= 0 && idx <= 2) set.add(idx);
+          }
+        }
+        this.unlocked[line.key] = Array.from(set).sort((a, b) => a - b);
+      }
       if (data && data.materials) {
         for (const k of Object.keys(MATERIAL_DEFS)) {
           const v = data.materials[k];
@@ -40550,7 +40770,11 @@ class UpgradeStore {
 
   save() {
     try {
-      localStorage.setItem(SAVE_KEY, JSON.stringify({ levels: this.levels, materials: this.materials }));
+      localStorage.setItem(SAVE_KEY, JSON.stringify({
+        levels: this.levels,
+        unlocked: this.unlocked,
+        materials: this.materials,
+      }));
     } catch (e) { /* storage may be blocked */ }
   }
 
@@ -40604,8 +40828,84 @@ class UpgradeStore {
     }
     const nextIdx = (this.levels[key] ?? 0) + 1;
     this.levels[key] = nextIdx;
+    if (!this.isUnlocked(key, nextIdx)) {
+      this.unlocked[key] = [...(this.unlocked[key] || [0]), nextIdx].sort((a, b) => a - b);
+    }
     this.save();
     return { ok: true, newLevel: nextIdx, cost: chk.cost };
+  }
+
+  isUnlocked(key, targetIdx) {
+    const idx = Math.max(0, Math.min(2, targetIdx | 0));
+    if (idx === 0) return true;
+    const list = this.unlocked[key];
+    return Array.isArray(list) ? list.includes(idx) : (this.levels[key] ?? 0) >= idx;
+  }
+
+  costForLevel(key, targetIdx) {
+    const tbl = UPGRADE_COSTS[key];
+    const idx = targetIdx | 0;
+    if (!tbl || idx < 0 || idx >= tbl.length) return null;
+    if (idx === 0) return { gold: 0, items: {} };
+    return tbl[idx] || { gold: 0, items: {} };
+  }
+
+  canAffordLevel(key, targetIdx, gold = 0) {
+    const idx = Math.max(0, Math.min(2, targetIdx | 0));
+    if (this.isUnlocked(key, idx)) {
+      return { ok: true, unlocked: true, cost: { gold: 0, items: {} }, missingGold: 0, missingItems: {} };
+    }
+    const cost = this.costForLevel(key, idx);
+    if (!cost) return { ok: false, unlocked: false, missingGold: 0, missingItems: {} };
+    const missingGold = Math.max(0, (cost.gold || 0) - gold);
+    const missingItems = {};
+    let itemsOk = true;
+    for (const [mk, req] of Object.entries(cost.items || {})) {
+      const have = this.materials[mk] || 0;
+      if (have < req) {
+        missingItems[mk] = req - have;
+        itemsOk = false;
+      }
+    }
+    return {
+      ok: missingGold === 0 && itemsOk,
+      unlocked: false,
+      cost,
+      missingGold,
+      missingItems,
+    };
+  }
+
+  upgradeToLevelWithCost(key, targetIdx, questSys) {
+    const line = UPGRADE_LINES.find((l) => l.key === key);
+    if (!line) return { ok: false, reason: 'invalid' };
+    const idx = Math.max(0, Math.min(line.levels.length - 1, targetIdx | 0));
+    if (this.isUnlocked(key, idx)) {
+      this.levels[key] = idx;
+      this.save();
+      return { ok: true, equipped: true, newLevel: idx, cost: { gold: 0, items: {} } };
+    }
+    const gold = questSys ? (questSys.gold || 0) : 0;
+    const chk = this.canAffordLevel(key, idx, gold);
+    if (!chk.ok) return { ok: false, reason: chk.missingGold > 0 ? 'gold' : 'items', check: chk };
+    if (questSys) questSys.gold = Math.max(0, gold - (chk.cost.gold || 0));
+    for (const [mk, req] of Object.entries(chk.cost.items || {})) {
+      this.materials[mk] = Math.max(0, (this.materials[mk] || 0) - req);
+    }
+    this.levels[key] = idx;
+    this.unlocked[key] = Array.from(new Set([...(this.unlocked[key] || [0]), idx])).sort((a, b) => a - b);
+    this.save();
+    return { ok: true, purchased: true, newLevel: idx, cost: chk.cost };
+  }
+
+  previewConfig(overrides = {}) {
+    const cfg = { ...this.levels };
+    for (const line of UPGRADE_LINES) {
+      if (overrides && line.key in overrides) {
+        cfg[line.key] = Math.max(0, Math.min(line.levels.length - 1, overrides[line.key] | 0));
+      }
+    }
+    return cfg;
   }
 
   setLevel(key, idx) {
@@ -40638,6 +40938,7 @@ class UpgradeStore {
 
   reset() {
     this.levels = { ...DEFAULT_LEVELS };
+    this.unlocked = { capacity: [0], wheels: [0], suspension: [0], straps: [0], canopy: [0] };
     this.save();
   }
 }
@@ -40722,9 +41023,10 @@ const { UPGRADE_LINES, MATERIAL_DEFS } = __MOD_UPGRADES;
 const { t } = __MOD_I18N;
 /**
  * Village Cart Workshop bottom-bar UI controller.
- * Upgrades only happen inside a village workshop using Gold + Materials.
+ * Features category tabs, interactive 3D part slide carousel, live cart preview,
+ * and direct non-sequential tier upgrades using Gold + Materials.
  */
-function initUpgradeUI({ store, quests, onUpgrade, onRefill, onClose }) {
+function initUpgradeUI({ store, quests, onUpgrade, onPreview, onRefill, onClose }) {
   const bar = document.getElementById('workshop-bar');
   const titleEl = document.getElementById('ws-title');
   const goldEl = document.getElementById('ws-gold');
@@ -40735,6 +41037,17 @@ function initUpgradeUI({ store, quests, onUpgrade, onRefill, onClose }) {
 
   let isOpen = false;
   let currentWorkshop = null;
+  let activeKey = UPGRADE_LINES[1]?.key || UPGRADE_LINES[0].key; // default 'wheels'
+  let selectedTier = store.levels[activeKey] ?? 0;
+
+  function activeLine() {
+    return UPGRADE_LINES.find((l) => l.key === activeKey) || UPGRADE_LINES[0];
+  }
+
+  function emitPreview() {
+    if (!isOpen || !onPreview) return;
+    onPreview(store.previewConfig({ [activeKey]: selectedTier }));
+  }
 
   function renderMaterials(gold) {
     if (goldEl) goldEl.textContent = `💰 ${gold} G`;
@@ -40758,91 +41071,208 @@ function initUpgradeUI({ store, quests, onUpgrade, onRefill, onClose }) {
       .join(', ');
   }
 
-  function renderCards(gold) {
+  function selectCategory(key) {
+    activeKey = key;
+    selectedTier = store.levels[key] ?? 0;
+    refresh();
+    emitPreview();
+  }
+
+  function selectTier(idx, scrollCard = true) {
+    const line = activeLine();
+    const clamped = Math.max(0, Math.min(line.levels.length - 1, idx | 0));
+    selectedTier = clamped;
+    refresh();
+    emitPreview();
+    if (scrollCard && itemsEl) {
+      const card = itemsEl.querySelector(`.ws-slide-card[data-tier="${clamped}"]`);
+      if (card && card.scrollIntoView) {
+        card.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      }
+    }
+  }
+
+  function renderWorkshopBody(gold) {
     if (!itemsEl) return;
     itemsEl.innerHTML = '';
 
-    for (const line of UPGRADE_LINES) {
-      const curIdx = store.levels[line.key] ?? 0;
-      const maxIdx = line.levels.length - 1;
-      const curLv = curIdx + 1;
-      const isMax = curIdx >= maxIdx;
-      const chk = store.canAffordNext(line.key, gold);
-      const nextTier = !isMax ? line.levels[curIdx + 1] : line.levels[curIdx];
+    const line = activeLine();
+    const equippedIdx = store.levels[line.key] ?? 0;
+    const maxIdx = line.levels.length - 1;
+    selectedTier = Math.max(0, Math.min(maxIdx, selectedTier | 0));
 
-      const card = document.createElement('div');
-      card.className = `ws-card${isMax ? ' maxed' : ''}`;
-      card.dataset.key = line.key;
-
-      const top = document.createElement('div');
-      top.className = 'ws-card-top';
-      const nameSpan = document.createElement('span');
-      nameSpan.className = 'ws-card-name';
-      nameSpan.textContent = `${line.icon} ${t(line.nameKey)}`;
-      const lvSpan = document.createElement('span');
-      lvSpan.className = 'ws-card-lv';
-      lvSpan.textContent = `Lv.${curLv}/${maxIdx + 1}`;
-      top.append(nameSpan, lvSpan);
-
-      const nextEl = document.createElement('div');
-      nextEl.className = 'ws-card-next';
-      const tierLabel = nextTier ? (nextTier.shortKey ? t(nextTier.shortKey) : nextTier.short) : '';
-      nextEl.textContent = isMax
-        ? `✓ ${tierLabel}`
-        : `→ ${tierLabel} (${nextTier.detail})`;
-
-      const costRow = document.createElement('div');
-      costRow.className = 'ws-cost-row';
-      if (!isMax && chk.cost) {
-        const gChip = document.createElement('span');
-        gChip.className = `ws-cost-chip${chk.missingGold > 0 ? ' short' : ''}`;
-        gChip.textContent = `🪙 ${chk.cost.gold} G`;
-        costRow.appendChild(gChip);
-
-        for (const [mk, req] of Object.entries(chk.cost.items || {})) {
-          const mDef = MATERIAL_DEFS[mk];
-          const have = store.materials[mk] || 0;
-          const mChip = document.createElement('span');
-          mChip.className = `ws-cost-chip${have < req ? ' short' : ''}`;
-          mChip.textContent = `${mDef ? mDef.icon : ''} ${have}/${req}`;
-          mChip.title = mDef ? t(mDef.nameKey) : mk;
-          costRow.appendChild(mChip);
-        }
-      }
-
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'ws-up-btn';
-      if (isMax) {
-        btn.disabled = true;
-        btn.textContent = t('max_btn');
-      } else {
-        btn.textContent = chk.ok
-          ? t('ws_upgrade_btn')
-          : (chk.missingGold > 0
-            ? t('not_enough_gold', { g: chk.cost.gold })
-            : t('ws_upgrade_btn'));
-        btn.addEventListener('click', () => {
-          const res = store.upgradeNextWithCost(line.key, quests);
-          if (!res.ok) {
-            const msg = res.reason === 'gold'
-              ? t('ws_need_gold', { g: res.check.cost.gold })
-              : t('ws_need_items', { items: formatMissingItems(res.check.missingItems) });
-            if (onUpgrade) onUpgrade(line.key, false, msg);
-            refresh();
-            return;
-          }
-          const upgradedTier = line.levels[res.newLevel];
-          const lvName = upgradedTier.shortKey ? t(upgradedTier.shortKey) : upgradedTier.short;
-          const msg = t('ws_upgraded', { name: t(line.nameKey), lv: lvName });
-          refresh();
-          if (onUpgrade) onUpgrade(line.key, true, msg);
-        });
-      }
-
-      card.append(top, nextEl, costRow, btn);
-      itemsEl.appendChild(card);
+    // 1. Category Tabs
+    const tabs = document.createElement('div');
+    tabs.className = 'ws-cat-tabs';
+    for (const l of UPGRADE_LINES) {
+      const curLv = (store.levels[l.key] ?? 0) + 1;
+      const tab = document.createElement('button');
+      tab.type = 'button';
+      tab.className = `ws-cat-tab${l.key === activeKey ? ' is-active' : ''}`;
+      tab.dataset.key = l.key;
+      tab.innerHTML = `<span class="ws-tab-ico">${l.icon}</span><span class="ws-tab-name">${t(l.nameKey)}</span><span class="ws-tab-lv">Lv.${curLv}</span>`;
+      tab.addEventListener('click', () => selectCategory(l.key));
+      tabs.appendChild(tab);
     }
+    itemsEl.appendChild(tabs);
+
+    // 2. Interactive 3D Part Slide Carousel
+    const carousel = document.createElement('div');
+    carousel.className = 'ws-carousel';
+
+    const prevBtn = document.createElement('button');
+    prevBtn.type = 'button';
+    prevBtn.className = 'ws-nav-btn ws-nav-prev';
+    prevBtn.textContent = '◀';
+    prevBtn.disabled = selectedTier <= 0;
+    prevBtn.addEventListener('click', () => selectTier(selectedTier - 1));
+
+    const track = document.createElement('div');
+    track.className = 'ws-slide-track';
+
+    for (let idx = 0; idx < line.levels.length; idx++) {
+      const lvObj = line.levels[idx];
+      const isEquipped = idx === equippedIdx;
+      const isUnlocked = store.isUnlocked(line.key, idx);
+      const isSelected = idx === selectedTier;
+      const chk = store.canAffordLevel(line.key, idx, gold);
+
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.className = `ws-slide-card${isSelected ? ' is-selected' : ''}${isEquipped ? ' is-equipped' : ''}${!isUnlocked && !chk.ok ? ' is-locked-short' : ''}`;
+      card.dataset.key = line.key;
+      card.dataset.tier = String(idx);
+
+      // Top status badge
+      const badge = document.createElement('span');
+      badge.className = `ws-slide-badge${isEquipped ? ' equipped' : isUnlocked ? ' owned' : ''}`;
+      badge.textContent = isEquipped
+        ? t('ws_equipped')
+        : isUnlocked
+          ? t('ws_owned')
+          : `Lv.${idx + 1}`;
+
+      // Real 3D Model Thumbnail
+      const stage = document.createElement('div');
+      stage.className = 'ws-part-stage';
+      const thumbSrc = HC.renderCartPartThumbnail ? HC.renderCartPartThumbnail(line.key, idx) : '';
+      if (thumbSrc) {
+        const img = document.createElement('img');
+        img.className = 'ws-part-img';
+        img.src = thumbSrc;
+        img.alt = lvObj.shortKey ? t(lvObj.shortKey) : lvObj.short;
+        img.draggable = false;
+        stage.appendChild(img);
+      } else {
+        const fallback = document.createElement('span');
+        fallback.className = 'ws-part-fallback';
+        fallback.textContent = line.icon;
+        stage.appendChild(fallback);
+      }
+
+      const title = document.createElement('div');
+      title.className = 'ws-slide-title';
+      title.textContent = lvObj.shortKey ? t(lvObj.shortKey) : lvObj.short;
+
+      const detail = document.createElement('div');
+      detail.className = 'ws-slide-detail';
+      detail.textContent = lvObj.detail || '';
+
+      card.append(badge, stage, title, detail);
+      card.addEventListener('click', () => selectTier(idx));
+      track.appendChild(card);
+    }
+
+    const nextBtn = document.createElement('button');
+    nextBtn.type = 'button';
+    nextBtn.className = 'ws-nav-btn ws-nav-next';
+    nextBtn.textContent = '▶';
+    nextBtn.disabled = selectedTier >= maxIdx;
+    nextBtn.addEventListener('click', () => selectTier(selectedTier + 1));
+
+    carousel.append(prevBtn, track, nextBtn);
+    itemsEl.appendChild(carousel);
+
+    // 3. Bottom Action Bar (below slide)
+    const selObj = line.levels[selectedTier];
+    const selLabel = selObj.shortKey ? t(selObj.shortKey) : selObj.short;
+    const isEquipped = selectedTier === equippedIdx;
+    const isUnlocked = store.isUnlocked(line.key, selectedTier);
+    const chk = store.canAffordLevel(line.key, selectedTier, gold);
+
+    const actionBar = document.createElement('div');
+    actionBar.className = 'ws-action-bar';
+
+    const meta = document.createElement('div');
+    meta.className = 'ws-action-meta';
+
+    const selName = document.createElement('div');
+    selName.className = 'ws-action-name';
+    selName.innerHTML = `${line.icon} <b>${selLabel}</b>${!isEquipped ? ` <span class="ws-preview-pill">${t('ws_previewing')}</span>` : ''}`;
+
+    const hintOrCost = document.createElement('div');
+    hintOrCost.className = 'ws-cost-row';
+    if (isUnlocked) {
+      const hint = document.createElement('span');
+      hint.className = 'ws-slide-hint';
+      hint.textContent = t('ws_slide_hint');
+      hintOrCost.appendChild(hint);
+    } else if (chk.cost) {
+      const gChip = document.createElement('span');
+      gChip.className = `ws-cost-chip${chk.missingGold > 0 ? ' short' : ''}`;
+      gChip.textContent = `🪙 ${chk.cost.gold} G`;
+      hintOrCost.appendChild(gChip);
+      for (const [mk, req] of Object.entries(chk.cost.items || {})) {
+        const mDef = MATERIAL_DEFS[mk];
+        const have = store.materials[mk] || 0;
+        const mChip = document.createElement('span');
+        mChip.className = `ws-cost-chip${have < req ? ' short' : ''}`;
+        mChip.textContent = `${mDef ? mDef.icon : ''} ${have}/${req}`;
+        mChip.title = mDef ? t(mDef.nameKey) : mk;
+        hintOrCost.appendChild(mChip);
+      }
+    }
+    meta.append(selName, hintOrCost);
+
+    const actionBtn = document.createElement('button');
+    actionBtn.type = 'button';
+    actionBtn.className = 'ws-up-btn ws-action-btn';
+    if (isEquipped) {
+      actionBtn.disabled = true;
+      actionBtn.textContent = t('ws_equipped');
+    } else if (isUnlocked) {
+      actionBtn.textContent = t('ws_equip_btn');
+      actionBtn.addEventListener('click', () => {
+        const res = store.upgradeToLevelWithCost(line.key, selectedTier, quests);
+        if (res.ok) {
+          refresh();
+          if (onUpgrade) onUpgrade(line.key, true, t('ws_upgraded', { name: t(line.nameKey), lv: selLabel }));
+        }
+      });
+    } else {
+      actionBtn.textContent = chk.ok
+        ? t('ws_upgrade_to', { lv: selectedTier + 1 })
+        : (chk.missingGold > 0
+          ? t('not_enough_gold', { g: chk.cost.gold })
+          : t('ws_upgrade_to', { lv: selectedTier + 1 }));
+      actionBtn.addEventListener('click', () => {
+        const res = store.upgradeToLevelWithCost(line.key, selectedTier, quests);
+        if (!res.ok) {
+          const msg = res.reason === 'gold'
+            ? t('ws_need_gold', { g: res.check.cost.gold })
+            : t('ws_need_items', { items: formatMissingItems(res.check.missingItems) });
+          if (onUpgrade) onUpgrade(line.key, false, msg);
+          refresh();
+          return;
+        }
+        const msg = t('ws_upgraded', { name: t(line.nameKey), lv: selLabel });
+        refresh();
+        if (onUpgrade) onUpgrade(line.key, true, msg);
+      });
+    }
+
+    actionBar.append(meta, actionBtn);
+    itemsEl.appendChild(actionBar);
   }
 
   function refresh() {
@@ -40855,12 +41285,13 @@ function initUpgradeUI({ store, quests, onUpgrade, onRefill, onClose }) {
     if (refillBtn) refillBtn.textContent = t('ws_refill_btn');
     if (closeBtn) closeBtn.textContent = t('ws_exit');
     renderMaterials(gold);
-    renderCards(gold);
+    renderWorkshopBody(gold);
   }
 
   function open(workshopRec = null) {
     currentWorkshop = workshopRec;
     isOpen = true;
+    selectedTier = store.levels[activeKey] ?? 0;
     document.body.classList.add('workshop-open');
     if (bar) bar.hidden = false;
     refresh();
@@ -40892,6 +41323,8 @@ function initUpgradeUI({ store, quests, onUpgrade, onRefill, onClose }) {
     refreshLang: refresh,
     isOpen: () => isOpen,
     currentWorkshop: () => currentWorkshop,
+    selectCategory,
+    selectTier,
     setDisabled() { /* no-op */ },
   };
 }
@@ -42926,8 +43359,9 @@ function updateShafts(dt) {
   }
 }
 
-function rebuildCartFromStore() {
-  const newCart = HC.buildCart(PIVOT_Y, store.cartConfig());
+function rebuildCartFromStore(overrideConfig = null) {
+  const cfg = overrideConfig || store.cartConfig();
+  const newCart = HC.buildCart(PIVOT_Y, cfg);
   physics.swapCart(newCart, animator.x, animator.z, animator.yaw);
   physics.joltScale = store.joltScale();
   physics.pullPowerScale = horseStats.pullMul();
@@ -43653,6 +44087,7 @@ function closeWorkshop() {
   workshopOpen = false;
   _wsRecord = null;
   if (ui && ui.close) ui.close();
+  rebuildCartFromStore();
   controls.target.copy(_wsSavedTarget);
   camera.position.copy(_wsSavedCamPos);
   controls.update();
@@ -43665,6 +44100,10 @@ function closeWorkshop() {
 ui = initUpgradeUI({
   store,
   quests,
+  onPreview(previewCfg) {
+    if (!workshopOpen) return;
+    rebuildCartFromStore(previewCfg);
+  },
   onUpgrade(_key, ok, msg) {
     if (ok) {
       rebuildCartFromStore();

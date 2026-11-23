@@ -189,6 +189,7 @@ function buildUpgrades() {
 
 function buildUI() {
   let src = read('js/ui.js');
+  src = src.replace(/^\s*import\s*\{\s*HC\s*\}\s*from\s*'\.\/hc\.js';\s*\r?\n/m, '');
   src = mustReplace(
     src,
     /^\s*import\s*\{[^}]*\}\s*from\s*'\.\/upgrades\.js';\s*\r?\n/m,

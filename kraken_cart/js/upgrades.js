@@ -91,6 +91,7 @@ const SAVE_KEY = 'kraken_cart_sim_v3';
 export class UpgradeStore {
   constructor() {
     this.levels = { ...DEFAULT_LEVELS };
+    this.unlocked = { capacity: [0], wheels: [0], suspension: [0], straps: [0], canopy: [0] };
     this.materials = { wood: 4, iron: 3, leather: 3, cloth: 2 };
     this.load();
   }
@@ -106,6 +107,16 @@ export class UpgradeStore {
           if (Number.isInteger(v)) this.levels[line.key] = Math.max(0, Math.min(2, v));
         }
       }
+      for (const line of UPGRADE_LINES) {
+        const saved = data && data.unlocked && Array.isArray(data.unlocked[line.key]) ? data.unlocked[line.key] : null;
+        const set = new Set([0, this.levels[line.key] ?? 0]);
+        if (saved) {
+          for (const idx of saved) {
+            if (Number.isInteger(idx) && idx >= 0 && idx <= 2) set.add(idx);
+          }
+        }
+        this.unlocked[line.key] = Array.from(set).sort((a, b) => a - b);
+      }
       if (data && data.materials) {
         for (const k of Object.keys(MATERIAL_DEFS)) {
           const v = data.materials[k];
@@ -117,7 +128,11 @@ export class UpgradeStore {
 
   save() {
     try {
-      localStorage.setItem(SAVE_KEY, JSON.stringify({ levels: this.levels, materials: this.materials }));
+      localStorage.setItem(SAVE_KEY, JSON.stringify({
+        levels: this.levels,
+        unlocked: this.unlocked,
+        materials: this.materials,
+      }));
     } catch (e) { /* storage may be blocked */ }
   }
 
@@ -171,8 +186,84 @@ export class UpgradeStore {
     }
     const nextIdx = (this.levels[key] ?? 0) + 1;
     this.levels[key] = nextIdx;
+    if (!this.isUnlocked(key, nextIdx)) {
+      this.unlocked[key] = [...(this.unlocked[key] || [0]), nextIdx].sort((a, b) => a - b);
+    }
     this.save();
     return { ok: true, newLevel: nextIdx, cost: chk.cost };
+  }
+
+  isUnlocked(key, targetIdx) {
+    const idx = Math.max(0, Math.min(2, targetIdx | 0));
+    if (idx === 0) return true;
+    const list = this.unlocked[key];
+    return Array.isArray(list) ? list.includes(idx) : (this.levels[key] ?? 0) >= idx;
+  }
+
+  costForLevel(key, targetIdx) {
+    const tbl = UPGRADE_COSTS[key];
+    const idx = targetIdx | 0;
+    if (!tbl || idx < 0 || idx >= tbl.length) return null;
+    if (idx === 0) return { gold: 0, items: {} };
+    return tbl[idx] || { gold: 0, items: {} };
+  }
+
+  canAffordLevel(key, targetIdx, gold = 0) {
+    const idx = Math.max(0, Math.min(2, targetIdx | 0));
+    if (this.isUnlocked(key, idx)) {
+      return { ok: true, unlocked: true, cost: { gold: 0, items: {} }, missingGold: 0, missingItems: {} };
+    }
+    const cost = this.costForLevel(key, idx);
+    if (!cost) return { ok: false, unlocked: false, missingGold: 0, missingItems: {} };
+    const missingGold = Math.max(0, (cost.gold || 0) - gold);
+    const missingItems = {};
+    let itemsOk = true;
+    for (const [mk, req] of Object.entries(cost.items || {})) {
+      const have = this.materials[mk] || 0;
+      if (have < req) {
+        missingItems[mk] = req - have;
+        itemsOk = false;
+      }
+    }
+    return {
+      ok: missingGold === 0 && itemsOk,
+      unlocked: false,
+      cost,
+      missingGold,
+      missingItems,
+    };
+  }
+
+  upgradeToLevelWithCost(key, targetIdx, questSys) {
+    const line = UPGRADE_LINES.find((l) => l.key === key);
+    if (!line) return { ok: false, reason: 'invalid' };
+    const idx = Math.max(0, Math.min(line.levels.length - 1, targetIdx | 0));
+    if (this.isUnlocked(key, idx)) {
+      this.levels[key] = idx;
+      this.save();
+      return { ok: true, equipped: true, newLevel: idx, cost: { gold: 0, items: {} } };
+    }
+    const gold = questSys ? (questSys.gold || 0) : 0;
+    const chk = this.canAffordLevel(key, idx, gold);
+    if (!chk.ok) return { ok: false, reason: chk.missingGold > 0 ? 'gold' : 'items', check: chk };
+    if (questSys) questSys.gold = Math.max(0, gold - (chk.cost.gold || 0));
+    for (const [mk, req] of Object.entries(chk.cost.items || {})) {
+      this.materials[mk] = Math.max(0, (this.materials[mk] || 0) - req);
+    }
+    this.levels[key] = idx;
+    this.unlocked[key] = Array.from(new Set([...(this.unlocked[key] || [0]), idx])).sort((a, b) => a - b);
+    this.save();
+    return { ok: true, purchased: true, newLevel: idx, cost: chk.cost };
+  }
+
+  previewConfig(overrides = {}) {
+    const cfg = { ...this.levels };
+    for (const line of UPGRADE_LINES) {
+      if (overrides && line.key in overrides) {
+        cfg[line.key] = Math.max(0, Math.min(line.levels.length - 1, overrides[line.key] | 0));
+      }
+    }
+    return cfg;
   }
 
   setLevel(key, idx) {
@@ -205,6 +296,7 @@ export class UpgradeStore {
 
   reset() {
     this.levels = { ...DEFAULT_LEVELS };
+    this.unlocked = { capacity: [0], wheels: [0], suspension: [0], straps: [0], canopy: [0] };
     this.save();
   }
 }
