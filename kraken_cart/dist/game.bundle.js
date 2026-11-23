@@ -1720,7 +1720,7 @@ const DICT = {
     no_interact_near: 'Nothing to interact with nearby. Approach a [!] NPC or Village Workshop.',
     boot_fail: 'Failed to load game: ',
     // Main Menu & Save/Load
-    menu_title: 'KRKAEN CART',
+    menu_title: 'SHOD',
     menu_subtitle: 'The Hero\'s Loyal Steed & Supply Expedition',
     menu_new_game: 'New Game',
     menu_load_game: 'Load Game',
@@ -1979,7 +1979,7 @@ const DICT = {
     no_interact_near: 'Tidak ada objek interaksi di dekatmu. Dekati NPC [!] atau Bengkel Desa.',
     boot_fail: 'Gagal memuat game: ',
     // Menu Utama & Simpan/Muat
-    menu_title: 'KRKAEN CART',
+    menu_title: 'SHOD',
     menu_subtitle: 'Kuda Setia Sang Pahlawan & Ekspedisi Gerobak',
     menu_new_game: 'Game Baru',
     menu_load_game: 'Muat Game',
@@ -2090,7 +2090,8 @@ const __MOD_MAP = (() => {
      tetapi isi peta tidak boleh bergeser bersama kuda.
    - Kamp pengganti kota memakai `kind:'settlement'`. Kalau kota sungguhan sudah
      ada, ganti bangunannya; koordinat situs + kelompok NPC-nya tetap di sini.
-   ============================================================================ */// Interpolasi Hermite pada stasiun x yang berurutan (kurva halus, tanpa random).
+   ============================================================================ */
+// Interpolasi Hermite pada stasiun x yang berurutan (kurva halus, tanpa random).
 function spline(points, x) {
   const n = points.length;
   if (x <= points[0][0]) return points[0][1];
@@ -21046,7 +21047,8 @@ const THREE = HC.THREE, S = HC.vs;
    IS_MOBILE, lerp/clamp/rand, serta sistem FX/Monsters/Player/NPCS/Game/CFG/Sfx.
    Modul ini menyediakan versi aman (no-op) supaya build() & animate() jalan di
    SHOD tanpa mesin tempur Sylvan. Urutan impor penting: modul ini HARUS masuk
-   sebelum file model mana pun dievaluasi. */const T = HC.THREE;
+   sebelum file model mana pun dievaluasi. */
+const T = HC.THREE;
 
 if (!window.THREE) window.THREE = T;
 window.IS_MOBILE = false;
@@ -32523,7 +32525,8 @@ if (typeof window !== 'undefined') {
    Semua 18 file di folder ini adalah salinan apa adanya dari
    sylvandominion.web.id/js/entities/npc_*.js (build v0.2.169). Tiap file
    memasang window.NPC_<Id> berisi {build(), animate(n,dt)}.
-   `shim.js` WAJIB dievaluasi lebih dulu (urutan impor di bawah). *//* Role id -> entitas model. Nama window mengikuti kapitalisasi Sylvan:
+   `shim.js` WAJIB dievaluasi lebih dulu (urutan impor di bawah). */
+/* Role id -> entitas model. Nama window mengikuti kapitalisasi Sylvan:
    dungeonmaster -> NPC_Dungeonmaster, lionknight -> NPC_Lionknight, dst. */
 const IDS = [
   'guard', 'hunter', 'miner', 'farmer', 'herbal', 'warrior', 'guardian',

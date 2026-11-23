@@ -228,7 +228,7 @@ export const DICT = {
     no_interact_near: 'Nothing to interact with nearby. Approach a [!] NPC or Village Workshop.',
     boot_fail: 'Failed to load game: ',
     // Main Menu & Save/Load
-    menu_title: 'KRKAEN CART',
+    menu_title: 'SHOD',
     menu_subtitle: 'The Hero\'s Loyal Steed & Supply Expedition',
     menu_new_game: 'New Game',
     menu_load_game: 'Load Game',
@@ -487,7 +487,7 @@ export const DICT = {
     no_interact_near: 'Tidak ada objek interaksi di dekatmu. Dekati NPC [!] atau Bengkel Desa.',
     boot_fail: 'Gagal memuat game: ',
     // Menu Utama & Simpan/Muat
-    menu_title: 'KRKAEN CART',
+    menu_title: 'SHOD',
     menu_subtitle: 'Kuda Setia Sang Pahlawan & Ekspedisi Gerobak',
     menu_new_game: 'Game Baru',
     menu_load_game: 'Muat Game',
