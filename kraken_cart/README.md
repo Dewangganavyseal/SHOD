@@ -3,7 +3,7 @@
 Build kerjaan Zwei. Horse + supply cart voxel, medan analitik, hutan cozy yang di-port
 dari `hutan_cozy_interaktif_3d.html`, NPC squad Sylvan, survival kuda, dan kontroler mobile.
 
-**Live:** https://dewangganavyseal.github.io/SHOD/
+**Live:** https://denavstudio.web.id/SHOD/
 
 ## Cara jalanin (paling cepat)
 
