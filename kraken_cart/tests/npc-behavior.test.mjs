@@ -3,8 +3,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const baseDir = path.dirname(new URL(import.meta.url).pathname);
+const baseDir = path.dirname(fileURLToPath(import.meta.url));
 const src = fs.readFileSync(path.join(baseDir, '../js/npc.js'), 'utf8');
 const mapSrc = fs.readFileSync(path.join(baseDir, '../js/map.js'), 'utf8');
 const NPCParty = new Function('HC', src.slice(src.indexOf('HC.NPCParty = class')) + '\nreturn HC.NPCParty;')({

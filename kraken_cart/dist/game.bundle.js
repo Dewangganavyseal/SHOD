@@ -1701,6 +1701,10 @@ const DICT = {
     ug_canopy_lv1: 'Lv1 Open Bed',
     ug_canopy_lv2: 'Lv2 Iron Guard',
     ug_canopy_lv3: 'Lv3 Canvas Canopy',
+    ug_lantern_name: 'Cart Lantern',
+    ug_lantern_lv1: 'Lv1 Tallow Lamp',
+    ug_lantern_lv2: 'Lv2 Brass Lantern',
+    ug_lantern_lv3: 'Lv3 Expedition Beacon',
     // Messages & Survival & Combat
     msg_sleep_on: '💤 Horse is sleeping — Stamina & HP recover faster.',
     msg_sleep_off: '☀️ Horse is awake and ready to move.',
@@ -1767,6 +1771,42 @@ const DICT = {
     quest_pass_complete_toast: '🎉 Escorted {cargo} safely to {to}! +{gold} G, +{mats}, wheels +25 HP!',
     quest_need_cart: 'Claim the Hero\'s Old Cart behind Radnar first to accept village quests!',
     npc_team_full_2: 'Squad full (2/2 companions + 2 seats reserved for passengers).',
+    npc_msg_default: 'NPCs stay at their camps or posts. Get closer to the group to recruit.',
+    npc_msg_boarded: '{e} {name} is seated on the cart bench.',
+    npc_msg_unloading: '{e} {name} is loading cargo back onto the cart ({left} left).',
+    npc_msg_loaded_all: '{e} All cargo is back on the cart!',
+    npc_msg_clear: '{e} {skill}: {n} pebbles cleared from the path.',
+    npc_msg_no_target: 'No NPC within 3.8 m. Get closer to the group first.',
+    npc_msg_recruited: '{e} {name} recruited - walking to the back of the cart... ({note})',
+    npc_msg_flip_first: 'Right the cart first before NPCs can board.',
+    npc_msg_boarding: '{e} {name} is heading behind the cart to board.',
+    npc_msg_flipped: 'Cart flipped! All NPCs fell to the ground.',
+    npc_msg_released_walk: '{e} {name} dismounted and is walking around the cart.',
+    npc_msg_released: '{e} {name} was released from the squad.',
+    npc_msg_squad_empty: 'Squad empty.',
+    quest_giver_fallback: '{village} Villager',
+    quest_receiver_fallback: '{village} Villager',
+    ug_capacity_lv1_detail: '4 seats • 6 supplies',
+    ug_capacity_lv2_detail: '4 seats • 8 supplies',
+    ug_capacity_lv3_detail: '4 seats • 12 supplies',
+    ug_wheels_lv1_detail: 'Rigid wooden axle',
+    ug_wheels_lv2_detail: 'Iron rim + springs',
+    ug_wheels_lv3_detail: 'Wide offroad steel',
+    ug_suspension_lv1_detail: 'No suspension',
+    ug_suspension_lv2_detail: '0.24 m spring travel',
+    ug_suspension_lv3_detail: '0.34 m offroad coils',
+    ug_straps_lv1_detail: 'Loose cargo movement',
+    ug_straps_lv2_detail: '-38% cargo jolt',
+    ug_straps_lv3_detail: '-70% cargo jolt',
+    ug_canopy_lv1_detail: 'Plain oak frame',
+    ug_canopy_lv2_detail: 'Iron plates + lantern',
+    ug_canopy_lv3_detail: 'Arched expedition roof',
+    ug_lantern_lv1_detail: '4 m warm pool of light',
+    ug_lantern_lv2_detail: '9 m glow • twice as bright',
+    ug_lantern_lv3_detail: '15 m wide beacon light',
+    quality_low_hint: 'Low-end: shadows off, 100% render scale, 30% grass, trees past 45 m use low detail.',
+    quality_med_hint: 'Mid-range: periodic shadows, 62% grass, trees past 60 m use low detail.',
+    quality_high_hint: 'High-end: full detail nearby, trees past 80 m use low detail, full NPCs and shadows.',
     msg_horse_attacked: '⚠️ {who} struck your horse (-{dmg} HP)!',
     msg_ram_hit: '💥 Charged into {who} (-{dmg} HP, Stunned)!',
   },
@@ -1967,6 +2007,10 @@ const DICT = {
     ug_canopy_lv1: 'Lv1 Bak Terbuka',
     ug_canopy_lv2: 'Lv2 Perisai Besi',
     ug_canopy_lv3: 'Lv3 Kanopi',
+    ug_lantern_name: 'Lentera Gerobak',
+    ug_lantern_lv1: 'Lv1 Lampu Minyak',
+    ug_lantern_lv2: 'Lv2 Lentera Kuningan',
+    ug_lantern_lv3: 'Lv3 Suar Ekspedisi',
     msg_sleep_on: '💤 Kuda berbaring tidur — stamina & HP pulih lebih cepat.',
     msg_sleep_off: '☀️ Kuda bangun dan siap jalan.',
     msg_sleep_deny: 'Tidak bisa tidur saat ini.',
@@ -2032,8 +2076,45 @@ const DICT = {
     quest_pass_complete_toast: '🎉 {cargo} selamat sampai di {to}! +{gold} G, +{mats}, roda +25 HP!',
     quest_need_cart: 'Ambil Gerobak Tua pahlawan di belakang Radnar dulu untuk mengambil quest!',
     npc_team_full_2: 'Regu penuh (2/2 pengawal + 2 kursi kosong khusus penumpang quest).',
+    npc_msg_default: 'NPC tinggal di kamp atau pos. Dekati kelompoknya untuk merekrut.',
+    npc_msg_boarded: '{e} {name} sudah duduk di bangku gerobak.',
+    npc_msg_unloading: '{e} {name} sedang memuat barang kembali ke gerobak ({left} tersisa).',
+    npc_msg_loaded_all: '{e} Semua barang sudah dimuat kembali ke gerobak!',
+    npc_msg_clear: '{e} {skill}: {n} kerikil di jalur disapu.',
+    npc_msg_no_target: 'Belum ada NPC dalam jangkauan 3,8 m. Dekati kelompoknya dulu.',
+    npc_msg_recruited: '{e} {name} direkrut - berjalan ke belakang gerobak... ({note})',
+    npc_msg_flip_first: 'Balikkan gerobak dulu sebelum NPC bisa naik.',
+    npc_msg_boarding: '{e} {name} menuju belakang gerobak untuk naik.',
+    npc_msg_flipped: 'Gerobak terguling! Semua NPC terjatuh ke tanah.',
+    npc_msg_released_walk: '{e} {name} turun dan berjalan di sekitar gerobak.',
+    npc_msg_released: '{e} {name} dilepas dari regu.',
+    npc_msg_squad_empty: 'Regu kosong.',
+    quest_giver_fallback: 'Warga {village}',
+    quest_receiver_fallback: 'Warga {village}',
+    ug_capacity_lv1_detail: '4 kursi • 6 barang',
+    ug_capacity_lv2_detail: '4 kursi • 8 barang',
+    ug_capacity_lv3_detail: '4 kursi • 12 barang',
+    ug_wheels_lv1_detail: 'Poros kayu kaku',
+    ug_wheels_lv2_detail: 'Pelek besi + per',
+    ug_wheels_lv3_detail: 'Baja lebar segala medan',
+    ug_suspension_lv1_detail: 'Tanpa suspensi',
+    ug_suspension_lv2_detail: 'Jarak main per 0,24 m',
+    ug_suspension_lv3_detail: 'Per koil segala medan 0,34 m',
+    ug_straps_lv1_detail: 'Muatan bergerak bebas',
+    ug_straps_lv2_detail: 'Guncangan muatan -38%',
+    ug_straps_lv3_detail: 'Guncangan muatan -70%',
+    ug_canopy_lv1_detail: 'Rangka kayu ek sederhana',
+    ug_canopy_lv2_detail: 'Pelat besi + lentera',
+    ug_canopy_lv3_detail: 'Kanopi ekspedisi melengkung',
+    ug_lantern_lv1_detail: 'Cahaya hangat 4 m',
+    ug_lantern_lv2_detail: 'Cahaya 9 m • dua kali lebih terang',
+    ug_lantern_lv3_detail: 'Suar lebar 15 m',
+    quality_low_hint: 'Perangkat ringan: bayangan mati, skala render 100%, rumput 30%, pohon di atas 45 m memakai detail rendah.',
+    quality_med_hint: 'Perangkat menengah: bayangan berkala, rumput 62%, pohon di atas 60 m memakai detail rendah.',
+    quality_high_hint: 'Perangkat kencang: detail penuh di dekat, pohon di atas 80 m memakai detail rendah, NPC dan bayangan penuh.',
     msg_horse_attacked: '⚠️ {who} menyerang kudamu (-{dmg} HP)!',
     msg_ram_hit: '💥 Menabrak {who} (-{dmg} HP, Pingsan)!',
+
   },
 };
 
@@ -2372,7 +2453,74 @@ class VoxelBuilder {
     }
     return this;
   }
-  build(pivotX = 0, pivotY = 0, pivotZ = 0) {
+  // Compound collider in mesh-local space. Each occupied voxel is a box; the
+  // greedy pass merges them into as few boxes as possible so the collider
+  // follows the barrel/sack/crate silhouette instead of one fat AABB.
+  makeCollider(pivotX = 0, pivotY = 0, pivotZ = 0) {
+    const vs = this.vs;
+    const layers = new Map();
+    for (const v of this.map.values()) {
+      let layer = layers.get(v.y);
+      if (!layer) { layer = new Set(); layers.set(v.y, layer); }
+      layer.add(`${v.x},${v.z}`);
+    }
+    const ys = [...layers.keys()].sort((a, b) => a - b);
+    const boxes = [];
+    const active = new Map();
+    for (const y of ys) {
+      const cells = layers.get(y);
+      const keys = new Set(cells);
+      const rects = [];
+      while (keys.size) {
+        let minX = Infinity, minZ = Infinity;
+        for (const k of keys) {
+          const parts = k.split(',');
+          const x = +parts[0], z = +parts[1];
+          if (x < minX || (x === minX && z < minZ)) { minX = x; minZ = z; }
+        }
+        let z1 = minZ;
+        while (keys.has(`${minX},${z1 + 1}`)) z1++;
+        let x1 = minX;
+        for (;;) {
+          let full = true;
+          for (let z = minZ; z <= z1; z++) {
+            if (!keys.has(`${x1 + 1},${z}`)) { full = false; break; }
+          }
+          if (!full) break;
+          x1++;
+        }
+        for (let x = minX; x <= x1; x++) {
+          for (let z = minZ; z <= z1; z++) keys.delete(`${x},${z}`);
+        }
+        rects.push({ x0: minX, x1, z0: minZ, z1 });
+      }
+      const next = new Map();
+      for (const r of rects) {
+        const key = `${r.x0},${r.x1},${r.z0},${r.z1}`;
+        const prev = active.get(key);
+        if (prev && prev.y1 === y - 1) {
+          prev.y1 = y;
+          next.set(key, prev);
+        } else {
+          const box = { x0: r.x0, x1: r.x1, z0: r.z0, z1: r.z1, y0: y, y1: y };
+          boxes.push(box);
+          next.set(key, box);
+        }
+      }
+      active.clear();
+      for (const [k, box] of next) active.set(k, box);
+    }
+    return boxes.map((b) => ({
+      cx: ((b.x0 + b.x1) / 2 - pivotX) * vs,
+      cy: ((b.y0 + b.y1) / 2 - pivotY) * vs,
+      cz: ((b.z0 + b.z1) / 2 - pivotZ) * vs,
+      hx: (b.x1 - b.x0 + 1) * vs / 2,
+      hy: (b.y1 - b.y0 + 1) * vs / 2,
+      hz: (b.z1 - b.z0 + 1) * vs / 2
+    }));
+  }
+
+  build(pivotX = 0, pivotY = 0, pivotZ = 0, opts = null) {
     const pos = [], norm = [], col = [], idx = [];
     const vs = this.vs;
     let vCount = 0;
@@ -2409,6 +2557,12 @@ class VoxelBuilder {
     const mesh = new THREE.Mesh(geo, window.HC.VOXEL_MAT);
     mesh.castShadow = true;
     mesh.receiveShadow = true;
+    if (opts && opts.collider) {
+      mesh.userData.voxelCollider = {
+        boxes: this.makeCollider(pivotX, pivotY, pivotZ),
+        voxelSize: vs
+      };
+    }
     return mesh;
   }
 }
@@ -2898,8 +3052,98 @@ HC.CART_UPGRADES = {
     { tier: 0, label: 'Lv1 • Bak Kayu Terbuka' },
     { tier: 1, label: 'Lv2 • Perisai Besi + Lentera Kembar' },
     { tier: 2, label: 'Lv3 • Kanopi Tenda Ekspedisi' }
+  ],
+  // Lentera gantung sisi kanan. `light` = intensitas PointLight (candela),
+  // `distance` = jangkauan, `halo` = ukuran sprite glow, `pool` = radius
+  // bulatan cahaya di tanah (meter).
+  lantern: [
+    { tier: 0, label: 'Lv1 • Lampu Minyak', light: 7.0, distance: 7.0, halo: 0.95, pool: 3.0, glow: 0xffc978, glass: 0xffc46a },
+    { tier: 1, label: 'Lv2 • Lentera Kuningan', light: 14.0, distance: 11.5, halo: 1.40, pool: 4.4, glow: 0xffc266, glass: 0xffcf78 },
+    { tier: 2, label: 'Lv3 • Suar Ekspedisi', light: 24.0, distance: 17.0, halo: 1.95, pool: 6.0, glow: 0xffb84d, glass: 0xffd98a }
   ]
 };
+
+// ------------------------------------------------------------
+//  LENTERA GEROBAK — besi tempa gantung di sisi kanan bak.
+//  Dipakai dua kali: di gerobak asli (dengan PointLight) dan di
+//  thumbnail workshop (tanpa lampu, cukup glow).
+// ------------------------------------------------------------
+let _lanternGlowTex = null;
+function getLanternGlowTexture() {
+  if (_lanternGlowTex) return _lanternGlowTex;
+  if (typeof document === 'undefined') return null;
+  const size = 64;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  g.addColorStop(0.0, 'rgba(255, 240, 200, 1)');
+  g.addColorStop(0.32, 'rgba(255, 205, 120, 0.62)');
+  g.addColorStop(0.68, 'rgba(255, 165, 65, 0.18)');
+  g.addColorStop(1.0, 'rgba(255, 145, 40, 0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, size, size);
+  _lanternGlowTex = new THREE.CanvasTexture(canvas);
+  if (THREE.SRGBColorSpace) _lanternGlowTex.colorSpace = THREE.SRGBColorSpace;
+  return _lanternGlowTex;
+}
+
+function buildCartLantern(tier = 0, withLight = true) {
+  const spec = HC.CART_UPGRADES.lantern[tier] || HC.CART_UPGRADES.lantern[0];
+  const group = new THREE.Group();
+  group.name = 'cartLantern';
+
+  // Rangka besi: tutup atas, dasar, dan empat tiang kurungan.
+  const vb = new V(S);
+  vb.box(-1, -2, -1, 1, 0, 1, P.iron, 0.01);
+  vb.box(-2, -6, -2, 2, -5, 2, P.iron, 0.01);
+  for (const cx of [-1.5, 1.5]) {
+    for (const cz of [-1.5, 1.5]) {
+      vb.box(cx, -5.2, cz, cx, -1.9, cz, P.ironDark, 0.02);
+    }
+  }
+  vb.box(-1.5, -1.9, -1.5, 1.5, -1.6, 1.5, P.iron, 0.02);
+  vb.box(-0.8, 0.0, -0.8, 0.8, 0.6, 0.8, P.ironDark, 0.02);
+  group.add(vb.build(0, 0, 0));
+
+  // Kaca lentera: material sendiri supaya bisa dinyalakan/dimatikan.
+  const glassMat = new THREE.MeshBasicMaterial({
+    color: spec.glass,
+    transparent: true,
+    opacity: 0.94,
+    toneMapped: false
+  });
+  const glass = new THREE.Mesh(new THREE.BoxGeometry(2.85 * S, 2.9 * S, 2.85 * S), glassMat);
+  glass.position.y = -3.5 * S;
+  glass.userData.isLanternGlass = true;
+  glass.renderOrder = 4;
+  group.add(glass);
+
+  // Halo hangat (sprite additive, murah di GPU mobile).
+  const halo = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: getLanternGlowTexture(),
+    color: spec.glow,
+    transparent: true,
+    opacity: 0,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    toneMapped: false
+  }));
+  halo.position.copy(glass.position);
+  halo.scale.setScalar(spec.halo * 1.15);
+  halo.renderOrder = 3;
+  group.add(halo);
+
+  let light = null;
+  if (withLight) {
+    light = new THREE.PointLight(0xffb054, 0, spec.distance, 1.30);
+    light.position.copy(glass.position);
+    light.castShadow = false;
+    group.add(light);
+  }
+
+  return { group, glassMat, halo, light, spec, tier };
+}
 
 function buildSpokedWheel(radiusVox, widthVox, tier = 0) {
   const vb = new V(S);
@@ -2994,7 +3238,7 @@ function makeBarrelMesh(tintHex) {
   }
   b.cylY(0, 0, 6, 6, 4.1, P.oakLite, 0, 0.03);
   b.box(-0.6, 6, -0.6, 0.6, 7, 0.6, P.brass);
-  return b.build(0, 0, 0);
+  return b.build(0, 0, 0, { collider: true });
 }
 
 function makeCrateMesh(w, h, d, mainHex, trimHex) {
@@ -3008,7 +3252,7 @@ function makeCrateMesh(w, h, d, mainHex, trimHex) {
     for (const sy of [-h, h])
       for (const sz of [-d, d])
         c.set(sx, sy, sz, P.ironDark, 0.01);
-  return c.build(0, 0, 0);
+  return c.build(0, 0, 0, { collider: true });
 }
 
 function makeSackMesh(colHex) {
@@ -3016,7 +3260,7 @@ function makeSackMesh(colHex) {
   sb.ellipsoid(0, 0, 0, 5.0, 3.5, 4.0, colHex, 0.05);
   sb.box(-1.5, 2.7, -1.5, 1.5, 3.7, 1.5, P.sackTie, 0.02);
   sb.ellipsoid(0, 4.3, 0, 2.0, 1.2, 2.0, colHex, 0.04);
-  return sb.build(0, 0, 0);
+  return sb.build(0, 0, 0, { collider: true });
 }
 
 function makeTarpMesh() {
@@ -3025,7 +3269,7 @@ function makeTarpMesh() {
   tb.cylZ(-7, 7, 0, 0, 1.7, P.padCloth, 0, 0.03);
   tb.cylZ(-4, -3, 0, 0, 3.4, P.leather, 2.7, 0.02);
   tb.cylZ(3, 4, 0, 0, 3.4, P.leather, 2.7, 0.02);
-  return tb.build(0, 0, 0);
+  return tb.build(0, 0, 0, { collider: true });
 }
 
 function makeTreasureChestMesh() {
@@ -3034,7 +3278,7 @@ function makeTreasureChestMesh() {
   cb.box(-5, 2, -4, 5, 4, 4, P.oakMid, 0.04);
   for (const x of [-4, 0, 4]) cb.box(x, -3, -4, x, 4, 4, P.brass, 0.02);
   cb.box(-1, 0, 4, 1, 2, 5, P.lantern, 0.01);
-  return cb.build(0, 0, 0);
+  return cb.build(0, 0, 0, { collider: true });
 }
 
 // ============================================================
@@ -3165,7 +3409,7 @@ function makeWaterBarrelMesh() {
   b.box(-0.7, 5, -0.7, 0.7, 6, 0.7, P.brass, 0.01);
   b.box(3.8, -1, -0.6, 5.0, 0, 0.6, P.brass, 0.01);
   b.box(4.5, -2, -0.5, 5.1, -1, 0.5, P.brass, 0.01);
-  return b.build(0, 0, 0);
+  return b.build(0, 0, 0, { collider: true });
 }
 
 function makeFruitBoxMesh() {
@@ -3192,45 +3436,102 @@ function makeFruitBoxMesh() {
   }
   b.box(-2.4, 1.4, -1.9, -1.6, 2.0, -1.1, 0x22c55e, 0.02);
   b.box(0.0, 2.1, -0.2, 0.8, 2.7, 0.6, 0x16a34a, 0.02);
-  return b.build(0, 0, 0);
+  return b.build(0, 0, 0, { collider: true });
+}
+
+function packCargoBoxes(boxes, bounds, gap) {
+  const sorted = boxes.slice().sort((a, b) => b.depth - a.depth || b.width - a.width);
+  const placed = [];
+  let x = bounds.xMin, z = bounds.zMin, shelfDepth = 0;
+  for (const box of sorted) {
+    if (x + box.width > bounds.xMax + 1e-6) {
+      z += shelfDepth + gap;
+      x = bounds.xMin;
+      shelfDepth = 0;
+    }
+    if (x + box.width > bounds.xMax + 1e-6 || z + box.depth > bounds.zMax + 1e-6) return null;
+    placed.push({ box, x: x + box.width / 2, z: z + box.depth / 2 });
+    x += box.width + gap;
+    shelfDepth = Math.max(shelfDepth, box.depth);
+  }
+  return placed;
 }
 
 function buildCargoItems(capTier = 1) {
-  // Cargo ditempatkan di kompartemen DEPAN (x: 2..22, z: -13..13) dengan tata letak organik.
-  // Item starter mencakup perbekalan kuda (Tong Air & Kotak Buah) di sisi depan agar mudah diklik saat tekan Q!
   const allDefs = [
-    // Lv1 (6 barang): Starter perbekalan kuda + perlengkapan ekspedisi
-    { build: () => makeWaterBarrelMesh(), pos: [18.0, 11.4, -7.8], rot: [0, 0.14, 0], r: 4.5, nameKey: 'item_water_barrel', supplyKind: 'water', charges: 5, maxCharges: 5 },
-    { build: () => makeFruitBoxMesh(), pos: [18.0, 9.6, 7.6], rot: [0, -0.16, 0], r: 4.6, nameKey: 'item_fruit_box', supplyKind: 'food', charges: 5, maxCharges: 5 },
-    { build: () => makeBarrelMesh(P.oakDark), pos: [6.0, 12.1, -8.2], rot: [0, 0.22, 0], r: 5.0, nameKey: 'item_oil_cask' },
-    { build: () => makeSackMesh(P.sack), pos: [10.4, 9.6, 7.8], rot: [0.04, -0.34, 0], r: 4.0, nameKey: 'item_oat_sack' },
-    { build: () => makeCrateMesh(4, 3.5, 4, P.oakMid, P.oakDark), pos: [6.4, 9.6, 7.4], rot: [0, -0.19, 0], r: 4.3, nameKey: 'item_hay_bale' },
-    { build: () => makeTarpMesh(), pos: [11.2, 9.2, -1.0], rot: [0, 0.18, 0], r: 3.8, nameKey: 'item_travel_tarp' },
-    // Lv2 (+2 = 8)
-    { build: () => makeTreasureChestMesh(), pos: [14.2, 9.1, 0.6], rot: [0, -0.26, 0], r: 4.5, nameKey: 'item_storage_chest' },
-    { build: () => makeCrateMesh(5, 4, 5, P.oakLite, P.oakDark), pos: [6.0, 10.1, 0.5], rot: [0, 0.35, 0], r: 4.8, nameKey: 'item_tool_crate' },
-    // Lv3 (+4 = 12)
-    { build: () => makeTreasureChestMesh(), pos: [14.8, 9.1, -7.2], rot: [0, 0.19, 0], r: 4.4, nameKey: 'item_storage_chest' },
-    { build: () => makeSackMesh(P.sack), pos: [13.2, 9.6, 4.4], rot: [0.08, -0.45, 0], r: 3.9, nameKey: 'item_oat_sack' },
-    { build: () => makeCrateMesh(4, 3, 4, P.oakLite, P.oakDark), pos: [19.4, 9.1, 0.2], rot: [0, 0.28, 0], r: 4.2, nameKey: 'item_tool_crate' },
-    { build: () => makeSackMesh(P.canvas), pos: [8.8, 9.6, -4.6], rot: [-0.04, 0.52, 0], r: 3.9, nameKey: 'item_oat_sack' }
+    { build: () => makeWaterBarrelMesh(), rot: [0, 0.14, 0], r: 4.5, nameKey: 'item_water_barrel', supplyKind: 'water', charges: 5, maxCharges: 5 },
+    { build: () => makeFruitBoxMesh(), rot: [0, -0.16, 0], r: 4.6, nameKey: 'item_fruit_box', supplyKind: 'food', charges: 5, maxCharges: 5 },
+    { build: () => makeBarrelMesh(P.oakDark), rot: [0, 0.22, 0], r: 5.0, nameKey: 'item_oil_cask' },
+    { build: () => makeSackMesh(P.sack), rot: [0.04, -0.34, 0], r: 4.0, nameKey: 'item_oat_sack' },
+    { build: () => makeCrateMesh(4, 3.5, 4, P.oakMid, P.oakDark), rot: [0, -0.19, 0], r: 4.3, nameKey: 'item_hay_bale' },
+    { build: () => makeTarpMesh(), rot: [0, 0.18, 0], r: 3.8, nameKey: 'item_travel_tarp' },
+    { build: () => makeTreasureChestMesh(), rot: [0, -0.26, 0], r: 4.5, nameKey: 'item_storage_chest' },
+    { build: () => makeCrateMesh(5, 4, 5, P.oakLite, P.oakDark), rot: [0, 0.35, 0], r: 4.8, nameKey: 'item_tool_crate' },
+    { build: () => makeTreasureChestMesh(), rot: [0, 0.19, 0], r: 4.4, nameKey: 'item_storage_chest' },
+    { build: () => makeSackMesh(P.sack), rot: [0.08, -0.45, 0], r: 3.9, nameKey: 'item_oat_sack' },
+    { build: () => makeCrateMesh(4, 3, 4, P.oakLite, P.oakDark), rot: [0, 0.28, 0], r: 4.2, nameKey: 'item_tool_crate' },
+    { build: () => makeSackMesh(P.canvas), rot: [-0.04, 0.52, 0], r: 3.9, nameKey: 'item_oat_sack' }
   ];
-
   const spec = HC.CART_UPGRADES.capacity[capTier] || HC.CART_UPGRADES.capacity[1];
-  const count = spec.count;
-  const items = [];
-  for (let i = 0; i < count; i++) {
-    const d = allDefs[i];
-    items.push({
-      mesh: d.build(),
+  const bounds = {
+    xMin: 1.6 * S,
+    xMax: ((spec.bedFrontX ?? 24) - 2) * S,
+    zMin: -(((spec.bedHalfW ?? 15) - 1)) * S,
+    zMax: (((spec.bedHalfW ?? 15) - 1)) * S
+  };
+  const gap = 0.018;
+  const floorY = 6 * S;
+  const items = allDefs.slice(0, spec.count).map((d) => {
+    const mesh = d.build();
+    const homeRot = new THREE.Euler(d.rot[0], d.rot[1], d.rot[2]);
+    mesh.rotation.copy(homeRot);
+    mesh.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(mesh);
+    const size = box.getSize(new THREE.Vector3());
+    return {
+      mesh,
       nameKey: d.nameKey || 'item_tool_crate',
       supplyKind: d.supplyKind || null,
       charges: d.charges != null ? d.charges : 0,
       maxCharges: d.maxCharges != null ? d.maxCharges : 0,
-      homePos: new THREE.Vector3(d.pos[0] * S, d.pos[1] * S, d.pos[2] * S),
-      homeRot: new THREE.Euler(d.rot[0], d.rot[1], d.rot[2]),
-      radius: d.r * S
-    });
+      homePos: new THREE.Vector3(),
+      homeRot,
+      radius: d.r * S,
+      _cargoBox: box,
+      _cargoSize: size
+    };
+  });
+
+  let low = 0.18, high = 1, best = null;
+  for (let i = 0; i < 26; i++) {
+    const scale = (low + high) * 0.5;
+    const boxes = items.map((item, index) => ({
+      index,
+      width: item._cargoSize.x * scale,
+      depth: item._cargoSize.z * scale
+    }));
+    const placed = packCargoBoxes(boxes, bounds, gap);
+    if (placed) { best = { scale, placed }; low = scale; }
+    else high = scale;
+  }
+  const scale = best ? best.scale : low;
+  for (const slot of (best ? best.placed : [])) {
+    const item = items[slot.box.index];
+    const box = item._cargoBox;
+    item.mesh.scale.setScalar(scale);
+    item.homePos.set(
+      slot.x - ((box.min.x + box.max.x) * 0.5 * scale),
+      floorY - box.min.y * scale,
+      slot.z - ((box.min.z + box.max.z) * 0.5 * scale)
+    );
+    item.mesh.position.copy(item.homePos);
+    const frame = cargoFrame(item.mesh);
+    item.localCenter = frame.c;
+    item.localHalf = frame.h;
+    item.radius = Math.max(item._cargoSize.x, item._cargoSize.z) * scale * 0.5;
+    item.cargoScale = scale;
+    delete item._cargoBox;
+    delete item._cargoSize;
   }
   return items;
 }
@@ -3317,7 +3618,7 @@ HC.buildQuestCargoMesh = function (cargoKind = 'spices', sc = S) {
     b.cylY(2.2, 0.6, -1.0, 1.4, 1.3, 0xf8fafc, 0, 0.02);
     b.cylY(2.2, 0.6, 0.8, 1.3, 1.35, 0x1d4ed8, 0, 0.01);
   }
-  const mesh = b.build(0, 0, 0);
+  const mesh = b.build(0, 0, 0, { collider: true });
   mesh.userData.questCargoKind = kind;
   return mesh;
 };
@@ -3378,17 +3679,101 @@ HC.makeWaterBucketMesh = function (sc = S) {
   return grp;
 };
 
+// Local frame of the mesh before its own rotation is applied. Physics needs
+// this to clamp the *visual* AABB against the rails; the mesh origin is often
+// offset from the visible centre.
+function cargoFrame(mesh) {
+  if (mesh.isMesh && mesh.geometry) {
+    if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
+    const bb = mesh.geometry.boundingBox;
+    const scale = mesh.scale.x;
+    return {
+      c: bb.getCenter(new THREE.Vector3()).multiplyScalar(scale),
+      h: bb.getSize(new THREE.Vector3()).multiplyScalar(0.5 * scale)
+    };
+  }
+  const pos = mesh.position.clone();
+  const rot = mesh.rotation.clone();
+  mesh.position.set(0, 0, 0);
+  mesh.rotation.set(0, 0, 0);
+  mesh.updateMatrixWorld(true);
+  const bb = new THREE.Box3().setFromObject(mesh);
+  mesh.position.copy(pos);
+  mesh.rotation.copy(rot);
+  mesh.updateMatrixWorld(true);
+  return {
+    c: bb.getCenter(new THREE.Vector3()),
+    h: bb.getSize(new THREE.Vector3()).multiplyScalar(0.5)
+  };
+}
+
+// AABB dalam ruang bak (body), bukan world. Root gerobak bisa berada di
+// koordinat jauh/berputar, sedangkan slot kargo selalu lokal terhadap body.
+function cargoLocalBox(item) {
+  const body = item && item.mesh && item.mesh.parent;
+  if (!body) return new THREE.Box3().setFromObject(item.mesh);
+  body.updateWorldMatrix(true, false);
+  item.mesh.updateWorldMatrix(true, true);
+  const inv = new THREE.Matrix4().copy(body.matrixWorld).invert();
+  const out = new THREE.Box3();
+  const tmp = new THREE.Matrix4();
+  item.mesh.traverse((o) => {
+    if (!o.isMesh || !o.geometry) return;
+    if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+    const bb = o.geometry.boundingBox.clone();
+    tmp.multiplyMatrices(inv, o.matrixWorld);
+    bb.applyMatrix4(tmp);
+    out.union(bb);
+  });
+  return out;
+}
+
+function cargoSlotRect(item, margin) {
+  if (!item || !item.mesh) return null;
+  const bb = cargoLocalBox(item);
+  const sz = bb.getSize(new THREE.Vector3());
+  const c = bb.getCenter(new THREE.Vector3());
+  // Pusat AABB world, bukan origin mesh: titik origin barang bisa bergeser
+  // dari pusat visualnya (mis. perbekalan yang dimuat miring).
+  return {
+    x: c.x,
+    z: c.z,
+    hx: sz.x * 0.5 + margin,
+    hz: sz.z * 0.5 + margin
+  };
+}
+
+function findFreeCargoSlot(rects, bounds, hx, hz, step = 0.02) {
+  for (let x = bounds.xMin + hx; x <= bounds.xMax - hx + 1e-6; x += step) {
+    for (let z = bounds.zMin + hz; z <= bounds.zMax - hz + 1e-6; z += step) {
+      let free = true;
+      for (const r of rects) {
+        if (Math.abs(x - r.x) < hx + r.hx && Math.abs(z - r.z) < hz + r.hz) {
+          free = false;
+          break;
+        }
+      }
+      if (free) return { x, z };
+    }
+  }
+  return null;
+}
+
 HC.setQuestCargoOnCart = function (cart, physics, cargoKind = 'spices', count = 3, questMeta = null) {
   if (!cart || !cart.body) return [];
   HC.clearQuestCargoFromCart(cart, physics);
 
-  // Tempatkan barang quest di kompartemen kargo tanpa menumpuk barang pengisi
-  const qSlots = [
-    { pos: [11.0, 10.2, -6.2], rot: [0, 0.16, 0] },
-    { pos: [13.8, 10.2, 0.2],  rot: [0, -0.22, 0] },
-    { pos: [10.8, 10.2, 6.2],  rot: [0, 0.28, 0] },
-  ];
-  const n = Math.max(1, Math.min(qSlots.length, count | 0));
+  const capSpec = cart.specs && cart.specs.capSpec;
+  const halfW = ((capSpec && capSpec.bedHalfW) ?? 15) - 1;
+  const frontX = ((capSpec && capSpec.bedFrontX) ?? 24) - 2;
+  const bounds = {
+    xMin: 1.6 * S,
+    xMax: frontX * S,
+    zMin: -halfW * S,
+    zMax: halfW * S
+  };
+  const floorY = 6 * S;
+  const n = Math.max(1, Math.min(3, count | 0));
   const placed = [];
 
   // Sembunyikan semua barang filler statis selain perbekalan kuda (Water Barrel & Fruit Box) agar barang quest terlihat jelas
@@ -3398,18 +3783,77 @@ HC.setQuestCargoOnCart = function (cart, physics, cargoKind = 'spices', count = 
     if (ex.mesh) ex.mesh.visible = false;
   }
 
-  for (let i = 0; i < n; i++) {
-    const slot = qSlots[i];
-    const hp = new THREE.Vector3(slot.pos[0] * S, slot.pos[1] * S, slot.pos[2] * S);
-    const hr = new THREE.Euler(slot.rot[0], slot.rot[1], slot.rot[2]);
+  const occupied = [];
+  for (const ex of cart.cargoItems) {
+    if (!ex || ex.isQuestCargo || ex.spilled || ex.hiddenForQuest) continue;
+    const rect = cargoSlotRect(ex, 0.02);
+    if (rect) occupied.push(rect);
+  }
 
+  const yaws = [0.16, -0.22, 0.28];
+  const template = [];
+  for (let i = 0; i < n; i++) {
+    const hr = new THREE.Euler(0, yaws[i % yaws.length], 0);
     const mesh = HC.buildQuestCargoMesh(cargoKind, S);
-    mesh.position.copy(hp);
     mesh.rotation.copy(hr);
-    cart.body.add(mesh);
+    mesh.position.set(0, 0, 0);
+    mesh.updateMatrixWorld(true);
+    const bb = new THREE.Box3().setFromObject(mesh);
+    template.push({ mesh, hr, size: bb.getSize(new THREE.Vector3()) });
+  }
+
+  // Cari skala terbesar yang masih memuat SEMUA barang quest tanpa menabrak
+  // perbekalan. Bak Lv1 sempit: tanpa penyesuaian, barang ketiga tidak pernah
+  // dapat slot. Skala seragam membuat ketiganya masuk dan tetap rapi.
+  const margin = 0.008;
+  const searchStep = 0.03;
+  let chosen = null;
+  for (let scale = 1; scale >= 0.55 - 1e-6; scale -= 0.02) {
+    const rects = occupied.slice();
+    const plan = [];
+    let ok = true;
+    for (let i = 0; i < template.length; i++) {
+      const hx = template[i].size.x * scale * 0.5 + margin;
+      const hz = template[i].size.z * scale * 0.5 + margin;
+      const slot = findFreeCargoSlot(rects, bounds, hx, hz, searchStep);
+      if (!slot) { ok = false; break; }
+      rects.push({ x: slot.x, z: slot.z, hx, hz });
+      plan.push({ index: i, slot, hx, hz });
+    }
+    if (ok) { chosen = { scale, plan }; break; }
+  }
+  if (!chosen) {
+    const scale = 0.55;
+    const rects = occupied.slice();
+    const plan = [];
+    for (let i = 0; i < template.length; i++) {
+      const hx = template[i].size.x * scale * 0.5 + margin;
+      const hz = template[i].size.z * scale * 0.5 + margin;
+      const slot = findFreeCargoSlot(rects, bounds, hx, hz, 0.01);
+      if (!slot) continue;
+      rects.push({ x: slot.x, z: slot.z, hx, hz });
+      plan.push({ index: i, slot, hx, hz });
+    }
+    chosen = { scale, plan };
+  }
+
+  for (let p = 0; p < chosen.plan.length; p++) {
+    const entry = chosen.plan[p];
+    const t = template[entry.index];
+    const mesh = t.mesh;
+    const hr = t.hr;
+    mesh.scale.setScalar(chosen.scale);
+    mesh.updateMatrixWorld(true);
 
     const bb = new THREE.Box3().setFromObject(mesh);
     const sz = bb.getSize(new THREE.Vector3());
+    const cx = (bb.min.x + bb.max.x) * 0.5;
+    const cz = (bb.min.z + bb.max.z) * 0.5;
+    const hp = new THREE.Vector3(entry.slot.x - cx, floorY - bb.min.y, entry.slot.z - cz);
+    mesh.position.copy(hp);
+    const frame = cargoFrame(mesh);
+    cart.body.add(mesh);
+
     const half = new THREE.Vector3(
       Math.max(0.05, sz.x * 0.45),
       Math.max(0.05, sz.y * 0.45),
@@ -3418,6 +3862,14 @@ HC.setQuestCargoOnCart = function (cart, physics, cargoKind = 'spices', count = 
     const item = {
       mesh,
       isQuestCargo: true,
+      colliderBoxes: (mesh.userData.voxelCollider && mesh.userData.voxelCollider.boxes || []).map((b) => ({
+        cx: b.cx * chosen.scale, cy: b.cy * chosen.scale, cz: b.cz * chosen.scale,
+        hx: b.hx * chosen.scale, hy: b.hy * chosen.scale, hz: b.hz * chosen.scale
+      })),
+      _colBottom: 0,
+      _colTop: 0,
+      _supportY: 0,
+      _supportBy: null,
       cargoKind,
       nameKey: `goods_${cargoKind}`,
       questToName: questMeta ? questMeta.toName : null,
@@ -3428,17 +3880,27 @@ HC.setQuestCargoOnCart = function (cart, physics, cargoKind = 'spices', count = 
       localAng: new THREE.Vector3(hr.x, hr.y, hr.z),
       localAngVel: new THREE.Vector3(),
       floorY: hp.y,
-      bounciness: 0.36 + (i % 3) * 0.06,
+      bounciness: 0.36 + (p % 3) * 0.06,
       pos: new THREE.Vector3(),
       quat: new THREE.Quaternion(),
       vel: new THREE.Vector3(),
       angVel: new THREE.Vector3(),
       spilled: false,
       half,
+      localCenter: frame.c,
+      localHalf: frame.h,
       radius: Math.max(half.x, half.z, 0.28),
       _onTopPrev: false,
       _restT: 0,
     };
+    if (item.colliderBoxes.length) {
+      item._colBottom = Math.min(...item.colliderBoxes.map((b) => b.cy - b.hy));
+      item._colTop = Math.max(...item.colliderBoxes.map((b) => b.cy + b.hy));
+    } else {
+      item._colBottom = item.localCenter.y - item.localHalf.y;
+      item._colTop = item.localCenter.y + item.localHalf.y;
+    }
+    item._supportY = item.floorY;
     mesh.userData.cartItem = item;
     cart.cargoItems.push(item);
     placed.push(item);
@@ -3451,10 +3913,12 @@ HC.buildCart = function (pivotY = 0.58, upgrades = {}) {
   const wheelTier = upgrades.wheels ?? 1;
   const susTier = upgrades.suspension ?? 1;
   const canopyTier = upgrades.canopy ?? 0;
+  const lanternTier = upgrades.lantern ?? 0;
 
   const capSpec = HC.CART_UPGRADES.capacity[capTier] || HC.CART_UPGRADES.capacity[1];
   const wheelSpec = HC.CART_UPGRADES.wheels[wheelTier] || HC.CART_UPGRADES.wheels[1];
   const susSpec = HC.CART_UPGRADES.suspension[susTier] || HC.CART_UPGRADES.suspension[1];
+  const lanternSpec = HC.CART_UPGRADES.lantern[lanternTier] || HC.CART_UPGRADES.lantern[0];
   // Lv1 wheel axle is physically rigid regardless of the separate suspension selector.
   const rigidAxle = !!(wheelSpec.rigid || susSpec.rigid);
 
@@ -3664,15 +4128,34 @@ HC.buildCart = function (pivotY = 0.58, upgrades = {}) {
   // Starter gerobak kosong tanpa penumpang (direkrut langsung di desa)
   const passengers = [];
 
-  // Swinging iron lantern
+  // Swinging iron lantern (sisi kanan bak, +z) — pendulum 2 sumbu di fisika
   const lanternPivot = new THREE.Group();
-  lanternPivot.position.set(22 * S, 15 * S, (zSide + 1.5) * S);
+  lanternPivot.position.set(22 * S, 18 * S, (zSide + 4.2) * S);
   body.add(lanternPivot);
-  const lb = new V(S);
-  lb.box(-1, -2, -1, 1, 0, 1, P.ironDark);
-  lb.box(-1.5, -5, -1.5, 1.5, -2, 1.5, P.lantern, 0.01);
-  lb.box(-2, -6, -2, 2, -5, 2, P.ironDark);
-  lanternPivot.add(lb.build(0, 0, 0));
+
+  // Braket statis: lengan besi dari tiang sudut bak, menjulur keluar supaya
+  // lentera bebas berayun tanpa membentur rel atau roda.
+  const bracket = new V(S);
+  bracket.box(21.2, 16.6, zSide - 0.4, 22.8, 17.4, zSide + 4.0, P.ironDark, 0.02);
+  bracket.box(21.7, 17.4, zSide + 3.8, 22.3, 18.2, zSide + 4.6, P.iron, 0.02);
+  body.add(bracket.build(0, 0, 0));
+
+  const lanternUnit = buildCartLantern(lanternTier, true);
+  lanternUnit.group.scale.setScalar(0.85);
+  lanternPivot.add(lanternUnit.group);
+  const lantern = {
+    pivot: lanternPivot,
+    group: lanternUnit.group,
+    glassMat: lanternUnit.glassMat,
+    halo: lanternUnit.halo,
+    light: lanternUnit.light,
+    spec: lanternUnit.spec,
+    tier: lanternTier,
+    power: 0,
+    // state pendulum (rad, rad/s) — diisi physics.js
+    swing: { ax: 0, az: 0, wx: 0, wz: 0 },
+    length: 3.5 * S * 0.85
+  };
 
   // Rope attachment anchors (ujung batang tepat di kalung bahu kuda & singletree sejajar sabuk perut)
   const shaftTipLeft = new THREE.Object3D();
@@ -3756,14 +4239,15 @@ HC.buildCart = function (pivotY = 0.58, upgrades = {}) {
     passengers,
     npcPassengers: [],   // diisi HC.NPCParty.mount() waktu kuda merekrut NPC
     lanternPivot,
+    lantern,
     shaftGroup,
     shaftTipLeft,
     shaftTipRight,
     singletreeLeft,
     singletreeRight,
     seatAnchor,
-    upgrades: { capacity: capTier, wheels: wheelTier, suspension: susTier, canopy: canopyTier },
-    specs: { capSpec, wheelSpec, susSpec, rigidAxle }
+    upgrades: { capacity: capTier, wheels: wheelTier, suspension: susTier, canopy: canopyTier, lantern: lanternTier },
+    specs: { capSpec, wheelSpec, susSpec, lanternSpec, rigidAxle }
   };
 };
 
@@ -3829,6 +4313,21 @@ HC.buildCartPartPreview = function buildCartPartPreview(key, tier = 0) {
     bed.rotation.y = 0.65;
     bed.rotation.x = 0.25;
     root.add(bed);
+    return root;
+  }
+
+  if (key === 'lantern') {
+    const unit = buildCartLantern(t, false);
+    unit.group.position.y = 3.0 * S;   // pusatkan rangka -6..0 voxel di titik 0
+    if (unit.halo) unit.halo.material.opacity = 0.55 + t * 0.15;
+    const holder = new THREE.Group();
+    holder.add(unit.group);
+    const vb = new V(S);
+    vb.box(-5, 2.6, -0.6, 1, 3.6, 0.6, P.ironDark, 0.02);
+    holder.add(vb.build(0, 0, 0));
+    holder.rotation.y = 0.7;
+    holder.rotation.x = 0.12;
+    root.add(holder);
     return root;
   }
 
@@ -10837,26 +11336,26 @@ class World {
             },
             night: {
                 name: 'Malam Tenang • Sorot Lampu Truk & Kunang-kunang',
-                bgTop: new THREE.Color(0x061021),
-                bgBottom: new THREE.Color(0x143047),
-                sunColor: new THREE.Color(0x7ab8de),
-                sunIntensity: 0.42,
+                bgTop: new THREE.Color(0x03070f),
+                bgBottom: new THREE.Color(0x0a1a26),
+                sunColor: new THREE.Color(0x6ea6cc),
+                sunIntensity: 0.20,
                 sunPos: new THREE.Vector3(-18, 24, -20),
-                hemiSky: new THREE.Color(0x224861),
-                hemiGround: new THREE.Color(0x0e2420),
-                hemiIntensity: 0.30,
-                sceneBrightness: 0.48,
-                mushroomGlow: 2.0,
+                hemiSky: new THREE.Color(0x173449),
+                hemiGround: new THREE.Color(0x081814),
+                hemiIntensity: 0.14,
+                sceneBrightness: 0.28,
+                mushroomGlow: 2.2,
                 particleColor: new THREE.Color(0xd2f58c),
-                shadowTint: new THREE.Color(0x0e1d33),
-                rimTint: new THREE.Color(0x67c9e0),
-                cloudColor: new THREE.Color(0x2c4e69),
-                cloudShadow: new THREE.Color(0x112233),
+                shadowTint: new THREE.Color(0x080f1c),
+                rimTint: new THREE.Color(0x5fb6cf),
+                cloudColor: new THREE.Color(0x1b3145),
+                cloudShadow: new THREE.Color(0x080f1a),
                 cloudCoverage: 0.50,
-                grassBaseColor: new THREE.Color(0x0f382e),
-                grassTipColor: new THREE.Color(0x2b785c),
-                sunbeamOpacity: 0.06,
-                lanternIntensity: 1.35
+                grassBaseColor: new THREE.Color(0x0a2a22),
+                grassTipColor: new THREE.Color(0x1d5c46),
+                sunbeamOpacity: 0.05,
+                lanternIntensity: 1.5
             }
         };
 
@@ -11148,6 +11647,20 @@ class World {
         const CHUNK_GRID = 36;
         const CHUNK_SIZE = TERRAIN_SIZE / CHUNK_GRID;
         const POND_CENTER = { x: 8.2, z: 6.2, radius: 4.5 };
+
+        // Genangan air hujan yang tersebar di padang liar, jauh dari desa (Radnar z≈76)
+        // dan di luar jalur sungai. Hanya sedikit — bukan kolam di setiap tikungan.
+        const PUDDLES = [
+            { z: -98, off: -5.4, r: 1.8, seed: 1.3 },
+            { z: -80, off: 4.3, r: 1.4, seed: 3.7 },
+            { z: -62, off: -6.6, r: 2.1, seed: 5.1 },
+            { z: -43, off: 5.4, r: 1.6, seed: 2.4 },
+            { z: -26, off: -4.1, r: 1.25, seed: 7.2 },
+            { z: -10, off: 6.0, r: 1.85, seed: 4.6 },
+            { z: 106, off: 5.0, r: 1.95, seed: 6.3 },
+            { z: 128, off: -5.6, r: 1.45, seed: 0.9 },
+            { z: 154, off: 6.4, r: 2.2, seed: 8.1 }
+        ].map((p) => ({ ...p, x: getRoadCenterX(p.z) + p.off }));
 
         /* ------------------------------------------------------------------------
            SUNGAI + FORD
@@ -11795,8 +12308,8 @@ class World {
                 "    return vec2(v.x * c - v.y * s, v.x * s + v.y * c);",
                 "}",
                 "float dylearnCloudNoise(vec3 wp) {",
-                "    float t = (uCloudWorldY - wp.y) / max(uSunDir.y, 0.18);",
-                "    vec3 hitPos = wp + t * uSunDir;",
+                "    float t = clamp((uCloudWorldY - wp.y) / max(uSunDir.y, 0.42), 0.0, 140.0);",
+                "    vec3 hitPos = vec3(wp.x + uSunDir.x * t * 0.16, wp.y, wp.z + uSunDir.z * t * 0.16);",
                 "    float invScale = 1.0 / max(uCloudScale, 0.001);",
                 "    vec2 d1 = normalize(dylearnRotateVec2(uCloudDir, uCloudDivergeAngle));",
                 "    vec2 d2 = normalize(dylearnRotateVec2(uCloudDir, -uCloudDivergeAngle));",
@@ -12043,6 +12556,7 @@ class World {
             grassMapCtx.fillRect(0, 0, GRASS_MAP_SIZE, GRASS_MAP_SIZE);
             paintGrassVisibilityCircle(0, 0, 2.8, 0.0);
             paintGrassVisibilityCircle(POND_CENTER.x, POND_CENTER.z, POND_CENTER.radius + 0.75, 0.0);
+            for (const p of PUDDLES) paintGrassVisibilityCircle(p.x, p.z, p.r * 1.3 + 0.7, 0.0);
 
             // Clear lush grass cleanly along Main Road and all Unique Branch Roads
             for (const poly of allRoadPolylines) {
@@ -12440,8 +12954,8 @@ class World {
                 "    return vec2(v.x * c - v.y * s, v.x * s + v.y * c);",
                 "}",
                 "float dylearnCloudNoise(vec3 wp) {",
-                "    float t = (uCloudWorldY - wp.y) / max(uSunDir.y, 0.18);",
-                "    vec3 hitPos = wp + t * uSunDir;",
+                "    float t = clamp((uCloudWorldY - wp.y) / max(uSunDir.y, 0.42), 0.0, 140.0);",
+                "    vec3 hitPos = vec3(wp.x + uSunDir.x * t * 0.16, wp.y, wp.z + uSunDir.z * t * 0.16);",
                 "    float invScale = 1.0 / max(uCloudScale, 0.001);",
                 "    vec2 d1 = normalize(dylearnRotateVec2(uCloudDir, uCloudDivergeAngle));",
                 "    vec2 d2 = normalize(dylearnRotateVec2(uCloudDir, -uCloudDivergeAngle));",
@@ -13040,8 +13554,8 @@ class World {
                     "    return vec2(v.x * c - v.y * s, v.x * s + v.y * c);",
                     "}",
                     "float dylearnCloudNoise(vec3 wp) {",
-                    "    float t = (uCloudWorldY - wp.y) / max(uSunDir.y, 0.18);",
-                    "    vec3 hitPos = wp + t * uSunDir;",
+                    "    float t = clamp((uCloudWorldY - wp.y) / max(uSunDir.y, 0.42), 0.0, 140.0);",
+                    "    vec3 hitPos = vec3(wp.x + uSunDir.x * t * 0.16, wp.y, wp.z + uSunDir.z * t * 0.16);",
                     "    float invScale = 1.0 / max(uCloudScale, 0.001);",
                     "    vec2 d1 = normalize(dylearnRotateVec2(uCloudDir, uCloudDivergeAngle));",
                     "    vec2 d2 = normalize(dylearnRotateVec2(uCloudDir, -uCloudDivergeAngle));",
@@ -13770,8 +14284,8 @@ class World {
                     "    return vec2(v.x * c - v.y * s, v.x * s + v.y * c);",
                     "}",
                     "float dylearnCloudNoise(vec3 wp) {",
-                    "    float t = (uCloudWorldY - wp.y) / max(uSunDir.y, 0.18);",
-                    "    vec3 hitPos = wp + t * uSunDir;",
+                    "    float t = clamp((uCloudWorldY - wp.y) / max(uSunDir.y, 0.42), 0.0, 140.0);",
+                    "    vec3 hitPos = vec3(wp.x + uSunDir.x * t * 0.16, wp.y, wp.z + uSunDir.z * t * 0.16);",
                     "    float invScale = 1.0 / max(uCloudScale, 0.001);",
                     "    vec2 d1 = normalize(dylearnRotateVec2(uCloudDir, uCloudDivergeAngle));",
                     "    vec2 d2 = normalize(dylearnRotateVec2(uCloudDir, -uCloudDivergeAngle));",
@@ -14226,8 +14740,8 @@ class World {
                     "    return vec2(v.x * c - v.y * s, v.x * s + v.y * c);",
                     "}",
                     "float dylearnCloudNoise(vec3 wp) {",
-                    "    float t = (uCloudWorldY - wp.y) / max(uSunDir.y, 0.18);",
-                    "    vec3 hitPos = wp + t * uSunDir;",
+                    "    float t = clamp((uCloudWorldY - wp.y) / max(uSunDir.y, 0.42), 0.0, 140.0);",
+                    "    vec3 hitPos = vec3(wp.x + uSunDir.x * t * 0.16, wp.y, wp.z + uSunDir.z * t * 0.16);",
                     "    float invScale = 1.0 / max(uCloudScale, 0.001);",
                     "    vec2 d1 = normalize(dylearnRotateVec2(uCloudDir, uCloudDivergeAngle));",
                     "    vec2 d2 = normalize(dylearnRotateVec2(uCloudDir, -uCloudDivergeAngle));",
@@ -15187,6 +15701,123 @@ class World {
         const pondMesh = new THREE.Mesh(pondWaterGeo, pondMat);
         pondMesh.userData = { type: 'pond' };
         pondGroup.add(pondMesh);
+
+        // ============================================================================
+        // 7B-2. GENANGAN AIR HUJAN DI PADANG LIAR (murah: satu shader, 9 quad)
+        // ============================================================================
+        const puddleGroup = new THREE.Group();
+        puddleGroup.name = 'puddles';
+        scene.add(puddleGroup);
+
+        const puddleUniforms = {
+            uTime: celShaderUniforms.uTime,              // referensi objek uniform yang sama
+            uSunDir: celShaderUniforms.uSunDir,
+            uSunColor: celShaderUniforms.uSunColor,
+            uSkyTop: { value: activeAtmosphere.bgTop },
+            uSkyBottom: { value: activeAtmosphere.bgBottom },
+            uBrightness: celShaderUniforms.uSceneBrightness
+        };
+
+        const puddleMat = new THREE.ShaderMaterial({
+            transparent: true,
+            depthWrite: false,
+            side: THREE.DoubleSide,
+            uniforms: puddleUniforms,
+            vertexShader: `
+                precision highp float;
+                varying vec3 vWorldPos;
+                varying vec2 vUv;
+                void main() {
+                    vUv = uv;
+                    vec4 wp = modelMatrix * vec4(position, 1.0);
+                    vWorldPos = wp.xyz;
+                    gl_Position = projectionMatrix * viewMatrix * wp;
+                }
+            `,
+            fragmentShader: `
+                precision highp float;
+                uniform float uTime;
+                uniform vec3 uSunDir;
+                uniform vec3 uSunColor;
+                uniform vec3 uSkyTop;
+                uniform vec3 uSkyBottom;
+                uniform float uBrightness;
+
+                varying vec3 vWorldPos;
+                varying vec2 vUv;
+
+                void main() {
+                    float rim = length(vUv - vec2(0.5)) * 2.0;
+                    if (rim > 1.0) discard;
+
+                    // Tepi genangan memudar, jadi bentuknya tidak kelihatan seperti koin.
+                    float edge = 1.0 - smoothstep(0.70, 1.0, rim);
+
+                    vec3 V = normalize(cameraPosition - vWorldPos);
+                    vec2 p = vWorldPos.xz;
+
+                    // Riak halus: dua gelombang silang, aman untuk GPU kentang.
+                    float t = uTime;
+                    float nx = sin(p.x * 3.1 + t * 1.7) * 0.035
+                             + sin((p.x + p.y) * 6.7 - t * 2.4) * 0.016
+                             + sin(p.y * 9.3 + t * 1.1) * 0.010;
+                    float nz = cos(p.y * 2.7 - t * 1.5) * 0.035
+                             + cos((p.x - p.y) * 5.9 + t * 2.1) * 0.016
+                             + cos(p.x * 8.1 - t * 1.2) * 0.010;
+                    vec3 N = normalize(vec3(nx, 1.0, nz));
+
+                    float NoV = clamp(dot(N, V), 0.0, 1.0);
+                    float fresnel = 0.10 + 0.90 * pow(1.0 - NoV, 3.0);
+
+                    vec3 refl = mix(uSkyBottom, uSkyTop, clamp(reflect(-V, N).y * 0.8 + 0.2, 0.0, 1.0)) * 0.78;
+                    vec3 wetGround = mix(vec3(0.045, 0.085, 0.075), vec3(0.080, 0.145, 0.150), edge);
+                    wetGround *= 0.30 + uBrightness * 1.15;
+
+                    vec3 col = mix(wetGround, refl, clamp(0.34 + fresnel * 0.46, 0.0, 0.86));
+
+                    vec3 H = normalize(normalize(uSunDir) + V);
+                    float spec = pow(max(dot(N, H), 0.0), 70.0);
+                    col += uSunColor * spec * 0.45;
+
+                    float alpha = edge * (0.50 + 0.32 * fresnel);
+                    gl_FragColor = vec4(col, alpha);
+                    #include <colorspace_fragment>
+                }
+            `
+        });
+
+        const PUDDLE_Y_OFF = 0.025;
+        for (const pd of PUDDLES) {
+            const SEG = 30;
+            const pos = new Float32Array((SEG + 2) * 3);
+            const uvArr = new Float32Array((SEG + 2) * 2);
+            const idx = [];
+            const cy = getTerrainHeight(pd.x, pd.z) + PUDDLE_Y_OFF;
+            pos[0] = pd.x; pos[1] = cy; pos[2] = pd.z;
+            uvArr[0] = 0.5; uvArr[1] = 0.5;
+            for (let k = 0; k <= SEG; k++) {
+                const ang = (k / SEG) * Math.PI * 2;
+                const wob = 1.0 + 0.16 * Math.sin(ang * 3.0 + pd.seed) + 0.09 * Math.cos(ang * 5.0 - pd.seed * 1.7);
+                const rx = pd.r * wob * 1.12;
+                const rz = pd.r * wob * 0.78;
+                const wx = pd.x + Math.cos(ang) * rx;
+                const wz = pd.z + Math.sin(ang) * rz;
+                const o = (k + 1) * 3;
+                pos[o] = wx;
+                pos[o + 1] = getTerrainHeight(wx, wz) + PUDDLE_Y_OFF;
+                pos[o + 2] = wz;
+                uvArr[(k + 1) * 2] = 0.5 + Math.cos(ang) * 0.5;
+                uvArr[(k + 1) * 2 + 1] = 0.5 + Math.sin(ang) * 0.5;
+                if (k > 0) idx.push(0, k + 1, k);
+            }
+            const geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+            geo.setAttribute('uv', new THREE.BufferAttribute(uvArr, 2));
+            geo.setIndex(idx);
+            const puddle = new THREE.Mesh(geo, puddleMat);
+            puddle.userData = { type: 'puddle' };
+            puddleGroup.add(puddle);
+        }
 
         // ============================================================================
         // 7C. TRUCKFUL COZY ATMOSPHERE: PICKUP TRUCK, FENCES, LANTERNS, GOD-RAYS & MIST
@@ -18213,6 +18844,142 @@ const FLIP_ANG = 75 * Math.PI / 180;   // 1.3090 rad — batas guling
 const LAY_ANG  = 1.20;                 // di atas ini sudah lewat titik balik -> rebah sekali jalan
 const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
 
+// AABB visual barang di frame bak. localHalf/localCenter disimpan tanpa
+// rotasi, jadi rotasi Y di sini harus mengikuti konvensi Three.js:
+// x' =  x cos + z sin, z' = -x sin + z cos.
+function cargoFootprint(posX, posZ, center, half, yaw) {
+  const c = Math.cos(yaw), s = Math.sin(yaw);
+  return {
+    x: posX + c * center.x + s * center.z,
+    z: posZ - s * center.x + c * center.z,
+    hx: Math.abs(c) * half.x + Math.abs(s) * half.z,
+    hz: Math.abs(s) * half.x + Math.abs(c) * half.z
+  };
+}
+
+// Batas origin mesh supaya AABB visual tetap di dalam bak. Hasilnya origin
+// (bukan pusat visual), jadi bisa langsung dipakai untuk clamp localPos.
+function cargoBedLimits(center, half, yaw, bed, pad = 0.004) {
+  const fp = cargoFootprint(0, 0, center, half, yaw);
+  let minX = bed.xMin + fp.hx - fp.x + pad;
+  let maxX = bed.xMax - fp.hx - fp.x - pad;
+  let minZ = bed.zMin + fp.hz - fp.z + pad;
+  let maxZ = bed.zMax - fp.hz - fp.z - pad;
+  if (minX > maxX) { const mid = (bed.xMin + bed.xMax) * 0.5; minX = maxX = mid; }
+  if (minZ > maxZ) { const mid = (bed.zMin + bed.zMax) * 0.5; minZ = maxZ = mid; }
+  return { minX, maxX, minZ, maxZ, fp };
+}
+
+function cargoColliderBoxes(item) {
+  if (item.colliderBoxes && item.colliderBoxes.length) return item.colliderBoxes;
+  const collider = item.mesh && item.mesh.userData && item.mesh.userData.voxelCollider;
+  const scale = item.mesh && item.mesh.scale ? item.mesh.scale.x : 1;
+  if (collider && collider.boxes && collider.boxes.length) {
+    return collider.boxes.map((box) => ({
+      cx: box.cx * scale, cy: box.cy * scale, cz: box.cz * scale,
+      hx: box.hx * scale, hy: box.hy * scale, hz: box.hz * scale
+    }));
+  }
+  const c = item.localCenter || { x: 0, y: 0, z: 0 };
+  const h = item.localHalf || item.half || { x: 0.05, y: 0.05, z: 0.05 };
+  return [{ cx: c.x, cy: c.y, cz: c.z, hx: h.x, hy: h.y, hz: h.z }];
+}
+
+function worldCargoBoxes(item) {
+  const yaw = item.localAng ? item.localAng.y : item.homeRot && item.homeRot.y || 0;
+  const c = Math.cos(yaw), s = Math.sin(yaw);
+  const boxes = (item.colliderBoxes || cargoColliderBoxes(item)).map((box) => ({
+    x: item.localPos.x + c * box.cx + s * box.cz,
+    z: item.localPos.z - s * box.cx + c * box.cz,
+    y: item.localPos.y + box.cy,
+    hx: box.hx, hy: box.hy, hz: box.hz, yaw
+  }));
+  const bounds = boxes.reduce((out, box) => {
+    const hx = Math.abs(c) * box.hx + Math.abs(s) * box.hz;
+    const hz = Math.abs(s) * box.hx + Math.abs(c) * box.hz;
+    out.xMin = Math.min(out.xMin, box.x - hx);
+    out.xMax = Math.max(out.xMax, box.x + hx);
+    out.zMin = Math.min(out.zMin, box.z - hz);
+    out.zMax = Math.max(out.zMax, box.z + hz);
+    out.yMin = Math.min(out.yMin, box.y - box.hy);
+    out.yMax = Math.max(out.yMax, box.y + box.hy);
+    return out;
+  }, { xMin: Infinity, xMax: -Infinity, zMin: Infinity, zMax: -Infinity, yMin: Infinity, yMax: -Infinity });
+  boxes.bounds = bounds;
+  return boxes;
+}
+
+function cargoBoundsOverlapXZ(aBoxes, bBoxes) {
+  const a = aBoxes.bounds, b = bBoxes.bounds;
+  return !a || !b || (a.xMin < b.xMax && a.xMax > b.xMin && a.zMin < b.zMax && a.zMax > b.zMin);
+}
+
+function cargoBoundsOverlap3D(aBoxes, bBoxes) {
+  const a = aBoxes.bounds, b = bBoxes.bounds;
+  return !a || !b || (a.xMin < b.xMax && a.xMax > b.xMin
+    && a.zMin < b.zMax && a.zMax > b.zMin
+    && a.yMin < b.yMax && a.yMax > b.yMin);
+}
+
+function cargoBoxOverlapXZ(a, b, pad = 0) {
+  const ac = Math.cos(a.yaw), as = Math.sin(a.yaw);
+  const bc = Math.cos(b.yaw), bs = Math.sin(b.yaw);
+  const axes = [
+    { x: ac, z: -as }, { x: as, z: ac },
+    { x: bc, z: -bs }, { x: bs, z: bc }
+  ];
+  const dx = b.x - a.x, dz = b.z - a.z;
+  for (const axis of axes) {
+    const ar = a.hx * Math.abs(axis.x * ac - axis.z * as)
+      + a.hz * Math.abs(axis.x * as + axis.z * ac);
+    const br = b.hx * Math.abs(axis.x * bc - axis.z * bs)
+      + b.hz * Math.abs(axis.x * bs + axis.z * bc);
+    if (ar + br + pad - Math.abs(dx * axis.x + dz * axis.z) <= 0) return false;
+  }
+  return true;
+}
+
+function cargoBoxesOverlap(aBoxes, bBoxes, verticalPad = 0) {
+  for (const a of aBoxes) {
+    for (const b of bBoxes) {
+      if (Math.min(a.y + a.hy, b.y + b.hy) - Math.max(a.y - a.hy, b.y - b.hy) <= verticalPad) continue;
+      if (cargoBoxOverlapXZ(a, b)) return true;
+    }
+  }
+  return false;
+}
+
+function computeCargoSupports(items, boxesByItem, maxGap = 0.035, maxPenetration = 0.085) {
+  const supports = items.map((item) => ({ y: item.floorY, restY: item.floorY, by: null }));
+  for (let i = 0; i < items.length; i++) {
+    const a = items[i];
+    if (a.spilled || a.hiddenForQuest) continue;
+    for (let j = i + 1; j < items.length; j++) {
+      const b = items[j];
+      if (b.spilled || b.hiddenForQuest) continue;
+      if (!cargoBoundsOverlapXZ(boxesByItem[i], boxesByItem[j])) continue;
+      for (const ab of boxesByItem[i]) {
+        const aBottom = ab.y - ab.hy;
+        for (const bb of boxesByItem[j]) {
+          if (Math.abs(ab.y - bb.y) > ab.hy + bb.hy + maxGap) continue;
+          const bBottom = bb.y - bb.hy;
+          const bTop = bb.y + bb.hy;
+          if (aBottom >= bTop - maxPenetration && aBottom <= bTop + maxGap
+            && cargoBoxOverlapXZ(ab, bb)) {
+            if (bTop > supports[i].y) supports[i] = { y: bTop, by: b };
+          }
+          const aTop = ab.y + ab.hy;
+          if (bBottom >= aTop - maxPenetration && bBottom <= aTop + maxGap
+            && cargoBoxOverlapXZ(ab, bb)) {
+            if (aTop > supports[j].y) supports[j] = { y: aTop, by: a };
+          }
+        }
+      }
+    }
+  }
+  return supports;
+}
+
 
   // ============================================================
   //  VERLET ROPE — sag, tension, stretch-resist
@@ -18437,6 +19204,9 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
       this.debris = [];        // roda yang lepas: ikut fisika sendiri (jatuh & berhenti)
 
       this.q = new THREE.Quaternion();
+      this._lq = new THREE.Quaternion();
+      this._lg = new THREE.Vector3();
+      this._la = new THREE.Vector3();
       this.euler = new THREE.Euler(0, 0, 0, 'YZX');
       this._v = new THREE.Vector3();
       this._a1 = new THREE.Vector3();
@@ -19603,11 +20373,37 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
         }
       }
 
-      // lantern swing driven by acceleration
-      const lp = this.cart.lanternPivot;
-      if (lp) {
-        lp.rotation.z = HC.damp(lp.rotation.z, -this.vel.x * 0.55 - this.rollV * 0.12, 6, dt);
-        lp.rotation.x = HC.damp(lp.rotation.x, this.pitchV * 0.15, 6, dt);
+      // ---- Lentera gantung: pendulum 2 sumbu (bukan animasi palsu) ----
+      // Gravitasi di kerangka bodi + gaya inersia dari percepatan gerobak, jadi
+      // lentera ikut terayun waktu gerobak mengerem, belok, atau terombang-ambing.
+      const lant = this.cart.lantern;
+      if (lant && lant.pivot) {
+        const sw = lant.swing;
+        const L = Math.max(0.12, lant.length || 0.26);
+        const ldt = Math.min(dt, 0.05);
+
+        this._la.set(ax, accY, (this.vel.z - prevVz) / dt);
+        this._lq.copy(this.q).invert();
+        this._la.applyQuaternion(this._lq);
+        this._lg.set(0, -9.81, 0).applyQuaternion(this._lq).sub(this._la);
+
+        // α = (d × g)/L dengan d ≈ (az, -1, -ax) di kerangka bodi
+        const gx = this._lg.x, gy = this._lg.y, gz = this._lg.z;
+        let alphaX = (-gz + sw.ax * gy) / L;
+        let alphaZ = (gx + sw.az * gy) / L;
+
+        // gesekan engsel + redaman udara
+        alphaX -= sw.wx * 2.8;
+        alphaZ -= sw.wz * 2.8;
+        sw.wx = HC.clamp(sw.wx + alphaX * ldt, -14, 14);
+        sw.wz = HC.clamp(sw.wz + alphaZ * ldt, -14, 14);
+        sw.ax = HC.clamp(sw.ax + sw.wx * ldt, -0.55, 0.55);
+        sw.az = HC.clamp(sw.az + sw.wz * ldt, -0.55, 0.55);
+        if (Math.abs(sw.ax) >= 0.55) sw.wx *= -0.18;
+        if (Math.abs(sw.az) >= 0.55) sw.wz *= -0.18;
+
+        lant.pivot.rotation.x = sw.ax;
+        lant.pivot.rotation.z = sw.az;
       }
 
       // penumpang ikut goyang: badan miring lawan roll, kepala bob saat kerikil
@@ -19784,7 +20580,21 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
           Math.max(0.05, sz.y * 0.45),
           Math.max(0.05, sz.z * 0.45)
         );
+        // Fallback untuk item lama: frame visual belum tersimpan. Item baru
+        // menyimpan localHalf/localCenter yang tidak ikut terotasi ganda.
+        if (!item.localHalf) {
+          item.localHalf = new THREE.Vector3(item.half.x / 0.9, item.half.y / 0.9, item.half.z / 0.9);
+          item.localCenter = new THREE.Vector3();
+        }
         item.radius = Math.max(item.radius || 0, Math.max(item.half.x, item.half.z));
+        // Collider voxel gabungan: bentuknya mengikuti mesh (bukan AABB gemuk).
+        // Dipakai untuk tumpukan & kontak sempit, jadi sudut kosong barrel
+        // tidak dianggap padat.
+        item.colliderBoxes = cargoColliderBoxes(item);
+        item._colBottom = Math.min(...item.colliderBoxes.map((b) => b.cy - b.hy));
+        item._colTop = Math.max(...item.colliderBoxes.map((b) => b.cy + b.hy));
+        item._supportY = item.floorY;
+        item._supportBy = null;
         item._onTopPrev = false;
         item._restT = 0;
       }
@@ -19842,6 +20652,15 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
       const frontRailTopY = Math.min(railTopY, 13.5 * S);
       const divRailTopY = Math.max(railTopY, 18.0 * S);
 
+      // Contact sheets come from each mesh's merged voxel boxes. Calculate them
+      // before integration so a falling item lands on the actual shape below it.
+      const supportBoxes = items.map((item) => worldCargoBoxes(item));
+      const supports = computeCargoSupports(items, supportBoxes);
+      for (let i = 0; i < items.length; i++) {
+        items[i]._supportY = supports[i].y;
+        items[i]._supportBy = supports[i].by;
+      }
+
       // Wheel pebble shock impulse (rate of compression only, so standing compression never levitates cargo)
       let wheelShock = 0;
       for (const w of this.wheels) {
@@ -19855,10 +20674,11 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
         const it = items[i];
         if (it.spilled || it.hiddenForQuest) continue;
 
-        // Tiap barang punya slot sendiri (floorY = tinggi alasnya). Nggak ada
-        // tumpukan dinamis: kalau ada, barang saling "pompa" naik tiap frame
-        // sampai lompat keluar bak. Barang boleh mantul dikit, bukan memanjat.
-        const restY = it.floorY;
+        // Barang bisa diam di alas bak ATAU di permukaan barang lain. Support
+        // diambil dari collider voxel, jadi hanya bagian mesh yang benar-benar
+        // bertumpuk yang menahan barang di atasnya.
+        const hasSupport = it._supportBy && it._supportY > it.floorY + 0.02;
+        const restY = hasSupport ? it._supportY - it._colBottom : it.floorY;
         const onFloor = it.localPos.y <= restY + 0.012;
 
         // Corner-localized wheel jolt transmitted through the wooden planks ONLY when resting on the plank
@@ -19880,20 +20700,22 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
         const gz =  Math.sin(this.roll)  * g * 1.5 - this.rollV * 1.9;
         const gy = -Math.cos(this.roll) * Math.cos(this.pitch) * g;
 
-        // Collider PER BARANG: setengah-ukuran AABB tapi ikut yaw barangnya.
-        // Tanpa ini sudut mesh nongol lewat pagar walau titik pusatnya masih
-        // di dalam bak — persis keluhan "barangnya nembus/muter".
+        // Collision footprint and visual centre in the cart's local frame.
         const cyaw = Math.cos(it.localAng.y), syaw = Math.sin(it.localAng.y);
         const hx = Math.abs(cyaw) * it.half.x + Math.abs(syaw) * it.half.z;
         const hz = Math.abs(syaw) * it.half.x + Math.abs(cyaw) * it.half.z;
-        it._hx = hx; it._hz = hz;
-        // Batas dalam bak. Sumbu X sengaja pakai titik pusat (dinding depan/belakang
-        // memang tipis dan barang bawaan sudah disusun sampai menyentuhnya); kalau
-        // dikurangi setengah-ukuran barang, kompartemen menyusut jadi 0,57 m dan
-        // semua barang saling tobros -> solver meledak. Sumbu Z pakai setengah-ukuran
-        // (dikali 0.9 karena AABB mesh sedikit lebih gemuk dari siluetnya).
-        const inMinX = bedMinX, inMaxX = bedMaxX;
-        const inMinZ = bedMinZ + hz * 0.9, inMaxZ = bedMaxZ - hz * 0.9;
+        // Batas dalam bak memakai AABB visual barang (localHalf/localCenter),
+        // bukan titik origin mesh. Origin sering bergeser dari pusat visual,
+        // jadi clamp lama bisa membiarkan sisi barang menembus pagar.
+        const vCenter = it.localCenter || { x: 0, z: 0 };
+        const vHalf = it.localHalf || { x: hx / 0.9, z: hz / 0.9 };
+        const bed = { xMin: bedMinX, xMax: bedMaxX, zMin: bedMinZ, zMax: bedMaxZ };
+        const limits = cargoBedLimits(vCenter, vHalf, it.localAng.y, bed);
+        const { minX: inMinX, maxX: inMaxX, minZ: inMinZ, maxZ: inMaxZ } = limits;
+        const vcx = limits.fp.x, vcz = limits.fp.z;
+        const visualHx = limits.fp.hx, visualHz = limits.fp.hz;
+        it._wallMinX = inMinX; it._wallMaxX = inMaxX;
+        it._wallMinZ = inMinZ; it._wallMaxZ = inMaxZ;
 
         // Slot asal juga di-clamp ke dalam bak. Kalau nggak, tarikan "pulang"
         // melawan pagar tiap frame -> barang bergetar/muter di tempat.
@@ -19916,7 +20738,7 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
         // begitu lepas -> barang lompat/berputar liar.
         let homePullX = 0, homePullZ = 0;
         const calm = Math.abs(it.localVel.x) + Math.abs(it.localVel.z) < 0.45;
-        if (!touching && calm && dh > 0.10) {
+        if (!touching && !hasSupport && calm && dh > 0.10) {
           // Nudge pelan doang: 0,28 m/s. Tujuannya cuma ngerapihin, bukan
           // nyeret barang balik ke slot sambil ngelawan tetangga (itu yang
           // bikin geser-goyang terus walaupun gerobak diam).
@@ -19949,7 +20771,7 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
         it.localPos.addScaledVector(it.localVel, dt);
 
         // Batas atas dinamis: barang boleh terpantul bebas di dalam bak saat kena guncangan.
-        const ceilY = Math.max(railTopY, it.floorY) + 0.45;
+        const ceilY = Math.max(railTopY, restY) + 0.45;
         if (it.localPos.y > ceilY) {
           it.localPos.y = ceilY;
           if (it.localVel.y > 0) it.localVel.y = 0;
@@ -20076,23 +20898,34 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
         it.mesh.rotation.set(it.localAng.x, it.localAng.y, it.localAng.z);
       }
 
-      // Pairwise item-item collisions inside the bed — AABB per barang,
-      // resolusi di sumbu penetrasi terkecil supaya barang bisa benar-benar
-      // bertumpuk/bersandar, bukan saling geser terus kayak muter.
+      // Narrow-phase uses the mesh-derived compound boxes so empty corners
+      // (notably around barrels) do not generate phantom contacts. The AABB
+      // solver below remains the inexpensive response/broad-phase.
+      const collisionBoxes = items.map((item) => worldCargoBoxes(item));
       for (let i = 0; i < items.length; i++) {
         const a = items[i];
         if (a.spilled || a.hiddenForQuest || !a.half) continue;
-        const ax = a._hx ?? a.half.x, az = a._hz ?? a.half.z;
+        const af = cargoFootprint(a.localPos.x, a.localPos.z,
+          a.localCenter || { x: 0, z: 0 }, a.localHalf || { x: a.half.x / 0.9, z: a.half.z / 0.9 }, a.localAng.y);
+        const ay = (a.localHalf && a.localHalf.y) || (a.half.y / 0.9);
+        const acy = (a.localCenter && a.localCenter.y) || 0;
         for (let j = i + 1; j < items.length; j++) {
           const b = items[j];
           if (b.spilled || b.hiddenForQuest || !b.half) continue;
-          const bx = b._hx ?? b.half.x, bz = b._hz ?? b.half.z;
-          const dx = b.localPos.x - a.localPos.x;
-          const dy = b.localPos.y - a.localPos.y;
-          const dz = b.localPos.z - a.localPos.z;
-          const ox = (ax + bx) - Math.abs(dx);
-          const oy = (a.half.y + b.half.y) - Math.abs(dy);
-          const oz = (az + bz) - Math.abs(dz);
+          if (a._supportBy === b || b._supportBy === a) continue;
+          if (!cargoBoundsOverlap3D(collisionBoxes[i], collisionBoxes[j])) continue;
+          if (!cargoBoxesOverlap(collisionBoxes[i], collisionBoxes[j])) continue;
+          const bf = cargoFootprint(b.localPos.x, b.localPos.z,
+            b.localCenter || { x: 0, z: 0 }, b.localHalf || { x: b.half.x / 0.9, z: b.half.z / 0.9 }, b.localAng.y);
+          const by = (b.localHalf && b.localHalf.y) || (b.half.y / 0.9);
+          const bcy = (b.localCenter && b.localCenter.y) || 0;
+          const dx = bf.x - af.x;
+          const dy = (b.localPos.y + bcy) - (a.localPos.y + acy);
+          const dz = bf.z - af.z;
+          const contactPad = 0.008;
+          const ox = (af.hx + bf.hx + contactPad) - Math.abs(dx);
+          const oy = (ay + by) - Math.abs(dy);
+          const oz = (af.hz + bf.hz + contactPad) - Math.abs(dz);
           if (ox <= 0 || oy <= 0 || oz <= 0) continue;
           a._touchPrev = true; b._touchPrev = true;
           if (oy <= ox && oy <= oz) {
@@ -20131,10 +20964,19 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
       }
 
       // Jaring pengaman terakhir: setelah semua dorongan (pagar + tetangga),
-      // kecepatan & putaran barang dibatasi. Dorongan berantai bisa numpuk dan
-      // bikin barang kelihatan "hidup" terus walaupun gerobak diam.
+      // posisi visual di-clamp sekali lagi supaya dorongan tetangga tidak
+      // mendorong sisi barang keluar pagar. Lalu sinkronkan mesh pada frame ini.
       for (const it of items) {
         if (it.spilled || it.hiddenForQuest) continue;
+        if (it._wallMinX !== undefined) {
+          const center = it.localCenter || { x: 0, z: 0 };
+          const half = it.localHalf || { x: it.half.x / 0.9, z: it.half.z / 0.9 };
+          const bed = { xMin: bedMinX, xMax: bedMaxX, zMin: bedMinZ, zMax: bedMaxZ };
+          const lim = cargoBedLimits(center, half, it.localAng.y, bed);
+          it.localPos.x = Math.min(lim.maxX, Math.max(lim.minX, it.localPos.x));
+          it.localPos.z = Math.min(lim.maxZ, Math.max(lim.minZ, it.localPos.z));
+        }
+        it.mesh.position.copy(it.localPos);
         // Di frame BAK, barang mestinya hampir diam (baknya yang bergerak).
         // Batas 1,2 m/s ini yang bikin nggak ada lagi barang "nyelemot" 2,5 m/s
         // sambil nempel pagar lalu muter terus.
@@ -32837,26 +33679,68 @@ HC.NPC_SKILL = (id) => {
    +15% DEF, dst.), sisanya penyesuaian karena tak ada target monster.
    ============================================================================ */
 HC.NPC_SKILL_FX = {
-  bulwark:    { dmg: 0.80, note: 'damage roda -20%' },
-  keen:       { dmg: 0.85, note: 'kerikil terdeteksi lebih awal (-15% dampak)' },
-  digger:     { regen: 0.6, note: 'tambal roda otomatis 0.6 HP/s' },
-  green:      { regen: 0.5, note: 'rawat roda 0.5 HP/s' },
-  mend:       { regen: 1.5, note: 'pulihkan roda 1.5 HP/s' },
-  taunt:      { dmg: 0.60, note: 'badan jadi tameng (-40% dampak roda)' },
-  aegis:      { dmg: 0.82, note: 'aura tim: damage -18%' },
-  trade:      { dmg: 1.00, note: 'tidak ikut bertarung' },
-  dchange:    { dmg: 1.00, note: 'tidak ikut bertarung' },
-  petguard:   { dmg: 1.00, note: 'tidak ikut bertarung' },
-  lionclaw:   { dmg: 0.90, clear: { radius: 3.2, period: 5 }, note: 'Auman Singa menyapu kerikil' },
-  arcane:     { dmg: 0.85, speed: 1.05, note: 'aura arcane: damage -15%, laju +5%' },
-  quake:      { clear: { radius: 4.5, period: 6 }, note: 'Hantaman Bumi meratakan kerikil' },
-  rapidclaw:  { dmg: 0.90, speed: 1.10, note: 'cakaran kilat (-10% dampak, laju +10%)' },
-  backstab:   { dmg: 0.88, note: 'tusukan cepat (-12% dampak)' },
-  support:    { dmg: 0.85, regen: 0.8, note: '+15% DEF tim & healing aura' },
-  royalbash:  { dmg: 0.70, note: 'perisai kerajaan (-30% dampak)' },
-  lich_wrath: { dmg: 0.80, clear: { radius: 5.0, period: 8 }, regen: 0.4, note: 'petir ungu & sedot nyawa' },
+  bulwark:    { dmg: 0.80, note: 'damage roda -20%', noteEn: 'wheel damage -20%' },
+  keen:       { dmg: 0.85, note: 'kerikil terdeteksi lebih awal (-15% dampak)', noteEn: 'spots pebbles early (-15% impact)' },
+  digger:     { regen: 0.6, note: 'tambal roda otomatis 0.6 HP/s', noteEn: 'repairs wheels at 0.6 HP/s' },
+  green:      { regen: 0.5, note: 'rawat roda 0.5 HP/s', noteEn: 'maintains wheels at 0.5 HP/s' },
+  mend:       { regen: 1.5, note: 'pulihkan roda 1.5 HP/s', noteEn: 'restores wheels at 1.5 HP/s' },
+  taunt:      { dmg: 0.60, note: 'badan jadi tameng (-40% dampak roda)', noteEn: 'acts as a shield (-40% wheel impact)' },
+  aegis:      { dmg: 0.82, note: 'aura tim: damage -18%', noteEn: 'team aura: damage -18%' },
+  trade:      { dmg: 1.00, note: 'tidak ikut bertarung', noteEn: 'does not fight' },
+  dchange:    { dmg: 1.00, note: 'tidak ikut bertarung', noteEn: 'does not fight' },
+  petguard:   { dmg: 1.00, note: 'tidak ikut bertarung', noteEn: 'does not fight' },
+  lionclaw:   { dmg: 0.90, clear: { radius: 3.2, period: 5 }, note: 'Auman Singa menyapu kerikil', noteEn: 'Lion’s Roar clears pebbles' },
+  arcane:     { dmg: 0.85, speed: 1.05, note: 'aura arcane: damage -15%, laju +5%', noteEn: 'arcane aura: damage -15%, speed +5%' },
+  quake:      { clear: { radius: 4.5, period: 6 }, note: 'Hantaman Bumi meratakan kerikil', noteEn: 'Earth Slam clears pebbles' },
+  rapidclaw:  { dmg: 0.90, speed: 1.10, note: 'cakaran kilat (-10% dampak, laju +10%)', noteEn: 'rapid claws (-10% impact, speed +10%)' },
+  backstab:   { dmg: 0.88, note: 'tusukan cepat (-12% dampak)', noteEn: 'quick strikes (-12% impact)' },
+  support:    { dmg: 0.85, regen: 0.8, note: '+15% DEF tim & healing aura', noteEn: '+15% team DEF & healing aura' },
+  royalbash:  { dmg: 0.70, note: 'perisai kerajaan (-30% dampak)', noteEn: 'royal shield (-30% impact)' },
+  lich_wrath: { dmg: 0.80, clear: { radius: 5.0, period: 8 }, regen: 0.4, note: 'petir ungu & sedot nyawa', noteEn: 'purple lightning & life drain' },
 };
 HC.npcSkillFx = (role) => (role && role.skill && HC.NPC_SKILL_FX[role.skill.id]) || { dmg: 1 };
+
+const NPC_ROLE_TEXT = {
+  guard: ['Village Guard', 'Village Bulwark', 'Incoming damage -20%'],
+  hunter: ['Hunter', 'Keen Eye', '+25% damage and longer attack range'],
+  miner: ['Miner', 'Mining Hands', 'Mines twice as fast and sometimes finds extra materials'],
+  farmer: ['Farmer', 'Green Thumb', 'Faster farming and +1 harvest yield'],
+  herbal: ['Village Healer', 'Healing Hands', 'Restores 1.5 HP/s to nearby players'],
+  warrior: ['Fighter', 'Living Shield', 'Draws monsters’ attention'],
+  guardian: ['Guardian', 'Protective Aegis', 'Reduces damage to the team and player by 18%; taunts monsters'],
+  merchant: ['Merchant', 'Trading Spirit', 'Sells goods and buys your hunting spoils'],
+  dungeonmaster: ['Dungeon Master', 'Ruins Keeper', 'Sells Dungeon Changer to change dungeon level'],
+  petmerchant: ['Pet Merchant', 'Stable Keeper', 'Moves and fights only within 4 blocks of the pet stable'],
+  lionknight: ['Lion Knight', 'Lion’s Roar', 'Lion Claw passive: +20% damage and sword range; taunts monsters. Active roar hits and pushes nearby monsters in two waves'],
+  elfmage: ['Elf Mage', 'Arcane Blessing', '+18% team damage and faster player stamina recovery'],
+  stonegiant: ['Stone Giant', 'Earth Slam', 'Mace slam shakes the ground, deals heavy damage, and taunts monsters'],
+  rabbitwarrior: ['Claw Rabbit', 'Rapid Claw', 'Five rapid strikes; the third hit in the combo deals +30% damage'],
+  goblin: ['Golden Goblin', 'Backstab Leap', 'Leaps onto a monster’s back for five strikes; mounted monsters cannot retaliate'],
+  magesupport: ['Mage Support', 'Arcane Support', 'Passive +15% team DEF; healing aura restores the team; active shield aura and Starfall'],
+  royalguard: ['Royal Guard', 'Shield Bash', 'Bash stuns monsters in a forward cone; Provoke draws nearby monsters and reduces incoming damage by 70%'],
+  lich: ['Lich', 'Lich Wrath', 'Repeated purple lightning; raises three Slayer Zombies; life drain restores HP'],
+};
+
+HC.localizeNpcRoles = function () {
+  const english = HC.getLang && HC.getLang() === 'en';
+  for (const role of HC.NPC_ROLES) {
+    const original = NPC_ROLE_TEXT[role.id];
+    if (!original) continue;
+    if (!role._localizedBase) {
+      role._localizedBase = { name: role.name, skillName: role.skill.name, skillDesc: role.skill.desc };
+    }
+    role.name = english ? original[0] : role._localizedBase.name;
+    role.skill.name = english ? original[1] : role._localizedBase.skillName;
+    role.skill.desc = english ? original[2] : role._localizedBase.skillDesc;
+  }
+  for (const id of Object.keys(HC.NPC_SKILL_FX)) {
+    const fx = HC.NPC_SKILL_FX[id];
+    if (fx.noteEn === undefined) continue;
+    if (fx._noteId === undefined) fx._noteId = fx.note;
+    fx.note = english ? fx.noteEn : fx._noteId;
+  }
+};
+HC.localizeNpcRoles();
 
 /* ============================================================================
    MODEL — pakai mesh ASLI Sylvan Dominion (js/sylvan/npc_*.js), bukan voxel
@@ -33135,6 +34019,17 @@ HC.NPC_BEHAVIOR = {
 };
 
 const _rnd = (a, b) => a + Math.random() * (b - a);
+const npcText = (key, fallback, vars = null) => HC.t ? HC.t(key, vars) : fallback;
+
+/* Model Sylvan membaca `st.swing` sebagai hitung mundur pendek (0.25–0.3 dtk),
+   bukan waktu berjalan. Satu pulsa = satu ayunan, lalu kembali netral. */
+const NPC_SWING_PULSE = 0.25;
+function _armSwing(m) { if (m) m.swingPulse = NPC_SWING_PULSE; }
+function _tickSwing(m, dt) {
+  if (!m) return 0;
+  if (m.swingPulse > 0) m.swingPulse = Math.max(0, m.swingPulse - dt);
+  return m.swingPulse || 0;
+}
 
 function _setVillageDoorHold(bldg, hold) {
   if (!bldg) return;
@@ -33419,15 +34314,12 @@ function updateVillageResident(item, dt, horse, world) {
     vb.actT -= dt;
     if (vb.actT <= 0) {
       vb.actT = prof.act * _rnd(0.75, 1.4);
-      vb.swingT = 0.001;
+      vb.swingT = NPC_SWING_PULSE;
       if (vp.workKind === 'farm') vb.harvest = !vb.harvest;
     }
   }
-  if (vb.swingT > 0) {
-    vb.swingT += dt;
-    st.swing = vb.swingT;
-    if (vb.swingT > 0.9) { vb.swingT = -1; st.swing = 0; }
-  }
+  st.swing = vb.swingT > 0 ? vb.swingT : 0;
+  if (vb.swingT > 0) vb.swingT = Math.max(0, vb.swingT - dt);
   st.headAngle = lookHead;
 
   const lodRec = root.userData && root.userData.__npcLod;
@@ -33564,15 +34456,12 @@ HC.updateWildNPC = function (item, dt, horse, world, rigCtx = null) {
     b.actT -= dt;
     if (b.actT <= 0) {
       b.actT = prof.act * _rnd(0.8, 1.5);
-      b.swingT = 0.001;
+      b.swingT = NPC_SWING_PULSE;
       if (prof.work === 'farm') b.harvest = !b.harvest;
     }
   }
-  if (b.swingT > 0) {
-    b.swingT += dt;
-    st.swing = b.swingT;
-    if (b.swingT > 0.9) { b.swingT = -1; st.swing = 0; }
-  }
+  st.swing = b.swingT > 0 ? b.swingT : 0;
+  if (b.swingT > 0) b.swingT = Math.max(0, b.swingT - dt);
   // Kepala selalu "lurus" karena root sudah diputar hadap kuda; jangan kirim
   // undefined, model lain memakai n.headAngle langsung di lerp().
   st.headAngle = 0;
@@ -33587,6 +34476,26 @@ HC.updateWildNPC = function (item, dt, horse, world, rigCtx = null) {
    PARTY — rekrut NPC liar, jalan ke belakang gerobak, naik/turun kursi, & kawal.
    ============================================================================ */
 HC.NPCParty = class {
+  _text(key, fallback, vars = null) {
+    this._lastMessageData = { key, fallback, vars: vars ? { ...vars } : null };
+    if (typeof HC.t === 'function') return HC.t(key, vars);
+    let text = fallback;
+    if (vars && typeof text === 'string') {
+      for (const [name, value] of Object.entries(vars)) text = text.replaceAll(`{${name}}`, String(value));
+    }
+    return text;
+  }
+  refreshMessageLanguage() {
+    const data = this._lastMessageData;
+    if (!data) return;
+    const vars = data.vars ? { ...data.vars } : null;
+    if (vars && vars.role) {
+      if ('name' in vars) vars.name = vars.role.name;
+      if ('skill' in vars) vars.skill = vars.role.skill.name;
+      if ('note' in vars) vars.note = HC.npcSkillFx(vars.role).note;
+    }
+    this.lastMessage = (HC && typeof HC.t === 'function') ? HC.t(data.key, vars) : data.fallback;
+  }
   constructor(scene) {
     this.scene = scene;
     this.roles = HC.NPC_RECRUITABLE;
@@ -33600,7 +34509,7 @@ HC.NPCParty = class {
     this.wild = [];
     this.nextRole = 0;
     this.lastHorse = { x: 0, z: 0, yaw: 0 };
-    this.lastMessage = 'NPC tinggal di kamp/pos. Deketin kelompoknya buat rekrut.';
+    this.lastMessage = this._text('npc_msg_default', 'NPC tinggal di kamp/pos. Deketin kelompoknya buat rekrut.');
     this._clearT = {};
     this._clock = 0;
     // Kelompok warga permanen dari peta. Tidak ada spawn mengikuti arah kuda.
@@ -33945,7 +34854,6 @@ HC.NPCParty = class {
       let tx = ws.x, tz = ws.z;
       let walkingNow = false;
       let workingNow = false;
-      let swingT = 0;
       const preMoveX = m.x, preMoveZ = m.z;
 
       if (wt.step === 'to_water') {
@@ -33962,11 +34870,11 @@ HC.NPCParty = class {
         } else {
           wt.step = 'scooping';
           wt.waitT = 0.72;
+          _armSwing(m);
         }
       } else if (wt.step === 'scooping') {
         m.dir = this._turnToward(m.dir, Math.atan2(ws.waterX - m.x, ws.waterZ - m.z), 9.0, dt);
         workingNow = true;
-        swingT = ((0.72 - wt.waitT) * 2.2) % 0.9;
         wt.waitT -= dt;
         if (wt.waitT <= 0) {
           if (m.bucketMesh && m.bucketMesh.userData && m.bucketMesh.userData.waterDisc) {
@@ -33990,11 +34898,11 @@ HC.NPCParty = class {
         } else {
           wt.step = 'pouring';
           wt.waitT = 0.55;
+          _armSwing(m);
         }
       } else if (wt.step === 'pouring') {
         m.dir = this._turnToward(m.dir, Math.atan2(cc.x - m.x, cc.z - m.z), 9.0, dt);
         workingNow = true;
-        swingT = ((0.55 - wt.waitT) * 2.6) % 0.9;
         wt.waitT -= dt;
         if (wt.waitT <= 0) {
           bar.charges = Math.min(maxC, (bar.charges || 0) + 1);
@@ -34043,7 +34951,7 @@ HC.NPCParty = class {
         st.pos.copy(root.position);
         st.walking = walkingNow;
         st.working = workingNow;
-        st.swing = swingT;
+        st.swing = _tickSwing(m, dt);
         st.vel.x = walkingNow ? Math.sin(m.dir) * 2.9 : 0;
         st.vel.z = walkingNow ? Math.cos(m.dir) * 2.9 : 0;
         st.headAngle = 0;
@@ -34111,6 +35019,7 @@ HC.NPCParty = class {
         st.vel.z = stepDist > 1e-4 ? (dz / stepDist) * sp : 0;
         st.walking = true;
         st.working = false;
+        st.swing = 0;
         st.headAngle = 0;
       }
       HC.animateNPC(root, dt);
@@ -34154,13 +35063,14 @@ HC.NPCParty = class {
         st.pos.copy(root.position);
         st.walking = false;
         st.vel.x = 0; st.vel.z = 0;
+        st.swing = 0;
         st.headAngle = 0;
       }
       HC.animateNPC(root, dt);
 
       if (m.boardT >= 1) {
         this._attachSeated(m, c);
-        this.lastMessage = `${m.role.e} ${m.role.name} sudah duduk di bangku gerobak.`;
+        this.lastMessage = this._text('npc_msg_boarded', `${m.role.e} ${m.role.name} sudah duduk di bangku gerobak.`, { e: m.role.e, name: m.role.name, role: m.role });
       }
       return;
     }
@@ -34181,6 +35091,7 @@ HC.NPCParty = class {
         st.walking = false;
         st.working = false;
         st.vel.x = 0; st.vel.z = 0;
+        st.swing = 0;
         st.headAngle = 0;
       }
       HC.animateNPC(root, dt);
@@ -34215,7 +35126,10 @@ HC.NPCParty = class {
         walkingNow = true;
       } else {
         m.dir = this._turnToward(m.dir, Math.atan2(cc.x - m.x, cc.z - m.z), 9.0, dt);
+        m.flipPulseT = (m.flipPulseT ?? 0) - dt;
+        if (m.flipPulseT <= 0) { m.flipPulseT = 0.62; _armSwing(m); }
       }
+      if (walkingNow) m.swingPulse = 0;
       resolveProps(0.34);
       const gy = this._groundY(m.x, m.z);
       root.position.set(m.x, gy, m.z);
@@ -34224,7 +35138,7 @@ HC.NPCParty = class {
         st.pos.copy(root.position);
         st.walking = walkingNow;
         st.working = !walkingNow;
-        st.swing = !walkingNow ? ((this._clock * 2.2 + m.seatIndex) % 0.9) : 0;
+        st.swing = walkingNow ? 0 : _tickSwing(m, dt);
         st.vel.x = walkingNow ? (dx / dist) * 3.2 : 0;
         st.vel.z = walkingNow ? (dz / dist) * 3.2 : 0;
         st.headAngle = 0;
@@ -34256,7 +35170,6 @@ HC.NPCParty = class {
         let walkingNow = false;
         let workingNow = false;
         let curSpeed = 0;
-        let swingNow = 0;
 
         if (!m.carryingCargo) {
           const ix = item.pos ? item.pos.x : m.x;
@@ -34284,6 +35197,7 @@ HC.NPCParty = class {
               }
               m.carryingCargo = true;
               m.haulPickT = 0;
+              _armSwing(m);
             }
           }
           const gy = this._groundY(m.x, m.z);
@@ -34295,7 +35209,7 @@ HC.NPCParty = class {
             st.vel.z = walkingNow ? Math.cos(m.dir) * curSpeed : 0;
             st.walking = walkingNow;
             st.working = workingNow;
-            st.swing = swingNow;
+            st.swing = _tickSwing(m, dt);
             st.headAngle = 0;
           }
           HC.animateNPC(root, dt);
@@ -34322,10 +35236,10 @@ HC.NPCParty = class {
             m.haulItem = null;
             m.carryingCargo = false;
             m.haulPickT = 0;
-            swingNow = 0.45;
+            _armSwing(m);
             this.lastMessage = left > 0
-              ? `${m.role.e} ${m.role.name} memuat barang ke gerobak (${left} tersisa).`
-              : `${m.role.e} Semua barang sudah dimuat kembali ke gerobak!`;
+              ? this._text('npc_msg_unloading', `${m.role.e} ${m.role.name} memuat barang ke gerobak (${left} tersisa).`, { e: m.role.e, name: m.role.name, left, role: m.role })
+              : this._text('npc_msg_loaded_all', `${m.role.e} Semua barang sudah dimuat kembali ke gerobak!`, { e: m.role.e });
             this._notify();
           }
         }
@@ -34347,7 +35261,7 @@ HC.NPCParty = class {
           st.vel.z = walkingNow ? Math.cos(m.dir) * curSpeed : 0;
           st.walking = walkingNow;
           st.working = false;
-          st.swing = swingNow;
+          st.swing = _tickSwing(m, dt);
           st.headAngle = 0;
         }
         HC.animateNPC(root, dt);
@@ -34483,6 +35397,7 @@ HC.NPCParty = class {
       st.vel.z = walkingNow ? Math.cos(m.dir) * curSpeed : 0;
       st.walking = walkingNow;
       st.working = false;
+      st.swing = _tickSwing(m, dt);
       st.headAngle = 0;
     }
     HC.animateNPC(root, dt);
@@ -34611,7 +35526,7 @@ HC.NPCParty = class {
       for (const p of world.pebbles) {
         if (Math.hypot(p.x - h.x, p.z - h.z) < fx.clear.radius) { p.h = 0; n++; }
       }
-      if (n) this.lastMessage = `${role.skill.e} ${role.skill.name}: ${n} kerikil di jalur disapu.`;
+      if (n) this.lastMessage = this._text('npc_msg_clear', `${role.skill.e} ${role.skill.name}: ${n} kerikil di jalur disapu.`, { e: role.skill.e, skill: role.skill.name, n, role });
     }
   }
   recruit(x, z) {
@@ -34621,7 +35536,7 @@ HC.NPCParty = class {
       return null;
     }
     const hit = this.nearby(x, z);
-    if (!hit) { this.lastMessage = 'Belum ada NPC dalam jangkauan 3.8 m. Deketin kelompoknya dulu.'; return null; }
+    if (!hit) { this.lastMessage = this._text('npc_msg_no_target', 'Belum ada NPC dalam jangkauan 3.8 m. Deketin kelompoknya dulu.'); return null; }
     const w = hit.npc;
     const role = w.role;              // ambil dulu: respawn menimpa item.role
     const startX = w.x, startZ = w.z;
@@ -34658,19 +35573,21 @@ HC.NPCParty = class {
       roamTarget: { x: startX, z: startZ },
       actT: 5,
       swingT: -1,
+      swingPulse: 0,
+      flipPulseT: 0,
     };
     this.members.push(member);
     this._spawnStanding(member, startX, startZ, startDir);
     this._syncDefaultPassengers(this.cart);
 
     const fx = HC.npcSkillFx(role);
-    this.lastMessage = `${role.e} ${role.name} direkrut — berjalan ke belakang gerobak... (${fx.note})`;
+    this.lastMessage = this._text('npc_msg_recruited', `${role.e} ${role.name} direkrut - berjalan ke belakang gerobak... (${fx.note})`, { e: role.e, name: role.name, note: fx.note, role });
     this._notify();
     return role;
   }
   boardMember(uid) {
     if (this.physics && this.physics.flipped) {
-      this.lastMessage = 'Balikkan gerobak dulu sebelum NPC bisa naik.';
+      this.lastMessage = this._text('npc_msg_flip_first', 'Balikkan gerobak dulu sebelum NPC bisa naik.');
       this._notify();
       return false;
     }
@@ -34683,7 +35600,7 @@ HC.NPCParty = class {
     if (m.cBrain) m.cBrain.targetBoar = null;
     m.boardT = 0;
     m.hopFrom = null;
-    this.lastMessage = `${m.role.e} ${m.role.name} menuju belakang gerobak untuk naik.`;
+    this.lastMessage = this._text('npc_msg_boarding', `${m.role.e} ${m.role.name} menuju belakang gerobak untuk naik.`, { e: m.role.e, name: m.role.name, role: m.role });
     this._notify();
     return true;
   }
@@ -34719,7 +35636,7 @@ HC.NPCParty = class {
     }
     this._syncDefaultPassengers(c);
     if (this.members.length) {
-      this.lastMessage = 'Gerobak terguling! Semua NPC terjatuh ke tanah.';
+      this.lastMessage = this._text('npc_msg_flipped', 'Gerobak terguling! Semua NPC terjatuh ke tanah.');
     }
     this._notify();
   }
@@ -34756,7 +35673,7 @@ HC.NPCParty = class {
     m.roamPhase = 'roam';
     m.roamT = 0.2;
     m.roamTarget = null;
-    this.lastMessage = `${m.role.e} ${m.role.name} turun dan berjalan di sekitar gerobak.`;
+    this.lastMessage = this._text('npc_msg_released_walk', `${m.role.e} ${m.role.name} turun dan berjalan di sekitar gerobak.`, { e: m.role.e, name: m.role.name, role: m.role });
     this._notify();
     return true;
   }
@@ -34778,14 +35695,16 @@ HC.NPCParty = class {
     if (m.root) { this.scene.remove(m.root); m.root = null; }
     this._detachSeated(m, this.cart);
     this._syncDefaultPassengers(this.cart);
-    this.lastMessage = `${m.role.e} ${m.role.name} dilepas dari regu.`;
+    this.lastMessage = this._text('npc_msg_released', `${m.role.e} ${m.role.name} dilepas dari regu.`, { e: m.role.e, name: m.role.name, role: m.role });
     this._notify();
     return m.role;
   }
   releaseLast() {
     if (!this.members.length) {
       const role = this.squad.pop();
-      this.lastMessage = role ? `${role.name} dilepas dari regu.` : 'Regu kosong.';
+      this.lastMessage = role
+        ? this._text('npc_msg_released', `${role.name} dilepas dari regu.`, { e: role.e, name: role.name, role })
+        : this._text('npc_msg_squad_empty', 'Regu kosong.');
       this._notify();
       return role || null;
     }
@@ -40661,6 +41580,7 @@ const UPGRADE_COSTS = {
   suspension: [null, { gold: 75, items: { iron: 2, leather: 1 } }, { gold: 140, items: { iron: 4, leather: 2 } }],
   straps: [null, { gold: 55, items: { leather: 2 } }, { gold: 105, items: { leather: 3, iron: 2 } }],
   canopy: [null, { gold: 65, items: { iron: 2, wood: 1 } }, { gold: 125, items: { cloth: 3, wood: 2 } }],
+  lantern: [null, { gold: 60, items: { iron: 1, cloth: 1 } }, { gold: 125, items: { iron: 3, cloth: 2 } }],
 };
 
 const UPGRADE_LINES = [
@@ -40723,17 +41643,29 @@ const UPGRADE_LINES = [
       { shortKey: 'ug_canopy_lv2', short: 'Lv2 Iron Guard', label: 'Lv2 Iron Guard', detail: 'Iron plates + lantern' },
       { shortKey: 'ug_canopy_lv3', short: 'Lv3 Canvas Canopy', label: 'Lv3 Canvas Canopy', detail: 'Arched expedition roof' }
     ]
+  },
+  {
+    key: 'lantern',
+    nameKey: 'ug_lantern_name',
+    name: 'Cart Lantern',
+    icon: '🏮',
+    desc: 'Right-side iron lantern. Brighter and wider glow each level.',
+    levels: [
+      { shortKey: 'ug_lantern_lv1', short: 'Lv1 Tallow Lamp', label: 'Lv1 Tallow Lamp', detail: '4 m warm pool of light' },
+      { shortKey: 'ug_lantern_lv2', short: 'Lv2 Brass Lantern', label: 'Lv2 Brass Lantern', detail: '9 m glow • twice as bright' },
+      { shortKey: 'ug_lantern_lv3', short: 'Lv3 Expedition Beacon', label: 'Lv3 Expedition Beacon', detail: '15 m wide beacon light' }
+    ]
   }
 ];
 
 const STRAP_JOLT = [1, 0.62, 0.30];
-const DEFAULT_LEVELS = { capacity: 0, wheels: 0, suspension: 0, straps: 0, canopy: 0 };
+const DEFAULT_LEVELS = { capacity: 0, wheels: 0, suspension: 0, straps: 0, canopy: 0, lantern: 0 };
 const SAVE_KEY = 'kraken_cart_sim_v3';
 
 class UpgradeStore {
   constructor() {
     this.levels = { ...DEFAULT_LEVELS };
-    this.unlocked = { capacity: [0], wheels: [0], suspension: [0], straps: [0], canopy: [0] };
+    this.unlocked = { capacity: [0], wheels: [0], suspension: [0], straps: [0], canopy: [0], lantern: [0] };
     this.materials = { wood: 4, iron: 3, leather: 3, cloth: 2 };
     this.load();
   }
@@ -40938,7 +41870,7 @@ class UpgradeStore {
 
   reset() {
     this.levels = { ...DEFAULT_LEVELS };
-    this.unlocked = { capacity: [0], wheels: [0], suspension: [0], straps: [0], canopy: [0] };
+    this.unlocked = { capacity: [0], wheels: [0], suspension: [0], straps: [0], canopy: [0], lantern: [0] };
     this.save();
   }
 }
@@ -41176,7 +42108,7 @@ function initUpgradeUI({ store, quests, onUpgrade, onPreview, onRefill, onClose 
 
       const detail = document.createElement('div');
       detail.className = 'ws-slide-detail';
-      detail.textContent = lvObj.detail || '';
+      detail.textContent = lvObj.shortKey ? t(`${lvObj.shortKey}_detail`) : (lvObj.detail || '');
 
       card.append(badge, stage, title, detail);
       card.addEventListener('click', () => selectTier(idx));
@@ -41655,11 +42587,14 @@ class DeliveryQuestSystem {
     if (!villageId) return null;
     if (Array.isArray(wildNpcs)) this.assignVillageQuestNpcs(wildNpcs);
     const giverNpc = this._questNpcByVillage.get(villageId) || null;
+    const giverRoleId = (giverNpc && giverNpc.role && giverNpc.role.id) ? giverNpc.role.id : null;
     const giverName = (giverNpc && giverNpc.role && giverNpc.role.name) ? giverNpc.role.name : null;
 
     if (this._offersByVillage.has(villageId)) {
       const cached = this._offersByVillage.get(villageId);
       if (giverName) cached.giverName = giverName;
+      else cached.giverName = tr('quest_giver_fallback', `${cached.fromName} Villager`, { village: cached.fromName });
+      cached.giverRoleId = giverRoleId;
       return cached;
     }
     const list = this._villages();
@@ -41680,9 +42615,9 @@ class DeliveryQuestSystem {
       const p2 = PASSENGER_POOL[(fromIdx + this._offerCounter + 1) % PASSENGER_POOL.length];
       const roles = pCount === 2 ? [p1.roleId, p2.roleId] : [p1.roleId];
       const langId = typeof HC !== 'undefined' && typeof HC.getLang === 'function' && HC.getLang() === 'id';
-      const label = pCount === 2
-        ? (langId ? `2 Penumpang (${p1.labelId})` : `2 Travelers (${p1.labelEn})`)
-        : (langId ? p1.labelId : p1.labelEn);
+      const labelId = pCount === 2 ? `2 Penumpang (${p1.labelId})` : p1.labelId;
+      const labelEn = pCount === 2 ? `2 Travelers (${p1.labelEn})` : p1.labelEn;
+      const label = langId ? labelId : labelEn;
       offer = {
         id: `q_${this._questSeq++}`,
         questType: 'passenger',
@@ -41697,8 +42632,11 @@ class DeliveryQuestSystem {
         cargoKind: null,
         cargoNameKey: null,
         cargoName: label,
+        cargoNameId: labelId,
+        cargoNameEn: labelEn,
         cargoIcon: p1.icon || '🧳',
-        giverName: giverName || `${shortNameOf(fromV)} Villager`,
+        giverRoleId,
+        giverName: giverName || tr('quest_giver_fallback', `${shortNameOf(fromV)} Villager`, { village: shortNameOf(fromV) }),
         distance: dist,
         rewardGold,
         rewardMaterials: { cloth: 1, leather: 1, wood: 1 },
@@ -41721,7 +42659,8 @@ class DeliveryQuestSystem {
         cargoNameKey: goods.nameKey,
         cargoName: localizedCargo,
         cargoIcon: goods.icon,
-        giverName: giverName || `${shortNameOf(fromV)} Villager`,
+        giverRoleId,
+        giverName: giverName || tr('quest_giver_fallback', `${shortNameOf(fromV)} Villager`, { village: shortNameOf(fromV) }),
         distance: dist,
         rewardGold,
         rewardMaterials: { ...(goods.mats || { wood: 1, iron: 1 }) },
@@ -41744,12 +42683,16 @@ class DeliveryQuestSystem {
       return { ok: false, msg: tr('quest_none_err', 'No quest available here.'), quest: null };
     }
     let receiverNpc = null;
-    let receiverName = `${offer.toName} Villager`;
+    let receiverRoleId = null;
+    let receiverName = tr('quest_receiver_fallback', `${offer.toName} Villager`, { village: offer.toName });
     if (Array.isArray(wildNpcs)) {
       const destPool = wildNpcs.filter((w) => w && !w.recruited && w.site === offer.toId);
       if (destPool.length > 0) {
         receiverNpc = destPool[Math.floor(Math.random() * destPool.length)];
-        if (receiverNpc.role && receiverNpc.role.name) receiverName = receiverNpc.role.name;
+        if (receiverNpc.role && receiverNpc.role.name) {
+          receiverName = receiverNpc.role.name;
+          receiverRoleId = receiverNpc.role.id || null;
+        }
       }
     }
     const localizedCargo = offer.cargoNameKey ? tr(offer.cargoNameKey, offer.cargoName) : offer.cargoName;
@@ -41757,6 +42700,7 @@ class DeliveryQuestSystem {
       ...offer,
       cargoName: localizedCargo,
       receiverNpc,
+      receiverRoleId,
       receiverName,
       startedAt: Date.now(),
     };
@@ -41778,6 +42722,26 @@ class DeliveryQuestSystem {
     const prev = this.activeQuest;
     this.activeQuest = null;
     return prev;
+  }
+
+  // Dipanggil saat bahasa diganti. Cache offer dibuang supaya nama pemberi
+  // quest ikut bahasa baru; quest aktif memakai ulang role id yang tersimpan.
+  relocalize() {
+    this._offersByVillage.clear();
+    const q = this.activeQuest;
+    if (!q) return;
+    const langId = typeof HC !== 'undefined' && typeof HC.getLang === 'function' && HC.getLang() === 'id';
+    if (q.cargoNameKey) q.cargoName = tr(q.cargoNameKey, q.cargoName);
+    else if (q.cargoNameId || q.cargoNameEn) q.cargoName = (langId ? q.cargoNameId : q.cargoNameEn) || q.cargoName;
+    const giverRole = q.giverRoleId && typeof HC !== 'undefined' && HC.NPC_BY_ID ? HC.NPC_BY_ID(q.giverRoleId) : null;
+    q.giverName = giverRole
+      ? giverRole.name
+      : tr('quest_giver_fallback', `${q.fromName} Villager`, { village: q.fromName });
+    const receiverRole = (q.receiverNpc && q.receiverNpc.role)
+      || (q.receiverRoleId && typeof HC !== 'undefined' && HC.NPC_BY_ID ? HC.NPC_BY_ID(q.receiverRoleId) : null);
+    q.receiverName = receiverRole
+      ? receiverRole.name
+      : tr('quest_receiver_fallback', `${q.toName} Villager`, { village: q.toName });
   }
 
   distanceToTarget(x, z) {
@@ -42587,6 +43551,7 @@ const QUALITY_PRESETS = {
     npcCull: 34,
     treeLod: 55,
     treeFar: 120,
+    hintKey: 'quality_low_hint',
     hint: 'HP kelas bawah: bayangan mati, resolusi tetap 100%, rumput 30%, pohon >45 m jadi versi low-detail (bukan billboard)'
   },
   medium: {
@@ -42607,6 +43572,7 @@ const QUALITY_PRESETS = {
     npcCull: 48,
     treeLod: 70,
     treeFar: 140,
+    hintKey: 'quality_med_hint',
     hint: 'HP menengah: bayangan diperbarui berkala, rumput 62%, pohon >60 m versi low-detail'
   },
   high: {
@@ -42626,6 +43592,7 @@ const QUALITY_PRESETS = {
     npcCull: 0,
     treeLod: 90,
     treeFar: 160,
+    hintKey: 'quality_high_hint',
     hint: 'PC/HP kencang: semua detail dekat, pohon >80 m versi low-detail, NPC utuh, bayangan penuh'
   }
 };
@@ -43164,8 +44131,12 @@ HC.onNPCSpawn = (item) => { if (item && item.root && quality.npcLod) makeNpcLod(
 world.bindRenderer(renderer);
 
 function qualityLabelText(key, fallback) {
-  const k = key === 'high' ? 'quality_high' : key === 'med' ? 'quality_med' : 'quality_low';
+  const k = key === 'high' ? 'quality_high' : key === 'medium' ? 'quality_med' : 'quality_low';
   return t(k) || fallback;
+}
+function qualityHintText(key, fallback) {
+  const p = QUALITY_PRESETS[key];
+  return (p && p.hintKey && t(p.hintKey)) || fallback;
 }
 const qualityBar = document.getElementById('quality-bar');
 function refreshQualityBar() {
@@ -43176,7 +44147,7 @@ function refreshQualityBar() {
     if (p) b.textContent = `${p.icon} ${qualityLabelText(qKey, p.label)}`;
     b.classList.toggle('active', qKey === quality.key);
   });
-  qualityBar.title = `${t('quality_label')}: ${qualityLabelText(quality.key, quality.label)} — ${quality.hint}`;
+  qualityBar.title = `${t('quality_label')}: ${qualityLabelText(quality.key, quality.label)} — ${qualityHintText(quality.key, quality.hint)}`;
 }
 function applyQualityLive(key, persist = true) {
   const preset = QUALITY_PRESETS[key];
@@ -44017,10 +44988,14 @@ renderHorseUpgrades = function renderHorseUpgradeRows() {
 // Village Cart Workshop camera & mode
 let workshopOpen = false;
 let _wsRecord = null;
+let _wsTransitionT = 0;
 const _wsSavedCamPos = new THREE.Vector3();
 const _wsSavedTarget = new THREE.Vector3();
 const _wsCamGoalPos = new THREE.Vector3();
 const _wsCamGoalTarget = new THREE.Vector3();
+const _wsStartCamPos = new THREE.Vector3();
+const _wsStartTarget = new THREE.Vector3();
+const _wsSavedCtl = { enablePan: true, enableZoom: true, minDistance: 2.2, maxDistance: 42, enableDamping: true };
 
 function computeWorkshopCamera(ws) {
   const cx = physics.pos.x;
@@ -44043,11 +45018,9 @@ function computeWorkshopCamera(ws) {
   const ca = Math.cos(ang), sa = Math.sin(ang);
   const rx = vx * ca - vz * sa;
   const rz = vx * sa + vz * ca;
-  _wsCamGoalTarget.set(
-    HC.lerp(cx, animator.x, 0.25),
-    cy + 0.55,
-    HC.lerp(cz, animator.z, 0.25)
-  );
+  // Pivot tepat di badan gerobak. Kuda tetap terlihat di tepi frame, tetapi
+  // orbit tidak lagi bergeser mengikuti kuda saat kamera diputar.
+  _wsCamGoalTarget.set(cx, cy + 0.55, cz);
   _wsCamGoalPos.set(
     _wsCamGoalTarget.x + rx * 7.6,
     cy + 4.25,
@@ -44065,7 +45038,17 @@ function openWorkshop(ws) {
 
   _wsSavedCamPos.copy(camera.position);
   _wsSavedTarget.copy(controls.target);
+  _wsSavedCtl.enablePan = controls.enablePan;
+  _wsSavedCtl.enableZoom = controls.enableZoom;
+  _wsSavedCtl.minDistance = controls.minDistance;
+  _wsSavedCtl.maxDistance = controls.maxDistance;
+  _wsSavedCtl.enableDamping = controls.enableDamping;
+  controls.enablePan = false;
+  controls.enableZoom = true;
+  controls.minDistance = 3.8;
+  controls.maxDistance = 14;
   workshopOpen = true;
+  _wsTransitionT = 0;
   _wsRecord = ws;
 
   keysHeld.forward = false;
@@ -44078,6 +45061,8 @@ function openWorkshop(ws) {
   animator.setSteer(0);
 
   computeWorkshopCamera(ws);
+  _wsStartCamPos.copy(camera.position);
+  _wsStartTarget.copy(controls.target);
   if (ui && ui.open) ui.open(ws);
   return true;
 }
@@ -44086,11 +45071,21 @@ function closeWorkshop() {
   if (!workshopOpen) return false;
   workshopOpen = false;
   _wsRecord = null;
+  _wsTransitionT = 0;
   if (ui && ui.close) ui.close();
   rebuildCartFromStore();
+  controls.enablePan = _wsSavedCtl.enablePan;
+  controls.enableZoom = _wsSavedCtl.enableZoom;
+  controls.minDistance = _wsSavedCtl.minDistance;
+  controls.maxDistance = _wsSavedCtl.maxDistance;
+  controls.enableDamping = _wsSavedCtl.enableDamping;
+  // Sisa momentum orbit dari workshop tidak boleh menarik kamera gameplay.
+  const damp = controls.enableDamping;
+  controls.enableDamping = false;
   controls.target.copy(_wsSavedTarget);
   camera.position.copy(_wsSavedCamPos);
   controls.update();
+  controls.enableDamping = damp;
   _lastDockSig = '';
   _lastQuestSig = '';
   renderNpcDock();
@@ -44539,6 +45534,8 @@ if (btnCutsceneNext) btnCutsceneNext.addEventListener('click', (e) => { e.preven
 
 function applyTranslations() {
   document.documentElement.lang = getLang();
+  if (HC.localizeNpcRoles) HC.localizeNpcRoles();
+  if (quests && quests.relocalize) quests.relocalize();
   document.title = t('page_title');
   document.querySelectorAll('[data-i18n]').forEach((el) => {
     el.textContent = t(el.dataset.i18n);
@@ -44560,6 +45557,7 @@ function applyTranslations() {
   _lastBannerSig = '';
   syncHitchUi();
   syncFlipBanner();
+  if (party && party.refreshMessageLanguage) party.refreshMessageLanguage();
   renderNpcDock();
   renderQuestHud(quests.getNearbyVillage(animator.x, animator.z));
 }
@@ -45880,6 +46878,90 @@ let _sleepZTimer = 0;
 const _sleepHeadW = new THREE.Vector3();
 window.__manualSim = false;
 
+// ---- Lentera gerobak: nyala saat senja/malam, makin terang & lebar per level ----
+let _cartLanternPower = 0;
+let _lanternPool = null;
+let _lanternPoolTex = null;
+const _lanternPoolPos = new HC.THREE.Vector3();
+
+// Shader terrain/rumput di dunia ini custom (tidak ikut lighting three.js),
+// jadi PointLight saja tidak menerangi jalan. Bulatan additive di tanah ini
+// yang bikin "lebar cahaya" lentera kelihatan jelas dan murah di GPU mobile.
+function getLanternPoolTexture() {
+  if (_lanternPoolTex) return _lanternPoolTex;
+  const size = 128;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  g.addColorStop(0.0, 'rgba(255, 214, 150, 0.95)');
+  g.addColorStop(0.42, 'rgba(255, 176, 92, 0.42)');
+  g.addColorStop(0.76, 'rgba(255, 146, 58, 0.13)');
+  g.addColorStop(1.0, 'rgba(255, 130, 40, 0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, size, size);
+  _lanternPoolTex = new HC.THREE.CanvasTexture(canvas);
+  if (HC.THREE.SRGBColorSpace) _lanternPoolTex.colorSpace = HC.THREE.SRGBColorSpace;
+  return _lanternPoolTex;
+}
+
+function ensureLanternPool() {
+  if (_lanternPool) return _lanternPool;
+  const geo = new HC.THREE.CircleGeometry(1, 32);
+  geo.rotateX(-Math.PI / 2);
+  const mat = new HC.THREE.MeshBasicMaterial({
+    map: getLanternPoolTexture(),
+    color: 0xffa24a,
+    transparent: true,
+    opacity: 0,
+    blending: HC.THREE.AdditiveBlending,
+    depthWrite: false,
+    toneMapped: false
+  });
+  _lanternPool = new HC.THREE.Mesh(geo, mat);
+  _lanternPool.renderOrder = 2;
+  _lanternPool.visible = false;
+  scene.add(_lanternPool);
+  return _lanternPool;
+}
+
+function updateCartLantern(dt) {
+  const lant = cart && cart.lantern;
+  if (!lant || !lant.spec) return;
+  const spec = lant.spec;
+  const t = world.elapsed || 0;
+  const want = world.isHeadlightsOn ? 1 : 0;
+  _cartLanternPower = HC.damp(_cartLanternPower, want, want > 0 ? 2.2 : 1.6, dt);
+  const p = _cartLanternPower;
+  const flicker = 0.93 + Math.sin(t * 11.3) * 0.035 + Math.sin(t * 23.7 + 1.7) * 0.02;
+
+  if (lant.light) {
+    lant.light.intensity = spec.light * p * flicker;
+  }
+  if (lant.halo) {
+    lant.halo.visible = p > 0.02;
+    lant.halo.material.opacity = 0.42 * p * flicker;
+    const s = spec.halo * (1.0 + 0.06 * Math.sin(t * 9.1)) * 1.25;
+    lant.halo.scale.set(s, s, 1);
+  }
+  if (lant.glassMat) {
+    const lit = 0.32 + 0.68 * p;
+    lant.glassMat.color.setRGB(0.26 + 0.74 * lit, 0.18 + 0.50 * lit, 0.08 + 0.24 * lit);
+    lant.glassMat.opacity = 0.62 + 0.34 * p;
+  }
+
+  const pool = ensureLanternPool();
+  lant.pivot.getWorldPosition(_lanternPoolPos);
+  const gy = world.terrainHeightAt ? world.terrainHeightAt(_lanternPoolPos.x, _lanternPoolPos.z) : 0;
+  pool.position.set(_lanternPoolPos.x, gy + 0.05, _lanternPoolPos.z);
+  const pr = spec.pool || 3;
+  pool.scale.set(pr, 1, pr);
+  pool.material.opacity = 0.55 * p * flicker;
+  pool.visible = p > 0.02;
+
+  lant.power = p;
+}
+
 function stepSim(dt) {
   if (gameMode === 'menu') {
     animator.menuIdleMode = true;
@@ -45890,6 +46972,7 @@ function stepSim(dt) {
     animator.update(dt);
     world.setCartPose(physics.pos.x, physics.pos.z, physics.yaw);
     world.update(animator.x, dt, animator.z, animator.yaw);
+    updateCartLantern(dt);
     scene.updateMatrixWorld(true);
     readAnchors();
     if (physics.syncVisual) physics.syncVisual();
@@ -45930,6 +47013,7 @@ function stepSim(dt) {
       HC.animateNPC(_cutsceneGuardNpc.root, dt);
     }
     world.update(animator.x, dt, animator.z, animator.yaw);
+    updateCartLantern(dt);
     scene.updateMatrixWorld(true);
     if (physics.syncVisual) physics.syncVisual();
     const kCs = 1 - Math.exp(-5.0 * dt);
@@ -46033,6 +47117,7 @@ function stepSim(dt) {
   world._horseJumpActive = !!animator.jumpActive;
   world.setCartPose(physics.pos.x, physics.pos.z, physics.yaw);
   world.update(animator.x, dt, animator.z, animator.yaw);
+  updateCartLantern(dt);
   if (vignetteEl) vignetteEl.classList.toggle('night-mist', world.currentMoodKey === 'night');
   party.hasCart = hasCart;
   party.update(animator.x, animator.z, animator.yaw, dt, cart, hasCart ? physics : null);
@@ -46191,9 +47276,15 @@ function stepSim(dt) {
 
   if (workshopOpen) {
     if (_wsRecord) computeWorkshopCamera(_wsRecord);
-    const kWs = 1 - Math.exp(-7.5 * dt);
-    controls.target.lerp(_wsCamGoalTarget, kWs);
-    camera.position.lerp(_wsCamGoalPos, kWs);
+    if (_wsTransitionT < 1) {
+      _wsTransitionT = Math.min(1, _wsTransitionT + dt / 0.55);
+      const u = _wsTransitionT * _wsTransitionT * (3 - 2 * _wsTransitionT);
+      controls.target.lerpVectors(_wsStartTarget, _wsCamGoalTarget, u);
+      camera.position.lerpVectors(_wsStartCamPos, _wsCamGoalPos, u);
+    } else {
+      // OrbitControls owns camera position now; only pin its pivot to the cart.
+      controls.target.copy(_wsCamGoalTarget);
+    }
   } else {
     // Hold-Q Inspect focuses camera cleanly onto cart & wheels; release returns smoothly
     const focusX = animator.inspectMode

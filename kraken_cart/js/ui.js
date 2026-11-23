@@ -157,7 +157,7 @@ export function initUpgradeUI({ store, quests, onUpgrade, onPreview, onRefill, o
 
       const detail = document.createElement('div');
       detail.className = 'ws-slide-detail';
-      detail.textContent = lvObj.detail || '';
+      detail.textContent = lvObj.shortKey ? t(`${lvObj.shortKey}_detail`) : (lvObj.detail || '');
 
       card.append(badge, stage, title, detail);
       card.addEventListener('click', () => selectTier(idx));

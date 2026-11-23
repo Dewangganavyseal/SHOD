@@ -202,6 +202,15 @@ sebagian besar peta dari tiap frame.
 
 ## Yang terakhir diubah
 
+- Lentera besi di sisi kanan gerobak sekarang pendulum 2 sumbu sungguhan (gravitasi
+  badan + percepatan gerobak, redaman engsel) — bukan animasi palsu. Nyala otomatis
+  saat senja/malam, dan bisa di-upgrade 3 level (`lantern`) dengan PointLight,
+  halo, dan bulatan cahaya tanah yang makin terang & lebar tiap level.
+- Malam dibuat jauh lebih gelap (sceneBrightness 0,28; hemi 0,14; bulan 0,20).
+- Bayangan awan tidak lagi melesat cepat saat matahari bergerak: proyeksi noise
+  dibatasi (`max(uSunDir.y, 0.42)`, geseran 0,16×) di kelima blok shader.
+- Sembilan genangan air hujan tersebar jauh dari desa, mengikuti kontur tanah,
+  memantulkan warna langit (`activeAtmosphere`). Rumput di sekitarnya dibersihkan.
 - Dunia diperluas 4x (300 x 300 m), ditambah sungai ber-ford, tantangan bebatuan,
   dan desa kecil.
 - Lompat membawa momentum: makin cepat lepas tanah, makin jauh & tinggi, dan

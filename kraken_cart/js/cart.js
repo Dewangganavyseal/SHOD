@@ -26,8 +26,98 @@ HC.CART_UPGRADES = {
     { tier: 0, label: 'Lv1 • Bak Kayu Terbuka' },
     { tier: 1, label: 'Lv2 • Perisai Besi + Lentera Kembar' },
     { tier: 2, label: 'Lv3 • Kanopi Tenda Ekspedisi' }
+  ],
+  // Lentera gantung sisi kanan. `light` = intensitas PointLight (candela),
+  // `distance` = jangkauan, `halo` = ukuran sprite glow, `pool` = radius
+  // bulatan cahaya di tanah (meter).
+  lantern: [
+    { tier: 0, label: 'Lv1 • Lampu Minyak', light: 7.0, distance: 7.0, halo: 0.95, pool: 3.0, glow: 0xffc978, glass: 0xffc46a },
+    { tier: 1, label: 'Lv2 • Lentera Kuningan', light: 14.0, distance: 11.5, halo: 1.40, pool: 4.4, glow: 0xffc266, glass: 0xffcf78 },
+    { tier: 2, label: 'Lv3 • Suar Ekspedisi', light: 24.0, distance: 17.0, halo: 1.95, pool: 6.0, glow: 0xffb84d, glass: 0xffd98a }
   ]
 };
+
+// ------------------------------------------------------------
+//  LENTERA GEROBAK — besi tempa gantung di sisi kanan bak.
+//  Dipakai dua kali: di gerobak asli (dengan PointLight) dan di
+//  thumbnail workshop (tanpa lampu, cukup glow).
+// ------------------------------------------------------------
+let _lanternGlowTex = null;
+function getLanternGlowTexture() {
+  if (_lanternGlowTex) return _lanternGlowTex;
+  if (typeof document === 'undefined') return null;
+  const size = 64;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  g.addColorStop(0.0, 'rgba(255, 240, 200, 1)');
+  g.addColorStop(0.32, 'rgba(255, 205, 120, 0.62)');
+  g.addColorStop(0.68, 'rgba(255, 165, 65, 0.18)');
+  g.addColorStop(1.0, 'rgba(255, 145, 40, 0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, size, size);
+  _lanternGlowTex = new THREE.CanvasTexture(canvas);
+  if (THREE.SRGBColorSpace) _lanternGlowTex.colorSpace = THREE.SRGBColorSpace;
+  return _lanternGlowTex;
+}
+
+function buildCartLantern(tier = 0, withLight = true) {
+  const spec = HC.CART_UPGRADES.lantern[tier] || HC.CART_UPGRADES.lantern[0];
+  const group = new THREE.Group();
+  group.name = 'cartLantern';
+
+  // Rangka besi: tutup atas, dasar, dan empat tiang kurungan.
+  const vb = new V(S);
+  vb.box(-1, -2, -1, 1, 0, 1, P.iron, 0.01);
+  vb.box(-2, -6, -2, 2, -5, 2, P.iron, 0.01);
+  for (const cx of [-1.5, 1.5]) {
+    for (const cz of [-1.5, 1.5]) {
+      vb.box(cx, -5.2, cz, cx, -1.9, cz, P.ironDark, 0.02);
+    }
+  }
+  vb.box(-1.5, -1.9, -1.5, 1.5, -1.6, 1.5, P.iron, 0.02);
+  vb.box(-0.8, 0.0, -0.8, 0.8, 0.6, 0.8, P.ironDark, 0.02);
+  group.add(vb.build(0, 0, 0));
+
+  // Kaca lentera: material sendiri supaya bisa dinyalakan/dimatikan.
+  const glassMat = new THREE.MeshBasicMaterial({
+    color: spec.glass,
+    transparent: true,
+    opacity: 0.94,
+    toneMapped: false
+  });
+  const glass = new THREE.Mesh(new THREE.BoxGeometry(2.85 * S, 2.9 * S, 2.85 * S), glassMat);
+  glass.position.y = -3.5 * S;
+  glass.userData.isLanternGlass = true;
+  glass.renderOrder = 4;
+  group.add(glass);
+
+  // Halo hangat (sprite additive, murah di GPU mobile).
+  const halo = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: getLanternGlowTexture(),
+    color: spec.glow,
+    transparent: true,
+    opacity: 0,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    toneMapped: false
+  }));
+  halo.position.copy(glass.position);
+  halo.scale.setScalar(spec.halo * 1.15);
+  halo.renderOrder = 3;
+  group.add(halo);
+
+  let light = null;
+  if (withLight) {
+    light = new THREE.PointLight(0xffb054, 0, spec.distance, 1.30);
+    light.position.copy(glass.position);
+    light.castShadow = false;
+    group.add(light);
+  }
+
+  return { group, glassMat, halo, light, spec, tier };
+}
 
 function buildSpokedWheel(radiusVox, widthVox, tier = 0) {
   const vb = new V(S);
@@ -122,7 +212,7 @@ function makeBarrelMesh(tintHex) {
   }
   b.cylY(0, 0, 6, 6, 4.1, P.oakLite, 0, 0.03);
   b.box(-0.6, 6, -0.6, 0.6, 7, 0.6, P.brass);
-  return b.build(0, 0, 0);
+  return b.build(0, 0, 0, { collider: true });
 }
 
 function makeCrateMesh(w, h, d, mainHex, trimHex) {
@@ -136,7 +226,7 @@ function makeCrateMesh(w, h, d, mainHex, trimHex) {
     for (const sy of [-h, h])
       for (const sz of [-d, d])
         c.set(sx, sy, sz, P.ironDark, 0.01);
-  return c.build(0, 0, 0);
+  return c.build(0, 0, 0, { collider: true });
 }
 
 function makeSackMesh(colHex) {
@@ -144,7 +234,7 @@ function makeSackMesh(colHex) {
   sb.ellipsoid(0, 0, 0, 5.0, 3.5, 4.0, colHex, 0.05);
   sb.box(-1.5, 2.7, -1.5, 1.5, 3.7, 1.5, P.sackTie, 0.02);
   sb.ellipsoid(0, 4.3, 0, 2.0, 1.2, 2.0, colHex, 0.04);
-  return sb.build(0, 0, 0);
+  return sb.build(0, 0, 0, { collider: true });
 }
 
 function makeTarpMesh() {
@@ -153,7 +243,7 @@ function makeTarpMesh() {
   tb.cylZ(-7, 7, 0, 0, 1.7, P.padCloth, 0, 0.03);
   tb.cylZ(-4, -3, 0, 0, 3.4, P.leather, 2.7, 0.02);
   tb.cylZ(3, 4, 0, 0, 3.4, P.leather, 2.7, 0.02);
-  return tb.build(0, 0, 0);
+  return tb.build(0, 0, 0, { collider: true });
 }
 
 function makeTreasureChestMesh() {
@@ -162,7 +252,7 @@ function makeTreasureChestMesh() {
   cb.box(-5, 2, -4, 5, 4, 4, P.oakMid, 0.04);
   for (const x of [-4, 0, 4]) cb.box(x, -3, -4, x, 4, 4, P.brass, 0.02);
   cb.box(-1, 0, 4, 1, 2, 5, P.lantern, 0.01);
-  return cb.build(0, 0, 0);
+  return cb.build(0, 0, 0, { collider: true });
 }
 
 // ============================================================
@@ -293,7 +383,7 @@ function makeWaterBarrelMesh() {
   b.box(-0.7, 5, -0.7, 0.7, 6, 0.7, P.brass, 0.01);
   b.box(3.8, -1, -0.6, 5.0, 0, 0.6, P.brass, 0.01);
   b.box(4.5, -2, -0.5, 5.1, -1, 0.5, P.brass, 0.01);
-  return b.build(0, 0, 0);
+  return b.build(0, 0, 0, { collider: true });
 }
 
 function makeFruitBoxMesh() {
@@ -320,45 +410,102 @@ function makeFruitBoxMesh() {
   }
   b.box(-2.4, 1.4, -1.9, -1.6, 2.0, -1.1, 0x22c55e, 0.02);
   b.box(0.0, 2.1, -0.2, 0.8, 2.7, 0.6, 0x16a34a, 0.02);
-  return b.build(0, 0, 0);
+  return b.build(0, 0, 0, { collider: true });
+}
+
+function packCargoBoxes(boxes, bounds, gap) {
+  const sorted = boxes.slice().sort((a, b) => b.depth - a.depth || b.width - a.width);
+  const placed = [];
+  let x = bounds.xMin, z = bounds.zMin, shelfDepth = 0;
+  for (const box of sorted) {
+    if (x + box.width > bounds.xMax + 1e-6) {
+      z += shelfDepth + gap;
+      x = bounds.xMin;
+      shelfDepth = 0;
+    }
+    if (x + box.width > bounds.xMax + 1e-6 || z + box.depth > bounds.zMax + 1e-6) return null;
+    placed.push({ box, x: x + box.width / 2, z: z + box.depth / 2 });
+    x += box.width + gap;
+    shelfDepth = Math.max(shelfDepth, box.depth);
+  }
+  return placed;
 }
 
 function buildCargoItems(capTier = 1) {
-  // Cargo ditempatkan di kompartemen DEPAN (x: 2..22, z: -13..13) dengan tata letak organik.
-  // Item starter mencakup perbekalan kuda (Tong Air & Kotak Buah) di sisi depan agar mudah diklik saat tekan Q!
   const allDefs = [
-    // Lv1 (6 barang): Starter perbekalan kuda + perlengkapan ekspedisi
-    { build: () => makeWaterBarrelMesh(), pos: [18.0, 11.4, -7.8], rot: [0, 0.14, 0], r: 4.5, nameKey: 'item_water_barrel', supplyKind: 'water', charges: 5, maxCharges: 5 },
-    { build: () => makeFruitBoxMesh(), pos: [18.0, 9.6, 7.6], rot: [0, -0.16, 0], r: 4.6, nameKey: 'item_fruit_box', supplyKind: 'food', charges: 5, maxCharges: 5 },
-    { build: () => makeBarrelMesh(P.oakDark), pos: [6.0, 12.1, -8.2], rot: [0, 0.22, 0], r: 5.0, nameKey: 'item_oil_cask' },
-    { build: () => makeSackMesh(P.sack), pos: [10.4, 9.6, 7.8], rot: [0.04, -0.34, 0], r: 4.0, nameKey: 'item_oat_sack' },
-    { build: () => makeCrateMesh(4, 3.5, 4, P.oakMid, P.oakDark), pos: [6.4, 9.6, 7.4], rot: [0, -0.19, 0], r: 4.3, nameKey: 'item_hay_bale' },
-    { build: () => makeTarpMesh(), pos: [11.2, 9.2, -1.0], rot: [0, 0.18, 0], r: 3.8, nameKey: 'item_travel_tarp' },
-    // Lv2 (+2 = 8)
-    { build: () => makeTreasureChestMesh(), pos: [14.2, 9.1, 0.6], rot: [0, -0.26, 0], r: 4.5, nameKey: 'item_storage_chest' },
-    { build: () => makeCrateMesh(5, 4, 5, P.oakLite, P.oakDark), pos: [6.0, 10.1, 0.5], rot: [0, 0.35, 0], r: 4.8, nameKey: 'item_tool_crate' },
-    // Lv3 (+4 = 12)
-    { build: () => makeTreasureChestMesh(), pos: [14.8, 9.1, -7.2], rot: [0, 0.19, 0], r: 4.4, nameKey: 'item_storage_chest' },
-    { build: () => makeSackMesh(P.sack), pos: [13.2, 9.6, 4.4], rot: [0.08, -0.45, 0], r: 3.9, nameKey: 'item_oat_sack' },
-    { build: () => makeCrateMesh(4, 3, 4, P.oakLite, P.oakDark), pos: [19.4, 9.1, 0.2], rot: [0, 0.28, 0], r: 4.2, nameKey: 'item_tool_crate' },
-    { build: () => makeSackMesh(P.canvas), pos: [8.8, 9.6, -4.6], rot: [-0.04, 0.52, 0], r: 3.9, nameKey: 'item_oat_sack' }
+    { build: () => makeWaterBarrelMesh(), rot: [0, 0.14, 0], r: 4.5, nameKey: 'item_water_barrel', supplyKind: 'water', charges: 5, maxCharges: 5 },
+    { build: () => makeFruitBoxMesh(), rot: [0, -0.16, 0], r: 4.6, nameKey: 'item_fruit_box', supplyKind: 'food', charges: 5, maxCharges: 5 },
+    { build: () => makeBarrelMesh(P.oakDark), rot: [0, 0.22, 0], r: 5.0, nameKey: 'item_oil_cask' },
+    { build: () => makeSackMesh(P.sack), rot: [0.04, -0.34, 0], r: 4.0, nameKey: 'item_oat_sack' },
+    { build: () => makeCrateMesh(4, 3.5, 4, P.oakMid, P.oakDark), rot: [0, -0.19, 0], r: 4.3, nameKey: 'item_hay_bale' },
+    { build: () => makeTarpMesh(), rot: [0, 0.18, 0], r: 3.8, nameKey: 'item_travel_tarp' },
+    { build: () => makeTreasureChestMesh(), rot: [0, -0.26, 0], r: 4.5, nameKey: 'item_storage_chest' },
+    { build: () => makeCrateMesh(5, 4, 5, P.oakLite, P.oakDark), rot: [0, 0.35, 0], r: 4.8, nameKey: 'item_tool_crate' },
+    { build: () => makeTreasureChestMesh(), rot: [0, 0.19, 0], r: 4.4, nameKey: 'item_storage_chest' },
+    { build: () => makeSackMesh(P.sack), rot: [0.08, -0.45, 0], r: 3.9, nameKey: 'item_oat_sack' },
+    { build: () => makeCrateMesh(4, 3, 4, P.oakLite, P.oakDark), rot: [0, 0.28, 0], r: 4.2, nameKey: 'item_tool_crate' },
+    { build: () => makeSackMesh(P.canvas), rot: [-0.04, 0.52, 0], r: 3.9, nameKey: 'item_oat_sack' }
   ];
-
   const spec = HC.CART_UPGRADES.capacity[capTier] || HC.CART_UPGRADES.capacity[1];
-  const count = spec.count;
-  const items = [];
-  for (let i = 0; i < count; i++) {
-    const d = allDefs[i];
-    items.push({
-      mesh: d.build(),
+  const bounds = {
+    xMin: 1.6 * S,
+    xMax: ((spec.bedFrontX ?? 24) - 2) * S,
+    zMin: -(((spec.bedHalfW ?? 15) - 1)) * S,
+    zMax: (((spec.bedHalfW ?? 15) - 1)) * S
+  };
+  const gap = 0.018;
+  const floorY = 6 * S;
+  const items = allDefs.slice(0, spec.count).map((d) => {
+    const mesh = d.build();
+    const homeRot = new THREE.Euler(d.rot[0], d.rot[1], d.rot[2]);
+    mesh.rotation.copy(homeRot);
+    mesh.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(mesh);
+    const size = box.getSize(new THREE.Vector3());
+    return {
+      mesh,
       nameKey: d.nameKey || 'item_tool_crate',
       supplyKind: d.supplyKind || null,
       charges: d.charges != null ? d.charges : 0,
       maxCharges: d.maxCharges != null ? d.maxCharges : 0,
-      homePos: new THREE.Vector3(d.pos[0] * S, d.pos[1] * S, d.pos[2] * S),
-      homeRot: new THREE.Euler(d.rot[0], d.rot[1], d.rot[2]),
-      radius: d.r * S
-    });
+      homePos: new THREE.Vector3(),
+      homeRot,
+      radius: d.r * S,
+      _cargoBox: box,
+      _cargoSize: size
+    };
+  });
+
+  let low = 0.18, high = 1, best = null;
+  for (let i = 0; i < 26; i++) {
+    const scale = (low + high) * 0.5;
+    const boxes = items.map((item, index) => ({
+      index,
+      width: item._cargoSize.x * scale,
+      depth: item._cargoSize.z * scale
+    }));
+    const placed = packCargoBoxes(boxes, bounds, gap);
+    if (placed) { best = { scale, placed }; low = scale; }
+    else high = scale;
+  }
+  const scale = best ? best.scale : low;
+  for (const slot of (best ? best.placed : [])) {
+    const item = items[slot.box.index];
+    const box = item._cargoBox;
+    item.mesh.scale.setScalar(scale);
+    item.homePos.set(
+      slot.x - ((box.min.x + box.max.x) * 0.5 * scale),
+      floorY - box.min.y * scale,
+      slot.z - ((box.min.z + box.max.z) * 0.5 * scale)
+    );
+    item.mesh.position.copy(item.homePos);
+    const frame = cargoFrame(item.mesh);
+    item.localCenter = frame.c;
+    item.localHalf = frame.h;
+    item.radius = Math.max(item._cargoSize.x, item._cargoSize.z) * scale * 0.5;
+    item.cargoScale = scale;
+    delete item._cargoBox;
+    delete item._cargoSize;
   }
   return items;
 }
@@ -445,7 +592,7 @@ HC.buildQuestCargoMesh = function (cargoKind = 'spices', sc = S) {
     b.cylY(2.2, 0.6, -1.0, 1.4, 1.3, 0xf8fafc, 0, 0.02);
     b.cylY(2.2, 0.6, 0.8, 1.3, 1.35, 0x1d4ed8, 0, 0.01);
   }
-  const mesh = b.build(0, 0, 0);
+  const mesh = b.build(0, 0, 0, { collider: true });
   mesh.userData.questCargoKind = kind;
   return mesh;
 };
@@ -506,17 +653,101 @@ HC.makeWaterBucketMesh = function (sc = S) {
   return grp;
 };
 
+// Local frame of the mesh before its own rotation is applied. Physics needs
+// this to clamp the *visual* AABB against the rails; the mesh origin is often
+// offset from the visible centre.
+function cargoFrame(mesh) {
+  if (mesh.isMesh && mesh.geometry) {
+    if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
+    const bb = mesh.geometry.boundingBox;
+    const scale = mesh.scale.x;
+    return {
+      c: bb.getCenter(new THREE.Vector3()).multiplyScalar(scale),
+      h: bb.getSize(new THREE.Vector3()).multiplyScalar(0.5 * scale)
+    };
+  }
+  const pos = mesh.position.clone();
+  const rot = mesh.rotation.clone();
+  mesh.position.set(0, 0, 0);
+  mesh.rotation.set(0, 0, 0);
+  mesh.updateMatrixWorld(true);
+  const bb = new THREE.Box3().setFromObject(mesh);
+  mesh.position.copy(pos);
+  mesh.rotation.copy(rot);
+  mesh.updateMatrixWorld(true);
+  return {
+    c: bb.getCenter(new THREE.Vector3()),
+    h: bb.getSize(new THREE.Vector3()).multiplyScalar(0.5)
+  };
+}
+
+// AABB dalam ruang bak (body), bukan world. Root gerobak bisa berada di
+// koordinat jauh/berputar, sedangkan slot kargo selalu lokal terhadap body.
+function cargoLocalBox(item) {
+  const body = item && item.mesh && item.mesh.parent;
+  if (!body) return new THREE.Box3().setFromObject(item.mesh);
+  body.updateWorldMatrix(true, false);
+  item.mesh.updateWorldMatrix(true, true);
+  const inv = new THREE.Matrix4().copy(body.matrixWorld).invert();
+  const out = new THREE.Box3();
+  const tmp = new THREE.Matrix4();
+  item.mesh.traverse((o) => {
+    if (!o.isMesh || !o.geometry) return;
+    if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+    const bb = o.geometry.boundingBox.clone();
+    tmp.multiplyMatrices(inv, o.matrixWorld);
+    bb.applyMatrix4(tmp);
+    out.union(bb);
+  });
+  return out;
+}
+
+function cargoSlotRect(item, margin) {
+  if (!item || !item.mesh) return null;
+  const bb = cargoLocalBox(item);
+  const sz = bb.getSize(new THREE.Vector3());
+  const c = bb.getCenter(new THREE.Vector3());
+  // Pusat AABB world, bukan origin mesh: titik origin barang bisa bergeser
+  // dari pusat visualnya (mis. perbekalan yang dimuat miring).
+  return {
+    x: c.x,
+    z: c.z,
+    hx: sz.x * 0.5 + margin,
+    hz: sz.z * 0.5 + margin
+  };
+}
+
+function findFreeCargoSlot(rects, bounds, hx, hz, step = 0.02) {
+  for (let x = bounds.xMin + hx; x <= bounds.xMax - hx + 1e-6; x += step) {
+    for (let z = bounds.zMin + hz; z <= bounds.zMax - hz + 1e-6; z += step) {
+      let free = true;
+      for (const r of rects) {
+        if (Math.abs(x - r.x) < hx + r.hx && Math.abs(z - r.z) < hz + r.hz) {
+          free = false;
+          break;
+        }
+      }
+      if (free) return { x, z };
+    }
+  }
+  return null;
+}
+
 HC.setQuestCargoOnCart = function (cart, physics, cargoKind = 'spices', count = 3, questMeta = null) {
   if (!cart || !cart.body) return [];
   HC.clearQuestCargoFromCart(cart, physics);
 
-  // Tempatkan barang quest di kompartemen kargo tanpa menumpuk barang pengisi
-  const qSlots = [
-    { pos: [11.0, 10.2, -6.2], rot: [0, 0.16, 0] },
-    { pos: [13.8, 10.2, 0.2],  rot: [0, -0.22, 0] },
-    { pos: [10.8, 10.2, 6.2],  rot: [0, 0.28, 0] },
-  ];
-  const n = Math.max(1, Math.min(qSlots.length, count | 0));
+  const capSpec = cart.specs && cart.specs.capSpec;
+  const halfW = ((capSpec && capSpec.bedHalfW) ?? 15) - 1;
+  const frontX = ((capSpec && capSpec.bedFrontX) ?? 24) - 2;
+  const bounds = {
+    xMin: 1.6 * S,
+    xMax: frontX * S,
+    zMin: -halfW * S,
+    zMax: halfW * S
+  };
+  const floorY = 6 * S;
+  const n = Math.max(1, Math.min(3, count | 0));
   const placed = [];
 
   // Sembunyikan semua barang filler statis selain perbekalan kuda (Water Barrel & Fruit Box) agar barang quest terlihat jelas
@@ -526,18 +757,77 @@ HC.setQuestCargoOnCart = function (cart, physics, cargoKind = 'spices', count = 
     if (ex.mesh) ex.mesh.visible = false;
   }
 
-  for (let i = 0; i < n; i++) {
-    const slot = qSlots[i];
-    const hp = new THREE.Vector3(slot.pos[0] * S, slot.pos[1] * S, slot.pos[2] * S);
-    const hr = new THREE.Euler(slot.rot[0], slot.rot[1], slot.rot[2]);
+  const occupied = [];
+  for (const ex of cart.cargoItems) {
+    if (!ex || ex.isQuestCargo || ex.spilled || ex.hiddenForQuest) continue;
+    const rect = cargoSlotRect(ex, 0.02);
+    if (rect) occupied.push(rect);
+  }
 
+  const yaws = [0.16, -0.22, 0.28];
+  const template = [];
+  for (let i = 0; i < n; i++) {
+    const hr = new THREE.Euler(0, yaws[i % yaws.length], 0);
     const mesh = HC.buildQuestCargoMesh(cargoKind, S);
-    mesh.position.copy(hp);
     mesh.rotation.copy(hr);
-    cart.body.add(mesh);
+    mesh.position.set(0, 0, 0);
+    mesh.updateMatrixWorld(true);
+    const bb = new THREE.Box3().setFromObject(mesh);
+    template.push({ mesh, hr, size: bb.getSize(new THREE.Vector3()) });
+  }
+
+  // Cari skala terbesar yang masih memuat SEMUA barang quest tanpa menabrak
+  // perbekalan. Bak Lv1 sempit: tanpa penyesuaian, barang ketiga tidak pernah
+  // dapat slot. Skala seragam membuat ketiganya masuk dan tetap rapi.
+  const margin = 0.008;
+  const searchStep = 0.03;
+  let chosen = null;
+  for (let scale = 1; scale >= 0.55 - 1e-6; scale -= 0.02) {
+    const rects = occupied.slice();
+    const plan = [];
+    let ok = true;
+    for (let i = 0; i < template.length; i++) {
+      const hx = template[i].size.x * scale * 0.5 + margin;
+      const hz = template[i].size.z * scale * 0.5 + margin;
+      const slot = findFreeCargoSlot(rects, bounds, hx, hz, searchStep);
+      if (!slot) { ok = false; break; }
+      rects.push({ x: slot.x, z: slot.z, hx, hz });
+      plan.push({ index: i, slot, hx, hz });
+    }
+    if (ok) { chosen = { scale, plan }; break; }
+  }
+  if (!chosen) {
+    const scale = 0.55;
+    const rects = occupied.slice();
+    const plan = [];
+    for (let i = 0; i < template.length; i++) {
+      const hx = template[i].size.x * scale * 0.5 + margin;
+      const hz = template[i].size.z * scale * 0.5 + margin;
+      const slot = findFreeCargoSlot(rects, bounds, hx, hz, 0.01);
+      if (!slot) continue;
+      rects.push({ x: slot.x, z: slot.z, hx, hz });
+      plan.push({ index: i, slot, hx, hz });
+    }
+    chosen = { scale, plan };
+  }
+
+  for (let p = 0; p < chosen.plan.length; p++) {
+    const entry = chosen.plan[p];
+    const t = template[entry.index];
+    const mesh = t.mesh;
+    const hr = t.hr;
+    mesh.scale.setScalar(chosen.scale);
+    mesh.updateMatrixWorld(true);
 
     const bb = new THREE.Box3().setFromObject(mesh);
     const sz = bb.getSize(new THREE.Vector3());
+    const cx = (bb.min.x + bb.max.x) * 0.5;
+    const cz = (bb.min.z + bb.max.z) * 0.5;
+    const hp = new THREE.Vector3(entry.slot.x - cx, floorY - bb.min.y, entry.slot.z - cz);
+    mesh.position.copy(hp);
+    const frame = cargoFrame(mesh);
+    cart.body.add(mesh);
+
     const half = new THREE.Vector3(
       Math.max(0.05, sz.x * 0.45),
       Math.max(0.05, sz.y * 0.45),
@@ -546,6 +836,14 @@ HC.setQuestCargoOnCart = function (cart, physics, cargoKind = 'spices', count = 
     const item = {
       mesh,
       isQuestCargo: true,
+      colliderBoxes: (mesh.userData.voxelCollider && mesh.userData.voxelCollider.boxes || []).map((b) => ({
+        cx: b.cx * chosen.scale, cy: b.cy * chosen.scale, cz: b.cz * chosen.scale,
+        hx: b.hx * chosen.scale, hy: b.hy * chosen.scale, hz: b.hz * chosen.scale
+      })),
+      _colBottom: 0,
+      _colTop: 0,
+      _supportY: 0,
+      _supportBy: null,
       cargoKind,
       nameKey: `goods_${cargoKind}`,
       questToName: questMeta ? questMeta.toName : null,
@@ -556,17 +854,27 @@ HC.setQuestCargoOnCart = function (cart, physics, cargoKind = 'spices', count = 
       localAng: new THREE.Vector3(hr.x, hr.y, hr.z),
       localAngVel: new THREE.Vector3(),
       floorY: hp.y,
-      bounciness: 0.36 + (i % 3) * 0.06,
+      bounciness: 0.36 + (p % 3) * 0.06,
       pos: new THREE.Vector3(),
       quat: new THREE.Quaternion(),
       vel: new THREE.Vector3(),
       angVel: new THREE.Vector3(),
       spilled: false,
       half,
+      localCenter: frame.c,
+      localHalf: frame.h,
       radius: Math.max(half.x, half.z, 0.28),
       _onTopPrev: false,
       _restT: 0,
     };
+    if (item.colliderBoxes.length) {
+      item._colBottom = Math.min(...item.colliderBoxes.map((b) => b.cy - b.hy));
+      item._colTop = Math.max(...item.colliderBoxes.map((b) => b.cy + b.hy));
+    } else {
+      item._colBottom = item.localCenter.y - item.localHalf.y;
+      item._colTop = item.localCenter.y + item.localHalf.y;
+    }
+    item._supportY = item.floorY;
     mesh.userData.cartItem = item;
     cart.cargoItems.push(item);
     placed.push(item);
@@ -579,10 +887,12 @@ HC.buildCart = function (pivotY = 0.58, upgrades = {}) {
   const wheelTier = upgrades.wheels ?? 1;
   const susTier = upgrades.suspension ?? 1;
   const canopyTier = upgrades.canopy ?? 0;
+  const lanternTier = upgrades.lantern ?? 0;
 
   const capSpec = HC.CART_UPGRADES.capacity[capTier] || HC.CART_UPGRADES.capacity[1];
   const wheelSpec = HC.CART_UPGRADES.wheels[wheelTier] || HC.CART_UPGRADES.wheels[1];
   const susSpec = HC.CART_UPGRADES.suspension[susTier] || HC.CART_UPGRADES.suspension[1];
+  const lanternSpec = HC.CART_UPGRADES.lantern[lanternTier] || HC.CART_UPGRADES.lantern[0];
   // Lv1 wheel axle is physically rigid regardless of the separate suspension selector.
   const rigidAxle = !!(wheelSpec.rigid || susSpec.rigid);
 
@@ -792,15 +1102,34 @@ HC.buildCart = function (pivotY = 0.58, upgrades = {}) {
   // Starter gerobak kosong tanpa penumpang (direkrut langsung di desa)
   const passengers = [];
 
-  // Swinging iron lantern
+  // Swinging iron lantern (sisi kanan bak, +z) — pendulum 2 sumbu di fisika
   const lanternPivot = new THREE.Group();
-  lanternPivot.position.set(22 * S, 15 * S, (zSide + 1.5) * S);
+  lanternPivot.position.set(22 * S, 18 * S, (zSide + 4.2) * S);
   body.add(lanternPivot);
-  const lb = new V(S);
-  lb.box(-1, -2, -1, 1, 0, 1, P.ironDark);
-  lb.box(-1.5, -5, -1.5, 1.5, -2, 1.5, P.lantern, 0.01);
-  lb.box(-2, -6, -2, 2, -5, 2, P.ironDark);
-  lanternPivot.add(lb.build(0, 0, 0));
+
+  // Braket statis: lengan besi dari tiang sudut bak, menjulur keluar supaya
+  // lentera bebas berayun tanpa membentur rel atau roda.
+  const bracket = new V(S);
+  bracket.box(21.2, 16.6, zSide - 0.4, 22.8, 17.4, zSide + 4.0, P.ironDark, 0.02);
+  bracket.box(21.7, 17.4, zSide + 3.8, 22.3, 18.2, zSide + 4.6, P.iron, 0.02);
+  body.add(bracket.build(0, 0, 0));
+
+  const lanternUnit = buildCartLantern(lanternTier, true);
+  lanternUnit.group.scale.setScalar(0.85);
+  lanternPivot.add(lanternUnit.group);
+  const lantern = {
+    pivot: lanternPivot,
+    group: lanternUnit.group,
+    glassMat: lanternUnit.glassMat,
+    halo: lanternUnit.halo,
+    light: lanternUnit.light,
+    spec: lanternUnit.spec,
+    tier: lanternTier,
+    power: 0,
+    // state pendulum (rad, rad/s) — diisi physics.js
+    swing: { ax: 0, az: 0, wx: 0, wz: 0 },
+    length: 3.5 * S * 0.85
+  };
 
   // Rope attachment anchors (ujung batang tepat di kalung bahu kuda & singletree sejajar sabuk perut)
   const shaftTipLeft = new THREE.Object3D();
@@ -884,14 +1213,15 @@ HC.buildCart = function (pivotY = 0.58, upgrades = {}) {
     passengers,
     npcPassengers: [],   // diisi HC.NPCParty.mount() waktu kuda merekrut NPC
     lanternPivot,
+    lantern,
     shaftGroup,
     shaftTipLeft,
     shaftTipRight,
     singletreeLeft,
     singletreeRight,
     seatAnchor,
-    upgrades: { capacity: capTier, wheels: wheelTier, suspension: susTier, canopy: canopyTier },
-    specs: { capSpec, wheelSpec, susSpec, rigidAxle }
+    upgrades: { capacity: capTier, wheels: wheelTier, suspension: susTier, canopy: canopyTier, lantern: lanternTier },
+    specs: { capSpec, wheelSpec, susSpec, lanternSpec, rigidAxle }
   };
 };
 
@@ -957,6 +1287,21 @@ HC.buildCartPartPreview = function buildCartPartPreview(key, tier = 0) {
     bed.rotation.y = 0.65;
     bed.rotation.x = 0.25;
     root.add(bed);
+    return root;
+  }
+
+  if (key === 'lantern') {
+    const unit = buildCartLantern(t, false);
+    unit.group.position.y = 3.0 * S;   // pusatkan rangka -6..0 voxel di titik 0
+    if (unit.halo) unit.halo.material.opacity = 0.55 + t * 0.15;
+    const holder = new THREE.Group();
+    holder.add(unit.group);
+    const vb = new V(S);
+    vb.box(-5, 2.6, -0.6, 1, 3.6, 0.6, P.ironDark, 0.02);
+    holder.add(vb.build(0, 0, 0));
+    holder.rotation.y = 0.7;
+    holder.rotation.x = 0.12;
+    root.add(holder);
     return root;
   }
 

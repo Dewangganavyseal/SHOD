@@ -234,26 +234,26 @@ class World {
             },
             night: {
                 name: 'Malam Tenang • Sorot Lampu Truk & Kunang-kunang',
-                bgTop: new THREE.Color(0x061021),
-                bgBottom: new THREE.Color(0x143047),
-                sunColor: new THREE.Color(0x7ab8de),
-                sunIntensity: 0.42,
+                bgTop: new THREE.Color(0x03070f),
+                bgBottom: new THREE.Color(0x0a1a26),
+                sunColor: new THREE.Color(0x6ea6cc),
+                sunIntensity: 0.20,
                 sunPos: new THREE.Vector3(-18, 24, -20),
-                hemiSky: new THREE.Color(0x224861),
-                hemiGround: new THREE.Color(0x0e2420),
-                hemiIntensity: 0.30,
-                sceneBrightness: 0.48,
-                mushroomGlow: 2.0,
+                hemiSky: new THREE.Color(0x173449),
+                hemiGround: new THREE.Color(0x081814),
+                hemiIntensity: 0.14,
+                sceneBrightness: 0.28,
+                mushroomGlow: 2.2,
                 particleColor: new THREE.Color(0xd2f58c),
-                shadowTint: new THREE.Color(0x0e1d33),
-                rimTint: new THREE.Color(0x67c9e0),
-                cloudColor: new THREE.Color(0x2c4e69),
-                cloudShadow: new THREE.Color(0x112233),
+                shadowTint: new THREE.Color(0x080f1c),
+                rimTint: new THREE.Color(0x5fb6cf),
+                cloudColor: new THREE.Color(0x1b3145),
+                cloudShadow: new THREE.Color(0x080f1a),
                 cloudCoverage: 0.50,
-                grassBaseColor: new THREE.Color(0x0f382e),
-                grassTipColor: new THREE.Color(0x2b785c),
-                sunbeamOpacity: 0.06,
-                lanternIntensity: 1.35
+                grassBaseColor: new THREE.Color(0x0a2a22),
+                grassTipColor: new THREE.Color(0x1d5c46),
+                sunbeamOpacity: 0.05,
+                lanternIntensity: 1.5
             }
         };
 
@@ -545,6 +545,20 @@ class World {
         const CHUNK_GRID = 36;
         const CHUNK_SIZE = TERRAIN_SIZE / CHUNK_GRID;
         const POND_CENTER = { x: 8.2, z: 6.2, radius: 4.5 };
+
+        // Genangan air hujan yang tersebar di padang liar, jauh dari desa (Radnar z≈76)
+        // dan di luar jalur sungai. Hanya sedikit — bukan kolam di setiap tikungan.
+        const PUDDLES = [
+            { z: -98, off: -5.4, r: 1.8, seed: 1.3 },
+            { z: -80, off: 4.3, r: 1.4, seed: 3.7 },
+            { z: -62, off: -6.6, r: 2.1, seed: 5.1 },
+            { z: -43, off: 5.4, r: 1.6, seed: 2.4 },
+            { z: -26, off: -4.1, r: 1.25, seed: 7.2 },
+            { z: -10, off: 6.0, r: 1.85, seed: 4.6 },
+            { z: 106, off: 5.0, r: 1.95, seed: 6.3 },
+            { z: 128, off: -5.6, r: 1.45, seed: 0.9 },
+            { z: 154, off: 6.4, r: 2.2, seed: 8.1 }
+        ].map((p) => ({ ...p, x: getRoadCenterX(p.z) + p.off }));
 
         /* ------------------------------------------------------------------------
            SUNGAI + FORD
@@ -1192,8 +1206,8 @@ class World {
                 "    return vec2(v.x * c - v.y * s, v.x * s + v.y * c);",
                 "}",
                 "float dylearnCloudNoise(vec3 wp) {",
-                "    float t = (uCloudWorldY - wp.y) / max(uSunDir.y, 0.18);",
-                "    vec3 hitPos = wp + t * uSunDir;",
+                "    float t = clamp((uCloudWorldY - wp.y) / max(uSunDir.y, 0.42), 0.0, 140.0);",
+                "    vec3 hitPos = vec3(wp.x + uSunDir.x * t * 0.16, wp.y, wp.z + uSunDir.z * t * 0.16);",
                 "    float invScale = 1.0 / max(uCloudScale, 0.001);",
                 "    vec2 d1 = normalize(dylearnRotateVec2(uCloudDir, uCloudDivergeAngle));",
                 "    vec2 d2 = normalize(dylearnRotateVec2(uCloudDir, -uCloudDivergeAngle));",
@@ -1440,6 +1454,7 @@ class World {
             grassMapCtx.fillRect(0, 0, GRASS_MAP_SIZE, GRASS_MAP_SIZE);
             paintGrassVisibilityCircle(0, 0, 2.8, 0.0);
             paintGrassVisibilityCircle(POND_CENTER.x, POND_CENTER.z, POND_CENTER.radius + 0.75, 0.0);
+            for (const p of PUDDLES) paintGrassVisibilityCircle(p.x, p.z, p.r * 1.3 + 0.7, 0.0);
 
             // Clear lush grass cleanly along Main Road and all Unique Branch Roads
             for (const poly of allRoadPolylines) {
@@ -1837,8 +1852,8 @@ class World {
                 "    return vec2(v.x * c - v.y * s, v.x * s + v.y * c);",
                 "}",
                 "float dylearnCloudNoise(vec3 wp) {",
-                "    float t = (uCloudWorldY - wp.y) / max(uSunDir.y, 0.18);",
-                "    vec3 hitPos = wp + t * uSunDir;",
+                "    float t = clamp((uCloudWorldY - wp.y) / max(uSunDir.y, 0.42), 0.0, 140.0);",
+                "    vec3 hitPos = vec3(wp.x + uSunDir.x * t * 0.16, wp.y, wp.z + uSunDir.z * t * 0.16);",
                 "    float invScale = 1.0 / max(uCloudScale, 0.001);",
                 "    vec2 d1 = normalize(dylearnRotateVec2(uCloudDir, uCloudDivergeAngle));",
                 "    vec2 d2 = normalize(dylearnRotateVec2(uCloudDir, -uCloudDivergeAngle));",
@@ -2437,8 +2452,8 @@ class World {
                     "    return vec2(v.x * c - v.y * s, v.x * s + v.y * c);",
                     "}",
                     "float dylearnCloudNoise(vec3 wp) {",
-                    "    float t = (uCloudWorldY - wp.y) / max(uSunDir.y, 0.18);",
-                    "    vec3 hitPos = wp + t * uSunDir;",
+                    "    float t = clamp((uCloudWorldY - wp.y) / max(uSunDir.y, 0.42), 0.0, 140.0);",
+                    "    vec3 hitPos = vec3(wp.x + uSunDir.x * t * 0.16, wp.y, wp.z + uSunDir.z * t * 0.16);",
                     "    float invScale = 1.0 / max(uCloudScale, 0.001);",
                     "    vec2 d1 = normalize(dylearnRotateVec2(uCloudDir, uCloudDivergeAngle));",
                     "    vec2 d2 = normalize(dylearnRotateVec2(uCloudDir, -uCloudDivergeAngle));",
@@ -3167,8 +3182,8 @@ class World {
                     "    return vec2(v.x * c - v.y * s, v.x * s + v.y * c);",
                     "}",
                     "float dylearnCloudNoise(vec3 wp) {",
-                    "    float t = (uCloudWorldY - wp.y) / max(uSunDir.y, 0.18);",
-                    "    vec3 hitPos = wp + t * uSunDir;",
+                    "    float t = clamp((uCloudWorldY - wp.y) / max(uSunDir.y, 0.42), 0.0, 140.0);",
+                    "    vec3 hitPos = vec3(wp.x + uSunDir.x * t * 0.16, wp.y, wp.z + uSunDir.z * t * 0.16);",
                     "    float invScale = 1.0 / max(uCloudScale, 0.001);",
                     "    vec2 d1 = normalize(dylearnRotateVec2(uCloudDir, uCloudDivergeAngle));",
                     "    vec2 d2 = normalize(dylearnRotateVec2(uCloudDir, -uCloudDivergeAngle));",
@@ -3623,8 +3638,8 @@ class World {
                     "    return vec2(v.x * c - v.y * s, v.x * s + v.y * c);",
                     "}",
                     "float dylearnCloudNoise(vec3 wp) {",
-                    "    float t = (uCloudWorldY - wp.y) / max(uSunDir.y, 0.18);",
-                    "    vec3 hitPos = wp + t * uSunDir;",
+                    "    float t = clamp((uCloudWorldY - wp.y) / max(uSunDir.y, 0.42), 0.0, 140.0);",
+                    "    vec3 hitPos = vec3(wp.x + uSunDir.x * t * 0.16, wp.y, wp.z + uSunDir.z * t * 0.16);",
                     "    float invScale = 1.0 / max(uCloudScale, 0.001);",
                     "    vec2 d1 = normalize(dylearnRotateVec2(uCloudDir, uCloudDivergeAngle));",
                     "    vec2 d2 = normalize(dylearnRotateVec2(uCloudDir, -uCloudDivergeAngle));",
@@ -4584,6 +4599,123 @@ class World {
         const pondMesh = new THREE.Mesh(pondWaterGeo, pondMat);
         pondMesh.userData = { type: 'pond' };
         pondGroup.add(pondMesh);
+
+        // ============================================================================
+        // 7B-2. GENANGAN AIR HUJAN DI PADANG LIAR (murah: satu shader, 9 quad)
+        // ============================================================================
+        const puddleGroup = new THREE.Group();
+        puddleGroup.name = 'puddles';
+        scene.add(puddleGroup);
+
+        const puddleUniforms = {
+            uTime: celShaderUniforms.uTime,              // referensi objek uniform yang sama
+            uSunDir: celShaderUniforms.uSunDir,
+            uSunColor: celShaderUniforms.uSunColor,
+            uSkyTop: { value: activeAtmosphere.bgTop },
+            uSkyBottom: { value: activeAtmosphere.bgBottom },
+            uBrightness: celShaderUniforms.uSceneBrightness
+        };
+
+        const puddleMat = new THREE.ShaderMaterial({
+            transparent: true,
+            depthWrite: false,
+            side: THREE.DoubleSide,
+            uniforms: puddleUniforms,
+            vertexShader: `
+                precision highp float;
+                varying vec3 vWorldPos;
+                varying vec2 vUv;
+                void main() {
+                    vUv = uv;
+                    vec4 wp = modelMatrix * vec4(position, 1.0);
+                    vWorldPos = wp.xyz;
+                    gl_Position = projectionMatrix * viewMatrix * wp;
+                }
+            `,
+            fragmentShader: `
+                precision highp float;
+                uniform float uTime;
+                uniform vec3 uSunDir;
+                uniform vec3 uSunColor;
+                uniform vec3 uSkyTop;
+                uniform vec3 uSkyBottom;
+                uniform float uBrightness;
+
+                varying vec3 vWorldPos;
+                varying vec2 vUv;
+
+                void main() {
+                    float rim = length(vUv - vec2(0.5)) * 2.0;
+                    if (rim > 1.0) discard;
+
+                    // Tepi genangan memudar, jadi bentuknya tidak kelihatan seperti koin.
+                    float edge = 1.0 - smoothstep(0.70, 1.0, rim);
+
+                    vec3 V = normalize(cameraPosition - vWorldPos);
+                    vec2 p = vWorldPos.xz;
+
+                    // Riak halus: dua gelombang silang, aman untuk GPU kentang.
+                    float t = uTime;
+                    float nx = sin(p.x * 3.1 + t * 1.7) * 0.035
+                             + sin((p.x + p.y) * 6.7 - t * 2.4) * 0.016
+                             + sin(p.y * 9.3 + t * 1.1) * 0.010;
+                    float nz = cos(p.y * 2.7 - t * 1.5) * 0.035
+                             + cos((p.x - p.y) * 5.9 + t * 2.1) * 0.016
+                             + cos(p.x * 8.1 - t * 1.2) * 0.010;
+                    vec3 N = normalize(vec3(nx, 1.0, nz));
+
+                    float NoV = clamp(dot(N, V), 0.0, 1.0);
+                    float fresnel = 0.10 + 0.90 * pow(1.0 - NoV, 3.0);
+
+                    vec3 refl = mix(uSkyBottom, uSkyTop, clamp(reflect(-V, N).y * 0.8 + 0.2, 0.0, 1.0)) * 0.78;
+                    vec3 wetGround = mix(vec3(0.045, 0.085, 0.075), vec3(0.080, 0.145, 0.150), edge);
+                    wetGround *= 0.30 + uBrightness * 1.15;
+
+                    vec3 col = mix(wetGround, refl, clamp(0.34 + fresnel * 0.46, 0.0, 0.86));
+
+                    vec3 H = normalize(normalize(uSunDir) + V);
+                    float spec = pow(max(dot(N, H), 0.0), 70.0);
+                    col += uSunColor * spec * 0.45;
+
+                    float alpha = edge * (0.50 + 0.32 * fresnel);
+                    gl_FragColor = vec4(col, alpha);
+                    #include <colorspace_fragment>
+                }
+            `
+        });
+
+        const PUDDLE_Y_OFF = 0.025;
+        for (const pd of PUDDLES) {
+            const SEG = 30;
+            const pos = new Float32Array((SEG + 2) * 3);
+            const uvArr = new Float32Array((SEG + 2) * 2);
+            const idx = [];
+            const cy = getTerrainHeight(pd.x, pd.z) + PUDDLE_Y_OFF;
+            pos[0] = pd.x; pos[1] = cy; pos[2] = pd.z;
+            uvArr[0] = 0.5; uvArr[1] = 0.5;
+            for (let k = 0; k <= SEG; k++) {
+                const ang = (k / SEG) * Math.PI * 2;
+                const wob = 1.0 + 0.16 * Math.sin(ang * 3.0 + pd.seed) + 0.09 * Math.cos(ang * 5.0 - pd.seed * 1.7);
+                const rx = pd.r * wob * 1.12;
+                const rz = pd.r * wob * 0.78;
+                const wx = pd.x + Math.cos(ang) * rx;
+                const wz = pd.z + Math.sin(ang) * rz;
+                const o = (k + 1) * 3;
+                pos[o] = wx;
+                pos[o + 1] = getTerrainHeight(wx, wz) + PUDDLE_Y_OFF;
+                pos[o + 2] = wz;
+                uvArr[(k + 1) * 2] = 0.5 + Math.cos(ang) * 0.5;
+                uvArr[(k + 1) * 2 + 1] = 0.5 + Math.sin(ang) * 0.5;
+                if (k > 0) idx.push(0, k + 1, k);
+            }
+            const geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+            geo.setAttribute('uv', new THREE.BufferAttribute(uvArr, 2));
+            geo.setIndex(idx);
+            const puddle = new THREE.Mesh(geo, puddleMat);
+            puddle.userData = { type: 'puddle' };
+            puddleGroup.add(puddle);
+        }
 
         // ============================================================================
         // 7C. TRUCKFUL COZY ATMOSPHERE: PICKUP TRUCK, FENCES, LANTERNS, GOD-RAYS & MIST

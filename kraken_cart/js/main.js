@@ -129,8 +129,12 @@ HC.onNPCSpawn = (item) => { if (item && item.root && quality.npcLod) makeNpcLod(
 world.bindRenderer(renderer);
 
 function qualityLabelText(key, fallback) {
-  const k = key === 'high' ? 'quality_high' : key === 'med' ? 'quality_med' : 'quality_low';
+  const k = key === 'high' ? 'quality_high' : key === 'medium' ? 'quality_med' : 'quality_low';
   return t(k) || fallback;
+}
+function qualityHintText(key, fallback) {
+  const p = QUALITY_PRESETS[key];
+  return (p && p.hintKey && t(p.hintKey)) || fallback;
 }
 const qualityBar = document.getElementById('quality-bar');
 function refreshQualityBar() {
@@ -141,7 +145,7 @@ function refreshQualityBar() {
     if (p) b.textContent = `${p.icon} ${qualityLabelText(qKey, p.label)}`;
     b.classList.toggle('active', qKey === quality.key);
   });
-  qualityBar.title = `${t('quality_label')}: ${qualityLabelText(quality.key, quality.label)} — ${quality.hint}`;
+  qualityBar.title = `${t('quality_label')}: ${qualityLabelText(quality.key, quality.label)} — ${qualityHintText(quality.key, quality.hint)}`;
 }
 function applyQualityLive(key, persist = true) {
   const preset = QUALITY_PRESETS[key];
@@ -982,10 +986,14 @@ renderHorseUpgrades = function renderHorseUpgradeRows() {
 // Village Cart Workshop camera & mode
 let workshopOpen = false;
 let _wsRecord = null;
+let _wsTransitionT = 0;
 const _wsSavedCamPos = new THREE.Vector3();
 const _wsSavedTarget = new THREE.Vector3();
 const _wsCamGoalPos = new THREE.Vector3();
 const _wsCamGoalTarget = new THREE.Vector3();
+const _wsStartCamPos = new THREE.Vector3();
+const _wsStartTarget = new THREE.Vector3();
+const _wsSavedCtl = { enablePan: true, enableZoom: true, minDistance: 2.2, maxDistance: 42, enableDamping: true };
 
 function computeWorkshopCamera(ws) {
   const cx = physics.pos.x;
@@ -1008,11 +1016,9 @@ function computeWorkshopCamera(ws) {
   const ca = Math.cos(ang), sa = Math.sin(ang);
   const rx = vx * ca - vz * sa;
   const rz = vx * sa + vz * ca;
-  _wsCamGoalTarget.set(
-    HC.lerp(cx, animator.x, 0.25),
-    cy + 0.55,
-    HC.lerp(cz, animator.z, 0.25)
-  );
+  // Pivot tepat di badan gerobak. Kuda tetap terlihat di tepi frame, tetapi
+  // orbit tidak lagi bergeser mengikuti kuda saat kamera diputar.
+  _wsCamGoalTarget.set(cx, cy + 0.55, cz);
   _wsCamGoalPos.set(
     _wsCamGoalTarget.x + rx * 7.6,
     cy + 4.25,
@@ -1030,7 +1036,17 @@ function openWorkshop(ws) {
 
   _wsSavedCamPos.copy(camera.position);
   _wsSavedTarget.copy(controls.target);
+  _wsSavedCtl.enablePan = controls.enablePan;
+  _wsSavedCtl.enableZoom = controls.enableZoom;
+  _wsSavedCtl.minDistance = controls.minDistance;
+  _wsSavedCtl.maxDistance = controls.maxDistance;
+  _wsSavedCtl.enableDamping = controls.enableDamping;
+  controls.enablePan = false;
+  controls.enableZoom = true;
+  controls.minDistance = 3.8;
+  controls.maxDistance = 14;
   workshopOpen = true;
+  _wsTransitionT = 0;
   _wsRecord = ws;
 
   keysHeld.forward = false;
@@ -1043,6 +1059,8 @@ function openWorkshop(ws) {
   animator.setSteer(0);
 
   computeWorkshopCamera(ws);
+  _wsStartCamPos.copy(camera.position);
+  _wsStartTarget.copy(controls.target);
   if (ui && ui.open) ui.open(ws);
   return true;
 }
@@ -1051,11 +1069,21 @@ function closeWorkshop() {
   if (!workshopOpen) return false;
   workshopOpen = false;
   _wsRecord = null;
+  _wsTransitionT = 0;
   if (ui && ui.close) ui.close();
   rebuildCartFromStore();
+  controls.enablePan = _wsSavedCtl.enablePan;
+  controls.enableZoom = _wsSavedCtl.enableZoom;
+  controls.minDistance = _wsSavedCtl.minDistance;
+  controls.maxDistance = _wsSavedCtl.maxDistance;
+  controls.enableDamping = _wsSavedCtl.enableDamping;
+  // Sisa momentum orbit dari workshop tidak boleh menarik kamera gameplay.
+  const damp = controls.enableDamping;
+  controls.enableDamping = false;
   controls.target.copy(_wsSavedTarget);
   camera.position.copy(_wsSavedCamPos);
   controls.update();
+  controls.enableDamping = damp;
   _lastDockSig = '';
   _lastQuestSig = '';
   renderNpcDock();
@@ -1504,6 +1532,8 @@ if (btnCutsceneNext) btnCutsceneNext.addEventListener('click', (e) => { e.preven
 
 function applyTranslations() {
   document.documentElement.lang = getLang();
+  if (HC.localizeNpcRoles) HC.localizeNpcRoles();
+  if (quests && quests.relocalize) quests.relocalize();
   document.title = t('page_title');
   document.querySelectorAll('[data-i18n]').forEach((el) => {
     el.textContent = t(el.dataset.i18n);
@@ -1525,6 +1555,7 @@ function applyTranslations() {
   _lastBannerSig = '';
   syncHitchUi();
   syncFlipBanner();
+  if (party && party.refreshMessageLanguage) party.refreshMessageLanguage();
   renderNpcDock();
   renderQuestHud(quests.getNearbyVillage(animator.x, animator.z));
 }
@@ -2845,6 +2876,90 @@ let _sleepZTimer = 0;
 const _sleepHeadW = new THREE.Vector3();
 window.__manualSim = false;
 
+// ---- Lentera gerobak: nyala saat senja/malam, makin terang & lebar per level ----
+let _cartLanternPower = 0;
+let _lanternPool = null;
+let _lanternPoolTex = null;
+const _lanternPoolPos = new HC.THREE.Vector3();
+
+// Shader terrain/rumput di dunia ini custom (tidak ikut lighting three.js),
+// jadi PointLight saja tidak menerangi jalan. Bulatan additive di tanah ini
+// yang bikin "lebar cahaya" lentera kelihatan jelas dan murah di GPU mobile.
+function getLanternPoolTexture() {
+  if (_lanternPoolTex) return _lanternPoolTex;
+  const size = 128;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  g.addColorStop(0.0, 'rgba(255, 214, 150, 0.95)');
+  g.addColorStop(0.42, 'rgba(255, 176, 92, 0.42)');
+  g.addColorStop(0.76, 'rgba(255, 146, 58, 0.13)');
+  g.addColorStop(1.0, 'rgba(255, 130, 40, 0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, size, size);
+  _lanternPoolTex = new HC.THREE.CanvasTexture(canvas);
+  if (HC.THREE.SRGBColorSpace) _lanternPoolTex.colorSpace = HC.THREE.SRGBColorSpace;
+  return _lanternPoolTex;
+}
+
+function ensureLanternPool() {
+  if (_lanternPool) return _lanternPool;
+  const geo = new HC.THREE.CircleGeometry(1, 32);
+  geo.rotateX(-Math.PI / 2);
+  const mat = new HC.THREE.MeshBasicMaterial({
+    map: getLanternPoolTexture(),
+    color: 0xffa24a,
+    transparent: true,
+    opacity: 0,
+    blending: HC.THREE.AdditiveBlending,
+    depthWrite: false,
+    toneMapped: false
+  });
+  _lanternPool = new HC.THREE.Mesh(geo, mat);
+  _lanternPool.renderOrder = 2;
+  _lanternPool.visible = false;
+  scene.add(_lanternPool);
+  return _lanternPool;
+}
+
+function updateCartLantern(dt) {
+  const lant = cart && cart.lantern;
+  if (!lant || !lant.spec) return;
+  const spec = lant.spec;
+  const t = world.elapsed || 0;
+  const want = world.isHeadlightsOn ? 1 : 0;
+  _cartLanternPower = HC.damp(_cartLanternPower, want, want > 0 ? 2.2 : 1.6, dt);
+  const p = _cartLanternPower;
+  const flicker = 0.93 + Math.sin(t * 11.3) * 0.035 + Math.sin(t * 23.7 + 1.7) * 0.02;
+
+  if (lant.light) {
+    lant.light.intensity = spec.light * p * flicker;
+  }
+  if (lant.halo) {
+    lant.halo.visible = p > 0.02;
+    lant.halo.material.opacity = 0.42 * p * flicker;
+    const s = spec.halo * (1.0 + 0.06 * Math.sin(t * 9.1)) * 1.25;
+    lant.halo.scale.set(s, s, 1);
+  }
+  if (lant.glassMat) {
+    const lit = 0.32 + 0.68 * p;
+    lant.glassMat.color.setRGB(0.26 + 0.74 * lit, 0.18 + 0.50 * lit, 0.08 + 0.24 * lit);
+    lant.glassMat.opacity = 0.62 + 0.34 * p;
+  }
+
+  const pool = ensureLanternPool();
+  lant.pivot.getWorldPosition(_lanternPoolPos);
+  const gy = world.terrainHeightAt ? world.terrainHeightAt(_lanternPoolPos.x, _lanternPoolPos.z) : 0;
+  pool.position.set(_lanternPoolPos.x, gy + 0.05, _lanternPoolPos.z);
+  const pr = spec.pool || 3;
+  pool.scale.set(pr, 1, pr);
+  pool.material.opacity = 0.55 * p * flicker;
+  pool.visible = p > 0.02;
+
+  lant.power = p;
+}
+
 function stepSim(dt) {
   if (gameMode === 'menu') {
     animator.menuIdleMode = true;
@@ -2855,6 +2970,7 @@ function stepSim(dt) {
     animator.update(dt);
     world.setCartPose(physics.pos.x, physics.pos.z, physics.yaw);
     world.update(animator.x, dt, animator.z, animator.yaw);
+    updateCartLantern(dt);
     scene.updateMatrixWorld(true);
     readAnchors();
     if (physics.syncVisual) physics.syncVisual();
@@ -2895,6 +3011,7 @@ function stepSim(dt) {
       HC.animateNPC(_cutsceneGuardNpc.root, dt);
     }
     world.update(animator.x, dt, animator.z, animator.yaw);
+    updateCartLantern(dt);
     scene.updateMatrixWorld(true);
     if (physics.syncVisual) physics.syncVisual();
     const kCs = 1 - Math.exp(-5.0 * dt);
@@ -2998,6 +3115,7 @@ function stepSim(dt) {
   world._horseJumpActive = !!animator.jumpActive;
   world.setCartPose(physics.pos.x, physics.pos.z, physics.yaw);
   world.update(animator.x, dt, animator.z, animator.yaw);
+  updateCartLantern(dt);
   if (vignetteEl) vignetteEl.classList.toggle('night-mist', world.currentMoodKey === 'night');
   party.hasCart = hasCart;
   party.update(animator.x, animator.z, animator.yaw, dt, cart, hasCart ? physics : null);
@@ -3156,9 +3274,15 @@ function stepSim(dt) {
 
   if (workshopOpen) {
     if (_wsRecord) computeWorkshopCamera(_wsRecord);
-    const kWs = 1 - Math.exp(-7.5 * dt);
-    controls.target.lerp(_wsCamGoalTarget, kWs);
-    camera.position.lerp(_wsCamGoalPos, kWs);
+    if (_wsTransitionT < 1) {
+      _wsTransitionT = Math.min(1, _wsTransitionT + dt / 0.55);
+      const u = _wsTransitionT * _wsTransitionT * (3 - 2 * _wsTransitionT);
+      controls.target.lerpVectors(_wsStartTarget, _wsCamGoalTarget, u);
+      camera.position.lerpVectors(_wsStartCamPos, _wsCamGoalPos, u);
+    } else {
+      // OrbitControls owns camera position now; only pin its pivot to the cart.
+      controls.target.copy(_wsCamGoalTarget);
+    }
   } else {
     // Hold-Q Inspect focuses camera cleanly onto cart & wheels; release returns smoothly
     const focusX = animator.inspectMode

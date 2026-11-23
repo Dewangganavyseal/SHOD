@@ -3,8 +3,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const baseDir = path.dirname(new URL(import.meta.url).pathname);
+const baseDir = path.dirname(fileURLToPath(import.meta.url));
 const src = fs.readFileSync(path.join(baseDir, '../js/mobs.js'), 'utf8');
 
 // guardChoice + resolveGuardHit sengaja murni angka supaya bisa dieksekusi di sini.

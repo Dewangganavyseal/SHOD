@@ -3,8 +3,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const baseDir = path.dirname(new URL(import.meta.url).pathname);
+const baseDir = path.dirname(fileURLToPath(import.meta.url));
 const read = (rel) => fs.readFileSync(path.join(baseDir, rel), 'utf8');
 
 test('lompat membawa momentum & dorongan ke depan', () => {

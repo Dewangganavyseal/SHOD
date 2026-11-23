@@ -108,7 +108,74 @@ class VoxelBuilder {
     }
     return this;
   }
-  build(pivotX = 0, pivotY = 0, pivotZ = 0) {
+  // Compound collider in mesh-local space. Each occupied voxel is a box; the
+  // greedy pass merges them into as few boxes as possible so the collider
+  // follows the barrel/sack/crate silhouette instead of one fat AABB.
+  makeCollider(pivotX = 0, pivotY = 0, pivotZ = 0) {
+    const vs = this.vs;
+    const layers = new Map();
+    for (const v of this.map.values()) {
+      let layer = layers.get(v.y);
+      if (!layer) { layer = new Set(); layers.set(v.y, layer); }
+      layer.add(`${v.x},${v.z}`);
+    }
+    const ys = [...layers.keys()].sort((a, b) => a - b);
+    const boxes = [];
+    const active = new Map();
+    for (const y of ys) {
+      const cells = layers.get(y);
+      const keys = new Set(cells);
+      const rects = [];
+      while (keys.size) {
+        let minX = Infinity, minZ = Infinity;
+        for (const k of keys) {
+          const parts = k.split(',');
+          const x = +parts[0], z = +parts[1];
+          if (x < minX || (x === minX && z < minZ)) { minX = x; minZ = z; }
+        }
+        let z1 = minZ;
+        while (keys.has(`${minX},${z1 + 1}`)) z1++;
+        let x1 = minX;
+        for (;;) {
+          let full = true;
+          for (let z = minZ; z <= z1; z++) {
+            if (!keys.has(`${x1 + 1},${z}`)) { full = false; break; }
+          }
+          if (!full) break;
+          x1++;
+        }
+        for (let x = minX; x <= x1; x++) {
+          for (let z = minZ; z <= z1; z++) keys.delete(`${x},${z}`);
+        }
+        rects.push({ x0: minX, x1, z0: minZ, z1 });
+      }
+      const next = new Map();
+      for (const r of rects) {
+        const key = `${r.x0},${r.x1},${r.z0},${r.z1}`;
+        const prev = active.get(key);
+        if (prev && prev.y1 === y - 1) {
+          prev.y1 = y;
+          next.set(key, prev);
+        } else {
+          const box = { x0: r.x0, x1: r.x1, z0: r.z0, z1: r.z1, y0: y, y1: y };
+          boxes.push(box);
+          next.set(key, box);
+        }
+      }
+      active.clear();
+      for (const [k, box] of next) active.set(k, box);
+    }
+    return boxes.map((b) => ({
+      cx: ((b.x0 + b.x1) / 2 - pivotX) * vs,
+      cy: ((b.y0 + b.y1) / 2 - pivotY) * vs,
+      cz: ((b.z0 + b.z1) / 2 - pivotZ) * vs,
+      hx: (b.x1 - b.x0 + 1) * vs / 2,
+      hy: (b.y1 - b.y0 + 1) * vs / 2,
+      hz: (b.z1 - b.z0 + 1) * vs / 2
+    }));
+  }
+
+  build(pivotX = 0, pivotY = 0, pivotZ = 0, opts = null) {
     const pos = [], norm = [], col = [], idx = [];
     const vs = this.vs;
     let vCount = 0;
@@ -145,6 +212,12 @@ class VoxelBuilder {
     const mesh = new THREE.Mesh(geo, window.HC.VOXEL_MAT);
     mesh.castShadow = true;
     mesh.receiveShadow = true;
+    if (opts && opts.collider) {
+      mesh.userData.voxelCollider = {
+        boxes: this.makeCollider(pivotX, pivotY, pivotZ),
+        voxelSize: vs
+      };
+    }
     return mesh;
   }
 }

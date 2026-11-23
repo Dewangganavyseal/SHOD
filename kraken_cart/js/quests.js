@@ -106,11 +106,14 @@ export class DeliveryQuestSystem {
     if (!villageId) return null;
     if (Array.isArray(wildNpcs)) this.assignVillageQuestNpcs(wildNpcs);
     const giverNpc = this._questNpcByVillage.get(villageId) || null;
+    const giverRoleId = (giverNpc && giverNpc.role && giverNpc.role.id) ? giverNpc.role.id : null;
     const giverName = (giverNpc && giverNpc.role && giverNpc.role.name) ? giverNpc.role.name : null;
 
     if (this._offersByVillage.has(villageId)) {
       const cached = this._offersByVillage.get(villageId);
       if (giverName) cached.giverName = giverName;
+      else cached.giverName = tr('quest_giver_fallback', `${cached.fromName} Villager`, { village: cached.fromName });
+      cached.giverRoleId = giverRoleId;
       return cached;
     }
     const list = this._villages();
@@ -131,9 +134,9 @@ export class DeliveryQuestSystem {
       const p2 = PASSENGER_POOL[(fromIdx + this._offerCounter + 1) % PASSENGER_POOL.length];
       const roles = pCount === 2 ? [p1.roleId, p2.roleId] : [p1.roleId];
       const langId = typeof HC !== 'undefined' && typeof HC.getLang === 'function' && HC.getLang() === 'id';
-      const label = pCount === 2
-        ? (langId ? `2 Penumpang (${p1.labelId})` : `2 Travelers (${p1.labelEn})`)
-        : (langId ? p1.labelId : p1.labelEn);
+      const labelId = pCount === 2 ? `2 Penumpang (${p1.labelId})` : p1.labelId;
+      const labelEn = pCount === 2 ? `2 Travelers (${p1.labelEn})` : p1.labelEn;
+      const label = langId ? labelId : labelEn;
       offer = {
         id: `q_${this._questSeq++}`,
         questType: 'passenger',
@@ -148,8 +151,11 @@ export class DeliveryQuestSystem {
         cargoKind: null,
         cargoNameKey: null,
         cargoName: label,
+        cargoNameId: labelId,
+        cargoNameEn: labelEn,
         cargoIcon: p1.icon || '🧳',
-        giverName: giverName || `${shortNameOf(fromV)} Villager`,
+        giverRoleId,
+        giverName: giverName || tr('quest_giver_fallback', `${shortNameOf(fromV)} Villager`, { village: shortNameOf(fromV) }),
         distance: dist,
         rewardGold,
         rewardMaterials: { cloth: 1, leather: 1, wood: 1 },
@@ -172,7 +178,8 @@ export class DeliveryQuestSystem {
         cargoNameKey: goods.nameKey,
         cargoName: localizedCargo,
         cargoIcon: goods.icon,
-        giverName: giverName || `${shortNameOf(fromV)} Villager`,
+        giverRoleId,
+        giverName: giverName || tr('quest_giver_fallback', `${shortNameOf(fromV)} Villager`, { village: shortNameOf(fromV) }),
         distance: dist,
         rewardGold,
         rewardMaterials: { ...(goods.mats || { wood: 1, iron: 1 }) },
@@ -195,12 +202,16 @@ export class DeliveryQuestSystem {
       return { ok: false, msg: tr('quest_none_err', 'No quest available here.'), quest: null };
     }
     let receiverNpc = null;
-    let receiverName = `${offer.toName} Villager`;
+    let receiverRoleId = null;
+    let receiverName = tr('quest_receiver_fallback', `${offer.toName} Villager`, { village: offer.toName });
     if (Array.isArray(wildNpcs)) {
       const destPool = wildNpcs.filter((w) => w && !w.recruited && w.site === offer.toId);
       if (destPool.length > 0) {
         receiverNpc = destPool[Math.floor(Math.random() * destPool.length)];
-        if (receiverNpc.role && receiverNpc.role.name) receiverName = receiverNpc.role.name;
+        if (receiverNpc.role && receiverNpc.role.name) {
+          receiverName = receiverNpc.role.name;
+          receiverRoleId = receiverNpc.role.id || null;
+        }
       }
     }
     const localizedCargo = offer.cargoNameKey ? tr(offer.cargoNameKey, offer.cargoName) : offer.cargoName;
@@ -208,6 +219,7 @@ export class DeliveryQuestSystem {
       ...offer,
       cargoName: localizedCargo,
       receiverNpc,
+      receiverRoleId,
       receiverName,
       startedAt: Date.now(),
     };
@@ -229,6 +241,26 @@ export class DeliveryQuestSystem {
     const prev = this.activeQuest;
     this.activeQuest = null;
     return prev;
+  }
+
+  // Dipanggil saat bahasa diganti. Cache offer dibuang supaya nama pemberi
+  // quest ikut bahasa baru; quest aktif memakai ulang role id yang tersimpan.
+  relocalize() {
+    this._offersByVillage.clear();
+    const q = this.activeQuest;
+    if (!q) return;
+    const langId = typeof HC !== 'undefined' && typeof HC.getLang === 'function' && HC.getLang() === 'id';
+    if (q.cargoNameKey) q.cargoName = tr(q.cargoNameKey, q.cargoName);
+    else if (q.cargoNameId || q.cargoNameEn) q.cargoName = (langId ? q.cargoNameId : q.cargoNameEn) || q.cargoName;
+    const giverRole = q.giverRoleId && typeof HC !== 'undefined' && HC.NPC_BY_ID ? HC.NPC_BY_ID(q.giverRoleId) : null;
+    q.giverName = giverRole
+      ? giverRole.name
+      : tr('quest_giver_fallback', `${q.fromName} Villager`, { village: q.fromName });
+    const receiverRole = (q.receiverNpc && q.receiverNpc.role)
+      || (q.receiverRoleId && typeof HC !== 'undefined' && HC.NPC_BY_ID ? HC.NPC_BY_ID(q.receiverRoleId) : null);
+    q.receiverName = receiverRole
+      ? receiverRole.name
+      : tr('quest_receiver_fallback', `${q.toName} Villager`, { village: q.toName });
   }
 
   distanceToTarget(x, z) {

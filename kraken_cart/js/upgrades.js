@@ -19,6 +19,7 @@ export const UPGRADE_COSTS = {
   suspension: [null, { gold: 75, items: { iron: 2, leather: 1 } }, { gold: 140, items: { iron: 4, leather: 2 } }],
   straps: [null, { gold: 55, items: { leather: 2 } }, { gold: 105, items: { leather: 3, iron: 2 } }],
   canopy: [null, { gold: 65, items: { iron: 2, wood: 1 } }, { gold: 125, items: { cloth: 3, wood: 2 } }],
+  lantern: [null, { gold: 60, items: { iron: 1, cloth: 1 } }, { gold: 125, items: { iron: 3, cloth: 2 } }],
 };
 
 export const UPGRADE_LINES = [
@@ -81,17 +82,29 @@ export const UPGRADE_LINES = [
       { shortKey: 'ug_canopy_lv2', short: 'Lv2 Iron Guard', label: 'Lv2 Iron Guard', detail: 'Iron plates + lantern' },
       { shortKey: 'ug_canopy_lv3', short: 'Lv3 Canvas Canopy', label: 'Lv3 Canvas Canopy', detail: 'Arched expedition roof' }
     ]
+  },
+  {
+    key: 'lantern',
+    nameKey: 'ug_lantern_name',
+    name: 'Cart Lantern',
+    icon: '🏮',
+    desc: 'Right-side iron lantern. Brighter and wider glow each level.',
+    levels: [
+      { shortKey: 'ug_lantern_lv1', short: 'Lv1 Tallow Lamp', label: 'Lv1 Tallow Lamp', detail: '4 m warm pool of light' },
+      { shortKey: 'ug_lantern_lv2', short: 'Lv2 Brass Lantern', label: 'Lv2 Brass Lantern', detail: '9 m glow • twice as bright' },
+      { shortKey: 'ug_lantern_lv3', short: 'Lv3 Expedition Beacon', label: 'Lv3 Expedition Beacon', detail: '15 m wide beacon light' }
+    ]
   }
 ];
 
 export const STRAP_JOLT = [1, 0.62, 0.30];
-export const DEFAULT_LEVELS = { capacity: 0, wheels: 0, suspension: 0, straps: 0, canopy: 0 };
+export const DEFAULT_LEVELS = { capacity: 0, wheels: 0, suspension: 0, straps: 0, canopy: 0, lantern: 0 };
 const SAVE_KEY = 'kraken_cart_sim_v3';
 
 export class UpgradeStore {
   constructor() {
     this.levels = { ...DEFAULT_LEVELS };
-    this.unlocked = { capacity: [0], wheels: [0], suspension: [0], straps: [0], canopy: [0] };
+    this.unlocked = { capacity: [0], wheels: [0], suspension: [0], straps: [0], canopy: [0], lantern: [0] };
     this.materials = { wood: 4, iron: 3, leather: 3, cloth: 2 };
     this.load();
   }
@@ -296,7 +309,7 @@ export class UpgradeStore {
 
   reset() {
     this.levels = { ...DEFAULT_LEVELS };
-    this.unlocked = { capacity: [0], wheels: [0], suspension: [0], straps: [0], canopy: [0] };
+    this.unlocked = { capacity: [0], wheels: [0], suspension: [0], straps: [0], canopy: [0], lantern: [0] };
     this.save();
   }
 }

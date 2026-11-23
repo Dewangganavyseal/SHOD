@@ -81,26 +81,68 @@ HC.NPC_SKILL = (id) => {
    +15% DEF, dst.), sisanya penyesuaian karena tak ada target monster.
    ============================================================================ */
 HC.NPC_SKILL_FX = {
-  bulwark:    { dmg: 0.80, note: 'damage roda -20%' },
-  keen:       { dmg: 0.85, note: 'kerikil terdeteksi lebih awal (-15% dampak)' },
-  digger:     { regen: 0.6, note: 'tambal roda otomatis 0.6 HP/s' },
-  green:      { regen: 0.5, note: 'rawat roda 0.5 HP/s' },
-  mend:       { regen: 1.5, note: 'pulihkan roda 1.5 HP/s' },
-  taunt:      { dmg: 0.60, note: 'badan jadi tameng (-40% dampak roda)' },
-  aegis:      { dmg: 0.82, note: 'aura tim: damage -18%' },
-  trade:      { dmg: 1.00, note: 'tidak ikut bertarung' },
-  dchange:    { dmg: 1.00, note: 'tidak ikut bertarung' },
-  petguard:   { dmg: 1.00, note: 'tidak ikut bertarung' },
-  lionclaw:   { dmg: 0.90, clear: { radius: 3.2, period: 5 }, note: 'Auman Singa menyapu kerikil' },
-  arcane:     { dmg: 0.85, speed: 1.05, note: 'aura arcane: damage -15%, laju +5%' },
-  quake:      { clear: { radius: 4.5, period: 6 }, note: 'Hantaman Bumi meratakan kerikil' },
-  rapidclaw:  { dmg: 0.90, speed: 1.10, note: 'cakaran kilat (-10% dampak, laju +10%)' },
-  backstab:   { dmg: 0.88, note: 'tusukan cepat (-12% dampak)' },
-  support:    { dmg: 0.85, regen: 0.8, note: '+15% DEF tim & healing aura' },
-  royalbash:  { dmg: 0.70, note: 'perisai kerajaan (-30% dampak)' },
-  lich_wrath: { dmg: 0.80, clear: { radius: 5.0, period: 8 }, regen: 0.4, note: 'petir ungu & sedot nyawa' },
+  bulwark:    { dmg: 0.80, note: 'damage roda -20%', noteEn: 'wheel damage -20%' },
+  keen:       { dmg: 0.85, note: 'kerikil terdeteksi lebih awal (-15% dampak)', noteEn: 'spots pebbles early (-15% impact)' },
+  digger:     { regen: 0.6, note: 'tambal roda otomatis 0.6 HP/s', noteEn: 'repairs wheels at 0.6 HP/s' },
+  green:      { regen: 0.5, note: 'rawat roda 0.5 HP/s', noteEn: 'maintains wheels at 0.5 HP/s' },
+  mend:       { regen: 1.5, note: 'pulihkan roda 1.5 HP/s', noteEn: 'restores wheels at 1.5 HP/s' },
+  taunt:      { dmg: 0.60, note: 'badan jadi tameng (-40% dampak roda)', noteEn: 'acts as a shield (-40% wheel impact)' },
+  aegis:      { dmg: 0.82, note: 'aura tim: damage -18%', noteEn: 'team aura: damage -18%' },
+  trade:      { dmg: 1.00, note: 'tidak ikut bertarung', noteEn: 'does not fight' },
+  dchange:    { dmg: 1.00, note: 'tidak ikut bertarung', noteEn: 'does not fight' },
+  petguard:   { dmg: 1.00, note: 'tidak ikut bertarung', noteEn: 'does not fight' },
+  lionclaw:   { dmg: 0.90, clear: { radius: 3.2, period: 5 }, note: 'Auman Singa menyapu kerikil', noteEn: 'Lion’s Roar clears pebbles' },
+  arcane:     { dmg: 0.85, speed: 1.05, note: 'aura arcane: damage -15%, laju +5%', noteEn: 'arcane aura: damage -15%, speed +5%' },
+  quake:      { clear: { radius: 4.5, period: 6 }, note: 'Hantaman Bumi meratakan kerikil', noteEn: 'Earth Slam clears pebbles' },
+  rapidclaw:  { dmg: 0.90, speed: 1.10, note: 'cakaran kilat (-10% dampak, laju +10%)', noteEn: 'rapid claws (-10% impact, speed +10%)' },
+  backstab:   { dmg: 0.88, note: 'tusukan cepat (-12% dampak)', noteEn: 'quick strikes (-12% impact)' },
+  support:    { dmg: 0.85, regen: 0.8, note: '+15% DEF tim & healing aura', noteEn: '+15% team DEF & healing aura' },
+  royalbash:  { dmg: 0.70, note: 'perisai kerajaan (-30% dampak)', noteEn: 'royal shield (-30% impact)' },
+  lich_wrath: { dmg: 0.80, clear: { radius: 5.0, period: 8 }, regen: 0.4, note: 'petir ungu & sedot nyawa', noteEn: 'purple lightning & life drain' },
 };
 HC.npcSkillFx = (role) => (role && role.skill && HC.NPC_SKILL_FX[role.skill.id]) || { dmg: 1 };
+
+const NPC_ROLE_TEXT = {
+  guard: ['Village Guard', 'Village Bulwark', 'Incoming damage -20%'],
+  hunter: ['Hunter', 'Keen Eye', '+25% damage and longer attack range'],
+  miner: ['Miner', 'Mining Hands', 'Mines twice as fast and sometimes finds extra materials'],
+  farmer: ['Farmer', 'Green Thumb', 'Faster farming and +1 harvest yield'],
+  herbal: ['Village Healer', 'Healing Hands', 'Restores 1.5 HP/s to nearby players'],
+  warrior: ['Fighter', 'Living Shield', 'Draws monsters’ attention'],
+  guardian: ['Guardian', 'Protective Aegis', 'Reduces damage to the team and player by 18%; taunts monsters'],
+  merchant: ['Merchant', 'Trading Spirit', 'Sells goods and buys your hunting spoils'],
+  dungeonmaster: ['Dungeon Master', 'Ruins Keeper', 'Sells Dungeon Changer to change dungeon level'],
+  petmerchant: ['Pet Merchant', 'Stable Keeper', 'Moves and fights only within 4 blocks of the pet stable'],
+  lionknight: ['Lion Knight', 'Lion’s Roar', 'Lion Claw passive: +20% damage and sword range; taunts monsters. Active roar hits and pushes nearby monsters in two waves'],
+  elfmage: ['Elf Mage', 'Arcane Blessing', '+18% team damage and faster player stamina recovery'],
+  stonegiant: ['Stone Giant', 'Earth Slam', 'Mace slam shakes the ground, deals heavy damage, and taunts monsters'],
+  rabbitwarrior: ['Claw Rabbit', 'Rapid Claw', 'Five rapid strikes; the third hit in the combo deals +30% damage'],
+  goblin: ['Golden Goblin', 'Backstab Leap', 'Leaps onto a monster’s back for five strikes; mounted monsters cannot retaliate'],
+  magesupport: ['Mage Support', 'Arcane Support', 'Passive +15% team DEF; healing aura restores the team; active shield aura and Starfall'],
+  royalguard: ['Royal Guard', 'Shield Bash', 'Bash stuns monsters in a forward cone; Provoke draws nearby monsters and reduces incoming damage by 70%'],
+  lich: ['Lich', 'Lich Wrath', 'Repeated purple lightning; raises three Slayer Zombies; life drain restores HP'],
+};
+
+HC.localizeNpcRoles = function () {
+  const english = HC.getLang && HC.getLang() === 'en';
+  for (const role of HC.NPC_ROLES) {
+    const original = NPC_ROLE_TEXT[role.id];
+    if (!original) continue;
+    if (!role._localizedBase) {
+      role._localizedBase = { name: role.name, skillName: role.skill.name, skillDesc: role.skill.desc };
+    }
+    role.name = english ? original[0] : role._localizedBase.name;
+    role.skill.name = english ? original[1] : role._localizedBase.skillName;
+    role.skill.desc = english ? original[2] : role._localizedBase.skillDesc;
+  }
+  for (const id of Object.keys(HC.NPC_SKILL_FX)) {
+    const fx = HC.NPC_SKILL_FX[id];
+    if (fx.noteEn === undefined) continue;
+    if (fx._noteId === undefined) fx._noteId = fx.note;
+    fx.note = english ? fx.noteEn : fx._noteId;
+  }
+};
+HC.localizeNpcRoles();
 
 /* ============================================================================
    MODEL — pakai mesh ASLI Sylvan Dominion (js/sylvan/npc_*.js), bukan voxel
@@ -379,6 +421,17 @@ HC.NPC_BEHAVIOR = {
 };
 
 const _rnd = (a, b) => a + Math.random() * (b - a);
+const npcText = (key, fallback, vars = null) => HC.t ? HC.t(key, vars) : fallback;
+
+/* Model Sylvan membaca `st.swing` sebagai hitung mundur pendek (0.25–0.3 dtk),
+   bukan waktu berjalan. Satu pulsa = satu ayunan, lalu kembali netral. */
+const NPC_SWING_PULSE = 0.25;
+function _armSwing(m) { if (m) m.swingPulse = NPC_SWING_PULSE; }
+function _tickSwing(m, dt) {
+  if (!m) return 0;
+  if (m.swingPulse > 0) m.swingPulse = Math.max(0, m.swingPulse - dt);
+  return m.swingPulse || 0;
+}
 
 function _setVillageDoorHold(bldg, hold) {
   if (!bldg) return;
@@ -663,15 +716,12 @@ function updateVillageResident(item, dt, horse, world) {
     vb.actT -= dt;
     if (vb.actT <= 0) {
       vb.actT = prof.act * _rnd(0.75, 1.4);
-      vb.swingT = 0.001;
+      vb.swingT = NPC_SWING_PULSE;
       if (vp.workKind === 'farm') vb.harvest = !vb.harvest;
     }
   }
-  if (vb.swingT > 0) {
-    vb.swingT += dt;
-    st.swing = vb.swingT;
-    if (vb.swingT > 0.9) { vb.swingT = -1; st.swing = 0; }
-  }
+  st.swing = vb.swingT > 0 ? vb.swingT : 0;
+  if (vb.swingT > 0) vb.swingT = Math.max(0, vb.swingT - dt);
   st.headAngle = lookHead;
 
   const lodRec = root.userData && root.userData.__npcLod;
@@ -808,15 +858,12 @@ HC.updateWildNPC = function (item, dt, horse, world, rigCtx = null) {
     b.actT -= dt;
     if (b.actT <= 0) {
       b.actT = prof.act * _rnd(0.8, 1.5);
-      b.swingT = 0.001;
+      b.swingT = NPC_SWING_PULSE;
       if (prof.work === 'farm') b.harvest = !b.harvest;
     }
   }
-  if (b.swingT > 0) {
-    b.swingT += dt;
-    st.swing = b.swingT;
-    if (b.swingT > 0.9) { b.swingT = -1; st.swing = 0; }
-  }
+  st.swing = b.swingT > 0 ? b.swingT : 0;
+  if (b.swingT > 0) b.swingT = Math.max(0, b.swingT - dt);
   // Kepala selalu "lurus" karena root sudah diputar hadap kuda; jangan kirim
   // undefined, model lain memakai n.headAngle langsung di lerp().
   st.headAngle = 0;
@@ -831,6 +878,26 @@ HC.updateWildNPC = function (item, dt, horse, world, rigCtx = null) {
    PARTY — rekrut NPC liar, jalan ke belakang gerobak, naik/turun kursi, & kawal.
    ============================================================================ */
 HC.NPCParty = class {
+  _text(key, fallback, vars = null) {
+    this._lastMessageData = { key, fallback, vars: vars ? { ...vars } : null };
+    if (typeof HC.t === 'function') return HC.t(key, vars);
+    let text = fallback;
+    if (vars && typeof text === 'string') {
+      for (const [name, value] of Object.entries(vars)) text = text.replaceAll(`{${name}}`, String(value));
+    }
+    return text;
+  }
+  refreshMessageLanguage() {
+    const data = this._lastMessageData;
+    if (!data) return;
+    const vars = data.vars ? { ...data.vars } : null;
+    if (vars && vars.role) {
+      if ('name' in vars) vars.name = vars.role.name;
+      if ('skill' in vars) vars.skill = vars.role.skill.name;
+      if ('note' in vars) vars.note = HC.npcSkillFx(vars.role).note;
+    }
+    this.lastMessage = (HC && typeof HC.t === 'function') ? HC.t(data.key, vars) : data.fallback;
+  }
   constructor(scene) {
     this.scene = scene;
     this.roles = HC.NPC_RECRUITABLE;
@@ -844,7 +911,7 @@ HC.NPCParty = class {
     this.wild = [];
     this.nextRole = 0;
     this.lastHorse = { x: 0, z: 0, yaw: 0 };
-    this.lastMessage = 'NPC tinggal di kamp/pos. Deketin kelompoknya buat rekrut.';
+    this.lastMessage = this._text('npc_msg_default', 'NPC tinggal di kamp/pos. Deketin kelompoknya buat rekrut.');
     this._clearT = {};
     this._clock = 0;
     // Kelompok warga permanen dari peta. Tidak ada spawn mengikuti arah kuda.
@@ -1189,7 +1256,6 @@ HC.NPCParty = class {
       let tx = ws.x, tz = ws.z;
       let walkingNow = false;
       let workingNow = false;
-      let swingT = 0;
       const preMoveX = m.x, preMoveZ = m.z;
 
       if (wt.step === 'to_water') {
@@ -1206,11 +1272,11 @@ HC.NPCParty = class {
         } else {
           wt.step = 'scooping';
           wt.waitT = 0.72;
+          _armSwing(m);
         }
       } else if (wt.step === 'scooping') {
         m.dir = this._turnToward(m.dir, Math.atan2(ws.waterX - m.x, ws.waterZ - m.z), 9.0, dt);
         workingNow = true;
-        swingT = ((0.72 - wt.waitT) * 2.2) % 0.9;
         wt.waitT -= dt;
         if (wt.waitT <= 0) {
           if (m.bucketMesh && m.bucketMesh.userData && m.bucketMesh.userData.waterDisc) {
@@ -1234,11 +1300,11 @@ HC.NPCParty = class {
         } else {
           wt.step = 'pouring';
           wt.waitT = 0.55;
+          _armSwing(m);
         }
       } else if (wt.step === 'pouring') {
         m.dir = this._turnToward(m.dir, Math.atan2(cc.x - m.x, cc.z - m.z), 9.0, dt);
         workingNow = true;
-        swingT = ((0.55 - wt.waitT) * 2.6) % 0.9;
         wt.waitT -= dt;
         if (wt.waitT <= 0) {
           bar.charges = Math.min(maxC, (bar.charges || 0) + 1);
@@ -1287,7 +1353,7 @@ HC.NPCParty = class {
         st.pos.copy(root.position);
         st.walking = walkingNow;
         st.working = workingNow;
-        st.swing = swingT;
+        st.swing = _tickSwing(m, dt);
         st.vel.x = walkingNow ? Math.sin(m.dir) * 2.9 : 0;
         st.vel.z = walkingNow ? Math.cos(m.dir) * 2.9 : 0;
         st.headAngle = 0;
@@ -1355,6 +1421,7 @@ HC.NPCParty = class {
         st.vel.z = stepDist > 1e-4 ? (dz / stepDist) * sp : 0;
         st.walking = true;
         st.working = false;
+        st.swing = 0;
         st.headAngle = 0;
       }
       HC.animateNPC(root, dt);
@@ -1398,13 +1465,14 @@ HC.NPCParty = class {
         st.pos.copy(root.position);
         st.walking = false;
         st.vel.x = 0; st.vel.z = 0;
+        st.swing = 0;
         st.headAngle = 0;
       }
       HC.animateNPC(root, dt);
 
       if (m.boardT >= 1) {
         this._attachSeated(m, c);
-        this.lastMessage = `${m.role.e} ${m.role.name} sudah duduk di bangku gerobak.`;
+        this.lastMessage = this._text('npc_msg_boarded', `${m.role.e} ${m.role.name} sudah duduk di bangku gerobak.`, { e: m.role.e, name: m.role.name, role: m.role });
       }
       return;
     }
@@ -1425,6 +1493,7 @@ HC.NPCParty = class {
         st.walking = false;
         st.working = false;
         st.vel.x = 0; st.vel.z = 0;
+        st.swing = 0;
         st.headAngle = 0;
       }
       HC.animateNPC(root, dt);
@@ -1459,7 +1528,10 @@ HC.NPCParty = class {
         walkingNow = true;
       } else {
         m.dir = this._turnToward(m.dir, Math.atan2(cc.x - m.x, cc.z - m.z), 9.0, dt);
+        m.flipPulseT = (m.flipPulseT ?? 0) - dt;
+        if (m.flipPulseT <= 0) { m.flipPulseT = 0.62; _armSwing(m); }
       }
+      if (walkingNow) m.swingPulse = 0;
       resolveProps(0.34);
       const gy = this._groundY(m.x, m.z);
       root.position.set(m.x, gy, m.z);
@@ -1468,7 +1540,7 @@ HC.NPCParty = class {
         st.pos.copy(root.position);
         st.walking = walkingNow;
         st.working = !walkingNow;
-        st.swing = !walkingNow ? ((this._clock * 2.2 + m.seatIndex) % 0.9) : 0;
+        st.swing = walkingNow ? 0 : _tickSwing(m, dt);
         st.vel.x = walkingNow ? (dx / dist) * 3.2 : 0;
         st.vel.z = walkingNow ? (dz / dist) * 3.2 : 0;
         st.headAngle = 0;
@@ -1500,7 +1572,6 @@ HC.NPCParty = class {
         let walkingNow = false;
         let workingNow = false;
         let curSpeed = 0;
-        let swingNow = 0;
 
         if (!m.carryingCargo) {
           const ix = item.pos ? item.pos.x : m.x;
@@ -1528,6 +1599,7 @@ HC.NPCParty = class {
               }
               m.carryingCargo = true;
               m.haulPickT = 0;
+              _armSwing(m);
             }
           }
           const gy = this._groundY(m.x, m.z);
@@ -1539,7 +1611,7 @@ HC.NPCParty = class {
             st.vel.z = walkingNow ? Math.cos(m.dir) * curSpeed : 0;
             st.walking = walkingNow;
             st.working = workingNow;
-            st.swing = swingNow;
+            st.swing = _tickSwing(m, dt);
             st.headAngle = 0;
           }
           HC.animateNPC(root, dt);
@@ -1566,10 +1638,10 @@ HC.NPCParty = class {
             m.haulItem = null;
             m.carryingCargo = false;
             m.haulPickT = 0;
-            swingNow = 0.45;
+            _armSwing(m);
             this.lastMessage = left > 0
-              ? `${m.role.e} ${m.role.name} memuat barang ke gerobak (${left} tersisa).`
-              : `${m.role.e} Semua barang sudah dimuat kembali ke gerobak!`;
+              ? this._text('npc_msg_unloading', `${m.role.e} ${m.role.name} memuat barang ke gerobak (${left} tersisa).`, { e: m.role.e, name: m.role.name, left, role: m.role })
+              : this._text('npc_msg_loaded_all', `${m.role.e} Semua barang sudah dimuat kembali ke gerobak!`, { e: m.role.e });
             this._notify();
           }
         }
@@ -1591,7 +1663,7 @@ HC.NPCParty = class {
           st.vel.z = walkingNow ? Math.cos(m.dir) * curSpeed : 0;
           st.walking = walkingNow;
           st.working = false;
-          st.swing = swingNow;
+          st.swing = _tickSwing(m, dt);
           st.headAngle = 0;
         }
         HC.animateNPC(root, dt);
@@ -1727,6 +1799,7 @@ HC.NPCParty = class {
       st.vel.z = walkingNow ? Math.cos(m.dir) * curSpeed : 0;
       st.walking = walkingNow;
       st.working = false;
+      st.swing = _tickSwing(m, dt);
       st.headAngle = 0;
     }
     HC.animateNPC(root, dt);
@@ -1855,7 +1928,7 @@ HC.NPCParty = class {
       for (const p of world.pebbles) {
         if (Math.hypot(p.x - h.x, p.z - h.z) < fx.clear.radius) { p.h = 0; n++; }
       }
-      if (n) this.lastMessage = `${role.skill.e} ${role.skill.name}: ${n} kerikil di jalur disapu.`;
+      if (n) this.lastMessage = this._text('npc_msg_clear', `${role.skill.e} ${role.skill.name}: ${n} kerikil di jalur disapu.`, { e: role.skill.e, skill: role.skill.name, n, role });
     }
   }
   recruit(x, z) {
@@ -1865,7 +1938,7 @@ HC.NPCParty = class {
       return null;
     }
     const hit = this.nearby(x, z);
-    if (!hit) { this.lastMessage = 'Belum ada NPC dalam jangkauan 3.8 m. Deketin kelompoknya dulu.'; return null; }
+    if (!hit) { this.lastMessage = this._text('npc_msg_no_target', 'Belum ada NPC dalam jangkauan 3.8 m. Deketin kelompoknya dulu.'); return null; }
     const w = hit.npc;
     const role = w.role;              // ambil dulu: respawn menimpa item.role
     const startX = w.x, startZ = w.z;
@@ -1902,19 +1975,21 @@ HC.NPCParty = class {
       roamTarget: { x: startX, z: startZ },
       actT: 5,
       swingT: -1,
+      swingPulse: 0,
+      flipPulseT: 0,
     };
     this.members.push(member);
     this._spawnStanding(member, startX, startZ, startDir);
     this._syncDefaultPassengers(this.cart);
 
     const fx = HC.npcSkillFx(role);
-    this.lastMessage = `${role.e} ${role.name} direkrut — berjalan ke belakang gerobak... (${fx.note})`;
+    this.lastMessage = this._text('npc_msg_recruited', `${role.e} ${role.name} direkrut - berjalan ke belakang gerobak... (${fx.note})`, { e: role.e, name: role.name, note: fx.note, role });
     this._notify();
     return role;
   }
   boardMember(uid) {
     if (this.physics && this.physics.flipped) {
-      this.lastMessage = 'Balikkan gerobak dulu sebelum NPC bisa naik.';
+      this.lastMessage = this._text('npc_msg_flip_first', 'Balikkan gerobak dulu sebelum NPC bisa naik.');
       this._notify();
       return false;
     }
@@ -1927,7 +2002,7 @@ HC.NPCParty = class {
     if (m.cBrain) m.cBrain.targetBoar = null;
     m.boardT = 0;
     m.hopFrom = null;
-    this.lastMessage = `${m.role.e} ${m.role.name} menuju belakang gerobak untuk naik.`;
+    this.lastMessage = this._text('npc_msg_boarding', `${m.role.e} ${m.role.name} menuju belakang gerobak untuk naik.`, { e: m.role.e, name: m.role.name, role: m.role });
     this._notify();
     return true;
   }
@@ -1963,7 +2038,7 @@ HC.NPCParty = class {
     }
     this._syncDefaultPassengers(c);
     if (this.members.length) {
-      this.lastMessage = 'Gerobak terguling! Semua NPC terjatuh ke tanah.';
+      this.lastMessage = this._text('npc_msg_flipped', 'Gerobak terguling! Semua NPC terjatuh ke tanah.');
     }
     this._notify();
   }
@@ -2000,7 +2075,7 @@ HC.NPCParty = class {
     m.roamPhase = 'roam';
     m.roamT = 0.2;
     m.roamTarget = null;
-    this.lastMessage = `${m.role.e} ${m.role.name} turun dan berjalan di sekitar gerobak.`;
+    this.lastMessage = this._text('npc_msg_released_walk', `${m.role.e} ${m.role.name} turun dan berjalan di sekitar gerobak.`, { e: m.role.e, name: m.role.name, role: m.role });
     this._notify();
     return true;
   }
@@ -2022,14 +2097,16 @@ HC.NPCParty = class {
     if (m.root) { this.scene.remove(m.root); m.root = null; }
     this._detachSeated(m, this.cart);
     this._syncDefaultPassengers(this.cart);
-    this.lastMessage = `${m.role.e} ${m.role.name} dilepas dari regu.`;
+    this.lastMessage = this._text('npc_msg_released', `${m.role.e} ${m.role.name} dilepas dari regu.`, { e: m.role.e, name: m.role.name, role: m.role });
     this._notify();
     return m.role;
   }
   releaseLast() {
     if (!this.members.length) {
       const role = this.squad.pop();
-      this.lastMessage = role ? `${role.name} dilepas dari regu.` : 'Regu kosong.';
+      this.lastMessage = role
+        ? this._text('npc_msg_released', `${role.name} dilepas dari regu.`, { e: role.e, name: role.name, role })
+        : this._text('npc_msg_squad_empty', 'Regu kosong.');
       this._notify();
       return role || null;
     }

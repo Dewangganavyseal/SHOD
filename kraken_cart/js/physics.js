@@ -10,6 +10,142 @@ const FLIP_ANG = 75 * Math.PI / 180;   // 1.3090 rad — batas guling
 const LAY_ANG  = 1.20;                 // di atas ini sudah lewat titik balik -> rebah sekali jalan
 const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
 
+// AABB visual barang di frame bak. localHalf/localCenter disimpan tanpa
+// rotasi, jadi rotasi Y di sini harus mengikuti konvensi Three.js:
+// x' =  x cos + z sin, z' = -x sin + z cos.
+function cargoFootprint(posX, posZ, center, half, yaw) {
+  const c = Math.cos(yaw), s = Math.sin(yaw);
+  return {
+    x: posX + c * center.x + s * center.z,
+    z: posZ - s * center.x + c * center.z,
+    hx: Math.abs(c) * half.x + Math.abs(s) * half.z,
+    hz: Math.abs(s) * half.x + Math.abs(c) * half.z
+  };
+}
+
+// Batas origin mesh supaya AABB visual tetap di dalam bak. Hasilnya origin
+// (bukan pusat visual), jadi bisa langsung dipakai untuk clamp localPos.
+function cargoBedLimits(center, half, yaw, bed, pad = 0.004) {
+  const fp = cargoFootprint(0, 0, center, half, yaw);
+  let minX = bed.xMin + fp.hx - fp.x + pad;
+  let maxX = bed.xMax - fp.hx - fp.x - pad;
+  let minZ = bed.zMin + fp.hz - fp.z + pad;
+  let maxZ = bed.zMax - fp.hz - fp.z - pad;
+  if (minX > maxX) { const mid = (bed.xMin + bed.xMax) * 0.5; minX = maxX = mid; }
+  if (minZ > maxZ) { const mid = (bed.zMin + bed.zMax) * 0.5; minZ = maxZ = mid; }
+  return { minX, maxX, minZ, maxZ, fp };
+}
+
+function cargoColliderBoxes(item) {
+  if (item.colliderBoxes && item.colliderBoxes.length) return item.colliderBoxes;
+  const collider = item.mesh && item.mesh.userData && item.mesh.userData.voxelCollider;
+  const scale = item.mesh && item.mesh.scale ? item.mesh.scale.x : 1;
+  if (collider && collider.boxes && collider.boxes.length) {
+    return collider.boxes.map((box) => ({
+      cx: box.cx * scale, cy: box.cy * scale, cz: box.cz * scale,
+      hx: box.hx * scale, hy: box.hy * scale, hz: box.hz * scale
+    }));
+  }
+  const c = item.localCenter || { x: 0, y: 0, z: 0 };
+  const h = item.localHalf || item.half || { x: 0.05, y: 0.05, z: 0.05 };
+  return [{ cx: c.x, cy: c.y, cz: c.z, hx: h.x, hy: h.y, hz: h.z }];
+}
+
+function worldCargoBoxes(item) {
+  const yaw = item.localAng ? item.localAng.y : item.homeRot && item.homeRot.y || 0;
+  const c = Math.cos(yaw), s = Math.sin(yaw);
+  const boxes = (item.colliderBoxes || cargoColliderBoxes(item)).map((box) => ({
+    x: item.localPos.x + c * box.cx + s * box.cz,
+    z: item.localPos.z - s * box.cx + c * box.cz,
+    y: item.localPos.y + box.cy,
+    hx: box.hx, hy: box.hy, hz: box.hz, yaw
+  }));
+  const bounds = boxes.reduce((out, box) => {
+    const hx = Math.abs(c) * box.hx + Math.abs(s) * box.hz;
+    const hz = Math.abs(s) * box.hx + Math.abs(c) * box.hz;
+    out.xMin = Math.min(out.xMin, box.x - hx);
+    out.xMax = Math.max(out.xMax, box.x + hx);
+    out.zMin = Math.min(out.zMin, box.z - hz);
+    out.zMax = Math.max(out.zMax, box.z + hz);
+    out.yMin = Math.min(out.yMin, box.y - box.hy);
+    out.yMax = Math.max(out.yMax, box.y + box.hy);
+    return out;
+  }, { xMin: Infinity, xMax: -Infinity, zMin: Infinity, zMax: -Infinity, yMin: Infinity, yMax: -Infinity });
+  boxes.bounds = bounds;
+  return boxes;
+}
+
+function cargoBoundsOverlapXZ(aBoxes, bBoxes) {
+  const a = aBoxes.bounds, b = bBoxes.bounds;
+  return !a || !b || (a.xMin < b.xMax && a.xMax > b.xMin && a.zMin < b.zMax && a.zMax > b.zMin);
+}
+
+function cargoBoundsOverlap3D(aBoxes, bBoxes) {
+  const a = aBoxes.bounds, b = bBoxes.bounds;
+  return !a || !b || (a.xMin < b.xMax && a.xMax > b.xMin
+    && a.zMin < b.zMax && a.zMax > b.zMin
+    && a.yMin < b.yMax && a.yMax > b.yMin);
+}
+
+function cargoBoxOverlapXZ(a, b, pad = 0) {
+  const ac = Math.cos(a.yaw), as = Math.sin(a.yaw);
+  const bc = Math.cos(b.yaw), bs = Math.sin(b.yaw);
+  const axes = [
+    { x: ac, z: -as }, { x: as, z: ac },
+    { x: bc, z: -bs }, { x: bs, z: bc }
+  ];
+  const dx = b.x - a.x, dz = b.z - a.z;
+  for (const axis of axes) {
+    const ar = a.hx * Math.abs(axis.x * ac - axis.z * as)
+      + a.hz * Math.abs(axis.x * as + axis.z * ac);
+    const br = b.hx * Math.abs(axis.x * bc - axis.z * bs)
+      + b.hz * Math.abs(axis.x * bs + axis.z * bc);
+    if (ar + br + pad - Math.abs(dx * axis.x + dz * axis.z) <= 0) return false;
+  }
+  return true;
+}
+
+function cargoBoxesOverlap(aBoxes, bBoxes, verticalPad = 0) {
+  for (const a of aBoxes) {
+    for (const b of bBoxes) {
+      if (Math.min(a.y + a.hy, b.y + b.hy) - Math.max(a.y - a.hy, b.y - b.hy) <= verticalPad) continue;
+      if (cargoBoxOverlapXZ(a, b)) return true;
+    }
+  }
+  return false;
+}
+
+function computeCargoSupports(items, boxesByItem, maxGap = 0.035, maxPenetration = 0.085) {
+  const supports = items.map((item) => ({ y: item.floorY, restY: item.floorY, by: null }));
+  for (let i = 0; i < items.length; i++) {
+    const a = items[i];
+    if (a.spilled || a.hiddenForQuest) continue;
+    for (let j = i + 1; j < items.length; j++) {
+      const b = items[j];
+      if (b.spilled || b.hiddenForQuest) continue;
+      if (!cargoBoundsOverlapXZ(boxesByItem[i], boxesByItem[j])) continue;
+      for (const ab of boxesByItem[i]) {
+        const aBottom = ab.y - ab.hy;
+        for (const bb of boxesByItem[j]) {
+          if (Math.abs(ab.y - bb.y) > ab.hy + bb.hy + maxGap) continue;
+          const bBottom = bb.y - bb.hy;
+          const bTop = bb.y + bb.hy;
+          if (aBottom >= bTop - maxPenetration && aBottom <= bTop + maxGap
+            && cargoBoxOverlapXZ(ab, bb)) {
+            if (bTop > supports[i].y) supports[i] = { y: bTop, by: b };
+          }
+          const aTop = ab.y + ab.hy;
+          if (bBottom >= aTop - maxPenetration && bBottom <= aTop + maxGap
+            && cargoBoxOverlapXZ(ab, bb)) {
+            if (aTop > supports[j].y) supports[j] = { y: aTop, by: a };
+          }
+        }
+      }
+    }
+  }
+  return supports;
+}
+
 
   // ============================================================
   //  VERLET ROPE — sag, tension, stretch-resist
@@ -234,6 +370,9 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
       this.debris = [];        // roda yang lepas: ikut fisika sendiri (jatuh & berhenti)
 
       this.q = new THREE.Quaternion();
+      this._lq = new THREE.Quaternion();
+      this._lg = new THREE.Vector3();
+      this._la = new THREE.Vector3();
       this.euler = new THREE.Euler(0, 0, 0, 'YZX');
       this._v = new THREE.Vector3();
       this._a1 = new THREE.Vector3();
@@ -1400,11 +1539,37 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
         }
       }
 
-      // lantern swing driven by acceleration
-      const lp = this.cart.lanternPivot;
-      if (lp) {
-        lp.rotation.z = HC.damp(lp.rotation.z, -this.vel.x * 0.55 - this.rollV * 0.12, 6, dt);
-        lp.rotation.x = HC.damp(lp.rotation.x, this.pitchV * 0.15, 6, dt);
+      // ---- Lentera gantung: pendulum 2 sumbu (bukan animasi palsu) ----
+      // Gravitasi di kerangka bodi + gaya inersia dari percepatan gerobak, jadi
+      // lentera ikut terayun waktu gerobak mengerem, belok, atau terombang-ambing.
+      const lant = this.cart.lantern;
+      if (lant && lant.pivot) {
+        const sw = lant.swing;
+        const L = Math.max(0.12, lant.length || 0.26);
+        const ldt = Math.min(dt, 0.05);
+
+        this._la.set(ax, accY, (this.vel.z - prevVz) / dt);
+        this._lq.copy(this.q).invert();
+        this._la.applyQuaternion(this._lq);
+        this._lg.set(0, -9.81, 0).applyQuaternion(this._lq).sub(this._la);
+
+        // α = (d × g)/L dengan d ≈ (az, -1, -ax) di kerangka bodi
+        const gx = this._lg.x, gy = this._lg.y, gz = this._lg.z;
+        let alphaX = (-gz + sw.ax * gy) / L;
+        let alphaZ = (gx + sw.az * gy) / L;
+
+        // gesekan engsel + redaman udara
+        alphaX -= sw.wx * 2.8;
+        alphaZ -= sw.wz * 2.8;
+        sw.wx = HC.clamp(sw.wx + alphaX * ldt, -14, 14);
+        sw.wz = HC.clamp(sw.wz + alphaZ * ldt, -14, 14);
+        sw.ax = HC.clamp(sw.ax + sw.wx * ldt, -0.55, 0.55);
+        sw.az = HC.clamp(sw.az + sw.wz * ldt, -0.55, 0.55);
+        if (Math.abs(sw.ax) >= 0.55) sw.wx *= -0.18;
+        if (Math.abs(sw.az) >= 0.55) sw.wz *= -0.18;
+
+        lant.pivot.rotation.x = sw.ax;
+        lant.pivot.rotation.z = sw.az;
       }
 
       // penumpang ikut goyang: badan miring lawan roll, kepala bob saat kerikil
@@ -1581,7 +1746,21 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
           Math.max(0.05, sz.y * 0.45),
           Math.max(0.05, sz.z * 0.45)
         );
+        // Fallback untuk item lama: frame visual belum tersimpan. Item baru
+        // menyimpan localHalf/localCenter yang tidak ikut terotasi ganda.
+        if (!item.localHalf) {
+          item.localHalf = new THREE.Vector3(item.half.x / 0.9, item.half.y / 0.9, item.half.z / 0.9);
+          item.localCenter = new THREE.Vector3();
+        }
         item.radius = Math.max(item.radius || 0, Math.max(item.half.x, item.half.z));
+        // Collider voxel gabungan: bentuknya mengikuti mesh (bukan AABB gemuk).
+        // Dipakai untuk tumpukan & kontak sempit, jadi sudut kosong barrel
+        // tidak dianggap padat.
+        item.colliderBoxes = cargoColliderBoxes(item);
+        item._colBottom = Math.min(...item.colliderBoxes.map((b) => b.cy - b.hy));
+        item._colTop = Math.max(...item.colliderBoxes.map((b) => b.cy + b.hy));
+        item._supportY = item.floorY;
+        item._supportBy = null;
         item._onTopPrev = false;
         item._restT = 0;
       }
@@ -1639,6 +1818,15 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
       const frontRailTopY = Math.min(railTopY, 13.5 * S);
       const divRailTopY = Math.max(railTopY, 18.0 * S);
 
+      // Contact sheets come from each mesh's merged voxel boxes. Calculate them
+      // before integration so a falling item lands on the actual shape below it.
+      const supportBoxes = items.map((item) => worldCargoBoxes(item));
+      const supports = computeCargoSupports(items, supportBoxes);
+      for (let i = 0; i < items.length; i++) {
+        items[i]._supportY = supports[i].y;
+        items[i]._supportBy = supports[i].by;
+      }
+
       // Wheel pebble shock impulse (rate of compression only, so standing compression never levitates cargo)
       let wheelShock = 0;
       for (const w of this.wheels) {
@@ -1652,10 +1840,11 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
         const it = items[i];
         if (it.spilled || it.hiddenForQuest) continue;
 
-        // Tiap barang punya slot sendiri (floorY = tinggi alasnya). Nggak ada
-        // tumpukan dinamis: kalau ada, barang saling "pompa" naik tiap frame
-        // sampai lompat keluar bak. Barang boleh mantul dikit, bukan memanjat.
-        const restY = it.floorY;
+        // Barang bisa diam di alas bak ATAU di permukaan barang lain. Support
+        // diambil dari collider voxel, jadi hanya bagian mesh yang benar-benar
+        // bertumpuk yang menahan barang di atasnya.
+        const hasSupport = it._supportBy && it._supportY > it.floorY + 0.02;
+        const restY = hasSupport ? it._supportY - it._colBottom : it.floorY;
         const onFloor = it.localPos.y <= restY + 0.012;
 
         // Corner-localized wheel jolt transmitted through the wooden planks ONLY when resting on the plank
@@ -1677,20 +1866,22 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
         const gz =  Math.sin(this.roll)  * g * 1.5 - this.rollV * 1.9;
         const gy = -Math.cos(this.roll) * Math.cos(this.pitch) * g;
 
-        // Collider PER BARANG: setengah-ukuran AABB tapi ikut yaw barangnya.
-        // Tanpa ini sudut mesh nongol lewat pagar walau titik pusatnya masih
-        // di dalam bak — persis keluhan "barangnya nembus/muter".
+        // Collision footprint and visual centre in the cart's local frame.
         const cyaw = Math.cos(it.localAng.y), syaw = Math.sin(it.localAng.y);
         const hx = Math.abs(cyaw) * it.half.x + Math.abs(syaw) * it.half.z;
         const hz = Math.abs(syaw) * it.half.x + Math.abs(cyaw) * it.half.z;
-        it._hx = hx; it._hz = hz;
-        // Batas dalam bak. Sumbu X sengaja pakai titik pusat (dinding depan/belakang
-        // memang tipis dan barang bawaan sudah disusun sampai menyentuhnya); kalau
-        // dikurangi setengah-ukuran barang, kompartemen menyusut jadi 0,57 m dan
-        // semua barang saling tobros -> solver meledak. Sumbu Z pakai setengah-ukuran
-        // (dikali 0.9 karena AABB mesh sedikit lebih gemuk dari siluetnya).
-        const inMinX = bedMinX, inMaxX = bedMaxX;
-        const inMinZ = bedMinZ + hz * 0.9, inMaxZ = bedMaxZ - hz * 0.9;
+        // Batas dalam bak memakai AABB visual barang (localHalf/localCenter),
+        // bukan titik origin mesh. Origin sering bergeser dari pusat visual,
+        // jadi clamp lama bisa membiarkan sisi barang menembus pagar.
+        const vCenter = it.localCenter || { x: 0, z: 0 };
+        const vHalf = it.localHalf || { x: hx / 0.9, z: hz / 0.9 };
+        const bed = { xMin: bedMinX, xMax: bedMaxX, zMin: bedMinZ, zMax: bedMaxZ };
+        const limits = cargoBedLimits(vCenter, vHalf, it.localAng.y, bed);
+        const { minX: inMinX, maxX: inMaxX, minZ: inMinZ, maxZ: inMaxZ } = limits;
+        const vcx = limits.fp.x, vcz = limits.fp.z;
+        const visualHx = limits.fp.hx, visualHz = limits.fp.hz;
+        it._wallMinX = inMinX; it._wallMaxX = inMaxX;
+        it._wallMinZ = inMinZ; it._wallMaxZ = inMaxZ;
 
         // Slot asal juga di-clamp ke dalam bak. Kalau nggak, tarikan "pulang"
         // melawan pagar tiap frame -> barang bergetar/muter di tempat.
@@ -1713,7 +1904,7 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
         // begitu lepas -> barang lompat/berputar liar.
         let homePullX = 0, homePullZ = 0;
         const calm = Math.abs(it.localVel.x) + Math.abs(it.localVel.z) < 0.45;
-        if (!touching && calm && dh > 0.10) {
+        if (!touching && !hasSupport && calm && dh > 0.10) {
           // Nudge pelan doang: 0,28 m/s. Tujuannya cuma ngerapihin, bukan
           // nyeret barang balik ke slot sambil ngelawan tetangga (itu yang
           // bikin geser-goyang terus walaupun gerobak diam).
@@ -1746,7 +1937,7 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
         it.localPos.addScaledVector(it.localVel, dt);
 
         // Batas atas dinamis: barang boleh terpantul bebas di dalam bak saat kena guncangan.
-        const ceilY = Math.max(railTopY, it.floorY) + 0.45;
+        const ceilY = Math.max(railTopY, restY) + 0.45;
         if (it.localPos.y > ceilY) {
           it.localPos.y = ceilY;
           if (it.localVel.y > 0) it.localVel.y = 0;
@@ -1873,23 +2064,34 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
         it.mesh.rotation.set(it.localAng.x, it.localAng.y, it.localAng.z);
       }
 
-      // Pairwise item-item collisions inside the bed — AABB per barang,
-      // resolusi di sumbu penetrasi terkecil supaya barang bisa benar-benar
-      // bertumpuk/bersandar, bukan saling geser terus kayak muter.
+      // Narrow-phase uses the mesh-derived compound boxes so empty corners
+      // (notably around barrels) do not generate phantom contacts. The AABB
+      // solver below remains the inexpensive response/broad-phase.
+      const collisionBoxes = items.map((item) => worldCargoBoxes(item));
       for (let i = 0; i < items.length; i++) {
         const a = items[i];
         if (a.spilled || a.hiddenForQuest || !a.half) continue;
-        const ax = a._hx ?? a.half.x, az = a._hz ?? a.half.z;
+        const af = cargoFootprint(a.localPos.x, a.localPos.z,
+          a.localCenter || { x: 0, z: 0 }, a.localHalf || { x: a.half.x / 0.9, z: a.half.z / 0.9 }, a.localAng.y);
+        const ay = (a.localHalf && a.localHalf.y) || (a.half.y / 0.9);
+        const acy = (a.localCenter && a.localCenter.y) || 0;
         for (let j = i + 1; j < items.length; j++) {
           const b = items[j];
           if (b.spilled || b.hiddenForQuest || !b.half) continue;
-          const bx = b._hx ?? b.half.x, bz = b._hz ?? b.half.z;
-          const dx = b.localPos.x - a.localPos.x;
-          const dy = b.localPos.y - a.localPos.y;
-          const dz = b.localPos.z - a.localPos.z;
-          const ox = (ax + bx) - Math.abs(dx);
-          const oy = (a.half.y + b.half.y) - Math.abs(dy);
-          const oz = (az + bz) - Math.abs(dz);
+          if (a._supportBy === b || b._supportBy === a) continue;
+          if (!cargoBoundsOverlap3D(collisionBoxes[i], collisionBoxes[j])) continue;
+          if (!cargoBoxesOverlap(collisionBoxes[i], collisionBoxes[j])) continue;
+          const bf = cargoFootprint(b.localPos.x, b.localPos.z,
+            b.localCenter || { x: 0, z: 0 }, b.localHalf || { x: b.half.x / 0.9, z: b.half.z / 0.9 }, b.localAng.y);
+          const by = (b.localHalf && b.localHalf.y) || (b.half.y / 0.9);
+          const bcy = (b.localCenter && b.localCenter.y) || 0;
+          const dx = bf.x - af.x;
+          const dy = (b.localPos.y + bcy) - (a.localPos.y + acy);
+          const dz = bf.z - af.z;
+          const contactPad = 0.008;
+          const ox = (af.hx + bf.hx + contactPad) - Math.abs(dx);
+          const oy = (ay + by) - Math.abs(dy);
+          const oz = (af.hz + bf.hz + contactPad) - Math.abs(dz);
           if (ox <= 0 || oy <= 0 || oz <= 0) continue;
           a._touchPrev = true; b._touchPrev = true;
           if (oy <= ox && oy <= oz) {
@@ -1928,10 +2130,19 @@ const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
       }
 
       // Jaring pengaman terakhir: setelah semua dorongan (pagar + tetangga),
-      // kecepatan & putaran barang dibatasi. Dorongan berantai bisa numpuk dan
-      // bikin barang kelihatan "hidup" terus walaupun gerobak diam.
+      // posisi visual di-clamp sekali lagi supaya dorongan tetangga tidak
+      // mendorong sisi barang keluar pagar. Lalu sinkronkan mesh pada frame ini.
       for (const it of items) {
         if (it.spilled || it.hiddenForQuest) continue;
+        if (it._wallMinX !== undefined) {
+          const center = it.localCenter || { x: 0, z: 0 };
+          const half = it.localHalf || { x: it.half.x / 0.9, z: it.half.z / 0.9 };
+          const bed = { xMin: bedMinX, xMax: bedMaxX, zMin: bedMinZ, zMax: bedMaxZ };
+          const lim = cargoBedLimits(center, half, it.localAng.y, bed);
+          it.localPos.x = Math.min(lim.maxX, Math.max(lim.minX, it.localPos.x));
+          it.localPos.z = Math.min(lim.maxZ, Math.max(lim.minZ, it.localPos.z));
+        }
+        it.mesh.position.copy(it.localPos);
         // Di frame BAK, barang mestinya hampir diam (baknya yang bergerak).
         // Batas 1,2 m/s ini yang bikin nggak ada lagi barang "nyelemot" 2,5 m/s
         // sambil nempel pagar lalu muter terus.

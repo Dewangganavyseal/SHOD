@@ -34,6 +34,7 @@ export const QUALITY_PRESETS = {
     npcCull: 34,
     treeLod: 55,
     treeFar: 120,
+    hintKey: 'quality_low_hint',
     hint: 'HP kelas bawah: bayangan mati, resolusi tetap 100%, rumput 30%, pohon >45 m jadi versi low-detail (bukan billboard)'
   },
   medium: {
@@ -54,6 +55,7 @@ export const QUALITY_PRESETS = {
     npcCull: 48,
     treeLod: 70,
     treeFar: 140,
+    hintKey: 'quality_med_hint',
     hint: 'HP menengah: bayangan diperbarui berkala, rumput 62%, pohon >60 m versi low-detail'
   },
   high: {
@@ -73,6 +75,7 @@ export const QUALITY_PRESETS = {
     npcCull: 0,
     treeLod: 90,
     treeFar: 160,
+    hintKey: 'quality_high_hint',
     hint: 'PC/HP kencang: semua detail dekat, pohon >80 m versi low-detail, NPC utuh, bayangan penuh'
   }
 };
