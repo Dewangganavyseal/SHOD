@@ -217,7 +217,7 @@ export function initUpgradeUI({ store, quests, onUpgrade, onPreview, onRefill, o
 
     const actionBtn = document.createElement('button');
     actionBtn.type = 'button';
-    actionBtn.className = 'ws-up-btn ws-action-btn';
+    actionBtn.className = 'vintage-pill-btn ws-action-btn';
     if (isEquipped) {
       actionBtn.disabled = true;
       actionBtn.textContent = t('ws_equipped');
@@ -247,6 +247,7 @@ export function initUpgradeUI({ store, quests, onUpgrade, onPreview, onRefill, o
           return;
         }
         const msg = t('ws_upgraded', { name: t(line.nameKey), lv: selLabel });
+        if (HC.VintageGUI && HC.VintageGUI.playSfx) HC.VintageGUI.playSfx('confirm');
         refresh();
         if (onUpgrade) onUpgrade(line.key, true, msg);
       });

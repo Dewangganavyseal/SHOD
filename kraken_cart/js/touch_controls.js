@@ -18,11 +18,23 @@ export function initTouchControls({ animator, survival, onJump, onEat, onInterac
   // ---------- overlay portrait / layar penuh ----------
   const rotate = document.createElement('div');
   rotate.id = 'rotate-hint';
-  rotate.innerHTML = '<div class="rh-card"><div class="rh-icon">📱↻</div>' +
-    `<div class="rh-title" id="rh-title">${tr('touch_rotate_title', 'Rotate Phone to LANDSCAPE')}</div>` +
-    `<div class="rh-sub" id="rh-sub">${tr('touch_rotate_sub', 'Analog stick on the left, action buttons on the right.')}</div>` +
-    `<button id="btn-fullscreen" type="button">${tr('touch_fullscreen', 'Fullscreen + Lock')}</button></div>`;
+  rotate.innerHTML =
+    '<div class="rh-card ornate-panel">' +
+      '<span class="js-corner" data-pos="tl"></span>' +
+      '<span class="js-corner" data-pos="tr"></span>' +
+      '<span class="js-corner" data-pos="bl"></span>' +
+      '<span class="js-corner" data-pos="br"></span>' +
+      '<div class="ornate-panel-inner">' +
+        '<div class="rh-icon">📱↻</div>' +
+        `<div class="rh-title" id="rh-title">${tr('touch_rotate_title', 'Rotate Phone to LANDSCAPE')}</div>` +
+        `<div class="rh-sub" id="rh-sub">${tr('touch_rotate_sub', 'Analog stick on the left, action buttons on the right.')}</div>` +
+        `<button id="btn-fullscreen" type="button" class="vintage-pill-btn">${tr('touch_fullscreen', 'Fullscreen + Lock')}</button>` +
+      '</div>' +
+    '</div>';
   document.body.appendChild(rotate);
+  if (typeof globalThis !== 'undefined' && globalThis.HC && globalThis.HC.VintageGUI && globalThis.HC.VintageGUI.hydrateSvgs) {
+    globalThis.HC.VintageGUI.hydrateSvgs(rotate);
+  }
 
   async function goFullscreenLandscape() {
     try {
@@ -150,9 +162,11 @@ export function initTouchControls({ animator, survival, onJump, onEat, onInterac
     b.id = d.id; b.type = 'button';
     b.className = 'act ' + d.cls;
     b.innerHTML =
-      `<span class="ic" aria-hidden="true">${d.icon}</span>` +
-      `<span class="lbl">${tr(d.labelKey, d.label)}</span>` +
-      (d.sub ? `<span class="sub">${tr(d.subKey, d.sub)}</span>` : '');
+      '<span class="act-well">' +
+        `<span class="ic" aria-hidden="true">${d.icon}</span>` +
+        `<span class="lbl">${tr(d.labelKey, d.label)}</span>` +
+        (d.sub ? `<span class="sub">${tr(d.subKey, d.sub)}</span>` : '') +
+      '</span>';
     padBtns.appendChild(b);
   }
   document.body.appendChild(padBtns);

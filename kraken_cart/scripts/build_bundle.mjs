@@ -310,6 +310,7 @@ const chunks = [
   buildModelModule('js/models/bandit_models.js', '__MOD_BANDIT_MODELS'),
   buildMobs(),
   buildUpgrades(),
+  buildSideEffectModule('js/vintage_gui.js'),
   buildUI(),
   buildSurvival(),
   buildQuests(),

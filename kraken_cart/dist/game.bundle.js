@@ -1496,7 +1496,7 @@ const LANG_KEY = 'shod_lang_v1';
 
 const DICT = {
   en: {
-    page_title: 'KrakenOne Studio — Voxel Horse & Custom Supply Cart',
+    page_title: "SHOD: Beyond Journey's End",
     portrait_title: 'Click to open Horse Stats & Upgrades',
     settings_title: 'Settings',
     settings_heading: '⚙️ SETTINGS',
@@ -1560,7 +1560,7 @@ const DICT = {
     ctrl_rev: 'Reverse',
     ctrl_run: 'Run',
     ctrl_jump: 'Jump',
-    ctrl_graze: 'Graze',
+    ctrl_graze: 'Eat/Drink',
     ctrl_interact: 'Interact',
     ctrl_sleep: 'Sleep',
     ctrl_inspect: 'Inspect',
@@ -1742,8 +1742,8 @@ const DICT = {
     // Cutscene & Early Story
     story_obj_radnar: 'Follow the northern road to Radnar village',
     story_obj_radnar_sub: 'Your master never returned. Seek answers in Radnar ({d}m).',
-    story_obj_cart: 'Claim the Old Cart behind Radnar',
-    story_obj_cart_sub: 'Approach the Hero\'s old cart behind Radnar and press [F] or [V] ({d}m).',
+    story_obj_cart: 'Claim the Old Cart behind the Blacksmith',
+    story_obj_cart_sub: 'Go behind the blacksmith house in Radnar and press [F] or [V] ({d}m).',
     story_claim_cart_btn: '🔧 [F] Claim Old Cart',
     story_cart_claimed: '🪵 You hitched your master\'s old cart! Deliver goods and honor his memory.',
     cutscene_guard_name: 'Village Guard (Radnar)',
@@ -1752,9 +1752,9 @@ const DICT = {
     cutscene_line_1: 'Whoa there, noble steed... Wait — I recognize that blaze and bridle anywhere.',
     cutscene_line_2: 'I am sorry to tell you, faithful friend. Your master, the Hero of the valley, fell in battle on the frontier and did not make it home.',
     cutscene_line_3: 'Before riding out, he left this sealed letter addressed to our village so we could read his last will to you:',
-    cutscene_line_4: 'Go around the back of Radnar village to find the old cart. Help our villages carry goods and travelers, and we will keep you fed and strong.',
+    cutscene_line_4: 'Go behind the blacksmith house in Radnar to find the old cart. Help our villages carry goods and travelers, and we will keep you fed and strong.',
     letter_title: "THE HERO'S LAST WILL",
-    letter_body: 'To whichever villager finds and reads this letter,\n\nPlease read this aloud and deliver my final will to my loyal horse.\n\n"Old friend, my days on the battlefield are over. I leave my old wooden cart behind Radnar Village to you. Carry the villagers’ goods across the forest roads with pride."\n\nTo the good people of the village, please guide, feed, and watch over my horse as you once did for me.',
+    letter_body: 'To whichever villager finds and reads this letter,\n\nPlease read this aloud and deliver my final will to my loyal horse.\n\n"Old friend, my days on the battlefield are over. I leave my old wooden cart behind the blacksmith house in Radnar to you. Carry the villagers’ goods across the forest roads with pride."\n\nTo the good people of the village, please guide, feed, and watch over my horse as you once did for me.',
     letter_sign: '— Last Will of the Hero',
     // Water Refill by NPC
     item_refill_btn: '🪣 Refill (+1/5)',
@@ -1786,6 +1786,46 @@ const DICT = {
     npc_msg_squad_empty: 'Squad empty.',
     quest_giver_fallback: '{village} Villager',
     quest_receiver_fallback: '{village} Villager',
+    // Settings Tabs & Controls Guide
+    set_tab_general: 'General',
+    set_tab_controls: 'Controls',
+    ctrl_g_move: 'Move Forward / Reverse',
+    ctrl_g_steer: 'Steer Left / Right',
+    ctrl_g_run: 'Toggle Run',
+    ctrl_g_jump: 'Jump / Lift Cart',
+    ctrl_g_interact: 'Interact / Quest / Workshop',
+    ctrl_g_graze: 'Eat / Drink',
+    ctrl_g_inspect: 'Hold: Inspect Cart & Supplies',
+    ctrl_g_hitch: 'Hitch / Unhitch Cart',
+    ctrl_g_npc: 'Recruit / Release NPC',
+    ctrl_g_sleep: 'Sleep / Rest Horse',
+    ctrl_g_map: 'World Map',
+    ctrl_g_camera: 'Drag: Orbit • Wheel: Zoom',
+    ctrl_g_reset: 'Reset Horse & Cart',
+    ctrl_g_mobile_note: 'Mobile: Left analog stick to move, right gold medallions for actions.',
+    ws_need_cart_hitched: 'Hitch your cart [V] first and pull up right in front of the workshop to upgrade!',
+    ws_need_cart_short: 'Hitch Cart [V] to Upgrade',
+    farm_harvest_btn: '🌾 [F] Talk to Farmer ({village})',
+    farm_plant_btn: '🌱 [F] Plant Crops ({count})',
+    farm_harvest_toast: '🌾 {name} delivered +{count} crop to {village} Shop (Stock: {stock}) • +{gold}G',
+    farm_plant_toast: '🌱 Planted {count} crop beds in {village} farm!',
+    farm_growing_toast: '🌿 {village} crops are growing (Shop Stock: {stock}).',
+    farmer_speaker: 'Farmer ({village})',
+    farmer_talk_btn: '🌾 [F] Talk to Farmer ({village})',
+    farmer_dlg_intro: "Hey there, good weather for farming, isn't it? The {village} fields are keeping me busy all day.",
+    farmer_dlg_offer: "Say, would your crew like a part-time harvesting job? Your companions harvest the ripe crops and carry them to the village shop — I'll pay 5 Gold for every crop delivered!",
+    farmer_dlg_no_crew_1: "Hey there, trusty steed! The {village} fields are thriving, and I could sure use some extra hands for a part-time harvest shift (5 Gold per crop delivered to the shop).",
+    farmer_dlg_no_crew_2: "You'll need companions with hands to work the field, though! Recruit at least one NPC [G] first, then come talk to me again.",
+    farmer_dlg_no_crops: "Thanks for dropping by! All the crops in {village} are still growing right now. Check back once they turn golden ripe if your crew wants a part-time harvest shift (5G per crop).",
+    farmer_dlg_working: "Your crew is already busy harvesting and stocking the {village} village shop! You get 5 Gold for every crop delivered.",
+    farmer_btn_accept: 'Accept Part-Time Job (5G / crop)',
+    farmer_btn_decline: 'Maybe Later',
+    farmer_btn_ok: 'Got it',
+    farmer_btn_keep: 'Keep Working',
+    farmer_btn_recall: 'Call Crew Back',
+    farmer_job_started: '🌾 Part-time harvest started! Your crew is heading to the {village} field (5G per crop to shop).',
+    farmer_job_done: '🌾 Part-time harvest finished in {village}! Total delivered: {count} crops (+{gold}G).',
+    farmer_job_recalled: '🌾 Called your crew back from the {village} field.',
     ug_capacity_lv1_detail: '4 seats • 6 supplies',
     ug_capacity_lv2_detail: '4 seats • 8 supplies',
     ug_capacity_lv3_detail: '4 seats • 12 supplies',
@@ -1811,7 +1851,7 @@ const DICT = {
     msg_ram_hit: '💥 Charged into {who} (-{dmg} HP, Stunned)!',
   },
   id: {
-    page_title: 'KrakenOne Studio — Kuda Voxel & Gerobak Ekspedisi',
+    page_title: "SHOD: Beyond Journey's End",
     portrait_title: 'Klik untuk Stat Kuda Lanjutan & Upgrade',
     settings_title: 'Pengaturan',
     settings_heading: '⚙️ PENGATURAN',
@@ -1874,7 +1914,7 @@ const DICT = {
     ctrl_rev: 'Mundur',
     ctrl_run: 'Lari',
     ctrl_jump: 'Lompat',
-    ctrl_graze: 'Rumput',
+    ctrl_graze: 'Makan/Minum',
     ctrl_interact: 'Interaksi',
     ctrl_sleep: 'Tidur',
     ctrl_inspect: 'Cek/Bekal',
@@ -2047,8 +2087,8 @@ const DICT = {
     // Cutscene & Cerita Awal
     story_obj_radnar: 'Ikuti jalan ke utara menuju Desa Radnar',
     story_obj_radnar_sub: 'Pemilikmu tak kunjung kembali. Cari kabar di Desa Radnar ({d}m).',
-    story_obj_cart: 'Ambil Gerobak Tua di belakang Desa Radnar',
-    story_obj_cart_sub: 'Dekati gerobak tua milik pahlawan di belakang Radnar lalu tekan [F] atau [V] ({d}m).',
+    story_obj_cart: 'Ambil Gerobak Tua di belakang Rumah Penempa',
+    story_obj_cart_sub: 'Pergi ke belakang rumah penempa di Desa Radnar lalu tekan [F] atau [V] ({d}m).',
     story_claim_cart_btn: '🔧 [F] Ambil Gerobak Tua',
     story_cart_claimed: '🪵 Gerobak tua pahlawan kini terpasang! Bantu warga desa mengantar barang dan penumpang.',
     cutscene_guard_name: 'Penjaga Desa (Radnar)',
@@ -2057,9 +2097,9 @@ const DICT = {
     cutscene_line_1: 'Tenanglah, kuda gagah... Tunggu — aku sangat mengenali tanda dahi dan kekang itu.',
     cutscene_line_2: 'Maaf harus menyampaikan kabar duka ini, sahabat setia. Pemilikmu, sang Pahlawan lembah ini, telah gugur saat bertugas dan tak pernah kembali.',
     cutscene_line_3: 'Sebelum berangkat perang, ia menitipkan surat tersegel ini untuk warga desa agar kami membacakan wasiatnya kepadamu:',
-    cutscene_line_4: 'Pergilah ke belakang Desa Radnar untuk mengambil gerobak tuanya. Bantulah warga desa mengantar barang dan bertahan hiduplah bersama kami.',
+    cutscene_line_4: 'Pergilah ke belakang rumah penempa di Desa Radnar untuk mengambil gerobak tuanya. Bantulah warga desa mengantar barang dan bertahan hiduplah bersama kami.',
     letter_title: 'SURAT WASIAT PAHLAWAN',
-    letter_body: 'Kepada siapa pun warga desa yang menemukan dan membaca surat ini,\n\nTolong bacakan dan sampaikan wasiat terakhirku ini kepada kudaku yang setia.\n\n“Sahabatku, hari-hariku di medan perang telah usai. Aku wariskan gerobak kayu tuaku di belakang Desa Radnar kepadamu. Jadilah penolong bagi warga desa, antarkan barang-barang mereka melintasi jalanan hutan dengan gagah.”\n\nKepada warga desa, mohon bimbing, rawat, dan jaga ia seperti kalian menjagaku dahulu.',
+    letter_body: 'Kepada siapa pun warga desa yang menemukan dan membaca surat ini,\n\nTolong bacakan dan sampaikan wasiat terakhirku ini kepada kudaku yang setia.\n\n“Sahabatku, hari-hariku di medan perang telah usai. Aku wariskan gerobak kayu tuaku di belakang rumah penempa Desa Radnar kepadamu. Jadilah penolong bagi warga desa, antarkan barang-barang mereka melintasi jalanan hutan dengan gagah.”\n\nKepada warga desa, mohon bimbing, rawat, dan jaga ia seperti kalian menjagaku dahulu.',
     letter_sign: '— Wasiat Terakhir sang Pahlawan',
     // Isi Ulang Tong Air oleh NPC
     item_refill_btn: '🪣 Isi Tong (+1/5)',
@@ -2085,6 +2125,46 @@ const DICT = {
     npc_msg_recruited: '{e} {name} direkrut - berjalan ke belakang gerobak... ({note})',
     npc_msg_flip_first: 'Balikkan gerobak dulu sebelum NPC bisa naik.',
     npc_msg_boarding: '{e} {name} menuju belakang gerobak untuk naik.',
+    // Tab Pengaturan & Panduan Kontrol
+    set_tab_general: 'Umum',
+    set_tab_controls: 'Kontrol',
+    ctrl_g_move: 'Maju / Mundur',
+    ctrl_g_steer: 'Belok Kiri / Kanan',
+    ctrl_g_run: 'Mode Lari',
+    ctrl_g_jump: 'Lompat / Angkat Gerobak',
+    ctrl_g_interact: 'Interaksi / Quest / Bengkel',
+    ctrl_g_graze: 'Makan / Minum',
+    ctrl_g_inspect: 'Tahan: Periksa Roda & Bekal',
+    ctrl_g_hitch: 'Pasang / Lepas Gerobak',
+    ctrl_g_npc: 'Rekrut / Lepas NPC',
+    ctrl_g_sleep: 'Tidur / Istirahat',
+    ctrl_g_map: 'Peta Dunia',
+    ctrl_g_camera: 'Seret: Putar • Scroll: Zoom',
+    ctrl_g_reset: 'Reset Kuda & Gerobak',
+    ctrl_g_mobile_note: 'Mobile: Analog kiri untuk gerak, tombol medali emas kanan untuk aksi.',
+    ws_need_cart_hitched: 'Pasang gerobak ke kuda dulu [V] dan dekati depan bengkel untuk upgrade!',
+    ws_need_cart_short: 'Pasang Gerobak [V] untuk Upgrade',
+    farm_harvest_btn: '🌾 [F] Bicara dengan Petani ({village})',
+    farm_plant_btn: '🌱 [F] Tanam Bibit ({count})',
+    farm_harvest_toast: '🌾 {name} mengirim +{count} tanaman ke Toko {village} (Stok: {stock}) • +{gold}G',
+    farm_plant_toast: '🌱 Menanam {count} petak bibit di ladang {village}!',
+    farm_growing_toast: '🌿 Tanaman ladang {village} sedang tumbuh (Stok Toko: {stock}).',
+    farmer_speaker: 'Petani ({village})',
+    farmer_talk_btn: '🌾 [F] Bicara dengan Petani ({village})',
+    farmer_dlg_intro: 'Halo! Cuaca yang pas buat bertani ya? Ladang {village} bikin saya kewalahan sendirian hari ini.',
+    farmer_dlg_offer: 'Ngomong-ngomong, apakah rekan-rekanmu mau bekerja paruh waktu memanen di sini? Nanti mereka yang memanen dan mengantar ke toko desa — imbalannya 5 Emas per tanaman yang dikirim!',
+    farmer_dlg_no_crew_1: 'Halo kuda tangguh! Ladang {village} lagi subur-suburnya, saya sedang butuh bantuan kerja paruh waktu memanen (5 Emas per tanaman yang dikirim ke toko desa).',
+    farmer_dlg_no_crew_2: 'Tapi untuk memanen butuh tangan manusia! Rekrut minimal satu NPC dulu [G], lalu kembali bicara denganku ya.',
+    farmer_dlg_no_crops: 'Terima kasih sudah mampir! Tanaman di ladang {village} saat ini masih tumbuh. Datang lagi nanti kalau sudah matang jika rekanmu mau kerja paruh waktu (5 Emas/tanaman).',
+    farmer_dlg_working: 'Rekan-rekanmu sedang rajin memanen dan mengisi stok toko desa {village}! Setiap tanaman yang dikirim dapat 5 Emas.',
+    farmer_btn_accept: 'Terima Kerja Paruh Waktu (5G / tanaman)',
+    farmer_btn_decline: 'Lain Kali Saja',
+    farmer_btn_ok: 'Mengerti',
+    farmer_btn_keep: 'Lanjut Kerja',
+    farmer_btn_recall: 'Panggil Kembali',
+    farmer_job_started: '🌾 Kerja paruh waktu dimulai! Rekanmu sedang memanen ladang {village} (5G/tanaman ke toko).',
+    farmer_job_done: '🌾 Kerja paruh waktu di {village} selesai! Total terkirim: {count} tanaman (+{gold}G).',
+    farmer_job_recalled: '🌾 Rekan-rekanmu dipanggil kembali dari ladang {village}.',
     npc_msg_flipped: 'Gerobak terguling! Semua NPC terjatuh ke tanah.',
     npc_msg_released_walk: '{e} {name} turun dan berjalan di sekitar gerobak.',
     npc_msg_released: '{e} {name} dilepas dari regu.',
@@ -2617,13 +2697,14 @@ const THREE = HC.THREE, V = HC.VoxelBuilder, P = HC.PAL;
 
 
   // Horse authored in voxel units (1u = 6.25cm). Ground = y 0. Body pivot center y = CY.
-  const CY = 23.5;
-  const L1 = 12.6;   // upper leg bone
-  const L2 = 10.4;   // lower leg bone (cannon)
+  const TORSO_REF = 23.5;
+  const CY = 25.0;
+  const L1 = 13.0;   // upper leg bone
+  const L2 = 11.4;   // lower leg bone (cannon)
   const HOOF_H = 2.1;
   const ANKLE_Y = HOOF_H; // IK chain target height above ground
 
-  HC.HORSE = { CY, L1, L2, HOOF_H, ANKLE_Y, SHOULDER_Y: 25, HIP_Y: 25.4 };
+  HC.HORSE = { CY, TORSO_REF, L1, L2, HOOF_H, ANKLE_Y, SHOULDER_Y: 25, HIP_Y: 25.4 };
 
   HC.buildHorse = function () {
     const root = new THREE.Group();
@@ -2635,7 +2716,7 @@ const THREE = HC.THREE, V = HC.VoxelBuilder, P = HC.PAL;
     root.add(torso);
 
     const tb = new V();
-    const B = (x0, y0, z0, x1, y1, z1, c, j) => tb.box(x0, y0 - CY, z0, x1, y1 - CY, z1, c, j);
+    const B = (x0, y0, z0, x1, y1, z1, c, j) => tb.box(x0, y0 - TORSO_REF, z0, x1, y1 - TORSO_REF, z1, c, j);
 
     // barrel: stacked layers, elliptical cross-section (voxel smooth silhouette)
     for (let y = 16; y <= 30; y++) {
@@ -2706,7 +2787,7 @@ const THREE = HC.THREE, V = HC.VoxelBuilder, P = HC.PAL;
     // ---------------- NECK LOWER ----------------
     const S = HC.vs;
     const neckLow = new THREE.Group();
-    neckLow.position.set(11.0 * S, (27.6 - CY) * S, 0);
+    neckLow.position.set(11.0 * S, (27.6 - TORSO_REF) * S, 0);
     torso.add(neckLow);
 
     const collarLeft = new THREE.Object3D();
@@ -2716,10 +2797,10 @@ const THREE = HC.THREE, V = HC.VoxelBuilder, P = HC.PAL;
     collarRight.position.set(0.5 * S, 2.6 * S, -4.5 * S);
     neckLow.add(collarRight);
     const girthLeft = new THREE.Object3D();
-    girthLeft.position.set(1.8 * S, (21.5 - CY) * S, 5.7 * S);
+    girthLeft.position.set(1.8 * S, (21.5 - TORSO_REF) * S, 5.7 * S);
     torso.add(girthLeft);
     const girthRight = new THREE.Object3D();
-    girthRight.position.set(1.8 * S, (21.5 - CY) * S, -5.7 * S);
+    girthRight.position.set(1.8 * S, (21.5 - TORSO_REF) * S, -5.7 * S);
     torso.add(girthRight);
 
     const nb = new V();
@@ -2843,7 +2924,7 @@ const THREE = HC.THREE, V = HC.VoxelBuilder, P = HC.PAL;
     // ---------------- TAIL ----------------
     const tailSegs = [];
     let tailParent = torso;
-    let tailPos = new THREE.Vector3(-15.0 * S, (29.6 - CY) * S, 0);
+    let tailPos = new THREE.Vector3(-15.0 * S, (29.6 - TORSO_REF) * S, 0);
     for (let i = 0; i < 5; i++) {
       const g = new THREE.Group();
       g.position.copy(tailPos);
@@ -2872,21 +2953,31 @@ const THREE = HC.THREE, V = HC.VoxelBuilder, P = HC.PAL;
 
     for (const def of legDefs) {
       const hipGroup = new THREE.Group();
-      hipGroup.position.set(def.hip[0] * S, (def.hip[1] - CY) * S, def.hip[2] * S);
+      hipGroup.position.set(def.hip[0] * S, (def.hip[1] - TORSO_REF) * S, def.hip[2] * S);
       torso.add(hipGroup);
 
-      // upper bone (thigh / humerus) — geometry hangs along -Y from pivot
+      // upper bone (thigh / humerus) — sculpted muscular volume tapering into knee/hock
       const uv = new V();
       if (def.front) {
-        uv.box(-2.2, -L1, -2.1, 2.4, 1.2, 2.1, P.coatMid);
-        uv.box(-1.9, -L1 * 0.7, -2.35, 2.0, 0.2, 2.35, P.coatWarm);
-        uv.box(-1.6, -L1, -1.5, 1.9, -L1 * 0.55, 1.5, P.coatDark, 0.03);
+        // Broad muscular shoulder & upper forearm
+        uv.box(-3, -4, -2, 3, 2, 2, P.coatMid);
+        uv.box(-2, -3, -2, 3, 1, 2, P.coatWarm, 0.03);
+        // Mid forearm muscle belly + front radius contour
+        uv.box(-2, -8, -2, 2, -4, 2, P.coatMid);
+        uv.box(0, -7, -1, 3, -2, 1, P.coatWarm, 0.03);
+        // Tapered lower forearm + rear tendon
+        uv.box(-2, -L1, -1, 1, -8, 1, P.coatDark, 0.03);
+        uv.box(-1, -10, -2, 1, -7, 2, P.coatMid, 0.02);
       } else {
-        uv.box(-2.8, -L1, -2.4, 2.9, 1.8, 2.4, P.coatMid);
-        uv.box(-2.4, -L1 * 0.75, -2.7, 2.6, 1.0, 2.7, P.coatWarm);
-        uv.box(-2.0, -L1, -1.7, 2.2, -L1 * 0.6, 1.7, P.coatDark, 0.03);
-        // haunch bulge
-        uv.box(-2.2, -L1 * 0.9, -1.1, 1.8, -L1 * 0.2, 1.1, P.coatLite, 0.03);
+        // Powerful upper haunch / quarter
+        uv.box(-4, -5, -2, 3, 2, 2, P.coatMid);
+        uv.box(-3, -4, -2, 2, 1, 2, P.coatWarm, 0.03);
+        uv.box(-3, -6, -1, 2, 0, 1, P.coatLite, 0.03);
+        // Curved gaskin muscle belly
+        uv.box(-3, -9, -2, 2, -5, 2, P.coatMid);
+        uv.box(-2, -8, -2, 2, -5, 2, P.coatWarm, 0.03);
+        // Taper above hock
+        uv.box(-2, -L1, -1, 1, -9, 1, P.coatDark, 0.03);
       }
       const upperMesh = uv.build(0, 0, 0);
       hipGroup.add(upperMesh);
@@ -2897,45 +2988,61 @@ const THREE = HC.THREE, V = HC.VoxelBuilder, P = HC.PAL;
       upperMesh.add(knee);
 
       const lv = new V();
-      lv.box(-1.35, -L2, -1.25, 1.35, 0.8, 1.25, P.coatDark);
-      lv.box(-1.1, -L2 * 0.9, -1.45, 1.1, -L2 * 0.15, 1.45, P.coatMid, 0.03);
-      // fetlock joint
-      lv.box(-1.5, -L2 - 0.2, -1.4, 1.5, -L2 + 0.9, 1.4, P.coatDark, 0.02);
-      // cream sock on front legs
-      if (def.front) {
-        lv.box(-1.3, -L2 * 0.55, -1.3, 1.3, -L2 + 1.0, 1.3, P.sock, 0.015);
-      } else {
-        lv.box(-1.3, -L2 * 0.35, -1.3, 1.3, -L2 + 1.0, 1.3, P.coatDark, 0.02);
-      }
+      const l2i = Math.round(L2);
+      // Upper cannon + rear flexor tendon ridge
+      lv.box(-1, -4, -1, 1, 0, 1, P.coatDark);
+      lv.box(-2, -4, -1, -1, -1, 1, P.coatDark, 0.02);
+      lv.box(-1, -4, -1, 2, -2, 1, P.coatMid, 0.03);
+
+      // White socks (P.sock) on ALL 4 LEGS with sculpted fetlock joint & rear feather tuft
+      lv.box(-1, -7, -1, 2, -5, 1, P.sock, 0.015);
+      lv.box(-2, -7, -1, -1, -5, 1, P.sock, 0.02);
+      // Volumetric fetlock ankle swell (symmetric Z: -2..2)
+      lv.box(-2, -10, -2, 2, -8, 2, P.sock, 0.015);
+      lv.del(2, -8, -2); lv.del(2, -8, 2);
+      lv.del(2, -10, -2); lv.del(2, -10, 2);
+      // Rear fetlock tuft / draft feathering
+      lv.box(-3, -11, -1, -1, -8, 1, P.sock, 0.02);
+      // Pastern into coronet band
+      lv.box(-1, -l2i, -1, 2, -10, 1, P.sock, 0.015);
       const lowerMesh = lv.build(0, 0, 0);
       knee.add(lowerMesh);
 
-      // hoof pivot at end of lower
+      // Volumetric bell-shaped hoof + flat iron horseshoe (symmetric Z: -2..2)
       const hoof = new THREE.Group();
       hoof.position.set(0, -L2 * S, 0);
       lowerMesh.add(hoof);
       const hv = new V();
-      hv.box(-1.6, -HOOF_H, -1.5, 1.7, 0.1, 1.5, P.hoof, 0.02);
-      hv.box(-1.5, -HOOF_H, -1.4, 1.6, -HOOF_H + 0.5, 1.4, P.hoofShoe, 0.03);
-      hv.box(-1.4, -HOOF_H - 0.35, -1.3, 1.5, -HOOF_H, 1.3, P.hoofShoe, 0.02);
-      // shoe nails
-      for (const s of [-1, 1]) {
-        hv.box(1.2, -HOOF_H - 0.3, s * 0.8, 1.4, -HOOF_H + 0.2, s * 1.0, P.iron, 0.01);
-        hv.box(-1.3, -HOOF_H - 0.3, s * 0.8, -1.1, -HOOF_H + 0.2, s * 1.0, P.iron, 0.01);
+      // Upper coronet & hoof wall
+      hv.box(-1, -1, -2, 2, 0, 2, P.hoof, 0.02);
+      hv.del(2, 0, -2); hv.del(2, 0, 2);
+      hv.del(-1, 0, -2); hv.del(-1, 0, 2);
+      // Flared lower hoof bell + iron horseshoe sole
+      hv.box(-2, -2, -2, 3, -1, 2, P.hoof, 0.02);
+      hv.del(3, -1, -2); hv.del(3, -1, 2);
+      hv.del(-2, -1, -2); hv.del(-2, -1, 2);
+      hv.box(-2, -2, -2, 3, -2, 2, P.hoofShoe, 0.02);
+      hv.del(3, -2, -2); hv.del(3, -2, 2);
+      hv.del(-2, -2, -2); hv.del(-2, -2, 2);
+      for (const s of [-2, 2]) {
+        hv.set(1, -2, s, P.iron, 0.01);
+        hv.set(-1, -2, s, P.iron, 0.01);
       }
       const hoofMesh = hv.build(0, 0, 0);
       hoof.add(hoofMesh);
 
-      // knee joint knuckle block on all 4 legs
+      // Sculpted knee joint facing forward on all 4 legs
       {
         const kb = new V();
-        kb.box(-1.6, -1.2, -1.5, 1.6, 1.2, 1.5, P.coatDark, 0.02);
+        kb.box(-1, -1, -2, 2, 1, 2, P.coatDark, 0.02);
+        kb.del(-1, -1, -2); kb.del(-1, -1, 2);
+        kb.box(1, -1, -1, 2, 1, 1, P.coatMid, 0.02);
         knee.add(kb.build(0, 0, 0));
       }
 
       legs.push({
         id: def.id, front: def.front, hipGroup, upperMesh, knee, lowerMesh, hoof, hoofMesh,
-        hipLocal: new THREE.Vector3(def.hip[0] * S, (def.hip[1] - CY) * S, def.hip[2] * S),
+        hipLocal: new THREE.Vector3(def.hip[0] * S, (def.hip[1] - TORSO_REF) * S, def.hip[2] * S),
         phaseOffset: 0,
         footWorld: new THREE.Vector3(),
         stanceBlend: 1
@@ -4128,16 +4235,17 @@ HC.buildCart = function (pivotY = 0.58, upgrades = {}) {
   // Starter gerobak kosong tanpa penumpang (direkrut langsung di desa)
   const passengers = [];
 
-  // Swinging iron lantern (sisi kanan bak, +z) — pendulum 2 sumbu di fisika
+  // Swinging iron lantern (sisi kanan bak, +z) — terpasang rapat pada tiang sudut depan bak
+  const lanternMountY = Math.max(stakeTop + 2.5, 16);
   const lanternPivot = new THREE.Group();
-  lanternPivot.position.set(22 * S, 18 * S, (zSide + 4.2) * S);
+  lanternPivot.position.set((xFront - 0.2) * S, (lanternMountY - 0.2) * S, (zSide + 2.7) * S);
   body.add(lanternPivot);
 
-  // Braket statis: lengan besi dari tiang sudut bak, menjulur keluar supaya
-  // lentera bebas berayun tanpa membentur rel atau roda.
+  // Braket besi menempel langsung ke tiang sudut depan (x = xFront, z = zSide..zSide+1)
   const bracket = new V(S);
-  bracket.box(21.2, 16.6, zSide - 0.4, 22.8, 17.4, zSide + 4.0, P.ironDark, 0.02);
-  bracket.box(21.7, 17.4, zSide + 3.8, 22.3, 18.2, zSide + 4.6, P.iron, 0.02);
+  bracket.box(xFront - 0.8, 8.0, zSide + 0.4, xFront + 0.4, lanternMountY, zSide + 1.5, P.ironDark, 0.02);
+  bracket.box(xFront - 0.6, lanternMountY - 0.8, zSide + 1.2, xFront + 0.2, lanternMountY + 0.2, zSide + 2.9, P.ironDark, 0.02);
+  bracket.box(xFront - 0.4, lanternMountY - 1.2, zSide + 2.4, xFront, lanternMountY - 0.2, zSide + 2.9, P.iron, 0.02);
   body.add(bracket.build(0, 0, 0));
 
   const lanternUnit = buildCartLantern(lanternTier, true);
@@ -6931,10 +7039,9 @@ function createMarketStall(palette, ctx = {}, opts = {}) {
 
   group.userData = {
     kind: 'market_stall',
-    collider: {
-      radius: Math.hypot(w * 0.5 + 0.15, d * 0.5 + 0.15) * 0.80,
-      height: h + 0.32,
-    },
+    colliders: [
+      { localX: 0, localZ: -0.45, radius: Math.max(w * 0.42, 1.08), height: h + 0.25 },
+    ],
     lanterns,
     animated: {},
   };
@@ -14462,7 +14569,7 @@ class World {
             return entry;
         }
 
-        function createStylizedPineTree(x, z, scale = 1.0, variant = 'tall_alpine', colorKey = 'emerald') {
+        function createStylizedPineTree(x, z, scale = 1.0, variant = 'tall_alpine', colorKey = 'emerald', heightRatio = 1.0) {
             const group = new THREE.Group();
             const y = getTerrainHeight(x, z);
             group.position.set(x, y - 0.08, z);
@@ -14486,8 +14593,8 @@ class World {
             foliageMesh.frustumCulled = false;
             canopyPivot.add(foliageMesh);
 
-            group.scale.setScalar(scale);
-            const centerH = cfg.h * scale * 0.52;
+            group.scale.set(scale, scale * heightRatio, scale);
+            const centerH = cfg.h * scale * heightRatio * 0.52;
             const treeData = {
                 type: 'tree',
                 treeKind: 'pine',
@@ -14498,13 +14605,13 @@ class World {
                 phase: Math.random() * Math.PI * 2,
                 rustleBoost: 0,
                 leafColor: new THREE.Color(pal.burstColor),
-                boundingSphere: new THREE.Sphere(new THREE.Vector3(x, y + centerH, z), cfg.h * scale * 0.65)
+                boundingSphere: new THREE.Sphere(new THREE.Vector3(x, y + centerH, z), cfg.h * scale * Math.max(1, heightRatio) * 0.65)
             };
             group.userData = treeData;
             swayingCanopies.push(treeData);
             interactiveTrees.push(group);
             scene.add(group);
-            addCircleCollider('tree', x, z, cfg.baseR * scale * 1.18, y + cfg.h * scale, group);
+            addCircleCollider('tree', x, z, cfg.baseR * scale * 1.18, y + cfg.h * scale * heightRatio, group);
             return group;
         }
 
@@ -14999,7 +15106,7 @@ class World {
             return mergedWoodGeo;
         }
 
-        function createBotWDeciduousTree(x, z, scale = 1.0, colorKey = 'emerald') {
+        function createBotWDeciduousTree(x, z, scale = 1.0, colorKey = 'emerald', heightRatio = 1.0) {
             const group = new THREE.Group();
             const y = getTerrainHeight(x, z);
             group.position.set(x, y - 0.08, z);
@@ -15026,7 +15133,7 @@ class World {
             foliageMesh.frustumCulled = false;
             canopyPivot.add(foliageMesh);
 
-            group.scale.setScalar(scale);
+            group.scale.set(scale, scale * heightRatio, scale);
             const treeData = {
                 type: 'tree',
                 treeKind: 'deciduous',
@@ -15037,28 +15144,28 @@ class World {
                 phase: Math.random() * Math.PI * 2,
                 rustleBoost: 0,
                 leafColor: new THREE.Color(pal.burstColor),
-                boundingSphere: new THREE.Sphere(new THREE.Vector3(x, y + 3.4 * scale, z), 3.6 * scale)
+                boundingSphere: new THREE.Sphere(new THREE.Vector3(x, y + 3.4 * scale * heightRatio, z), 3.6 * scale * Math.max(1, heightRatio))
             };
             group.userData = treeData;
             swayingCanopies.push(treeData);
             interactiveTrees.push(group);
             scene.add(group);
-            addCircleCollider('tree', x, z, 0.34 * scale * 1.18, y + 4.5 * scale, group);
+            addCircleCollider('tree', x, z, 0.34 * scale * 1.18, y + 4.5 * scale * heightRatio, group);
             return group;
         }
 
         // Hero Foreground & Midground Valley Trees framing the campfire, pond & Truckful road
         const heroTrees = [
-            { x: -10.8, z: -2.6, s: 1.05, kind: 'deciduous', c: 'emerald' },
-            { x: -11.6, z: 8.6, s: 0.96, kind: 'pine', v: 'broad_woodland', c: 'teal' },
-            { x: 5.2, z: -7.8, s: 1.08, kind: 'deciduous', c: 'olive' },
-            { x: 13.8, z: 3.4, s: 1.02, kind: 'pine', v: 'tall_alpine', c: 'emerald' },
-            { x: 12.6, z: 10.6, s: 0.95, kind: 'deciduous', c: 'emerald' },
-            { x: -0.6, z: -9.8, s: 1.12, kind: 'pine', v: 'tall_alpine', c: 'teal' },
-            { x: 3.6, z: 12.2, s: 0.92, kind: 'pine', v: 'young_bushy', c: 'olive' },
-            { x: -12.8, z: 2.8, s: 1.02, kind: 'pine', v: 'high_canopy', c: 'emerald' },
-            { x: 9.8, z: -4.2, s: 0.98, kind: 'deciduous', c: 'teal' },
-            { x: -10.2, z: 14.5, s: 0.94, kind: 'deciduous', c: 'olive' }
+            { x: -10.8, z: -2.6, s: 1.38, hr: 1.12, kind: 'deciduous', c: 'emerald' },
+            { x: -11.6, z: 8.6, s: 0.72, hr: 0.90, kind: 'pine', v: 'broad_woodland', c: 'teal' },
+            { x: 5.2, z: -7.8, s: 1.46, hr: 1.15, kind: 'deciduous', c: 'olive' },
+            { x: 13.8, z: 3.4, s: 1.54, hr: 1.18, kind: 'pine', v: 'tall_alpine', c: 'emerald' },
+            { x: 12.6, z: 10.6, s: 0.66, hr: 0.88, kind: 'deciduous', c: 'emerald' },
+            { x: -0.6, z: -9.8, s: 1.42, hr: 1.10, kind: 'pine', v: 'tall_alpine', c: 'teal' },
+            { x: 3.6, z: 12.2, s: 0.62, hr: 0.85, kind: 'pine', v: 'young_bushy', c: 'olive' },
+            { x: -12.8, z: 2.8, s: 1.18, hr: 1.05, kind: 'pine', v: 'high_canopy', c: 'emerald' },
+            { x: 9.8, z: -4.2, s: 0.96, hr: 0.96, kind: 'deciduous', c: 'teal' },
+            { x: -10.2, z: 14.5, s: 0.78, hr: 0.92, kind: 'deciduous', c: 'olive' }
         ];
         const treeGrid = new Map();
         const TREE_CELL = 3.6;
@@ -15101,9 +15208,9 @@ class World {
             if (getRoadDistance(ht.x, ht.z) < 3.2) return;
             registerTreeSpot(ht.x, ht.z);
             if (ht.kind === 'deciduous') {
-                createBotWDeciduousTree(ht.x, ht.z, ht.s, ht.c);
+                createBotWDeciduousTree(ht.x, ht.z, ht.s, ht.c, ht.hr || 1.0);
             } else {
-                createStylizedPineTree(ht.x, ht.z, ht.s, ht.v, ht.c);
+                createStylizedPineTree(ht.x, ht.z, ht.s, ht.v, ht.c, ht.hr || 1.0);
             }
         });
 
@@ -15114,16 +15221,21 @@ class World {
             if (!isValidForestTreePos(x, z, minSp)) return false;
             registerTreeSpot(x, z);
             const idx = treeIdxSeq++;
-            const scale = 0.88 + Math.random() * 0.48;
+            const tier = Math.random();
+            // Variasi tinggi pohon yang kontras: pendek/muda, sedang, dan tinggi menjulang
+            const scale = tier < 0.28
+                ? (0.52 + Math.random() * 0.28)
+                : (tier < 0.70 ? (0.85 + Math.random() * 0.40) : (1.30 + Math.random() * 0.50));
+            const heightRatio = 0.82 + Math.random() * 0.42;
             if (Math.random() < deadChance) {
                 createStylizedDeadPine(x, z, scale * 1.04);
             } else {
                 const v = variantCycle[idx % variantCycle.length];
                 const c = colorCycle[(idx + Math.floor(idx / 3)) % colorCycle.length];
                 if (v === 'deciduous') {
-                    createBotWDeciduousTree(x, z, scale, c);
+                    createBotWDeciduousTree(x, z, scale, c, heightRatio);
                 } else {
-                    createStylizedPineTree(x, z, scale, v, c);
+                    createStylizedPineTree(x, z, scale, v, c, heightRatio);
                 }
             }
             return true;
@@ -16187,6 +16299,177 @@ class World {
             }
         })();
 
+        // ---- Sebaran Bebatuan, Kayu Tumbang & Tunggul Pohon di Area Hutan Kosong ----
+        (function buildForestRocksAndWood() {
+            let seed = 918273;
+            const rand = () => {
+                seed = (seed * 1664525 + 1013904223) >>> 0;
+                return seed / 4294967296;
+            };
+
+            const isValidForestFloorProp = (x, z, minClear = 4.6) => {
+                if (Math.hypot(x, z) < 12.0) return false;
+                if (Math.abs(x) > TERRAIN_SIZE * 0.47 || Math.abs(z) > TERRAIN_SIZE * 0.47) return false;
+                if (getRoadDistance(x, z) < minClear) return false;
+                if (Math.hypot(x - POND_CENTER.x, z - POND_CENTER.z) < POND_CENTER.radius + 4.2) return false;
+                if (Math.abs(z - riverCenterZ(x)) < riverHalfWidthAt(x) + RIVER.bank + 3.8) return false;
+                for (let vi = 0; vi < VILLAGES.length; vi++) {
+                    const v = VILLAGES[vi];
+                    if (Math.hypot(x - v.cx, z - v.cz) < v.radius * 2.25) return false;
+                }
+                return true;
+            };
+
+            const mossyRockMat = new THREE.MeshStandardMaterial({ color: 0x6c7a72, roughness: 0.90 });
+            applyStylizedCelShading(mossyRockMat, { rimStrength: 0.16, shadowLift: 0.50 });
+            const logBarkMat = new THREE.MeshStandardMaterial({ color: 0x6b4b32, roughness: 0.92 });
+            applyStylizedCelShading(logBarkMat, { rimStrength: 0.12, shadowLift: 0.46 });
+            const heartWoodMat = new THREE.MeshStandardMaterial({ color: 0xc29e6f, roughness: 0.85 });
+            applyStylizedCelShading(heartWoodMat, { rimStrength: 0.10, shadowLift: 0.54 });
+            const mossCapMat = new THREE.MeshStandardMaterial({ color: 0x4f7f42, roughness: 0.92 });
+            applyStylizedCelShading(mossCapMat, { rimStrength: 0.14, shadowLift: 0.52 });
+
+            const rockGeos = [
+                new THREE.DodecahedronGeometry(1.0, 0),
+                new THREE.DodecahedronGeometry(1.0, 1),
+            ];
+            rockGeos.forEach((g, gi) => {
+                const pos = g.attributes.position;
+                for (let i = 0; i < pos.count; i++) {
+                    const vx = pos.getX(i), vy = pos.getY(i), vz = pos.getZ(i);
+                    const n = 0.86 + 0.24 * Math.sin(vx * 3.7 + vy * 2.9 + gi * 1.3 + vz * 4.1);
+                    pos.setXYZ(i, vx * n, vy * (vy < 0 ? 0.72 : n * 0.88), vz * n);
+                }
+                g.computeVertexNormals();
+            });
+
+            // Shared unit cylinder aligned along local X for fallen logs (kompatibel dengan addTraversableLog)
+            const logUnitGeo = new THREE.CylinderGeometry(0.92, 1.0, 1.0, 7);
+            logUnitGeo.rotateZ(Math.PI * 0.5);
+            const logCapGeo = new THREE.CylinderGeometry(0.84, 0.84, 1.02, 7);
+            logCapGeo.rotateZ(Math.PI * 0.5);
+            const stumpBodyGeo = new THREE.CylinderGeometry(0.76, 1.05, 1.0, 7);
+            stumpBodyGeo.translate(0, 0.5, 0);
+            const stumpTopGeo = new THREE.CylinderGeometry(0.72, 0.72, 0.05, 7);
+            stumpTopGeo.translate(0, 1.0, 0);
+
+            // 1) Sebaran Bebatuan Hutan (batu besar berkolider + kerikil satelit)
+            let rocksPlaced = 0;
+            for (let attempt = 0; attempt < 420 && rocksPlaced < 105; attempt++) {
+                const ang = rand() * Math.PI * 2;
+                const rad = 14.0 + Math.sqrt(rand()) * 210.0;
+                const x = Math.cos(ang) * rad;
+                const z = Math.sin(ang) * rad;
+                if (!isValidForestFloorProp(x, z, 4.6)) continue;
+
+                const y = getTerrainHeight(x, z);
+                const isBig = rand() < 0.62;
+                const s = isBig ? (0.72 + rand() * 0.92) : (0.34 + rand() * 0.34);
+                const mat = rand() < 0.45 ? mossyRockMat : rockMat;
+                const geo = rockGeos[rand() < 0.55 ? 0 : 1];
+
+                const rock = new THREE.Mesh(geo, mat);
+                rock.position.set(x, y + s * 0.30, z);
+                rock.scale.set(s * (0.95 + rand() * 0.45), s * (0.62 + rand() * 0.35), s * (0.90 + rand() * 0.45));
+                rock.rotation.set((rand() - 0.5) * 0.45, rand() * Math.PI * 2, (rand() - 0.5) * 0.45);
+                rock.castShadow = !isMobileDevice && Math.hypot(x, z) < 42;
+                rock.receiveShadow = true;
+                scene.add(rock);
+                if (isBig) {
+                    addRockMeshCollider('forest_rock', rock);
+                }
+
+                // 1-2 batu kecil satelit di sekitar batu utama
+                const satCount = isBig ? (1 + (rand() < 0.5 ? 1 : 0)) : 0;
+                for (let k = 0; k < satCount; k++) {
+                    const sa = rand() * Math.PI * 2;
+                    const sd = s * (0.85 + rand() * 0.75);
+                    const sx = x + Math.cos(sa) * sd;
+                    const sz = z + Math.sin(sa) * sd;
+                    const sy = getTerrainHeight(sx, sz);
+                    const ss = 0.24 + rand() * 0.32;
+                    const sat = new THREE.Mesh(rockGeos[0], mat);
+                    sat.position.set(sx, sy + ss * 0.28, sz);
+                    sat.scale.set(ss * 1.15, ss * 0.68, ss);
+                    sat.rotation.set(rand() * 0.4, rand() * Math.PI * 2, rand() * 0.4);
+                    sat.receiveShadow = true;
+                    scene.add(sat);
+                }
+                rocksPlaced++;
+            }
+
+            // 2) Sebaran Kayu Tumbang & Tunggul Pohon di Hutan Kosong
+            let logsPlaced = 0;
+            for (let attempt = 0; attempt < 360 && logsPlaced < 55; attempt++) {
+                const ang = rand() * Math.PI * 2;
+                const rad = 15.0 + Math.sqrt(rand()) * 205.0;
+                const x = Math.cos(ang) * rad;
+                const z = Math.sin(ang) * rad;
+                if (!isValidForestFloorProp(x, z, 5.2)) continue;
+
+                const yaw = rand() * Math.PI * 2;
+                const len = 2.2 + rand() * 2.5;
+                const radius = 0.17 + rand() * 0.15;
+                const y = getTerrainHeight(x, z);
+
+                const logGroup = new THREE.Group();
+                logGroup.position.set(x, y + radius * 0.58, z);
+                logGroup.rotation.y = yaw;
+
+                const trunkMesh = new THREE.Mesh(logUnitGeo, logBarkMat);
+                trunkMesh.scale.set(len, radius, radius);
+                trunkMesh.castShadow = !isMobileDevice && Math.hypot(x, z) < 38;
+                trunkMesh.receiveShadow = true;
+                logGroup.add(trunkMesh);
+
+                const capMesh = new THREE.Mesh(logCapGeo, heartWoodMat);
+                capMesh.scale.set(len, radius * 0.88, radius * 0.88);
+                logGroup.add(capMesh);
+
+                if (rand() < 0.6) {
+                    const mossPatch = new THREE.Mesh(rockGeos[0], mossCapMat);
+                    mossPatch.position.set((rand() - 0.5) * len * 0.45, radius * 0.72, 0);
+                    mossPatch.scale.set(0.35 + rand() * 0.45, 0.10, radius * 0.75);
+                    logGroup.add(mossPatch);
+                }
+
+                scene.add(logGroup);
+                addTraversableLog(logGroup, radius, len);
+                logsPlaced++;
+            }
+
+            let stumpsPlaced = 0;
+            for (let attempt = 0; attempt < 280 && stumpsPlaced < 42; attempt++) {
+                const ang = rand() * Math.PI * 2;
+                const rad = 14.0 + Math.sqrt(rand()) * 200.0;
+                const x = Math.cos(ang) * rad;
+                const z = Math.sin(ang) * rad;
+                if (!isValidForestFloorProp(x, z, 4.6)) continue;
+
+                const y = getTerrainHeight(x, z);
+                const rBot = 0.24 + rand() * 0.22;
+                const h = 0.42 + rand() * 0.52;
+
+                const stumpGroup = new THREE.Group();
+                stumpGroup.position.set(x, y - 0.06, z);
+                stumpGroup.rotation.y = rand() * Math.PI * 2;
+
+                const body = new THREE.Mesh(stumpBodyGeo, logBarkMat);
+                body.scale.set(rBot, h, rBot);
+                body.castShadow = !isMobileDevice && Math.hypot(x, z) < 36;
+                body.receiveShadow = true;
+                stumpGroup.add(body);
+
+                const top = new THREE.Mesh(stumpTopGeo, heartWoodMat);
+                top.scale.set(rBot, h, rBot);
+                stumpGroup.add(top);
+
+                scene.add(stumpGroup);
+                addCircleCollider('stump', x, z, rBot * 1.05, y + h, stumpGroup);
+                stumpsPlaced++;
+            }
+        })();
+
         // ---- 5 Desa Terhubung Jaringan Jalan (posisi & jumlah bangunan diacak dari modul model) ----
         const villageAnimated = {
             smokePuffs: [],
@@ -16197,6 +16480,7 @@ class World {
         };
         const villageWorkshops = [];
         const villageWells = [];
+        const villageFarms = [];
         const villageData = {
             buildings: {},
             buildingList: [],
@@ -16318,6 +16602,7 @@ class World {
                 gateArch.rotation.y = gateP.yaw;
                 villageGroup.add(gateArch);
                 registerModelMeta(gateArch, gateP.x, gateY, gateP.z, gateP.yaw, 'gate_post', gateScale);
+                vRec.gateSign = { x: gateP.x, y: gateY + 4.65 * gateScale, z: gateP.z, yaw: gateP.yaw, groundY: gateY };
 
                 const gSouthP = streetPt(-22.5, -2.4);
                 const gSouthFace = streetPt(-28.0, 0);
@@ -16398,6 +16683,7 @@ class World {
                     }
 
                     if (lot.kind === 'blacksmith' && !vRec.stations.forge) {
+                        vRec.blacksmithLot = { x: hx, z: hz, yaw, sc, w: lot.w, d: lot.d };
                         const forgeStand = localToWorldXZ(hx, hz, yaw, sc, 1.45, -2.55);
                         vRec.stations.forge = { x: forgeStand.x, z: forgeStand.z, faceX: hx, faceZ: hz };
                         // Zona Bengkel Gerobak tepat di depan bangunan pandai besi menghadap jalan & rumput sekitar
@@ -16436,10 +16722,61 @@ class World {
                         vRec.stations.tavernPorch = { x: tavFront.x, z: tavFront.z, faceX: hx, faceZ: hz };
                     } else if (lot.kind === 'stall') {
                         const stallFront = localToWorldXZ(hx, hz, yaw, sc, 0, -1.75);
+                        const stallBack = localToWorldXZ(hx, hz, yaw, sc, 0.22, 0.52);
+                        const shopDrop = localToWorldXZ(hx, hz, yaw, sc, -1.55, -1.35);
                         const stallSpot = { x: stallFront.x, z: stallFront.z, faceX: p.roadX, faceZ: p.roadZ };
-                        if (!vRec.stations.stallA) vRec.stations.stallA = stallSpot;
-                        else vRec.stations.stallB = stallSpot;
+                        if (!vRec.stations.stallA) {
+                            vRec.stations.stallA = stallSpot;
+                            vRec.stations.merchantPost = {
+                                x: stallBack.x,
+                                z: stallBack.z,
+                                y: hy + 0.16 * sc,
+                                faceX: stallFront.x,
+                                faceZ: stallFront.z,
+                                behindStall: true,
+                            };
+                            vRec.stations.shopDrop = { x: shopDrop.x, z: shopDrop.z, faceX: hx, faceZ: hz };
+                            // Visual peti stok panen di samping toko merchant (bertambah saat petani/pemain panen)
+                            const stockCrates = [];
+                            const stockCrateMat = new THREE.MeshLambertMaterial({ color: 0x9c6e3b });
+                            const stockWheatMat = new THREE.MeshLambertMaterial({ color: 0xebbf3b });
+                            const stockCarrotMat = new THREE.MeshLambertMaterial({ color: 0xe86e24 });
+                            for (let ci = 0; ci < 8; ci++) {
+                                const col = ci % 2;
+                                const row = Math.floor(ci / 2) % 2;
+                                const tier = Math.floor(ci / 4);
+                                const cg = new THREE.Group();
+                                const crateBox = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.34, 0.42), stockCrateMat);
+                                crateBox.position.y = 0.17;
+                                crateBox.castShadow = !isMobileDevice;
+                                crateBox.receiveShadow = true;
+                                cg.add(crateBox);
+                                const produce = new THREE.Mesh(
+                                    new THREE.BoxGeometry(0.38, 0.14, 0.34),
+                                    ci % 2 === 0 ? stockWheatMat : stockCarrotMat
+                                );
+                                produce.position.y = 0.36;
+                                cg.add(produce);
+                                const cp = localToWorldXZ(hx, hz, yaw, sc, -1.38 - col * 0.36, -0.35 + row * 0.34);
+                                const cy = getTerrainHeight(cp.x, cp.z);
+                                cg.position.set(cp.x, cy + tier * 0.35, cp.z);
+                                cg.rotation.y = yaw + (ci % 3 - 1) * 0.08;
+                                cg.visible = ci < 2; // mulai dengan 2 peti stok awal (4 hasil panen)
+                                villageGroup.add(cg);
+                                stockCrates.push(cg);
+                            }
+                            vRec.shopStock = {
+                                villageId: v.id,
+                                villageName: v.name,
+                                crops: 4,
+                                deliveredTotal: 0,
+                                crates: stockCrates,
+                            };
+                        } else {
+                            vRec.stations.stallB = stallSpot;
+                        }
                     } else if (lot.kind === 'barn' && !vRec.stations.barnYard) {
+                        vRec.barnLot = { x: hx, z: hz, yaw, sc, w: lot.w, d: lot.d };
                         vRec.stations.barnYard = { x: approachWorld.x, z: approachWorld.z, faceX: hx, faceZ: hz };
                     } else if (lot.kind === 'cottage' && !vRec.stations.garden) {
                         const gardenSpot = localToWorldXZ(hx, hz, yaw, sc, 1.8, -3.5);
@@ -16453,6 +16790,163 @@ class World {
                         door: pathEnd,
                         seed: lot.seed || 1,
                     });
+                }
+
+                // 2B. Lahan Pertanian Kecil Desa (bisa ditanam & dipanen petani maupun pemain -> masuk stok toko desa)
+                {
+                    const bl = vRec.barnLot;
+                    let fpX, fpZ, fpYaw;
+                    if (bl) {
+                        const sidePt = localToWorldXZ(bl.x, bl.z, bl.yaw, bl.sc, bl.w * 0.5 + 2.45, 0.35);
+                        fpX = sidePt.x;
+                        fpZ = sidePt.z;
+                        fpYaw = bl.yaw;
+                    } else {
+                        const spFarm = streetPt(6.5, -13.5);
+                        fpX = spFarm.x;
+                        fpZ = spFarm.z;
+                        fpYaw = spFarm.yaw;
+                    }
+                    const fpY = getTerrainHeight(fpX, fpZ);
+                    paintGrassVisibilityCircle(fpX, fpZ, 3.6, 0.0);
+
+                    const farmGroup = new THREE.Group();
+                    farmGroup.position.set(fpX, fpY, fpZ);
+                    farmGroup.rotation.y = fpYaw;
+                    villageGroup.add(farmGroup);
+
+                    const soilMat = new THREE.MeshLambertMaterial({ color: 0x5c3d24 });
+                    const furrowMat = new THREE.MeshLambertMaterial({ color: 0x472e19 });
+                    const fenceMat = new THREE.MeshLambertMaterial({ color: 0x7c5733 });
+                    const sproutMat = new THREE.MeshLambertMaterial({ color: 0x5ca638 });
+                    const growMat = new THREE.MeshLambertMaterial({ color: 0x4f912f });
+                    const ripeWheatMat = new THREE.MeshLambertMaterial({ color: 0xebc23f });
+                    const ripeCarrotMat = new THREE.MeshLambertMaterial({ color: 0xeb6e23 });
+
+                    // Petak tanah gembur + 3 bedengan alur bajak
+                    const plotW = 4.6, plotD = 3.6;
+                    const soilBase = new THREE.Mesh(new THREE.BoxGeometry(plotW, 0.14, plotD), soilMat);
+                    soilBase.position.y = 0.05;
+                    soilBase.receiveShadow = true;
+                    farmGroup.add(soilBase);
+                    for (let r = -1; r <= 1; r++) {
+                        const ridge = new THREE.Mesh(new THREE.BoxGeometry(plotW - 0.55, 0.10, 0.72), furrowMat);
+                        ridge.position.set(0, 0.13, r * 1.05);
+                        ridge.receiveShadow = true;
+                        farmGroup.add(ridge);
+                    }
+                    // Pagar kayu rendah di 3 sisi (bagian depan -Z terbuka untuk akses petani/kuda)
+                    const halfW = plotW * 0.5 + 0.18, halfD = plotD * 0.5 + 0.18;
+                    const postCoords = [
+                        [-halfW, -halfD], [halfW, -halfD],
+                        [-halfW, 0], [halfW, 0],
+                        [-halfW, halfD], [0, halfD], [halfW, halfD],
+                    ];
+                    for (const [px, pz] of postCoords) {
+                        const post = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.82, 0.14), fenceMat);
+                        post.position.set(px, 0.41, pz);
+                        post.castShadow = !isMobileDevice;
+                        farmGroup.add(post);
+                    }
+                    // Rel pagar kiri, kanan, belakang
+                    for (const ry of [0.32, 0.64]) {
+                        const railBack = new THREE.Mesh(new THREE.BoxGeometry(halfW * 2, 0.09, 0.08), fenceMat);
+                        railBack.position.set(0, ry, halfD);
+                        farmGroup.add(railBack);
+                        for (const sx of [-1, 1]) {
+                            const railSide = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.09, halfD * 2), fenceMat);
+                            railSide.position.set(sx * halfW, ry, 0);
+                            farmGroup.add(railSide);
+                        }
+                    }
+
+                    // 9 petak tanaman (3x3): stage 0 = bibit/kosong, 1 = tumbuh hijau, 2 = matang siap panen
+                    const tiles = [];
+                    const cropTypes = ['wheat', 'wheat', 'carrot'];
+                    for (let r = 0; r < 3; r++) {
+                        for (let c = 0; c < 3; c++) {
+                            const lx = (c - 1) * 1.28;
+                            const lz = (r - 1) * 1.05;
+                            const tileWorld = localToWorldXZ(fpX, fpZ, fpYaw, 1.0, lx, lz);
+                            const cropKind = cropTypes[(r + c) % cropTypes.length];
+
+                            const tg = new THREE.Group();
+                            tg.position.set(lx, 0.16, lz);
+                            farmGroup.add(tg);
+
+                            // Stage 0: bibit kecil baru ditanam
+                            const s0 = new THREE.Group();
+                            for (let k = 0; k < 3; k++) {
+                                const sp = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.14, 0.09), sproutMat);
+                                sp.position.set((k - 1) * 0.18, 0.07, (k % 2 - 0.5) * 0.14);
+                                s0.add(sp);
+                            }
+                            tg.add(s0);
+
+                            // Stage 1: batang hijau sedang
+                            const s1 = new THREE.Group();
+                            for (let k = 0; k < 5; k++) {
+                                const ang = (k / 5) * Math.PI * 2;
+                                const stMesh = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.44, 0.10), growMat);
+                                stMesh.position.set(Math.cos(ang) * 0.20, 0.22, Math.sin(ang) * 0.16);
+                                stMesh.rotation.z = (k % 2 ? 0.12 : -0.12);
+                                s1.add(stMesh);
+                            }
+                            tg.add(s1);
+
+                            // Stage 2: tanaman matang siap panen (gandum emas tinggi atau wortel lebat)
+                            const s2 = new THREE.Group();
+                            if (cropKind === 'wheat') {
+                                for (let k = 0; k < 6; k++) {
+                                    const ang = (k / 6) * Math.PI * 2;
+                                    const stalk = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.82, 0.11), ripeWheatMat);
+                                    stalk.position.set(Math.cos(ang) * 0.22, 0.41, Math.sin(ang) * 0.18);
+                                    stalk.rotation.z = (k % 2 ? 0.14 : -0.14);
+                                    s2.add(stalk);
+                                }
+                            } else {
+                                for (let k = 0; k < 4; k++) {
+                                    const ang = (k / 4) * Math.PI * 2 + 0.4;
+                                    const rootMesh = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.22, 0.15), ripeCarrotMat);
+                                    rootMesh.position.set(Math.cos(ang) * 0.18, 0.11, Math.sin(ang) * 0.15);
+                                    s2.add(rootMesh);
+                                    const leafTop = new THREE.Mesh(new THREE.BoxGeometry(0.20, 0.34, 0.20), growMat);
+                                    leafTop.position.set(Math.cos(ang) * 0.18, 0.36, Math.sin(ang) * 0.15);
+                                    s2.add(leafTop);
+                                }
+                            }
+                            tg.add(s2);
+
+                            const idxTile = r * 3 + c;
+                            const initStage = idxTile < 5 ? 2 : (idxTile < 7 ? 1 : 0);
+                            s0.visible = initStage === 0;
+                            s1.visible = initStage === 1;
+                            s2.visible = initStage === 2;
+
+                            tiles.push({
+                                index: idxTile,
+                                x: tileWorld.x,
+                                z: tileWorld.z,
+                                cropKind,
+                                stage: initStage,
+                                growT: initStage === 1 ? 10 : 0,
+                                stageMeshes: [s0, s1, s2],
+                            });
+                        }
+                    }
+
+                    const farmRec = {
+                        villageId: v.id,
+                        villageName: v.name,
+                        villageRef: vRec,
+                        x: fpX,
+                        z: fpZ,
+                        yaw: fpYaw,
+                        tiles,
+                    };
+                    vRec.farmPlot = farmRec;
+                    vRec.stations.farmPlot = { x: fpX, z: fpZ, faceX: fpX, faceZ: fpZ };
+                    villageFarms.push(farmRec);
                 }
 
                 // 3. Alun-alun Tengah: Sumur Batu Beratap + Papan Pengumuman + Bangku + Pot Bunga
@@ -16798,9 +17292,12 @@ class World {
     this._lastGrassTileZ = 0;
     this.VILLAGE_WORKSHOPS = villageWorkshops;
     this.VILLAGE_WELLS = villageWells;
+    this.VILLAGE_FARMS = villageFarms;
     this.cycleEnabled = true;
-    this.cycleDuration = 600.0; // Siklus penuh siang-malam 10 menit
+    this.cycleDuration = 600.0; // Siklus penuh siang-malam 10 menit (1 hari = 24 jam game)
     this.timeOfDay = 0.08;      // Mulai pagi cerah (~07:55)
+    this.dayClock = this.timeOfDay;
+    this._grazedPatches = [];
     this._cycleTarget = {
       bgTop: MOODS.morning.bgTop.clone(),
       bgBottom: MOODS.morning.bgBottom.clone(),
@@ -17157,14 +17654,15 @@ class World {
       const pickHome = (prefKey, fallbackIdx = 0) =>
         bldgs[prefKey] || bList[fallbackIdx % Math.max(1, bList.length)] || null;
 
-      // Tepat 4 warga per desa: 2 petani (farmer, herbal), 1 penjual (merchant/petmerchant), 1 petarung (guard/warrior/hunter/lionknight/rabbitwarrior)
+      // Tepat 4 warga per desa: 2 petani (farmer, herbal), 1 penjual (merchant/petmerchant), 1 petarung
       const roster = [
         {
           roleId: 'farmer',
           workKind: 'farm',
-          spawn: st.barnYard || st.garden || st.plaza,
+          spawn: st.farmPlot || st.barnYard || st.garden || st.plaza,
           homeBldg: pickHome('barn', 0),
-          stations: [st.barnYard, st.garden, pickPlanter(0), st.well].filter(Boolean),
+          stations: [st.farmPlot, st.barnYard, st.garden, st.well].filter(Boolean),
+          canEnterHouse: true,
         },
         {
           roleId: 'herbal',
@@ -17172,13 +17670,15 @@ class World {
           spawn: pickPlanter(0) || st.garden || st.well,
           homeBldg: pickHome('cottage_sw', 1),
           stations: [pickPlanter(0), pickPlanter(1), st.garden, st.well].filter(Boolean),
+          canEnterHouse: true,
         },
         {
           roleId: vRec.merchantRole || 'merchant',
           workKind: 'shop',
-          spawn: st.stallA || st.plaza,
-          homeBldg: pickHome('cottage_nw', 2),
-          stations: [st.stallA, st.stallB, st.noticeBoard, st.well].filter(Boolean),
+          spawn: st.merchantPost || st.stallA || st.plaza,
+          homeBldg: null,
+          stations: [st.merchantPost || st.stallA || st.plaza].filter(Boolean),
+          canEnterHouse: false,
         },
         {
           roleId: vRec.fighterRole || 'guard',
@@ -17186,19 +17686,27 @@ class World {
           spawn: st.gateSouth || st.plaza,
           homeBldg: pickHome('tavern', 3),
           stations: [st.gateSouth, st.plaza, st.gateNorth, st.tavernPorch, pickBench(0)].filter(Boolean),
+          canEnterHouse: true,
         },
       ];
 
       for (let rIdx = 0; rIdx < roster.length; rIdx++) {
         const cfg = roster[rIdx];
         const sp0 = cfg.spawn || st.plaza || { x: vRec.cx, z: vRec.cz, faceX: vRec.cx, faceZ: vRec.cz + 1 };
-        const jitterAng = (rIdx * 1.57 + vIdx * 0.85) % (Math.PI * 2);
-        const tryX = sp0.x + Math.cos(jitterAng) * 0.45;
-        const tryZ = sp0.z + Math.sin(jitterAng) * 0.45;
-        const cleared = this.resolveCircleCollision(tryX, tryZ, 0.44);
-        const sx = cleared.x;
-        const sz = cleared.z;
-        const gy = this.terrainHeightAt(sx, sz);
+        let sx, sz, gy;
+        if (sp0.behindStall) {
+          sx = sp0.x;
+          sz = sp0.z;
+          gy = sp0.y !== undefined ? sp0.y : this.terrainHeightAt(sx, sz);
+        } else {
+          const jitterAng = (rIdx * 1.57 + vIdx * 0.85) % (Math.PI * 2);
+          const tryX = sp0.x + Math.cos(jitterAng) * 0.45;
+          const tryZ = sp0.z + Math.sin(jitterAng) * 0.45;
+          const cleared = this.resolveCircleCollision(tryX, tryZ, 0.44);
+          sx = cleared.x;
+          sz = cleared.z;
+          gy = this.terrainHeightAt(sx, sz);
+        }
         const fx = sp0.faceX !== undefined ? sp0.faceX : vRec.cx;
         const fz = sp0.faceZ !== undefined ? sp0.faceZ : vRec.cz;
         const yaw = Math.atan2(fx - sx, fz - sz);
@@ -17237,7 +17745,11 @@ class World {
           homeBldg: cfg.homeBldg,
           workKind: cfg.workKind,
           stations: cfg.stations.length ? cfg.stations : [sp0],
-          canEnterHouse: !!cfg.homeBldg,
+          canEnterHouse: cfg.canEnterHouse !== undefined ? cfg.canEnterHouse : !!cfg.homeBldg,
+          behindStall: !!sp0.behindStall,
+          fixedY: sp0.behindStall ? gy : null,
+          farmPlot: vRec.farmPlot || null,
+          shopDrop: st.shopDrop || st.stallA || null,
         };
         if (w.anchor) {
           w.anchor.x = sx;
@@ -17273,21 +17785,150 @@ class World {
     return this.targetMood;
   }
 
-  findNearestWorkshop(x, z, maxDist = 11.0) {
+  findNearestWorkshop(x, z, maxDist = 4.2) {
     const list = this.VILLAGE_WORKSHOPS || [];
     let best = null;
     let bestD = maxDist;
     for (let i = 0; i < list.length; i++) {
       const ws = list[i];
+      // Wajib berada di area depan bangunan bengkel (bukan belakang/samping jauh)
+      const frontX = -Math.sin(ws.shopYaw || 0);
+      const frontZ = -Math.cos(ws.shopYaw || 0);
+      const frontDot = (x - ws.shopX) * frontX + (z - ws.shopZ) * frontZ;
+      if (frontDot < 0.4) continue;
       const d = Math.hypot(x - ws.x, z - ws.z);
-      const dShop = Math.hypot(x - ws.shopX, z - ws.shopZ);
-      const effectiveD = Math.min(d, dShop - 1.5);
-      if (effectiveD <= bestD) {
-        bestD = effectiveD;
-        best = { ...ws, dist: effectiveD };
+      if (d <= bestD) {
+        bestD = d;
+        best = { ...ws, dist: d };
       }
     }
     return best;
+  }
+
+  setFarmTileStage(tile, stage) {
+    if (!tile) return;
+    const clamped = Math.max(0, Math.min(2, stage | 0));
+    tile.stage = clamped;
+    if (clamped === 0) tile.growT = 0;
+    if (Array.isArray(tile.stageMeshes)) {
+      for (let i = 0; i < tile.stageMeshes.length; i++) {
+        tile.stageMeshes[i].visible = (i === clamped);
+      }
+    }
+  }
+
+  addVillageShopStock(vRecOrId, amount = 1) {
+    const qty = Math.max(0, Math.floor(amount || 0));
+    if (!qty) return 0;
+    let vRec = (vRecOrId && typeof vRecOrId === 'object') ? vRecOrId : null;
+    if (!vRec && this.villageData && Array.isArray(this.villageData.villages)) {
+      vRec = this.villageData.villages.find((v) => v.id === vRecOrId) || null;
+    }
+    if (!vRec) return 0;
+    if (!vRec.shopStock) {
+      vRec.shopStock = { villageId: vRec.id, villageName: vRec.name, crops: 0, deliveredTotal: 0, crates: [] };
+    }
+    vRec.shopStock.crops += qty;
+    vRec.shopStock.deliveredTotal += qty;
+    if (Array.isArray(vRec.shopStock.crates)) {
+      const visCount = Math.min(vRec.shopStock.crates.length, Math.max(1, Math.ceil(vRec.shopStock.crops / 2)));
+      for (let i = 0; i < vRec.shopStock.crates.length; i++) {
+        vRec.shopStock.crates[i].visible = i < visCount;
+      }
+    }
+    return vRec.shopStock.crops;
+  }
+
+  harvestFarmTile(farmPlot, tileIdx, autoStock = true) {
+    if (!farmPlot || !Array.isArray(farmPlot.tiles)) return null;
+    const tile = farmPlot.tiles[tileIdx];
+    if (!tile || tile.stage !== 2) return null;
+    this.setFarmTileStage(tile, 0);
+    const totalStock = autoStock ? this.addVillageShopStock(farmPlot.villageRef || farmPlot.villageId, 1) : (farmPlot.villageRef?.shopStock?.crops || 0);
+    return { harvested: 1, cropKind: tile.cropKind, shopStock: totalStock };
+  }
+
+  plantFarmTile(farmPlot, tileIdx) {
+    if (!farmPlot || !Array.isArray(farmPlot.tiles)) return false;
+    const tile = farmPlot.tiles[tileIdx];
+    if (!tile || tile.stage !== 0) return false;
+    this.setFarmTileStage(tile, 1);
+    tile.growT = 0;
+    return true;
+  }
+
+  findNearestFarmPlot(x, z, maxDist = 4.8) {
+    const list = this.VILLAGE_FARMS || [];
+    let best = null;
+    let bestD = maxDist;
+    for (let i = 0; i < list.length; i++) {
+      const fp = list[i];
+      const d = Math.hypot(x - fp.x, z - fp.z);
+      if (d <= bestD) {
+        bestD = d;
+        let ripeCount = 0, emptyCount = 0;
+        for (const t of fp.tiles || []) {
+          if (t.stage === 2) ripeCount++;
+          else if (t.stage === 0) emptyCount++;
+        }
+        best = {
+          farm: fp,
+          villageId: fp.villageId,
+          villageName: fp.villageName,
+          dist: d,
+          ripeCount,
+          emptyCount,
+          shopStock: fp.villageRef?.shopStock?.crops || 0,
+        };
+      }
+    }
+    return best;
+  }
+
+  interactFarmPlot(farmPlot) {
+    if (!farmPlot || !Array.isArray(farmPlot.tiles)) return null;
+    let harvested = 0;
+    let planted = 0;
+    for (let i = 0; i < farmPlot.tiles.length; i++) {
+      if (farmPlot.tiles[i].stage === 2) {
+        this.setFarmTileStage(farmPlot.tiles[i], 0);
+        harvested++;
+      }
+    }
+    if (harvested > 0) {
+      const shopStock = this.addVillageShopStock(farmPlot.villageRef || farmPlot.villageId, harvested);
+      return { action: 'harvest', count: harvested, shopStock, villageName: farmPlot.villageName };
+    }
+    for (let i = 0; i < farmPlot.tiles.length; i++) {
+      if (farmPlot.tiles[i].stage === 0) {
+        this.setFarmTileStage(farmPlot.tiles[i], 1);
+        farmPlot.tiles[i].growT = 0;
+        planted++;
+      }
+    }
+    if (planted > 0) {
+      return { action: 'plant', count: planted, shopStock: farmPlot.villageRef?.shopStock?.crops || 0, villageName: farmPlot.villageName };
+    }
+    return { action: 'growing', count: 0, shopStock: farmPlot.villageRef?.shopStock?.crops || 0, villageName: farmPlot.villageName };
+  }
+
+  _updateVillageFarms(delta) {
+    const farms = this.VILLAGE_FARMS;
+    if (!farms || !farms.length) return;
+    const STAGE_DUR = 28.0; // ~28 detik per tahap tumbuh
+    for (let i = 0; i < farms.length; i++) {
+      const tiles = farms[i].tiles;
+      for (let j = 0; j < tiles.length; j++) {
+        const t = tiles[j];
+        if (t.stage < 2) {
+          t.growT = (t.growT || 0) + delta;
+          if (t.growT >= STAGE_DUR) {
+            t.growT = 0;
+            this.setFarmTileStage(t, t.stage + 1);
+          }
+        }
+      }
+    }
   }
 
   findNearestWaterSource(x, z, maxDist = 18.0) {
@@ -17360,21 +18001,35 @@ class World {
 
   getOldCartSpot() {
     const rad = (this.VILLAGES || []).find((v) => v.id === 'radnar') || (this.VILLAGES && this.VILLAGES[0]);
+    const bs = rad && rad.blacksmithLot;
+    if (bs) {
+      const cosY = Math.cos(bs.yaw);
+      const sinY = Math.sin(bs.yaw);
+      const toWorld = (lx, lz) => {
+        const sx = lx * bs.sc;
+        const sz = lz * bs.sc;
+        return [bs.x + sx * cosY + sz * sinY, bs.z - sx * sinY + sz * cosY];
+      };
+      const baseZOff = bs.d * 0.5 + 3.6;
+      const candidates = [
+        toWorld(0, baseZOff),
+        toWorld(1.8, baseZOff + 0.5),
+        toWorld(-1.8, baseZOff + 0.5),
+        toWorld(0, baseZOff + 1.8),
+        toWorld(3.2, baseZOff + 1.2),
+        toWorld(-3.2, baseZOff + 1.2),
+      ];
+      for (const [cx, cz] of candidates) {
+        const col = this.resolveCircleCollision ? this.resolveCircleCollision(cx, cz, 2.35) : { hit: false };
+        if (!col.hit) {
+          return { x: cx, z: cz, yaw: bs.yaw, villageId: 'radnar' };
+        }
+      }
+      const [fx, fz] = candidates[0];
+      return { x: fx, z: fz, yaw: bs.yaw, villageId: 'radnar' };
+    }
     const baseZ = (rad ? rad.cz : 76.0) + 23.5;
     const roadX = this._getRoadCenterX ? this._getRoadCenterX(baseZ) : 0;
-    const candidates = [
-      [roadX + 8.5, baseZ + 1.5],
-      [roadX - 9.0, baseZ + 2.0],
-      [roadX + 7.5, baseZ + 5.5],
-      [roadX - 7.5, baseZ + 6.0],
-      [roadX, baseZ + 7.5],
-    ];
-    for (const [cx, cz] of candidates) {
-      const col = this.resolveCircleCollision ? this.resolveCircleCollision(cx, cz, 2.35) : { hit: false };
-      if (!col.hit) {
-        return { x: cx, z: cz, yaw: -Math.PI * 0.55, villageId: 'radnar' };
-      }
-    }
     return { x: roadX + 8.5, z: baseZ + 4.0, yaw: -Math.PI * 0.55, villageId: 'radnar' };
   }
 
@@ -17419,7 +18074,10 @@ class World {
 
   _updateDayNightCycle(delta) {
     if (!this.cycleEnabled || !this.cycleDuration) return;
-    this.timeOfDay = (this.timeOfDay + delta / this.cycleDuration) % 1.0;
+    const dayStep = delta / this.cycleDuration;
+    this.timeOfDay = (this.timeOfDay + dayStep) % 1.0;
+    this.dayClock = (this.dayClock || 0) + dayStep;
+    this._updateGrazedGrass();
     const t = this.timeOfDay;
     const { morning, sunset, night } = this.MOODS;
     const sm = (a, b, x) => {
@@ -17775,6 +18433,67 @@ class World {
     return this.waterEdgeDistance(x, z) <= 0.70;
   }
 
+  grazeGrassAt(x, z, radius = 1.65) {
+    if (!this._paintGrassVisibilityCircle || !this._grassMapTexture) return false;
+    this._paintGrassVisibilityCircle(x, z, radius, 0.0);
+    this._grassMapTexture.needsUpdate = true;
+    if (!this._grazedPatches) this._grazedPatches = [];
+    this._grazedPatches.push({
+      x,
+      z,
+      r: radius,
+      regrowAt: (this.dayClock || 0) + 1.0, // Tumbuh kembali setelah 1 hari (24 jam)
+    });
+    return true;
+  }
+
+  _updateGrazedGrass() {
+    if (!this._grazedPatches || !this._grazedPatches.length) return;
+    if (!this._paintGrassVisibilityCircle || !this._grassMapTexture) return;
+    const now = this.dayClock || 0;
+    let dirty = false;
+    for (let i = this._grazedPatches.length - 1; i >= 0; i--) {
+      const p = this._grazedPatches[i];
+      if (now >= p.regrowAt) {
+        this._paintGrassVisibilityCircle(p.x, p.z, p.r * 1.15, 1.0);
+        this._grazedPatches.splice(i, 1);
+        dirty = true;
+      }
+    }
+    if (dirty) this._grassMapTexture.needsUpdate = true;
+  }
+
+  getGrazedState() {
+    return {
+      dayClock: this.dayClock || 0,
+      patches: (this._grazedPatches || []).map((p) => ({
+        x: p.x, z: p.z, r: p.r, regrowAt: p.regrowAt,
+      })),
+    };
+  }
+
+  restoreGrazedState(state) {
+    if (!state) return;
+    if (typeof state.dayClock === 'number') this.dayClock = state.dayClock;
+    if (!Array.isArray(state.patches)) return;
+    this._grazedPatches = [];
+    const now = this.dayClock || 0;
+    let dirty = false;
+    for (let i = 0; i < state.patches.length; i++) {
+      const p = state.patches[i];
+      if (!p || typeof p.x !== 'number' || typeof p.z !== 'number') continue;
+      if (now < (p.regrowAt || 0)) {
+        const r = p.r || 1.65;
+        this._grazedPatches.push({ x: p.x, z: p.z, r, regrowAt: p.regrowAt });
+        if (this._paintGrassVisibilityCircle) {
+          this._paintGrassVisibilityCircle(p.x, p.z, r, 0.0);
+          dirty = true;
+        }
+      }
+    }
+    if (dirty && this._grassMapTexture) this._grassMapTexture.needsUpdate = true;
+  }
+
   isOnGrass(x, z) {
     if (this.isOnRoad(x, z)) return false;
     if (this.isAtWater(x, z)) return false;
@@ -17785,6 +18504,12 @@ class World {
       const nx = v.fz || 0, nz = -(v.fx || 1);
       if (Math.hypot(x - (v.cx + nx * 5.8), z - (v.cz + nz * 5.8)) < 6.5) return false;
       if (Math.hypot(x - v.cx, z - v.cz) < 3.4) return false;
+    }
+    if (this._grazedPatches && this._grazedPatches.length) {
+      for (let i = 0; i < this._grazedPatches.length; i++) {
+        const p = this._grazedPatches[i];
+        if (Math.hypot(x - p.x, z - p.z) < p.r * 0.85) return false;
+      }
     }
     return true;
   }
@@ -18415,6 +19140,7 @@ class World {
     // Streaming rumput rimbun 15x15m mengikuti posisi pemain + siklus 10 menit otomatis
     this._updateStreamingGrass(horseX, horseZ);
     this._updateDayNightCycle(delta);
+    this._updateVillageFarms(delta);
 
     // Bayangan mode 'static' (HP menengah): peta bayangan digambar ulang tiap
     // 5 frame, bukan tiap frame. Gerak lambat tetap dapat bayangan, biaya turun.
@@ -18840,8 +19566,8 @@ const UP = new THREE.Vector3(0, 1, 0);
 // Batas guling: gerobak boleh miring sampai 75°, begitu nyentuh batas itu
 // langsung jatuh rebah (~89°) lalu berhenti total. Bukan animasi: sudut 75°
 // tetap dicapai dari momen gaya & kontak roda.
-const FLIP_ANG = 75 * Math.PI / 180;   // 1.3090 rad — batas guling
-const LAY_ANG  = 1.20;                 // di atas ini sudah lewat titik balik -> rebah sekali jalan
+const FLIP_ANG = 80 * Math.PI / 180;   // 1.3963 rad — batas guling 80°
+const LAY_ANG  = 76 * Math.PI / 180;   // 1.3265 rad — di atas ini rebah sekali jalan
 const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
 
 // AABB visual barang di frame bak. localHalf/localCenter disimpan tanpa
@@ -18964,13 +19690,17 @@ function computeCargoSupports(items, boxesByItem, maxGap = 0.035, maxPenetration
           if (Math.abs(ab.y - bb.y) > ab.hy + bb.hy + maxGap) continue;
           const bBottom = bb.y - bb.hy;
           const bTop = bb.y + bb.hy;
+          const aCenterOnB = Math.abs(ab.x - bb.x) <= bb.hx + ab.hx * 0.15
+            && Math.abs(ab.z - bb.z) <= bb.hz + ab.hz * 0.15;
           if (aBottom >= bTop - maxPenetration && aBottom <= bTop + maxGap
-            && cargoBoxOverlapXZ(ab, bb)) {
+            && aCenterOnB && cargoBoxOverlapXZ(ab, bb)) {
             if (bTop > supports[i].y) supports[i] = { y: bTop, by: b };
           }
           const aTop = ab.y + ab.hy;
+          const bCenterOnA = Math.abs(bb.x - ab.x) <= ab.hx + bb.hx * 0.15
+            && Math.abs(bb.z - ab.z) <= ab.hz + bb.hz * 0.15;
           if (bBottom >= aTop - maxPenetration && bBottom <= aTop + maxGap
-            && cargoBoxOverlapXZ(ab, bb)) {
+            && bCenterOnA && cargoBoxOverlapXZ(ab, bb)) {
             if (aTop > supports[j].y) supports[j] = { y: aTop, by: a };
           }
         }
@@ -19275,9 +20005,12 @@ function computeCargoSupports(items, boxesByItem, maxGap = 0.035, maxPenetration
       this.comLocal = new THREE.Vector3(-L * 0.05, H * 0.44, 0);
 
       // Tali tarik (traces) nyambung dari sabuk perut kuda ke ujung singletree
+      const bodyYOff = (this.cart && this.cart.body)
+        ? this.cart.body.position.y
+        : (0.42 * HC.cartScale - this.pivotY);
       this.traceLocal = [
-        new THREE.Vector3(35.0 * S, 12.2 * S, 9.2 * S),
-        new THREE.Vector3(35.0 * S, 12.2 * S, -9.2 * S)
+        new THREE.Vector3(35.0 * S, 12.2 * S + bodyYOff, 9.2 * S),
+        new THREE.Vector3(35.0 * S, 12.2 * S + bodyYOff, -9.2 * S)
       ];
       this.traceRest = [null, null];
       // Ujung batang penarik (thills) tepat di kalung kuda (mengacu HC.shaftTipVox)
@@ -19534,7 +20267,11 @@ function computeCargoSupports(items, boxesByItem, maxGap = 0.035, maxPenetration
           const pwr = this.pullPowerScale || 1.0;
           let F = this.kTrace * pwr * (L - this.traceRest[i]) - this.cTrace * relN;
           F = Math.max(0, Math.min(22000 * pwr, F));
-          if (F > 0) addForce(-nx * F, -ny * F, -nz * F, bx, by, bz);
+          if (F > 0) {
+            const fyPull = -ny * F * 0.20;
+            const applyY = Math.min(by, com.y + 0.02);
+            addForce(-nx * F, fyPull, -nz * F, bx, applyY, bz);
+          }
         }
       }
 
@@ -19690,27 +20427,11 @@ function computeCargoSupports(items, boxesByItem, maxGap = 0.035, maxPenetration
         const aR = Math.abs(this.roll);
         this._tipCrit = crit;
         this._tipArm = hCom * Math.sin(aR) - bEff * Math.cos(aR);
-        if (this._tipArm > 0 && !lying) {
-          this.rollV += Math.sign(this.roll) * (m * g * this._tipArm / this.Iroll) * h * 2.2;
+        // Hanya dorong guling oleh gravitasi jika kemiringan sudah ekstrem (>55°) dan titik berat melewati garis roda
+        if (this._tipArm > 0 && aR > 55 * Math.PI / 180 && !lying) {
+          this.rollV += Math.sign(this.roll) * (m * g * this._tipArm / this.Iroll) * h * 1.8;
         }
-        /* ---- guling karena KEMIRINGAN (tanah/cross-slope), bukan tikungan ----
-           Begitu titik berat keluar dari garis roda, kontak roda sisi luar jadi
-           poros: tidak ada lagi yang bisa menahan. Tapi kontak pegas kaku punya
-           torsi pemulih raksasa (roda sisi dalam dianggap menembus tanah), jadi
-           tanpa latch ini momen gravitasi selalu kalah dan gerobak cuma ikut
-           miring rapi di tanjakan curam — persis keluhan "tidak mau terguling".
-           Syaratnya harus bertahan 0.12 s supaya kerikil/gundukan tidak
-           menggulingkan gerobak. */
-        const beyondCrit = Math.abs(this.roll) > 0.90 * crit;
-        if (!this.flipped && Math.abs(this.roll) < LAY_ANG && (beyondCrit || this._tipArm > 0.04)) {
-          this._tipGravT = (this._tipGravT || 0) + h;
-          if (this._tipGravT > (beyondCrit ? 0.03 : 0.12)) {
-            this._tipGravT = 0;
-            this._triggerFlip('roll', Math.sign(this.roll) || 1, true);
-          }
-        } else {
-          this._tipGravT = 0;
-        }
+        this._tipGravT = 0;
       }
 
       // redaman struktur ringan (bukan "ditarik ke nol")
@@ -19814,25 +20535,8 @@ function computeCargoSupports(items, boxesByItem, maxGap = 0.035, maxPenetration
           this.rollV += ((rollTgt - this.roll) * kDrive - this.rollV * cDrive) * h;
         }
 
-        /* ---- batas stabilitas statis: kapan gerobak MULAI terguling ----
-           Selama titik berat masih di dalam garis roda luar, suspensi bisa
-           menahan. Begitu percepatan lateral melewati batas itu (ban nyeret
-           karena roda tidak membelok), roda dalam terangkat dan tidak ada lagi
-           yang menahan -> bodi lanjut jatuh ke samping. Ambangnya diturunkan
-           dari geometri asli (separuh trek / tinggi titik berat), bukan angka
-           hiasan, dan harus bertahan ~0,2 s supaya tikungan sekilas tidak
-           langsung menggulingkan gerobak. */
-        if (!lying) {
-          const hCom = Math.max(0.45, com.y - rootY);
-          const bArm = (this._halfTrack || 1.0) * 0.62;
-          const aTip = (this.tipAccel || (0.45 * g * bArm / hCom));
-          if (aLatAbs > aTip) this._tipT = (this._tipT || 0) + h;
-          else this._tipT = Math.max(0, (this._tipT || 0) - h * 2.5);
-          if (!this.flipped && this._tipT > 0.20 && Math.abs(this.roll) < LAY_ANG) {
-            this._tipT = 0;
-            this._triggerFlip('roll', -Math.sign(aLat) || 1, true);
-          }
-        }
+        // Batas guling ditentukan langsung oleh sudut kemiringan 80° (FLIP_ANG), bukan timer tikungan prematur
+        this._tipT = 0;
         if (this.flipped && Math.abs(this.roll) < LAY_ANG) {
           if (this._tipLatched) {
             /* Terguling karena tikungan: sudut sudah lewat batas stabilitas, jadi
@@ -20184,7 +20888,7 @@ function computeCargoSupports(items, boxesByItem, maxGap = 0.035, maxPenetration
         this.heaveVel = (this.heave - prevHeaveNow) / dt;
         // pitch/roll jolt tetap dari beda tinggi antar roda (bukan common mode)
         const pitchDiff = n ? pitchRise / n : 0;
-        this.pitchV += (pitchDiff - meanRise) * 3.2;
+        this.pitchV += pitchDiff * 2.4;
 
         /* Poros kaku = bodi dipaku ke poros, jadi sikapnya MENGIKUTI bidang empat
            roda, bukan diredam pegas. Di sini bidang itu dipakai sebagai sudut
@@ -20201,23 +20905,31 @@ function computeCargoSupports(items, boxesByItem, maxGap = 0.035, maxPenetration
           const wheelBase = Math.max(0.6, Math.abs(this.wheels[0]?.wa.x - this.wheels[2]?.wa.x) || 1.7);
           const trackW = Math.max(0.6, Math.abs(this.wheels[0]?.wa.z - this.wheels[1]?.wa.z) || 2.0);
           if (fn && rn) {
-            const pitchGeo = Math.atan2((fy / fn) - (ry / rn), wheelBase);
+            const pitchGeo = Math.max(-0.45, Math.min(0.45, Math.atan2((fy / fn) - (ry / rn), wheelBase)));
             this.pitch += (pitchGeo - this.pitch) * Math.min(1, dt * 30);
+            this.pitchV *= Math.exp(-4.0 * dt);
           }
           if (ln && rrn) {
-            const rollGeo = Math.atan2((ly / ln) - (rry / rrn), trackW);
-            /* Poros kaku mengikuti bidang roda HANYA selama roda masih menapak.
-               Begitu badan lewat batas stabilitas (titik berat keluar dari garis
-               roda), roda sisi dalam sudah terangkat, jadi bidang roda tidak lagi
-               mengikat. Dulu tarikan ini tetap jalan sampai 72 deg, jadi gerobak
-               di tanjakan curam cuma ikut miring dan TIDAK PERNAH terguling
-               (sudut ditahan di bidang roda, momen gravitasi selalu kalah).
-               Sekarang tarikannya dilepas mulai 0.75 x sudut kritis. */
-            const critR = this._tipCrit || 0.68;
+            // Pada Euler('YZX'): roll > 0 memutar +Z turun, jadi sisi +Z lebih tinggi (ly > rry) butuh roll negatif
+            const rollGeo = Math.max(-0.45, Math.min(0.45, Math.atan2((rry / rrn) - (ly / ln), trackW)));
+            const critR = Math.max(this._tipCrit || 0.68, 1.15);
             const ratio = Math.abs(this.roll) / critR;
-            const follow = ratio <= 0.75 ? 1 : Math.max(0, 1 - (ratio - 0.75) / 0.25);
+            const follow = ratio <= 0.78 ? 1 : Math.max(0, 1 - (ratio - 0.78) / 0.22);
             this.roll += (rollGeo - this.roll) * Math.min(1, dt * 14 * follow);
           }
+        }
+      } else if (!this.susRigid && !this.flipped && !this._lying) {
+        let fy = 0, fn = 0, ry = 0, rn = 0;
+        for (const w of this.wheels) {
+          if (!w.contact || w.detached) continue;
+          const sy = this.world.wheelHeightAt(w.world.x, w.world.z, w.ref.radius);
+          if (w.wa.x > 0.01) { fy += sy; fn++; } else if (w.wa.x < -0.01) { ry += sy; rn++; }
+        }
+        if (fn && rn) {
+          const wheelBase = Math.max(0.6, Math.abs(this.wheels[0]?.wa.x - this.wheels[2]?.wa.x) || 1.7);
+          const pitchGeo = Math.max(-0.45, Math.min(0.45, Math.atan2((fy / fn) - (ry / rn), wheelBase)));
+          this.pitch += (pitchGeo - this.pitch) * Math.min(1, dt * 10);
+          this.pitchV *= Math.exp(-3.5 * dt);
         }
       }
 
@@ -20562,6 +21274,7 @@ function computeCargoSupports(items, boxesByItem, maxGap = 0.035, maxPenetration
         item.localPos = item.homePos.clone();
         item.localVel = new THREE.Vector3();
         item.localAng = new THREE.Vector3(item.homeRot.x, item.homeRot.y, item.homeRot.z);
+        item.localQuat = new THREE.Quaternion().setFromEuler(item.homeRot);
         item.localAngVel = new THREE.Vector3();
         item.floorY = item.homePos.y;
         item.bounciness = 0.38 + (i % 3) * 0.08;
@@ -20570,7 +21283,7 @@ function computeCargoSupports(items, boxesByItem, maxGap = 0.035, maxPenetration
         item.vel = new THREE.Vector3();
         item.angVel = new THREE.Vector3();
         item.mesh.position.copy(item.homePos);
-        item.mesh.rotation.copy(item.homeRot);
+        item.mesh.quaternion.copy(item.localQuat);
         // Collider PER BARANG: AABB dari mesh aslinya (bukan satu radius seragam).
         // Dipakai untuk tabrakan barang-barang di dalam bak maupun saat tumpah.
         const bb = new THREE.Box3().setFromObject(item.mesh);
@@ -20692,82 +21405,45 @@ function computeCargoSupports(items, boxesByItem, maxGap = 0.035, maxPenetration
           }
         }
 
-        // Gravity projected into tilted bed frame + lateral/fore-aft inertial forces
-        // Percepatan gerobak dibatasi: rem mendadak bikin cartAccX puluhan m/s²
-        // dan itu cukup buat nyembur barang 4 m/s ke depan.
-        const accClamped = Math.max(-6, Math.min(6, cartAccX));
-        const gx = -Math.sin(this.pitch) * g * 1.4 - accClamped * 0.38;
-        const gz =  Math.sin(this.roll)  * g * 1.5 - this.rollV * 1.9;
+        // Gravity projected into tilted bed frame + centrifugal & inertial slosh forces
+        const accClamped = Math.max(-8, Math.min(8, cartAccX));
+        const centClamped = Math.max(-7, Math.min(7, this.centrifugal || 0));
+        const gx = -Math.sin(this.pitch) * g * 1.35 - accClamped * 0.65;
+        const gz =  Math.sin(this.roll)  * g * 1.45 - centClamped * 0.55 - this.rollV * 1.4;
         const gy = -Math.cos(this.roll) * Math.cos(this.pitch) * g;
 
         // Collision footprint and visual centre in the cart's local frame.
         const cyaw = Math.cos(it.localAng.y), syaw = Math.sin(it.localAng.y);
         const hx = Math.abs(cyaw) * it.half.x + Math.abs(syaw) * it.half.z;
         const hz = Math.abs(syaw) * it.half.x + Math.abs(cyaw) * it.half.z;
-        // Batas dalam bak memakai AABB visual barang (localHalf/localCenter),
-        // bukan titik origin mesh. Origin sering bergeser dari pusat visual,
-        // jadi clamp lama bisa membiarkan sisi barang menembus pagar.
         const vCenter = it.localCenter || { x: 0, z: 0 };
         const vHalf = it.localHalf || { x: hx / 0.9, z: hz / 0.9 };
         const bed = { xMin: bedMinX, xMax: bedMaxX, zMin: bedMinZ, zMax: bedMaxZ };
         const limits = cargoBedLimits(vCenter, vHalf, it.localAng.y, bed);
         const { minX: inMinX, maxX: inMaxX, minZ: inMinZ, maxZ: inMaxZ } = limits;
-        const vcx = limits.fp.x, vcz = limits.fp.z;
-        const visualHx = limits.fp.hx, visualHz = limits.fp.hz;
         it._wallMinX = inMinX; it._wallMaxX = inMaxX;
         it._wallMinZ = inMinZ; it._wallMaxZ = inMaxZ;
-
-        // Slot asal juga di-clamp ke dalam bak. Kalau nggak, tarikan "pulang"
-        // melawan pagar tiap frame -> barang bergetar/muter di tempat.
-        const homeX = Math.min(inMaxX, Math.max(inMinX, it.homePos.x));
-        const homeZ = Math.min(inMaxZ, Math.max(inMinZ, it.homePos.z));
-
-        // Gentle packing friction toward home slot when flat, loose enough to slide & clatter against neighbors.
-        // Kalau frame sebelumnya barang lagi bersentuhan (pagar/barang lain), tarikan
-        // slot dimatikan: kalau ditarik terus sementara tetangganya menahan, dua gaya
-        // itu berkelahi tiap frame -> barang getar/muter di tempat.
-        const touching = it._touchPrev === true;
         it._touchPrev = false;
-        // Dead zone 10 cm: kalau barang sudah dekat slotnya, tarikan dimatikan.
-        // Tanpa dead zone, slot yang saling tumpang-tindih bikin tarik-vs-tolak
-        // berulang tiap frame -> barang kelihatan muter terus.
-        const dhx = homeX - it.localPos.x, dhz = homeZ - it.localPos.z;
-        const dh = Math.hypot(dhx, dhz);
-        // Tarikan slot HARUS dibatasi. Pegas murni (pos * k) tanpa redaman bikin
-        // kecepatan numpuk terus selama barang ketahan tetangga, lalu nyembur
-        // begitu lepas -> barang lompat/berputar liar.
-        let homePullX = 0, homePullZ = 0;
-        const calm = Math.abs(it.localVel.x) + Math.abs(it.localVel.z) < 0.45;
-        if (!touching && !hasSupport && calm && dh > 0.10) {
-          // Nudge pelan doang: 0,28 m/s. Tujuannya cuma ngerapihin, bukan
-          // nyeret barang balik ke slot sambil ngelawan tetangga (itu yang
-          // bikin geser-goyang terus walaupun gerobak diam).
-          const k = 6.0, vCap = 0.28;
-          const tx = Math.max(-vCap, Math.min(vCap, dhx * k));
-          const tz = Math.max(-vCap, Math.min(vCap, dhz * k));
-          homePullX = (tx - it.localVel.x) * 1.6;
-          homePullZ = (tz - it.localVel.z) * 1.6;
-        }
 
-        it.localVel.x += (gx + homePullX) * dt;
-        it.localVel.z += (gz + homePullZ) * dt;
+        // Barang bebas bergeser/terombang-ambing di dalam bak seperti benda lepas di dalam mangkuk
+        it.localVel.x += gx * dt;
+        it.localVel.z += gz * dt;
         it.localVel.y += gy * dt;
 
-        // Direct impulse kick when sitting on the plank and a wheel hits a pebble/rock
-        if (onFloor && localBumpKick > 0.18) {
-          const hop = Math.min(1.45, 0.38 + localBumpKick * (0.45 + (i % 3) * 0.15));
+        // Direct impulse kick when sitting on the plank/stack and a wheel hits a bump
+        if (onFloor && localBumpKick > 0.35) {
+          const hop = Math.min(0.95, 0.22 + (localBumpKick - 0.35) * (0.32 + (i % 3) * 0.08));
           it.localVel.y = Math.max(it.localVel.y, hop);
           it.localVel.x += (Math.random() - 0.5) * hop * 0.55;
           it.localVel.z += (Math.random() - 0.5) * hop * 0.65;
-          it.localAngVel.x += (Math.random() - 0.5) * hop * 5.5;
-          it.localAngVel.z += (Math.random() - 0.5) * hop * 5.5;
+          it.localAngVel.x += (Math.random() - 0.5) * hop * 5.0;
+          it.localAngVel.y += (Math.random() - 0.5) * hop * 2.5;
+          it.localAngVel.z += (Math.random() - 0.5) * hop * 5.0;
         }
 
-        // Damping
-        it.localVel.multiplyScalar(Math.exp(-2.8 * dt));
-        // Jaring pengaman: kecepatan lokal dibatasi 3.2 m/s. Tanpa ini satu bug
-        // solver bisa nyembur puluhan m/s dan barang langsung hilang dari bak.
-        if (it.localVel.lengthSq() > 2.25) it.localVel.setLength(1.5);
+        // Light air damping so cargo sloshes freely
+        it.localVel.multiplyScalar(Math.exp(-0.85 * dt));
+        if (it.localVel.lengthSq() > 10.24) it.localVel.setLength(3.2);
         it.localPos.addScaledVector(it.localVel, dt);
 
         // Batas atas dinamis: barang boleh terpantul bebas di dalam bak saat kena guncangan.
@@ -20777,43 +21453,44 @@ function computeCargoSupports(items, boxesByItem, maxGap = 0.035, maxPenetration
           if (it.localVel.y > 0) it.localVel.y = 0;
         }
 
-        // Floor contact + bounce inside cart bed
+        // Floor / stack contact + sliding friction (lebih licin di atas barang lain supaya meluncur jatuh saat miring)
         if (it.localPos.y < restY) {
           const impact = -it.localVel.y;
           it.localPos.y = restY;
-          if (impact > 0.22) {
-            it.localVel.y = impact * it.bounciness;
-            it.localAngVel.x += (Math.random() - 0.5) * impact * 3.2;
-            it.localAngVel.z += (Math.random() - 0.5) * impact * 3.2;
+          if (impact > 0.20) {
+            it.localVel.y = impact * Math.max(0.22, it.bounciness);
+            it.localAngVel.x += (Math.random() - 0.5) * impact * 3.8;
+            it.localAngVel.z += (Math.random() - 0.5) * impact * 3.8;
           } else {
             it.localVel.y = 0;
           }
-          // Floor friction
-          it.localVel.x *= 0.88;
-          it.localVel.z *= 0.88;
+          const floorFriction = hasSupport ? Math.exp(-1.8 * dt) : Math.exp(-3.4 * dt);
+          it.localVel.x *= floorFriction;
+          it.localVel.z *= floorFriction;
         }
 
-        // Penahan Pagar Kayu Bak: barang TIDAK akan keluar dari gerobak selama masih
-        // berada di balik pagar kayu (di bawah tinggi pagar) dan gerobak belum terguling.
-        // Hanya tumpah jika fisik barang benar-benar terlempar melewati tinggi pagar atau gerobak terbalik.
+        // Penahan Pagar Kayu Bak: barang HANYA jatuh jika gerobak terbalik ATAU barang
+        // benar-benar terlempar melompati pagar dan keluar melewati batas luar gerobak.
         const wallKick = (v) => (Math.abs(v) > 0.35 ? Math.min(0.9, Math.abs(v) * 1.5) : 0);
-        const itemSupportY = it.localPos.y - (it.half ? it.half.y * 0.25 : 0.08);
-        if (it.localPos.z < inMinZ) {
-          if (this.flipped || itemSupportY > railTopY + 0.02) {
-            this.ejectItemToWorld(it, 0.9);
-            continue;
-          }
+        const itemBottomY = it.localPos.y - (it.half ? it.half.y * 0.85 : 0.12);
+        const outOfBed = (
+          it.localPos.z < bedMinZ - 0.12 ||
+          it.localPos.z > bedMaxZ + 0.12 ||
+          it.localPos.x < bedMinX - 0.14 ||
+          it.localPos.x > bedMaxX + 0.14
+        );
+        if (this.flipped || outOfBed) {
+          this.ejectItemToWorld(it, 0.75);
+          continue;
+        }
+        if (it.localPos.z < inMinZ && itemBottomY <= railTopY + 0.04) {
           const v = it.localVel.z;
           it.localPos.z = inMinZ;
           it.localVel.z = Math.abs(v) > 0.35 ? Math.abs(v) * 0.32 : 0;
           it.localAngVel.x += wallKick(v);
           if (Math.abs(v) > 0.35) it._restT = 0;
           it._touchPrev = true;
-        } else if (it.localPos.z > inMaxZ) {
-          if (this.flipped || itemSupportY > railTopY + 0.02) {
-            this.ejectItemToWorld(it, 0.9);
-            continue;
-          }
+        } else if (it.localPos.z > inMaxZ && itemBottomY <= railTopY + 0.04) {
           const v = it.localVel.z;
           it.localPos.z = inMaxZ;
           it.localVel.z = Math.abs(v) > 0.35 ? -Math.abs(v) * 0.32 : 0;
@@ -20822,22 +21499,14 @@ function computeCargoSupports(items, boxesByItem, maxGap = 0.035, maxPenetration
           it._touchPrev = true;
         }
 
-        if (it.localPos.x < inMinX) {
-          if (this.flipped || itemSupportY > divRailTopY + 0.04) {
-            this.ejectItemToWorld(it, 0.9);
-            continue;
-          }
+        if (it.localPos.x < inMinX && itemBottomY <= divRailTopY + 0.04) {
           const v = it.localVel.x;
           it.localPos.x = inMinX;
           it.localVel.x = Math.abs(v) > 0.35 ? Math.abs(v) * 0.32 : 0;
           it.localAngVel.z -= wallKick(v);
           if (Math.abs(v) > 0.35) it._restT = 0;
           it._touchPrev = true;
-        } else if (it.localPos.x > inMaxX) {
-          if (this.flipped || itemSupportY > frontRailTopY + 0.03) {
-            this.ejectItemToWorld(it, 0.9);
-            continue;
-          }
+        } else if (it.localPos.x > inMaxX && itemBottomY <= frontRailTopY + 0.04) {
           const v = it.localVel.x;
           it.localPos.x = inMaxX;
           it.localVel.x = Math.abs(v) > 0.35 ? -Math.abs(v) * 0.32 : 0;
@@ -20846,56 +21515,51 @@ function computeCargoSupports(items, boxesByItem, maxGap = 0.035, maxPenetration
           it._touchPrev = true;
         }
 
-        // Rocking / wobble angular dynamics driven by lateral velocity & roll
-        it.localAngVel.x += (it.localVel.z * 1.8 - (it.localAng.x - it.homeRot.x) * 28) * dt;
-        it.localAngVel.z += (-it.localVel.x * 1.8 - (it.localAng.z - it.homeRot.z) * 28) * dt;
-        it.localAngVel.y += (- (it.localAng.y - it.homeRot.y) * 18) * dt;
-        it.localAngVel.y *= Math.exp(-8.5 * dt);     // sumbu tegak: jangan muter-muter
-        if (onFloor) {
-          // Barang yang duduk di papan: redaman putar jauh lebih kuat + ditarik
-          // balik ke pose aslinya, jadi berhenti goyang dan nggak spin di tempat.
-          it.localAngVel.multiplyScalar(Math.exp(-14.0 * dt));
-          it.localAngVel.x += (it.homeRot.x - it.localAng.x) * 40 * dt;
-          it.localAngVel.z += (it.homeRot.z - it.localAng.z) * 40 * dt;
+        // Gerak menggelinding bebas 360° mengikuti kecepatan di alas bak/tumpukan (tidak tergantung bentuk barang)
+        if (!it.localQuat) {
+          it.localQuat = new THREE.Quaternion().setFromEuler(
+            new THREE.Euler(it.localAng.x, it.localAng.y, it.localAng.z)
+          );
         }
-        it.localAngVel.multiplyScalar(Math.exp(-9.0 * dt));
-        if (it.localAngVel.length() > 14) it.localAngVel.setLength(14);
-        it.localAng.addScaledVector(it.localAngVel, dt);
+        if (onFloor) {
+          const rollR = Math.max(0.11, it.radius || 0.16);
+          const targetWx = it.localVel.z / rollR;
+          const targetWz = -it.localVel.x / rollR;
+          const blend = Math.min(1, dt * 14);
+          it.localAngVel.x += (targetWx - it.localAngVel.x) * blend;
+          it.localAngVel.z += (targetWz - it.localAngVel.z) * blend;
+          it.localAngVel.y *= Math.exp(-3.0 * dt);
+        } else {
+          it.localAngVel.multiplyScalar(Math.exp(-1.2 * dt));
+        }
 
-        // Batas kemiringan: barang cuma boleh goyang, bukan jungkir balik sendiri.
-        // Tanpa clamp ini sudut bisa lewat 90° lalu "muter" keliling porosnya.
-        const TILT = 0.42, YAWMAX = 0.55;
-        const cl = (ang, home, lim, key) => {
-          const d = ang - home;
-          if (d > lim) { it.localAng[key] = home + lim; if (it.localAngVel[key] > 0) it.localAngVel[key] = 0; }
-          else if (d < -lim) { it.localAng[key] = home - lim; if (it.localAngVel[key] < 0) it.localAngVel[key] = 0; }
-        };
-        cl(it.localAng.x, it.homeRot.x, TILT, 'x');
-        cl(it.localAng.z, it.homeRot.z, TILT, 'z');
-        cl(it.localAng.y, it.homeRot.y, YAWMAX, 'y');
+        const wMag = it.localAngVel.length();
+        if (wMag > 14) it.localAngVel.setLength(14);
+        const wStep = Math.min(wMag, 14);
+        if (wStep > 1e-4) {
+          const ax = this._cargoRollAxis || (this._cargoRollAxis = new THREE.Vector3());
+          const dq = this._cargoRollDq || (this._cargoRollDq = new THREE.Quaternion());
+          ax.copy(it.localAngVel).divideScalar(wMag);
+          dq.setFromAxisAngle(ax, wStep * dt);
+          it.localQuat.premultiply(dq).normalize();
+        }
+        it.localAng.y += it.localAngVel.y * dt;
 
-        /* Barang yang sudah tenang harus benar-benar berhenti.
-           Dulu osilasi kecil terus dipompa oleh gaya rekat slot + pantulan pagar,
-           jadi barang kelihatan "muter-muter" padahal gerobak diam. Sekarang:
-           kalau 0,18 s tidak ada gerakan berarti dan dia duduk di papan, kecepatan
-           + putaran dipaksa nol dan sudutnya ditarik balik ke pose asalnya. */
-        const still = it.localVel.lengthSq() < 0.02 && it.localAngVel.lengthSq() < 0.09;
+        // Hanya tenang total kalau bak datar, barang di lantai papan, dan kecepatan nyaris nol
+        const cartFlat = Math.abs(this.roll) < 0.06 && Math.abs(this.pitch) < 0.06;
+        const still = cartFlat && !hasSupport && it.localVel.lengthSq() < 0.015 && it.localAngVel.lengthSq() < 0.06;
         it._restT = still ? (it._restT || 0) + dt : 0;
-        if (it._restT > 0.18 && onFloor) {
-          it.localVel.x *= Math.exp(-20 * dt);
-          it.localVel.z *= Math.exp(-20 * dt);
+        if (it._restT > 0.25 && onFloor) {
+          it.localVel.x *= Math.exp(-16 * dt);
+          it.localVel.z *= Math.exp(-16 * dt);
           if (Math.abs(it.localVel.x) < 0.01) it.localVel.x = 0;
           if (Math.abs(it.localVel.z) < 0.01) it.localVel.z = 0;
-          it.localAngVel.multiplyScalar(Math.exp(-26 * dt));
+          it.localAngVel.multiplyScalar(Math.exp(-20 * dt));
           if (it.localAngVel.length() < 0.02) it.localAngVel.set(0, 0, 0);
-          const snap = Math.min(1, dt * 6);
-          it.localAng.x += (it.homeRot.x - it.localAng.x) * snap;
-          it.localAng.z += (it.homeRot.z - it.localAng.z) * snap;
-          it.localAng.y += (it.homeRot.y - it.localAng.y) * snap;
         }
 
         it.mesh.position.copy(it.localPos);
-        it.mesh.rotation.set(it.localAng.x, it.localAng.y, it.localAng.z);
+        it.mesh.quaternion.copy(it.localQuat);
       }
 
       // Narrow-phase uses the mesh-derived compound boxes so empty corners
@@ -20929,59 +21593,63 @@ function computeCargoSupports(items, boxesByItem, maxGap = 0.035, maxPenetration
           if (ox <= 0 || oy <= 0 || oz <= 0) continue;
           a._touchPrev = true; b._touchPrev = true;
           if (oy <= ox && oy <= oz) {
-            // beda lapis: nggak ada dorongan vertikal, cukup redam
+            // beda lapis: barang atas tetap bisa meluncur bebas di atas barang bawah saat miring
             const top = dy >= 0 ? b : a;
             if (top.localVel.y < 0) top.localVel.y = 0;
-            top.localVel.x *= 0.9; top.localVel.z *= 0.9;
-            top.localAngVel.x *= 0.7; top.localAngVel.z *= 0.7;
+            const slideDamp = Math.exp(-1.8 * dt);
+            top.localVel.x *= slideDamp; top.localVel.z *= slideDamp;
+            top.localAngVel.x *= 0.92; top.localAngVel.z *= 0.92;
           } else if (ox <= oz) {
             const s = dx >= 0 ? 1 : -1;
             a.localPos.x -= s * ox * 0.5; b.localPos.x += s * ox * 0.5;
             const av = a.localVel.x, bv = b.localVel.x;
-            if ((bv - av) * s < 0) {
-              // Tumbukan inelastis: dua barang yang berdesakan langsung samain
-              // kecepatan (nggak ada pantulan). Restitusi bikin energi numpuk
-              // tiap frame -> barang nempel pagar sambil "nyelemot" 1,2 m/s.
-              const avg = (av + bv) * 0.5;
-              a.localVel.x = avg; b.localVel.x = avg;
+            const relV = bv - av;
+            if (relV * s < 0) {
+              const e = 0.25;
+              const j = -(1 + e) * relV * 0.5;
+              a.localVel.x -= j; b.localVel.x += j;
             }
-            // Kick putar cuma kalau tabrakannya nyata (>0,4 m/s). Impuls 0,5
-            // rad/s tiap frame bikin barang berputar nonstop saat berdesakan.
-            const kx = Math.abs(bv - av) > 0.4 ? Math.min(0.25, Math.abs(bv - av) * 0.5) : 0;
+            const kx = Math.abs(relV) > 0.22 ? Math.min(1.4, Math.abs(relV) * 0.85) : 0;
             a.localAngVel.z -= s * kx; b.localAngVel.z += s * kx;
+            a.localAngVel.y += (Math.random() - 0.5) * kx * 0.6;
+            b.localAngVel.y -= (Math.random() - 0.5) * kx * 0.6;
           } else {
             const s = dz >= 0 ? 1 : -1;
             a.localPos.z -= s * oz * 0.5; b.localPos.z += s * oz * 0.5;
             const av = a.localVel.z, bv = b.localVel.z;
-            if ((bv - av) * s < 0) {
-              const avg = (av + bv) * 0.5;
-              a.localVel.z = avg; b.localVel.z = avg;
+            const relV = bv - av;
+            if (relV * s < 0) {
+              const e = 0.25;
+              const j = -(1 + e) * relV * 0.5;
+              a.localVel.z -= j; b.localVel.z += j;
             }
-            const kz = Math.abs(bv - av) > 0.4 ? Math.min(0.25, Math.abs(bv - av) * 0.5) : 0;
+            const kz = Math.abs(relV) > 0.22 ? Math.min(1.4, Math.abs(relV) * 0.85) : 0;
             a.localAngVel.x += s * kz; b.localAngVel.x -= s * kz;
+            a.localAngVel.y += (Math.random() - 0.5) * kz * 0.6;
+            b.localAngVel.y -= (Math.random() - 0.5) * kz * 0.6;
           }
         }
       }
 
-      // Jaring pengaman terakhir: setelah semua dorongan (pagar + tetangga),
-      // posisi visual di-clamp sekali lagi supaya dorongan tetangga tidak
-      // mendorong sisi barang keluar pagar. Lalu sinkronkan mesh pada frame ini.
+      // Jaring pengaman terakhir: jaga barang tetap di dalam mangkuk pagar selama di bawah tinggi pagar.
       for (const it of items) {
         if (it.spilled || it.hiddenForQuest) continue;
         if (it._wallMinX !== undefined) {
+          const itemBottomY = it.localPos.y - (it.half ? it.half.y * 0.85 : 0.12);
           const center = it.localCenter || { x: 0, z: 0 };
           const half = it.localHalf || { x: it.half.x / 0.9, z: it.half.z / 0.9 };
           const bed = { xMin: bedMinX, xMax: bedMaxX, zMin: bedMinZ, zMax: bedMaxZ };
           const lim = cargoBedLimits(center, half, it.localAng.y, bed);
-          it.localPos.x = Math.min(lim.maxX, Math.max(lim.minX, it.localPos.x));
-          it.localPos.z = Math.min(lim.maxZ, Math.max(lim.minZ, it.localPos.z));
+          if (itemBottomY <= divRailTopY + 0.04 && it.localPos.x < lim.minX) it.localPos.x = lim.minX;
+          if (itemBottomY <= frontRailTopY + 0.04 && it.localPos.x > lim.maxX) it.localPos.x = lim.maxX;
+          if (itemBottomY <= railTopY + 0.04) {
+            it.localPos.z = Math.min(lim.maxZ, Math.max(lim.minZ, it.localPos.z));
+          }
         }
         it.mesh.position.copy(it.localPos);
-        // Di frame BAK, barang mestinya hampir diam (baknya yang bergerak).
-        // Batas 1,2 m/s ini yang bikin nggak ada lagi barang "nyelemot" 2,5 m/s
-        // sambil nempel pagar lalu muter terus.
-        if (it.localVel.lengthSq() > 1.44) it.localVel.setLength(1.2);
-        if (it.localAngVel.lengthSq() > 0.81) it.localAngVel.setLength(0.9);
+        if (it.localQuat) it.mesh.quaternion.copy(it.localQuat);
+        if (it.localVel.lengthSq() > 10.24) it.localVel.setLength(3.2);
+        if (it.localAngVel.lengthSq() > 144) it.localAngVel.setLength(12.0);
       }
 
       // 2) World physics for spilled cargo items (gravity, ground + pebble bounce, rolling, item-item collisions)
@@ -21247,9 +21915,11 @@ function computeCargoSupports(items, boxesByItem, maxGap = 0.035, maxPenetration
       if (item.localPos && item.homePos) item.localPos.copy(item.homePos);
       if (item.localVel) item.localVel.set(0, 0, 0);
       if (item.localAng && item.homeRot) item.localAng.set(item.homeRot.x, item.homeRot.y, item.homeRot.z);
+      if (item.localQuat && item.homeRot) item.localQuat.setFromEuler(item.homeRot);
       if (item.localAngVel) item.localAngVel.set(0, 0, 0);
       if (item.mesh && item.homePos) item.mesh.position.copy(item.homePos);
-      if (item.mesh && item.homeRot) item.mesh.rotation.copy(item.homeRot);
+      if (item.mesh && item.localQuat) item.mesh.quaternion.copy(item.localQuat);
+      else if (item.mesh && item.homeRot) item.mesh.rotation.copy(item.homeRot);
       item._restT = 0.5;
       return (this.spilled || []).length;
     }
@@ -21469,12 +22139,12 @@ function computeCargoSupports(items, boxesByItem, maxGap = 0.035, maxPenetration
 'use strict';
 const THREE = HC.THREE, S = HC.vs;
 
-  const { CY, L1, L2, HOOF_H } = HC.HORSE;
+  const { CY, TORSO_REF = 23.5, L1, L2, HOOF_H } = HC.HORSE;
 
-  // Badan kuda diturunkan sedikit supaya kaki punya ruang tekuk (sebelumnya tulang kaki
-  // selalu mentok lurus karena jarak pinggul->tapak lebih panjang dari panjang tulang).
-  const STANCE_DROP = 1.20;              // voxel: badan turun tipis biar lutut/sikut kelihatan menekuk ke DEPAN
+  // Badan kuda cukup tinggi seperti kuda dewasa dengan kurva sendi anatomis alami.
+  const STANCE_DROP = 0.62;
   const UP_AXIS = new THREE.Vector3(0, 1, 0);
+  const LOCAL_Z = new THREE.Vector3(0, 0, 1);
 
   // Solve 2-bone IK in world space: Hip H -> Knee K -> Ankle A
   // bendSign: +1 bends knee toward +X (front leg carpus/fetlock sweep), -1 bends hock toward -X (rear leg)
@@ -21577,6 +22247,9 @@ const THREE = HC.THREE, S = HC.vs;
       this._hoofAxis = new THREE.Vector3();
       this._qHoof = new THREE.Quaternion();
       this._qYaw = new THREE.Quaternion();
+      this._qGround = new THREE.Quaternion();
+      this._qAir = new THREE.Quaternion();
+      this._qSleep = new THREE.Quaternion();
       this._knee2 = new THREE.Vector3();
       this._sleepKneeW = new THREE.Vector3();
       this._sleepAnkleW = new THREE.Vector3();
@@ -21823,7 +22496,7 @@ const THREE = HC.THREE, S = HC.vs;
       const runPitch = Math.cos(p2) * 0.085 * this.runBlend;
       const walkRoll = Math.sin(p2) * 0.022 * (1 - this.runBlend);
 
-      const standTorsoY = CY * S - STANCE_DROP * S + ghMid + (walkBob + runBob) * moveAmt + jumpHeave - this.grazeBlend * 0.40;
+      const standTorsoY = CY * S - STANCE_DROP * S + ghMid + (walkBob + runBob) * moveAmt + jumpHeave - this.grazeBlend * 0.48;
       // Belly voxel bottom = 16 -> -7.5*S = -0.469 m below torso pivot; resting height ghMid + 0.50 m puts belly flush on turf with gentle breathing heave
       const sleepTorsoY = ghMid + 0.50 + breath * 0.016;
       const torsoY = HC.lerp(standTorsoY, sleepTorsoY, sl);
@@ -21869,7 +22542,7 @@ const THREE = HC.THREE, S = HC.vs;
 
       this.horse.neckLow.position.set(
         (11.0 + this.grazeBlend * 1.4 + sl * 0.6) * S,
-        ((27.6 - CY) - this.grazeBlend * 4.2 - sl * 2.2) * S,
+        ((27.6 - TORSO_REF) - this.grazeBlend * 4.2 - sl * 2.2) * S,
         0
       );
       this.horse.neckUp.position.set(0, 7.4 * S, 0);
@@ -22000,7 +22673,7 @@ const THREE = HC.THREE, S = HC.vs;
 
         // Rest neutral foot X/Z beneath hip, diputar mengikuti heading kuda
         const hx = leg.hipLocal.x, hz = leg.hipLocal.z;
-        const stanceShift = leg.front ? 0.03 : -0.04;
+        const stanceShift = leg.front ? 0.02 : -0.08;
         const footX = this.x + hx * cy + hz * sy + (strideX + stanceShift) * cy;
         const footZ = this.z - hx * sy + hz * cy - (strideX + stanceShift) * sy;
 
@@ -22019,9 +22692,8 @@ const THREE = HC.THREE, S = HC.vs;
         leg.footWorld.set(footX, groundY, footZ);
         leg.stanceBlend = HC.damp(leg.stanceBlend, stance, 18, dt);
 
-        // Solve 2-bone IK di bidang sagital kuda.
-        // SEMUA kaki (depan & belakang) sendinya menonjol KE DEPAN -> bendSign +1.
-        // (Dulu kaki belakang pakai -1, jadi sikut/lututnya kelipat ke belakang & kelihatan kebalik.)
+        // Solve 2-bone IK di bidang sagital kuda:
+        // Semua kaki (depan & belakang) sikunya menekuk menghadap ke depan (+1).
         const bendSign = 1;
         solveLegIK(this._hipW, this._ankleW, l1World, l2World, bendSign, this._kneeW, cy, -sy);
 
@@ -22069,18 +22741,16 @@ const THREE = HC.THREE, S = HC.vs;
         HC.aimBone(leg.lowerMesh, this._kneeW, this._ankleW);
         leg.lowerMesh.updateMatrixWorld(true);
 
-        // Orient hoof: when planted on ground/pebble, align flush to surface normal!
-        // When swinging in air, curl hoof naturally with fetlockFlex
-        const slopeAngle = Math.atan2(-(this._normW.x * cy - this._normW.z * sy), this._normW.y);
-        const airAngle = fetlockFlex;
-        const standHoofPitch = HC.lerp(airAngle, slopeAngle, leg.stanceBlend);
-        const sleepHoofPitch = leg.front ? -1.42 : -1.24;
-        const hoofPitch = HC.lerp(standHoofPitch, sleepHoofPitch, sl);
-        // pitch terhadap sumbu lateral kuda (fz, 0, -fx) lalu diputar sesuai heading kuda
-        this._hoofAxis.set(-sy, 0, -cy);
-        this._qHoof.setFromAxisAngle(this._hoofAxis, hoofPitch);
+        // Orient hoof: flush to terrain normal when planted, pure sagittal curl when airborne
         this._qYaw.setFromAxisAngle(UP_AXIS, this.yaw);
-        this._qHoof.premultiply(this._qYaw);
+        this._qGround.setFromUnitVectors(UP_AXIS, this._normW).multiply(this._qYaw);
+        this._qAir.setFromAxisAngle(LOCAL_Z, fetlockFlex).premultiply(this._qYaw);
+        this._qHoof.copy(this._qAir).slerp(this._qGround, leg.stanceBlend);
+        if (sl > 0.005) {
+          const sleepHoofPitch = leg.front ? -1.42 : -1.24;
+          this._qSleep.setFromAxisAngle(LOCAL_Z, sleepHoofPitch).premultiply(this._qYaw);
+          this._qHoof.slerp(this._qSleep, sl);
+        }
         HC.setWorldQuat(leg.hoof, this._qHoof);
       }
     }
@@ -23889,7 +24559,7 @@ const NPC_Miner = (() => {
           st.workCycle = 0.05;
         }
         // Kecepatan ayun beliung (skill digger / tambang terasa cepat & bertenaga)
-        const swingRate = isWorking ? 2.45 : 2.85;
+        const swingRate = isWorking ? 1.0 : 1.75;
         st.workCycle += dt * swingRate;
         if (st.workCycle >= 1) {
           if (isWorking || (n.swing && n.swing > 0.15)) {
@@ -24473,7 +25143,7 @@ const NPC_Farmer = (() => {
           st.swingActive = true;
           st.workCycle = 0.04;
         }
-        const rate = isPlanting ? 2.6 : (isFarming ? 2.35 : 2.9);
+        const rate = isPlanting ? 0.92 : (isFarming ? 0.85 : 1.65);
         st.workCycle += dt * rate;
         if (st.workCycle >= 1) {
           if (isFarming || (n.swing && n.swing > 0.15)) {
@@ -25149,7 +25819,7 @@ const NPC_Herbal = (() => {
           st.swingActive = true;
           st.workCycle = 0.04;
         }
-        const rate = isWorking ? 2.4 : 2.85;
+        const rate = isWorking ? 0.95 : 1.75;
         st.workCycle += dt * rate;
         if (st.workCycle >= 1) {
           if (isWorking || (n.swing && n.swing > 0.15)) {
@@ -33626,19 +34296,19 @@ HC.NPC_ROLES = [
   { id:'warrior', name:'Petarung', e:'⚔️', recruitable:true, robe:0x8f3b3b, hood:0x5a2323,
     hp:150, dmg:20, speed:3.3,
     skill:{ id:'taunt', name:'Tameng Hidup', e:'😤', desc:'Menarik perhatian monster supaya menyerang dirinya' } },
-  { id:'guardian', name:'Guardian', e:'🛡️', recruitable:true, robe:0x37527a, hood:0x22314d,
+  { id:'guardian', name:'Penjaga Perisai', e:'🛡️', recruitable:true, robe:0x37527a, hood:0x22314d,
     hp:210, dmg:10, speed:2.9,
     skill:{ id:'aegis', name:'Aegis Pelindung', e:'🛡️', desc:'Damage yang diterima seluruh tim & pemain -18% · memancing monster' } },
   { id:'merchant', name:'Pedagang', e:'🏪', recruitable:false, robe:0xc9a24b, hood:0x8a6a1e,
     hp:100, dmg:6, speed:2.6,
     skill:{ id:'trade', name:'Jiwa Dagang', e:'🪙', desc:'Menjual barang & membeli hasil buruanmu' } },
-  { id:'dungeonmaster', name:'Dungeon Master', e:'🧙', recruitable:false, robe:0x4a2a6a, hood:0x2a1a3a,
+  { id:'dungeonmaster', name:'Penguasa Reruntuhan', e:'🧙', recruitable:false, robe:0x4a2a6a, hood:0x2a1a3a,
     hp:150, dmg:10, speed:2.8,
     skill:{ id:'dchange', name:'Penjaga Reruntuhan', e:'🗝️', desc:'Menjual Dungeon Changer — mengubah level dungeon' } },
-  { id:'petmerchant', name:'Pet Merchant', e:'🐾', recruitable:false, robe:0xefe6d5, hood:0x854c24,
+  { id:'petmerchant', name:'Pedagang Hewan', e:'🐾', recruitable:false, robe:0xefe6d5, hood:0x854c24,
     hp:140, dmg:14, speed:3.2,
     skill:{ id:'petguard', name:'Penjaga Kandang', e:'🐾', desc:'Bergerak & bertarung hanya dalam radius 4 blok dari kandang pet' } },
-  { id:'lionknight', name:'Manusia Singa', e:'🦁', recruitable:true, rare:true, weight:9,
+  { id:'lionknight', name:'Ksatria Singa', e:'🦁', recruitable:true, rare:true, weight:9,
     robe:0xC8912F, hood:0xFFD700, hp:260, dmg:26, speed:3.6,
     skill:{ id:'lionclaw', name:'Auman Singa', e:'🦁', desc:'Pasif Cakar Singa: +20% damage · +jangkauan pedang · memancing monster · Aktif AUMAN SINGA: raungan 360° dua gelombang (1,3× + 0,7×) merusak & mendorong semua monster di sekeliling' } },
   { id:'elfmage', name:'Penyihir Elf', e:'🔮', recruitable:true, rare:true, weight:10,
@@ -33653,13 +34323,13 @@ HC.NPC_ROLES = [
   { id:'goblin', name:'Goblin Emas', e:'👺', recruitable:true, rare:true, weight:9,
     robe:0x4f9e3a, hood:0xd9a531, hp:185, dmg:19, speed:4.6,
     skill:{ id:'backstab', name:'Backstab Leap', e:'🗡️', desc:'Loncat ke punggung monster · 5 tusukan beruntun (total damage 5×) · monster yang ditunggangi tak bisa membalas' } },
-  { id:'magesupport', name:'Mage Support', e:'🔯', recruitable:true, rare:true, legendary:true, weight:6,
+  { id:'magesupport', name:'Penyihir Pendukung', e:'🔯', recruitable:true, rare:true, legendary:true, weight:6,
     robe:0x3a5a8c, hood:0x6a8fd0, hp:160, dmg:16, speed:3.4,
     skill:{ id:'support', name:'Dukungan Arcane', e:'🔯', desc:'Aura Pasif +15% DEF tim saat direkrut · Healing Aura memulihkan tim bertahap · Aura Perisai aktif · Hujan Bintang' } },
-  { id:'royalguard', name:'Royal Guard', e:'🛡️', recruitable:true, rare:true, weight:8,
+  { id:'royalguard', name:'Pengawal Kerajaan', e:'🛡️', recruitable:true, rare:true, weight:8,
     robe:0xb02a26, hood:0xe0b048, hp:300, dmg:24, speed:3.0,
     skill:{ id:'royalbash', name:'Shield Bash', e:'👑', desc:'BASH: hantaman perisai membuat mob di kerucut depan pingsan (stun) · PROVOKE: menantang mob di sekitar untuk menyerangnya · damage diterima -70% selama menantang' } },
-  { id:'lich', name:'Lich', e:'☠️', recruitable:true, rare:true, mythic:true, weight:4,
+  { id:'lich', name:'Raja Tulang', e:'☠️', recruitable:true, rare:true, mythic:true, weight:4,
     robe:0x161a20, hood:0x2f8a4e, hp:380, dmg:42, speed:3.2,
     skill:{ id:'lich_wrath', name:'Lich Wrath', e:'☠️', desc:'⚡ Sambaran Petir Ungu beruntun · 🧟 Bangkitkan 3 Zombie Pembantai dari tanah kubur (HP, Damage & Durasi scaling level) · 🩸 Sedot Nyawa memulihkan HP' } },
 ];
@@ -33722,7 +34392,7 @@ const NPC_ROLE_TEXT = {
 };
 
 HC.localizeNpcRoles = function () {
-  const english = HC.getLang && HC.getLang() === 'en';
+  const english = !HC.getLang || HC.getLang() !== 'id';
   for (const role of HC.NPC_ROLES) {
     const original = NPC_ROLE_TEXT[role.id];
     if (!original) continue;
@@ -33753,11 +34423,11 @@ HC.localizeNpcRoles();
    dinormalisasi ke tinggi targetnya sendiri supaya proporsi Sylvan tetap,
    tapi ukurannya masuk akal di samping gerobak SHOD (bak setinggi ±1 m). */
 HC.NPC_HEIGHT = {
-  guard: 1.72, hunter: 1.74, miner: 1.64, farmer: 1.72, herbal: 1.68,
-  warrior: 1.80, guardian: 1.86, merchant: 1.72, dungeonmaster: 1.80,
-  petmerchant: 1.82, lionknight: 2.05, elfmage: 1.82, stonegiant: 2.90,
-  rabbitwarrior: 1.56, goblin: 1.22, magesupport: 1.80, royalguard: 2.00,
-  lich: 2.30,
+  guard: 2.38, hunter: 2.38, miner: 2.26, farmer: 2.34, herbal: 2.28,
+  warrior: 2.46, guardian: 2.52, merchant: 2.36, dungeonmaster: 2.42,
+  petmerchant: 2.42, lionknight: 2.70, elfmage: 2.42, stonegiant: 3.55,
+  rabbitwarrior: 2.15, goblin: 1.68, magesupport: 2.42, royalguard: 2.65,
+  lich: 2.95,
 };
 
 function sitLegGroups(parts = {}) {
@@ -33798,8 +34468,8 @@ HC.buildNPC = function (role, pose = 'stand') {
      siluet, bukan offset). Jadi cukup skala — jangan digeser naik, nanti
      karakternya ngambang. Pose duduk dibatasi lebih pendek supaya raksasa
      3 m tidak menembus atap gerobak. */
-  const baseH = HC.NPC_HEIGHT[role.id] || 1.75;
-  const targetH = pose === 'sit' ? Math.min(baseH, 2.05) : baseH;
+  const baseH = HC.NPC_HEIGHT[role.id] || 2.35;
+  const targetH = pose === 'sit' ? Math.min(baseH * 0.78, 2.05) : baseH;
   root.updateMatrixWorld(true);
   const raw = new THREE.Box3().setFromObject(mesh);
   const rawH = Math.max(0.01, raw.max.y - raw.min.y);
@@ -34063,6 +34733,9 @@ function updateVillageResident(item, dt, horse, world) {
     harvest: true,
     holdingDoor: false,
     goingToDoor: false,
+    farmTileIdx: -1,
+    farmAction: 'harvest',
+    carriedCrops: 0,
   });
 
   const groundFn = (x, z) => ((world && world.heightAt) ? world.heightAt(x, z)
@@ -34217,6 +34890,131 @@ function updateVillageResident(item, dt, horse, world) {
         }
       }
     }
+  } else if (vp.behindStall && vp.workKind === 'shop') {
+    // Pedagang berjaga tepat di belakang meja/bangunan toko menghadap pembeli
+    const post = stations[0];
+    if (post) {
+      item.x = post.x;
+      item.z = post.z;
+      if (vp.fixedY !== null && vp.fixedY !== undefined) customY = vp.fixedY;
+      if (distH < prof.face) {
+        vb.dir = Math.atan2(dxH, dzH);
+      } else if (post.faceX !== undefined && post.faceZ !== undefined) {
+        vb.dir = Math.atan2(post.faceX - item.x, post.faceZ - item.z);
+      }
+      lookHead = Math.sin((item._vClock = (item._vClock || 0) + dt) * 1.1) * 0.18;
+    }
+    vb.state = 'work_at_station';
+  } else if (vp.workKind === 'farm' && vp.farmPlot && Array.isArray(vp.farmPlot.tiles) && vp.farmPlot.tiles.length) {
+    // Siklus petani nyata: pilih petak matang/kosong -> berjalan -> panen/tanam -> setor hasil panen ke toko desa
+    const farmPlot = vp.farmPlot;
+    const sp = (st.speed || 3.0) * 0.52;
+    const pickNextFarmTile = () => {
+      let ripe = -1, empty = -1;
+      for (let ti = 0; ti < farmPlot.tiles.length; ti++) {
+        const tl = farmPlot.tiles[ti];
+        if (tl.stage === 2 && ripe < 0) ripe = ti;
+        if (tl.stage === 0 && empty < 0) empty = ti;
+      }
+      if (ripe >= 0) return { idx: ripe, action: 'harvest' };
+      if (empty >= 0) return { idx: empty, action: 'plant' };
+      return null;
+    };
+
+    if (vb.state === 'deliver_shop') {
+      const drop = vp.shopDrop || stations[0];
+      const dx = drop.x - item.x, dz = drop.z - item.z;
+      const d = Math.hypot(dx, dz);
+      vb.t -= dt;
+      if (d < 0.75 || vb.t <= 0) {
+        vb.state = 'deliver_unload';
+        vb.t = 2.0;
+        if (drop.faceX !== undefined && drop.faceZ !== undefined) {
+          vb.dir = Math.atan2(drop.faceX - item.x, drop.faceZ - item.z);
+        }
+      } else {
+        vb.dir = Math.atan2(dx, dz);
+        item.x += (dx / d) * sp * dt;
+        item.z += (dz / d) * sp * dt;
+        walkSpeed = sp;
+        if (world && typeof world.resolveCircleCollision === 'function') {
+          const colRes = world.resolveCircleCollision(item.x, item.z, 0.34);
+          if (colRes.hit) { item.x = colRes.x; item.z = colRes.z; }
+        }
+      }
+    } else if (vb.state === 'deliver_unload') {
+      vb.t -= dt;
+      if (vb.t <= 0) {
+        if (vb.carriedCrops > 0 && world && world.addVillageShopStock) {
+          world.addVillageShopStock(vp.villageRef || vp.villageId, vb.carriedCrops);
+        }
+        vb.carriedCrops = 0;
+        vb.state = 'farm_seek';
+        vb.t = 0.2;
+      }
+    } else if (vb.state === 'farm_work') {
+      const tile = farmPlot.tiles[vb.farmTileIdx];
+      vb.t -= dt;
+      isWork = true;
+      vb.harvest = (vb.farmAction === 'harvest');
+      if (tile) vb.dir = Math.atan2(tile.x - item.x, tile.z - item.z);
+      if (vb.t <= 0) {
+        if (tile && vb.farmAction === 'harvest' && tile.stage === 2 && world && world.harvestFarmTile) {
+          world.harvestFarmTile(farmPlot, tile.index, false);
+          vb.carriedCrops = (vb.carriedCrops || 0) + 1;
+        } else if (tile && vb.farmAction === 'plant' && tile.stage === 0 && world && world.plantFarmTile) {
+          world.plantFarmTile(farmPlot, tile.index);
+        }
+        const nextJob = pickNextFarmTile();
+        if (vb.carriedCrops >= 2 || (vb.carriedCrops > 0 && (!nextJob || nextJob.action !== 'harvest'))) {
+          vb.state = 'deliver_shop';
+          vb.t = 18.0;
+        } else {
+          vb.state = 'farm_seek';
+          vb.t = 0.2;
+        }
+      }
+    } else if (vb.state === 'farm_walk') {
+      const tile = farmPlot.tiles[vb.farmTileIdx];
+      if (!tile) {
+        vb.state = 'farm_seek';
+      } else {
+        const dx = tile.x - item.x, dz = tile.z - item.z;
+        const d = Math.hypot(dx, dz);
+        vb.t -= dt;
+        if (d < 0.78 || vb.t <= 0) {
+          vb.state = 'farm_work';
+          vb.t = 3.2;
+          vb.dir = Math.atan2(tile.x - item.x, tile.z - item.z);
+        } else {
+          vb.dir = Math.atan2(dx, dz);
+          item.x += (dx / d) * sp * dt;
+          item.z += (dz / d) * sp * dt;
+          walkSpeed = sp;
+          if (world && typeof world.resolveCircleCollision === 'function') {
+            const colRes = world.resolveCircleCollision(item.x, item.z, 0.34);
+            if (colRes.hit) { item.x = colRes.x; item.z = colRes.z; }
+          }
+        }
+      }
+    } else {
+      // farm_seek / idle menunggu tanaman tumbuh
+      vb.t -= dt;
+      if (vb.t <= 0 || vb.state !== 'farm_idle') {
+        const job = pickNextFarmTile();
+        if (job) {
+          vb.farmTileIdx = job.idx;
+          vb.farmAction = job.action;
+          vb.state = 'farm_walk';
+          vb.t = 14.0;
+        } else {
+          vb.state = 'farm_idle';
+          vb.t = 2.5;
+          vb.dir = Math.atan2(farmPlot.x - item.x, farmPlot.z - item.z);
+          lookHead = Math.sin((item._vClock = (item._vClock || 0) + dt) * 1.1) * 0.25;
+        }
+      }
+    }
   } else if (vb.state === 'walk_to_target') {
     const tgt = vb.target || stations[0];
     const dx = tgt.x - item.x;
@@ -34335,7 +35133,7 @@ HC.updateWildNPC = function (item, dt, horse, world, rigCtx = null) {
   const activeRig = rigCtx || HC._activeRigCtx || (world && world._rigObsCtx) || null;
   if (HC.combatAI && HC.mobs && HC.combatAI.stepWild(item, dt || 1 / 60, horse, world)) return;
   if (item.villageProfile && updateVillageResident(item, dt || 1 / 60, horse, world)) {
-    if (activeRig && HC.resolveRigObstacle) {
+    if (activeRig && HC.resolveRigObstacle && !item.villageProfile.behindStall) {
       const rigRes = HC.resolveRigObstacle(item.x, item.z, 0.36, activeRig.horse, activeRig.cart);
       if (rigRes.hit) {
         item.x = rigRes.x;
@@ -35147,6 +35945,189 @@ HC.NPCParty = class {
       return;
     }
 
+    // ---- state === 'farm_job': NPC rekrutan bekerja paruh waktu memanen & mengantar hasil ke toko desa ----
+    if (m.state === 'farm_job') {
+      const job = this._farmJob;
+      const farmPlot = job && job.farmPlot;
+      if (!job || !farmPlot || !Array.isArray(farmPlot.tiles) || (physics && physics.flipped)
+        || Math.hypot(hx - farmPlot.x, hz - farmPlot.z) > 36) {
+        m.farmTileIdx = -1;
+        m.carriedCrops = 0;
+        if (physics && physics.flipped) {
+          m.state = 'following';
+        } else {
+          m.state = 'boarding';
+          m.boardT = 0;
+          m.hopFrom = null;
+        }
+        return;
+      }
+
+      const claimedByOther = (idx) => this.members.some((o) => o !== m && o.state === 'farm_job' && o.farmTileIdx === idx);
+      const pickNextTile = () => {
+        let bestRipe = -1, bestRipeD = Infinity;
+        let bestEmpty = -1, bestEmptyD = Infinity;
+        for (let i = 0; i < farmPlot.tiles.length; i++) {
+          if (claimedByOther(i)) continue;
+          const tl = farmPlot.tiles[i];
+          const d = Math.hypot(tl.x - m.x, tl.z - m.z);
+          if (tl.stage === 2 && d < bestRipeD) { bestRipeD = d; bestRipe = i; }
+          else if (tl.stage === 0 && d < bestEmptyD) { bestEmptyD = d; bestEmpty = i; }
+        }
+        if (bestRipe >= 0) return { idx: bestRipe, action: 'harvest' };
+        if (bestEmpty >= 0) return { idx: bestEmpty, action: 'plant' };
+        return null;
+      };
+
+      let walkingNow = false;
+      let workingNow = false;
+      let curSpeed = 0;
+      const sp = 2.65;
+
+      if (m.farmPhase === 'deliver_walk') {
+        const drop = job.shopDrop || { x: farmPlot.x, z: farmPlot.z };
+        const dx = drop.x - m.x, dz = drop.z - m.z;
+        const d = Math.hypot(dx, dz);
+        if (d > 0.95) {
+          const move = Math.min(d, sp * dt);
+          m.x += (dx / d) * move;
+          m.z += (dz / d) * move;
+          m.dir = this._turnToward(m.dir, Math.atan2(dx, dz), 9.0, dt);
+          walkingNow = true;
+          curSpeed = sp;
+          resolveProps(0.34);
+        } else {
+          m.farmPhase = 'deliver_drop';
+          m.farmWorkT = 0.95;
+          if (drop.faceX !== undefined && drop.faceZ !== undefined) {
+            m.dir = this._turnToward(m.dir, Math.atan2(drop.faceX - m.x, drop.faceZ - m.z), 10.0, dt);
+          }
+          _armSwing(m);
+        }
+      } else if (m.farmPhase === 'deliver_drop') {
+        m.farmWorkT -= dt;
+        workingNow = true;
+        if (m.farmWorkT <= 0) {
+          const qty = Math.max(1, m.carriedCrops || 1);
+          m.carriedCrops = 0;
+          const newStock = (this.world && this.world.addVillageShopStock)
+            ? this.world.addVillageShopStock(job.villageRef || farmPlot.villageId, qty)
+            : 0;
+          job.delivered = (job.delivered || 0) + qty;
+          if (typeof job.onCropDelivered === 'function') {
+            job.onCropDelivered({
+              member: m,
+              count: qty,
+              gold: qty * 5,
+              shopStock: newStock,
+              villageName: job.villageName,
+            });
+          }
+          m.farmPhase = 'seek';
+          m.farmTileIdx = -1;
+        }
+      } else if (m.farmPhase === 'work_tile') {
+        const tl = farmPlot.tiles[m.farmTileIdx];
+        if (!tl) {
+          m.farmPhase = 'seek';
+          m.farmTileIdx = -1;
+        } else {
+          m.dir = this._turnToward(m.dir, Math.atan2(tl.x - m.x, tl.z - m.z), 10.0, dt);
+          m.farmWorkT -= dt;
+          workingNow = true;
+          m.farmSwingCd = (m.farmSwingCd || 0) - dt;
+          if (m.farmSwingCd <= 0) { m.farmSwingCd = 1.05; _armSwing(m); }
+          if (m.farmWorkT <= 0) {
+            if (m.farmAction === 'harvest' && tl.stage === 2 && this.world && this.world.harvestFarmTile) {
+              this.world.harvestFarmTile(farmPlot, tl.index, false);
+              m.carriedCrops = (m.carriedCrops || 0) + 1;
+              m.farmTileIdx = -1;
+              m.farmPhase = 'deliver_walk';
+            } else if (m.farmAction === 'plant' && tl.stage === 0 && this.world && this.world.plantFarmTile) {
+              this.world.plantFarmTile(farmPlot, tl.index);
+              m.farmTileIdx = -1;
+              m.farmPhase = 'seek';
+            } else {
+              m.farmTileIdx = -1;
+              m.farmPhase = 'seek';
+            }
+          }
+        }
+      } else if (m.farmPhase === 'walk_tile') {
+        const tl = farmPlot.tiles[m.farmTileIdx];
+        if (!tl || (m.farmAction === 'harvest' && tl.stage !== 2) || (m.farmAction === 'plant' && tl.stage !== 0)) {
+          m.farmTileIdx = -1;
+          m.farmPhase = 'seek';
+        } else {
+          const dx = tl.x - m.x, dz = tl.z - m.z;
+          const d = Math.hypot(dx, dz);
+          if (d > 0.85) {
+            const move = Math.min(d, sp * dt);
+            m.x += (dx / d) * move;
+            m.z += (dz / d) * move;
+            m.dir = this._turnToward(m.dir, Math.atan2(dx, dz), 9.0, dt);
+            walkingNow = true;
+            curSpeed = sp;
+            resolveProps(0.34);
+          } else {
+            m.farmPhase = 'work_tile';
+            m.farmWorkT = 2.2;
+            m.farmSwingCd = 0.1;
+          }
+        }
+      } else {
+        // seek
+        if (m.carriedCrops > 0) {
+          m.farmPhase = 'deliver_walk';
+        } else {
+          const next = pickNextTile();
+          if (next) {
+            m.farmTileIdx = next.idx;
+            m.farmAction = next.action;
+            m.farmPhase = 'walk_tile';
+          } else {
+            // Semua petak sudah selesai dipanen & ditanam -> kembali naik ke gerobak
+            m.farmTileIdx = -1;
+            m.state = 'boarding';
+            m.boardT = 0;
+            m.hopFrom = null;
+            const anyStillWorking = this.members.some((o) => o !== m && o.state === 'farm_job');
+            if (!anyStillWorking) {
+              const finishedJob = this._farmJob;
+              this._farmJob = null;
+              if (finishedJob && typeof finishedJob.onComplete === 'function') {
+                finishedJob.onComplete(finishedJob);
+              }
+            }
+            this._notify();
+            return;
+          }
+        }
+      }
+
+      const gy = this._groundY(m.x, m.z);
+      root.position.set(m.x, gy, m.z);
+      root.rotation.set(0, m.dir, 0);
+      if (st) {
+        st.pos.copy(root.position);
+        st.vel.x = walkingNow ? Math.sin(m.dir) * curSpeed : 0;
+        st.vel.z = walkingNow ? Math.cos(m.dir) * curSpeed : 0;
+        st.walking = walkingNow;
+        st.working = workingNow;
+        if (workingNow) {
+          st.farmT = 1;
+          st.farmTask = { action: m.farmAction === 'plant' ? 'plant' : 'harvest' };
+        } else {
+          st.farmT = 0;
+          st.farmTask = null;
+        }
+        st.swing = walkingNow ? 0 : _tickSwing(m, dt);
+        st.headAngle = 0;
+      }
+      HC.animateNPC(root, dt);
+      return;
+    }
+
     // ---- state === 'following': bertarung taktis jika ada musuh, atau pungut barang jatuh 1 per 1, atau ikuti gerobak ----
     if (HC.combatAI && HC.mobs && HC.combatAI.stepPartyMember(m, dt, hx, hz, hyaw, c, physics, this)) {
       this._dropMemberCargo(m, physics);
@@ -35584,6 +36565,65 @@ HC.NPCParty = class {
     this.lastMessage = this._text('npc_msg_recruited', `${role.e} ${role.name} direkrut - berjalan ke belakang gerobak... (${fx.note})`, { e: role.e, name: role.name, note: fx.note, role });
     this._notify();
     return role;
+  }
+  isFarmJobActive(villageId = null) {
+    if (!this._farmJob) return false;
+    const anyWorking = this.members.some((m) => m.state === 'farm_job');
+    if (!anyWorking) { this._farmJob = null; return false; }
+    if (villageId && this._farmJob.villageId !== villageId) return false;
+    return true;
+  }
+  startFarmJob(farmPlot, shopDrop, { onCropDelivered = null, onComplete = null } = {}) {
+    if (!farmPlot || !this.members.length) return false;
+    if (this.physics && this.physics.flipped) return false;
+    this._farmJob = {
+      villageId: farmPlot.villageId,
+      villageName: farmPlot.villageName,
+      villageRef: farmPlot.villageRef || null,
+      farmPlot,
+      shopDrop: shopDrop || { x: farmPlot.x, z: farmPlot.z },
+      onCropDelivered,
+      onComplete,
+      delivered: 0,
+    };
+    for (const m of this.members) {
+      this._clearWaterTask(m);
+      this._dropMemberCargo(m, this.physics);
+      if (m.state === 'seated' || m.state === 'hopping_in') {
+        this._detachSeated(m, this.cart);
+        const rear = this._cartRearWorld(this.cart, 1.2, (m.seatIndex - 0.5) * 0.75);
+        this._spawnStanding(m, rear.x, rear.z, rear.yaw + Math.PI);
+      } else if (!m.root) {
+        const rear = this._cartRearWorld(this.cart, 1.2, (m.seatIndex - 0.5) * 0.75);
+        this._spawnStanding(m, rear.x, rear.z, rear.yaw + Math.PI);
+      }
+      m.state = 'farm_job';
+      m.farmPhase = 'seek';
+      m.farmTileIdx = -1;
+      m.farmAction = 'harvest';
+      m.farmWorkT = 0;
+      m.carriedCrops = 0;
+    }
+    this._syncDefaultPassengers(this.cart);
+    this._notify();
+    return true;
+  }
+  stopFarmJob(boardBack = true) {
+    this._farmJob = null;
+    for (const m of this.members) {
+      if (m.state === 'farm_job') {
+        m.farmTileIdx = -1;
+        m.carriedCrops = 0;
+        if (boardBack && !(this.physics && this.physics.flipped)) {
+          m.state = 'boarding';
+          m.boardT = 0;
+          m.hopFrom = null;
+        } else {
+          m.state = 'following';
+        }
+      }
+    }
+    this._notify();
   }
   boardMember(uid) {
     if (this.physics && this.physics.flipped) {
@@ -41948,6 +42988,998 @@ return { UPGRADE_LINES, STRAP_JOLT, DEFAULT_LEVELS, MATERIAL_DEFS, UPGRADE_COSTS
 
 })();
 
+// --- js/vintage_gui.js ---
+(() => {
+'use strict';
+
+// ============================================================
+//  VINTAGE ORNATE PIXEL ART GUI ENGINE (GUI 1 CLASSIC MENU)
+//  Self-contained SVG icon renderer, gold medallion bezel,
+//  16-bit SFX synthesizer, and 60fps juicy survival bars.
+// ============================================================
+
+const STORAGE_KEY = 'shod_vintage_ui_v1';
+
+const PIXEL_ICONS = {
+  corner_rosette: {
+    pal: { o: '#34282b', h: '#f2dfa8', m: '#cca76b', s: '#967242', d: '#6b4e2d' },
+    grid: [
+      '..oooooo..',
+      '.ohhhhhmo.',
+      'ohhhmmmsso',
+      'ohhmhhmsso',
+      'ohmhhhhmdo',
+      'ohmmhhmmdo',
+      'ommmmmmddo',
+      'omssssdddo',
+      '.osssdddo.',
+      '..oooooo..',
+    ],
+  },
+  hud_corner_medallion: {
+    pal: { o: '#34282b', h: '#f2dfa8', l: '#e5c88c', m: '#cca76b', s: '#a37b47', d: '#75552f' },
+    grid: [
+      '...oooooo...',
+      '..ohhhhhlo..',
+      '.ohhlmmllmo.',
+      'ohhsllmmmsmo',
+      'ohmlsmmmslmo',
+      'ohmmmsmsmmso',
+      'olmmmsmsmmso',
+      'olmmsmmmsdso',
+      'ommsmmmssddo',
+      '.ommmmmssdo.',
+      '..osssdddo..',
+      '...oooooo...',
+    ],
+  },
+  close_x: {
+    pal: { o: '#34282b', g: '#e5c88c', r: '#c56248', h: '#e3866f', s: '#8a3529', w: '#f5e6c8' },
+    grid: [
+      '...oooooo...',
+      '..oggggggo..',
+      '.oghhhhhrgo.',
+      'oghwrrrhwrgo',
+      'oghwwrrwwrgo',
+      'ogrrwwwwrrgo',
+      'ogrrrwwrrsgo',
+      'ogrrwwwwrsgo',
+      'ogrwrrrrwsgo',
+      '.ogssssssgo.',
+      '..oggggggo..',
+      '...oooooo...',
+    ],
+  },
+  coin: {
+    pal: { o: '#34282b', h: '#f5e4bc', m: '#cca76b', s: '#967242', d: '#6b4e2d' },
+    grid: [
+      '..oooooo..',
+      '.ohhhhhmo.',
+      'ohhmhhmmso',
+      'ohmhhmmmso',
+      'ohhmhhmmso',
+      'ohmmhhmmso',
+      'ohhmhhmsdo',
+      'ommmmmmddo',
+      '.osssdddo.',
+      '..oooooo..',
+    ],
+  },
+  sword: {
+    pal: { o: '#34282b', w: '#f2edf0', b: '#b8c0c8', s: '#7f8794', g: '#e5c88c', d: '#967242' },
+    grid: [
+      '.........ooo',
+      '........owwo',
+      '.......owwbo',
+      '......owwbso',
+      '.....owwbso.',
+      '..ooowwbso..',
+      '.ogggwbso...',
+      '..oogggo....',
+      '..ogdoog....',
+      '.ogdo..o....',
+      'ogdo........',
+      'ooo.........',
+    ],
+  },
+  crown: {
+    pal: { o: '#34282b', h: '#f2dfa8', m: '#cca76b', s: '#967242', r: '#d46652', b: '#78b3c2' },
+    grid: [
+      '............',
+      '.....oo.....',
+      '.oo.ohho.oo.',
+      'ohhoohhoohho',
+      'ohmhhmhhmmso',
+      'ohmrhmbhmrso',
+      'ohmmmmmmmmso',
+      'ohhhhhhhhhso',
+      'osssssssssso',
+      '.oooooooooo.',
+      '............',
+      '............',
+    ],
+  },
+  gear: {
+    pal: { o: '#34282b', h: '#f2dfa8', m: '#cca76b', s: '#967242', p: '#483c4c' },
+    grid: [
+      '....oooo....',
+      '....ohmo....',
+      '.oo.ohmo.oo.',
+      'ohmoohmmoohm',
+      '.oohhhhmmso.',
+      '..ohmpphmo..',
+      '..ohmpphmo..',
+      '.oommmmmsoo.',
+      'omsoossmooso',
+      '.oo.osso.oo.',
+      '....osso....',
+      '....oooo....',
+    ],
+  },
+  gear_big: {
+    pal: { o: '#34282b', h: '#f2edf0', m: '#b5adb2', s: '#787078', p: '#483c4c' },
+    grid: [
+      '....oooo....',
+      '....ohmo....',
+      '.oo.ohmo.oo.',
+      'ohhoohmmooho',
+      '.oohhhhmmso.',
+      '..ohmppmmo..',
+      '..ohmppmmo..',
+      '.oommmmmsoo.',
+      'omsoossmooso',
+      '.oo.osso.oo.',
+      '....osso....',
+      '....oooo....',
+    ],
+  },
+  wrench: {
+    pal: { o: '#34282b', h: '#ebe6e8', m: '#b4acb5', s: '#736b75' },
+    grid: [
+      '......oo..oo',
+      '.....ohhooho',
+      '.....ohmhhmo',
+      '.....ohmmmo.',
+      '....ohmmso..',
+      '...ohmmso...',
+      '..ohmmso....',
+      '.ohmmso.....',
+      'ohmmso......',
+      'ohmmo.......',
+      'osso........',
+      'ooo.........',
+    ],
+  },
+  star: {
+    pal: { o: '#34282b', h: '#fff0bf', m: '#e5c88c', s: '#b0854a' },
+    grid: [
+      '.....oo.....',
+      '....ohho....',
+      '....ohmo....',
+      '.ooohmmhooo.',
+      'ohhhhmmmmmso',
+      '.oohmmmmsoo.',
+      '..ohmmmsso..',
+      '..ohmmsmso..',
+      '.ohmo..omso.',
+      '.ooo....ooo.',
+    ],
+  },
+  stat_heart: {
+    pal: { o: '#34282b', h: '#f2dfa8', m: '#cca76b', s: '#967242' },
+    grid: [
+      '............',
+      '..ooo..ooo..',
+      '.ohhhoohhmo.',
+      'ohhhhmmmmmso',
+      'ohhhmmmmmmso',
+      'ohmmmmmmmmso',
+      '.ommmmmmmso.',
+      '..ommmmmso..',
+      '...ommmso...',
+      '....omso....',
+      '.....oo.....',
+      '............',
+    ],
+  },
+  stat_fist: {
+    pal: { o: '#34282b', h: '#f2dfa8', m: '#cca76b', s: '#967242' },
+    grid: [
+      '............',
+      '..oo.oo.oo..',
+      '.ohmohmohmo.',
+      'ohhmhhmhhmso',
+      'ohmmmmmmmmso',
+      'ohmmhhhhmmso',
+      'ohmmmmmmmmso',
+      '.ommmmmmmso.',
+      '..ohmmmmso..',
+      '..omssssso..',
+      '..oooooooo..',
+      '............',
+    ],
+  },
+  stat_boot: {
+    pal: { o: '#34282b', h: '#f2dfa8', m: '#cca76b', s: '#967242' },
+    grid: [
+      '............',
+      '.....oooo...',
+      '....ohhmso..',
+      '....ohmmso..',
+      '....ohmmso..',
+      '...ohmmmso..',
+      '..ohhhhhmso.',
+      '.ohmmmmmmso.',
+      '.osssssssso.',
+      '..oooooooo..',
+      '............',
+      '............',
+    ],
+  },
+  stat_luck: {
+    pal: { o: '#34282b', h: '#f2dfa8', m: '#cca76b', s: '#967242' },
+    grid: [
+      '............',
+      '...oooooo...',
+      '..ohhhhhmo..',
+      '.ohmmmmmmso.',
+      'ohmmhhhhmmso',
+      'ohmmooommmso',
+      'ohmmmmmmmmso',
+      '.ohmmmmmmso.',
+      '..osssssso..',
+      '...oooooo...',
+      '............',
+      '............',
+    ],
+  },
+  buff_atk: {
+    pal: { o: '#34282b', r: '#d46652', h: '#f2a68d', g: '#c5e08b', u: '#7fa858' },
+    grid: [
+      '.......oo...',
+      '.oo...oggo..',
+      'ohho.oggggo.',
+      '.orro.oguo..',
+      'orhhrooguo..',
+      '.orro.oguo..',
+      'or..ro.oo...',
+      'oo..oo......',
+    ],
+  },
+  buff_def: {
+    pal: { o: '#34282b', b: '#78b3c2', h: '#c2e6eb', g: '#c5e08b', u: '#7fa858' },
+    grid: [
+      '.......oo...',
+      '.oooo.oggo..',
+      'ohhbboogggo.',
+      'ohbbbooguo..',
+      'obbbbooguo..',
+      '.obbbooguo..',
+      '..obo..oo...',
+      '...o........',
+    ],
+  },
+  buff_spd: {
+    pal: { o: '#34282b', c: '#e5c88c', b: '#6ca1a6', g: '#c5e08b', u: '#7fa858' },
+    grid: [
+      '.......oo...',
+      '...oo.oggo..',
+      '..occoogggo.',
+      '.ocbbooguo..',
+      'ocbbbooguo..',
+      'occcco.oo...',
+      '.oooo.......',
+      '............',
+    ],
+  },
+  buff_hp: {
+    pal: { o: '#34282b', r: '#c56248', h: '#f0a68b', g: '#c5e08b', u: '#7fa858' },
+    grid: [
+      '.......oo...',
+      '.oo.oooggo..',
+      'ohroroogggo.',
+      'ohrrrooguo..',
+      '.orrrooguo..',
+      '..orro.oo...',
+      '...oo.......',
+      '............',
+    ],
+  },
+  buff_lv: {
+    pal: { o: '#34282b', y: '#f2dfa8', m: '#cca76b', g: '#c5e08b', u: '#7fa858' },
+    grid: [
+      '.......oo...',
+      '......oggo..',
+      'oy.oyoggggo.',
+      'oy.oy.oguo..',
+      'oy.oy.oguo..',
+      'oyyoy.oguo..',
+      'ooooo..oo...',
+      '............',
+    ],
+  },
+  hammer: {
+    pal: { o: '#34282b', h: '#e6e0e4', m: '#a8a0a8', s: '#6d656e', w: '#cca76b', d: '#8a6538' },
+    grid: [
+      '.....ooooo..',
+      '....ohhhmmo.',
+      '...ohhhmmsoo',
+      '...ommmmsso.',
+      '....oowoo...',
+      '....owdo....',
+      '...owdo.....',
+      '..owdo......',
+      '.owdo.......',
+      'owdo........',
+      'ooo.........',
+      '............',
+    ],
+  },
+  potion: {
+    pal: { o: '#34282b', g: '#e5c88c', c: '#c9e0e6', r: '#c56248', h: '#f2a288', s: '#8a3529' },
+    grid: [
+      '....oooo....',
+      '....oggo....',
+      '....oooo....',
+      '....occo....',
+      '...occcco...',
+      '..ochrhrro..',
+      '.ochrrrrrso.',
+      '.ohrrrrrrso.',
+      '.orrrrrrsso.',
+      '..osssssso..',
+      '...oooooo...',
+      '............',
+    ],
+  },
+  apple: {
+    pal: { o: '#34282b', g: '#9cc474', b: '#8a6538', h: '#f09f84', r: '#c56248', s: '#8a3529' },
+    grid: [
+      '......ooo...',
+      '.....oggo...',
+      '....oboo....',
+      '..ooobooo...',
+      '.ohhrrrrro..',
+      'ohhhrrrrrso.',
+      'ohrrrrrrrso.',
+      'orrrrrrrsso.',
+      '.orrrrrsso..',
+      '..oosssso...',
+      '....oooo....',
+      '............',
+    ],
+  },
+  map_scroll: {
+    pal: { o: '#34282b', h: '#f5e6c8', m: '#dec499', s: '#ad8d5c', r: '#c56248' },
+    grid: [
+      '..oooooooo..',
+      '.ohhhhhhhmo.',
+      '.ohmmmmmmso.',
+      '.ohmmrmmmso.',
+      '.ohmrmrmmso.',
+      '.ohmmrmmmso.',
+      '.ohmmmmmmso.',
+      '.ohmmmmmmso.',
+      '.omssssssso.',
+      '..oooooooo..',
+    ],
+  },
+  bust_gold: {
+    pal: { o: '#34282b', h: '#f5e4bc', m: '#cca76b', s: '#967242' },
+    grid: [
+      '...oooo...',
+      '..ohhhmo..',
+      '..ohmmso..',
+      '..ommmso..',
+      '...oooo...',
+      '.oohhhmoo.',
+      'ohhmmmmmso',
+      'ohmmmmmmso',
+      'osssssssso',
+      '.oooooooo.',
+    ],
+  },
+  chest: {
+    pal: { o: '#34282b', w: '#a87d4f', d: '#755331', g: '#f2dfa8', m: '#cca76b' },
+    grid: [
+      '.oooooooo.',
+      'ogwwwwwwgo',
+      'owwwwwwwwo',
+      'oggggggggo',
+      'odddggdddo',
+      'odddggdddo',
+      'oddddddddo',
+      'ogddddddgo',
+      '.oooooooo.',
+      '..........',
+    ],
+  },
+  compass: {
+    pal: { o: '#34282b', h: '#f2dfa8', m: '#cca76b', r: '#d46652', b: '#8ec1eb', p: '#5c4d61' },
+    grid: [
+      '....oooo....',
+      '..ooppppoo..',
+      '.opppoopppo.',
+      '.oppprrpppo.',
+      'oppprrrppppo',
+      'opppohhppppo',
+      'opppohhppppo',
+      'oppppbbbpppo',
+      '.opppbbpppo.',
+      '.opppoopppo.',
+      '..ooppppoo..',
+      '....oooo....',
+    ],
+  },
+  camp_flask: {
+    pal: { o: '#34282b', g: '#e5c88c', b: '#8ec1eb', d: '#5b92c2', w: '#f5e4bc', r: '#c56248', h: '#f09f84', l: '#9cc474' },
+    grid: [
+      '....ooo.........',
+      '....ogo...ooo...',
+      '...ooooo.ollo...',
+      '..owbbbooooho...',
+      '.owbbbbbohhrro..',
+      '.obbbbbbohhrrso.',
+      '.obbbddboorrrso.',
+      '..oddddo..osoo..',
+      '...oooo.........',
+    ],
+  },
+};
+
+function renderIcon(name, sizePx = 20) {
+  const def = PIXEL_ICONS[name];
+  if (!def) return '';
+  const h = def.grid.length;
+  const w = def.grid[0].length;
+  let rects = '';
+  for (let y = 0; y < h; y++) {
+    const row = def.grid[y];
+    for (let x = 0; x < w; x++) {
+      const ch = row[x];
+      if (ch !== '.' && def.pal[ch]) {
+        rects += `<rect x="${x}" y="${y}" width="1" height="1" fill="${def.pal[ch]}"/>`;
+      }
+    }
+  }
+  return `<svg viewBox="0 0 ${w} ${h}" width="${sizePx}" height="${sizePx}" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg">${rects}</svg>`;
+}
+
+const FILIGREE_SVG = (() => {
+  const rows = [
+    '.....oooo.............oooo.....',
+    '...oo....oo...ooo...oo....oo...',
+    '.oo..oooo..ooo...ooo..oooo..oo.',
+    'o..oo....oo.........oo....oo..o',
+  ];
+  let rects = '';
+  for (let y = 0; y < rows.length; y++) {
+    for (let x = 0; x < rows[y].length; x++) {
+      if (rows[y][x] === 'o') {
+        rects += `<rect x="${x}" y="${y}" width="1" height="1" fill="#6b5d70"/>`;
+      }
+    }
+  }
+  return `<svg viewBox="0 0 31 4" width="124" height="8" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg">${rects}</svg>`;
+})();
+
+function buildOrnateCircleMedallionRingSvg(sizePx = 86) {
+  const N = 44;
+  const cx = 21.5;
+  const cy = 21.5;
+  const grid = Array.from({ length: N }, () => Array(N).fill(null));
+  const isGoldRing = (x, y) => Math.hypot(x - cx, y - cy) <= 20.15;
+
+  for (let y = 0; y < N; y++) {
+    for (let x = 0; x < N; x++) {
+      const inBody = isGoldRing(x, y);
+      if (!inBody) {
+        const adj =
+          (x > 0 && isGoldRing(x - 1, y)) ||
+          (x < N - 1 && isGoldRing(x + 1, y)) ||
+          (y > 0 && isGoldRing(x, y - 1)) ||
+          (y < N - 1 && isGoldRing(x, y + 1));
+        if (adj) grid[y][x] = '#34282b';
+        continue;
+      }
+      const dx = x - cx;
+      const dy = y - cy;
+      const d = Math.hypot(dx, dy);
+      const light = dx + dy;
+
+      if (d >= 16.55) {
+        let col = '#cca76b';
+        if (d >= 19.05) {
+          if (light < 2.0) col = '#f2dfa8';
+          else if (light < 11.0) col = '#e5c88c';
+          else col = '#967242';
+        } else if (d >= 17.65) {
+          if (light < -12.0) col = '#f2dfa8';
+          else if (light < -2.0) col = '#e5c88c';
+          else if (light < 10.0) col = '#cca76b';
+          else col = '#a37b47';
+        } else {
+          if (light < -4.0) col = '#a37b47';
+          else if (light < 8.0) col = '#cca76b';
+          else col = '#e5c88c';
+        }
+        grid[y][x] = col;
+      } else if (d >= 15.5) {
+        grid[y][x] = '#34282b';
+      }
+      // Interior d < 15.5 remains transparent so live 3D horse portrait shows cleanly!
+    }
+  }
+
+  let rects = '';
+  for (let y = 0; y < N; y++) {
+    let x = 0;
+    while (x < N) {
+      const col = grid[y][x];
+      if (!col) { x++; continue; }
+      let run = 1;
+      while (x + run < N && grid[y][x + run] === col) run++;
+      rects += `<rect x="${x}" y="${y}" width="${run}" height="1" fill="${col}"/>`;
+      x += run;
+    }
+  }
+  return `<svg viewBox="0 0 ${N} ${N}" width="${sizePx}" height="${sizePx}" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg">${rects}</svg>`;
+}
+
+function hydrateSvgs(root = document) {
+  if (!root || !root.querySelectorAll) return;
+  root.querySelectorAll('.js-icon').forEach((el) => {
+    const name = el.getAttribute('data-icon');
+    const sz = parseInt(el.getAttribute('data-size') || '20', 10);
+    el.innerHTML = renderIcon(name, sz);
+  });
+  root.querySelectorAll('.js-corner').forEach((el) => {
+    const pos = el.getAttribute('data-pos');
+    el.className = `corner-medallion ${pos}`;
+    el.innerHTML = renderIcon('corner_rosette', 16);
+  });
+  root.querySelectorAll('.js-hud-corner').forEach((el) => {
+    const pos = el.getAttribute('data-pos');
+    const sz = parseInt(el.getAttribute('data-size') || '22', 10);
+    el.className = `hud-corner-medallion ${pos}`;
+    el.innerHTML = renderIcon('hud_corner_medallion', sz);
+  });
+  root.querySelectorAll('.js-filigree').forEach((el) => {
+    const pos = el.getAttribute('data-pos');
+    el.className = `filigree-strip ${pos}`;
+    el.innerHTML = FILIGREE_SVG;
+  });
+  root.querySelectorAll('.js-medallion-ring').forEach((el) => {
+    const sz = parseInt(el.getAttribute('data-size') || '86', 10);
+    el.innerHTML = buildOrnateCircleMedallionRingSvg(sz);
+  });
+}
+
+// ============================================================
+//  16-BIT CHIPTUNE SFX & SETTINGS
+// ============================================================
+const uiState = {
+  sfxVol: 8,
+  sfxEnabled: true,
+  uiShake: true,
+};
+
+function loadUiSettings() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const d = JSON.parse(raw);
+    if (d && Number.isFinite(d.sfxVol)) uiState.sfxVol = Math.max(0, Math.min(12, d.sfxVol | 0));
+    if (d && typeof d.sfxEnabled === 'boolean') uiState.sfxEnabled = d.sfxEnabled;
+    if (d && typeof d.uiShake === 'boolean') uiState.uiShake = d.uiShake;
+  } catch (_e) { /* ignore */ }
+}
+
+function saveUiSettings() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(uiState));
+  } catch (_e) { /* ignore */ }
+}
+
+let _audioCtx = null;
+function getAudioCtx() {
+  try {
+    if (!_audioCtx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      _audioCtx = new AC();
+    }
+    if (_audioCtx.state === 'suspended') _audioCtx.resume();
+    return _audioCtx;
+  } catch (_e) {
+    return null;
+  }
+}
+
+function playSfx(type = 'click') {
+  if (!uiState.sfxEnabled || uiState.sfxVol <= 0) return;
+  try {
+    const ctx = getAudioCtx();
+    if (!ctx) return;
+    const vol = (uiState.sfxVol / 12) * 0.14;
+    const now = ctx.currentTime;
+    const tone = (freq, dur, wave, startOffset = 0, endFreq = null) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = wave;
+      osc.frequency.setValueAtTime(freq, now + startOffset);
+      if (endFreq) osc.frequency.exponentialRampToValueAtTime(endFreq, now + startOffset + dur);
+      gain.gain.setValueAtTime(vol, now + startOffset);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + startOffset + dur);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now + startOffset);
+      osc.stop(now + startOffset + dur + 0.01);
+    };
+    if (type === 'hit') {
+      tone(185, 0.11, 'sawtooth', 0, 72);
+      tone(110, 0.08, 'square', 0.03, 55);
+    } else if (type === 'heal') {
+      tone(440, 0.08, 'triangle', 0, 520);
+      tone(587, 0.10, 'triangle', 0.06, 660);
+      tone(880, 0.14, 'sine', 0.12);
+    } else if (type === 'confirm') {
+      tone(523, 0.07, 'square', 0);
+      tone(659, 0.07, 'square', 0.06);
+      tone(784, 0.10, 'square', 0.12);
+      tone(1046, 0.16, 'triangle', 0.18);
+    } else {
+      tone(540, 0.04, 'square', 0, 620);
+    }
+  } catch (_e) { /* ignore autoplay restrictions */ }
+}
+
+// ============================================================
+//  JUICY 60FPS SURVIVAL BARS + PIXEL PARTICLES
+// ============================================================
+const barDefs = {
+  hp: {
+    target: 100, display: 100, ghost: 100, surge: 100, max: 100, ghostDelay: 0,
+    numColor: '#e6947c', particleHex: ['#f5e4bc', '#e08265', '#c56248'],
+  },
+  stamina: {
+    target: 100, display: 100, ghost: 100, surge: 100, max: 100, ghostDelay: 0,
+    numColor: '#9bc9cc', particleHex: ['#e2f7f7', '#9bc9cc', '#6ca1a6'],
+  },
+  hunger: {
+    target: 100, display: 100, ghost: 100, surge: 100, max: 100, ghostDelay: 0,
+    numColor: '#ebc070', particleHex: ['#fff2cc', '#ebc070', '#cf9444'],
+  },
+  thirst: {
+    target: 100, display: 100, ghost: 100, surge: 100, max: 100, ghostDelay: 0,
+    numColor: '#8ec1eb', particleHex: ['#e0f2ff', '#8ec1eb', '#5b92c2'],
+  },
+};
+
+const barEls = {};
+const particles = [];
+let fxCanvas = null;
+let fxCtx = null;
+let floatLayer = null;
+let _initialized = false;
+
+function cacheBarDom() {
+  for (const key of Object.keys(barDefs)) {
+    const row = document.getElementById(`v-row-${key}`);
+    if (!row) continue;
+    barEls[key] = {
+      row,
+      ghost: document.getElementById(`v-ghost-${key}`),
+      surge: document.getElementById(`v-surge-${key}`),
+      fill: row.querySelector('.surv-fill'),
+      shimmer: document.getElementById(`v-shimmer-${key}`),
+      flash: document.getElementById(`v-flash-${key}`),
+      num: document.getElementById(`v-${key === 'hunger' ? 'food' : key === 'thirst' ? 'water' : key === 'stamina' ? 'sta' : 'hp'}-t`),
+    };
+  }
+}
+
+function triggerClassAnim(el, cls) {
+  if (!el) return;
+  el.classList.remove(cls);
+  void el.offsetWidth;
+  el.classList.add(cls);
+}
+
+function spawnBarParticles(rect, colors, isIncrease) {
+  if (!fxCanvas || !rect || rect.width <= 0) return;
+  const count = isIncrease ? 10 : 12;
+  for (let i = 0; i < count; i++) {
+    particles.push({
+      x: rect.left + rect.width * (isIncrease ? Math.random() : (0.72 + Math.random() * 0.28)),
+      y: rect.top + rect.height * Math.random(),
+      vx: isIncrease ? (Math.random() - 0.5) * 60 : (Math.random() - 0.3) * 110,
+      vy: isIncrease ? -(48 + Math.random() * 75) : -(38 + Math.random() * 72),
+      gravity: isIncrease ? 95 : 270,
+      size: Math.random() > 0.45 ? 4 : 3,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      life: 0.42 + Math.random() * 0.30,
+    });
+  }
+}
+
+function spawnFloatNumber(rect, delta, color) {
+  if (!floatLayer || !rect || rect.width <= 0) return;
+  const el = document.createElement('div');
+  el.className = 'float-num';
+  el.style.left = `${rect.left + rect.width * 0.65}px`;
+  el.style.top = `${rect.top - 4}px`;
+  el.style.color = delta > 0 ? '#d7f2a8' : color;
+  el.textContent = delta > 0 ? `+${delta}` : `${delta}`;
+  floatLayer.appendChild(el);
+  setTimeout(() => el.remove(), 860);
+}
+
+function updateVitals(vals) {
+  const mapping = [
+    ['hp', vals.hp, vals.hpMax || 100],
+    ['stamina', vals.stamina, vals.staminaMax || 100],
+    ['hunger', vals.hunger, 100],
+    ['thirst', vals.thirst, 100],
+  ];
+  for (const [key, rawVal, rawMax] of mapping) {
+    const b = barDefs[key];
+    const nextMax = Math.max(1, Math.round(rawMax));
+    const nextVal = Math.max(0, Math.min(nextMax, rawVal));
+    const prevTarget = b.target;
+    const delta = nextVal - prevTarget;
+    b.max = nextMax;
+    b.target = nextVal;
+
+    const d = barEls[key];
+    if (d && d.num) {
+      d.num.textContent = `${Math.round(nextVal)}/${nextMax}`;
+    }
+
+    // Trigger juicy burst only on discrete events (>= 5 units change)
+    if (Math.abs(delta) >= 5 && _initialized) {
+      const domRow = d && d.row;
+      const domFill = d && d.fill;
+      const med = document.getElementById('btn-horse-portrait');
+      if (delta < 0) {
+        b.ghost = Math.max(b.ghost, b.display);
+        b.ghostDelay = 0.28;
+        b.surge = nextVal;
+        playSfx('hit');
+        if (d) {
+          triggerClassAnim(d.flash, 'hit');
+          if (uiState.uiShake) triggerClassAnim(domRow, 'anim-shake');
+        }
+        if (uiState.uiShake) triggerClassAnim(med, 'anim-shake');
+        if (domRow) {
+          const rect = (domFill && domFill.getBoundingClientRect().width > 4)
+            ? domFill.getBoundingClientRect()
+            : domRow.getBoundingClientRect();
+          spawnBarParticles(rect, b.particleHex, false);
+          spawnFloatNumber(rect, Math.round(delta), b.numColor);
+        }
+      } else {
+        b.surge = nextVal;
+        b.ghost = Math.min(b.ghost, nextVal);
+        playSfx('heal');
+        if (d) triggerClassAnim(d.shimmer, 'sweep');
+        triggerClassAnim(med, 'anim-pop');
+        if (domRow) {
+          const rect = domRow.getBoundingClientRect();
+          spawnBarParticles(rect, b.particleHex, true);
+          spawnFloatNumber(rect, Math.round(delta), '#d7f2a8');
+        }
+      }
+    }
+  }
+}
+
+let _hadParticles = false;
+function step(dt) {
+  if (!dt || dt <= 0) return;
+  const cdt = Math.min(0.05, dt);
+  let anyLow = false;
+
+  for (const key of Object.keys(barDefs)) {
+    const b = barDefs[key];
+    const mainRate = b.display > b.target ? 16 : 7.5;
+    b.display += (b.target - b.display) * Math.min(1, cdt * mainRate);
+    if (Math.abs(b.target - b.display) < 0.08) b.display = b.target;
+
+    if (b.ghostDelay > 0) {
+      b.ghostDelay -= cdt;
+    } else if (b.ghost > b.display) {
+      b.ghost += (b.display - b.ghost) * Math.min(1, cdt * 3.8);
+      if (b.ghost - b.display < 0.1) b.ghost = b.display;
+    } else {
+      b.ghost = b.display;
+    }
+
+    if (b.surge < b.display) b.surge = b.display;
+
+    const pctFill = Math.max(0, Math.min(100, (b.display / b.max) * 100));
+    const pctGhost = Math.max(0, Math.min(100, (b.ghost / b.max) * 100));
+    const pctSurge = Math.max(0, Math.min(100, (b.surge / b.max) * 100));
+    const isLow = (b.target / b.max) <= 0.25;
+    if (isLow) anyLow = true;
+
+    const d = barEls[key];
+    if (d) {
+      if (d.fill) d.fill.style.width = `${pctFill}%`;
+      if (d.ghost) d.ghost.style.width = `${pctGhost}%`;
+      if (d.surge) d.surge.style.width = `${pctSurge}%`;
+      if (d.row) d.row.classList.toggle('low-warning', isLow);
+    }
+  }
+
+  const med = document.getElementById('btn-horse-portrait');
+  if (med) med.classList.toggle('low-warning-medallion', anyLow);
+
+  if (fxCtx && fxCanvas) {
+    if (particles.length > 0) {
+      _hadParticles = true;
+      fxCtx.clearRect(0, 0, fxCanvas.width, fxCanvas.height);
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.life -= cdt;
+        if (p.life <= 0) {
+          particles.splice(i, 1);
+          continue;
+        }
+        p.vy += p.gravity * cdt;
+        p.x += p.vx * cdt;
+        p.y += p.vy * cdt;
+        fxCtx.globalAlpha = Math.max(0, Math.min(1, p.life / 0.35));
+        fxCtx.fillStyle = '#34282b';
+        fxCtx.fillRect(Math.round(p.x) - 1, Math.round(p.y) - 1, p.size + 2, p.size + 2);
+        fxCtx.fillStyle = p.color;
+        fxCtx.fillRect(Math.round(p.x), Math.round(p.y), p.size, p.size);
+      }
+      fxCtx.globalAlpha = 1;
+    } else if (_hadParticles) {
+      _hadParticles = false;
+      fxCtx.clearRect(0, 0, fxCanvas.width, fxCanvas.height);
+    }
+  }
+}
+
+function renderAudioControls() {
+  const host = document.getElementById('vintage-audio-controls');
+  if (!host) return;
+  let segs = '';
+  for (let i = 1; i <= 12; i++) {
+    segs += `<span class="pip-slider-seg ${i <= uiState.sfxVol ? 'on' : ''}"></span>`;
+  }
+  const pct = Math.round((uiState.sfxVol / 12) * 100);
+  host.innerHTML = `
+    <div class="v-audio-row">
+      <div class="v-audio-head">
+        <span class="font-pixel-title">SFX VOL</span>
+        <span>${pct}%</span>
+      </div>
+      <div class="pip-slider" id="v-sfx-slider">${segs}</div>
+    </div>
+    <div class="v-toggle-row">
+      <span>SFX 16-BIT</span>
+      <button type="button" class="pixel-toggle ${uiState.sfxEnabled ? 'on' : ''}" id="v-tgl-sfx" aria-label="Toggle SFX">
+        <span class="pixel-toggle-knob"></span>
+      </button>
+    </div>
+    <div class="v-toggle-row">
+      <span>UI SHAKE</span>
+      <button type="button" class="pixel-toggle ${uiState.uiShake ? 'on' : ''}" id="v-tgl-shake" aria-label="Toggle UI Shake">
+        <span class="pixel-toggle-knob"></span>
+      </button>
+    </div>
+  `;
+
+  const slider = host.querySelector('#v-sfx-slider');
+  if (slider) {
+    const updateFromPointer = (clientX) => {
+      const rect = slider.getBoundingClientRect();
+      const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / Math.max(1, rect.width)));
+      const nextVal = Math.round(ratio * 12);
+      if (uiState.sfxVol !== nextVal) {
+        uiState.sfxVol = nextVal;
+        saveUiSettings();
+        renderAudioControls();
+        playSfx('click');
+      }
+    };
+    slider.addEventListener('pointerdown', (ev) => {
+      ev.preventDefault();
+      if (slider.setPointerCapture) slider.setPointerCapture(ev.pointerId);
+      updateFromPointer(ev.clientX);
+    });
+    slider.addEventListener('pointermove', (ev) => {
+      if (ev.buttons === 1 || ev.pressure > 0) updateFromPointer(ev.clientX);
+    });
+  }
+  const tglSfx = host.querySelector('#v-tgl-sfx');
+  if (tglSfx) {
+    tglSfx.addEventListener('click', (e) => {
+      e.preventDefault();
+      uiState.sfxEnabled = !uiState.sfxEnabled;
+      saveUiSettings();
+      renderAudioControls();
+      playSfx('click');
+    });
+  }
+  const tglShake = host.querySelector('#v-tgl-shake');
+  if (tglShake) {
+    tglShake.addEventListener('click', (e) => {
+      e.preventDefault();
+      uiState.uiShake = !uiState.uiShake;
+      saveUiSettings();
+      renderAudioControls();
+      playSfx('click');
+    });
+  }
+}
+
+function setDesc(title, body) {
+  const tEl = document.getElementById('desc-title');
+  const bEl = document.getElementById('desc-body');
+  if (tEl && title) tEl.textContent = title;
+  if (bEl && body) bEl.textContent = body;
+}
+
+function init() {
+  loadUiSettings();
+  hydrateSvgs(document);
+  cacheBarDom();
+  renderAudioControls();
+
+  fxCanvas = document.getElementById('fx-canvas');
+  floatLayer = document.getElementById('float-layer');
+  if (fxCanvas) {
+    fxCtx = fxCanvas.getContext('2d');
+    const resizeFx = () => {
+      fxCanvas.width = window.innerWidth;
+      fxCanvas.height = window.innerHeight;
+    };
+    resizeFx();
+    window.addEventListener('resize', resizeFx);
+  }
+
+  // Wire Settings General / Controls tab switcher
+  const tabBtns = document.querySelectorAll('[data-settings-tab]');
+  const genPane = document.getElementById('settings-tab-general');
+  const ctrlPane = document.getElementById('settings-tab-controls');
+  tabBtns.forEach((tb) => {
+    tb.addEventListener('click', (e) => {
+      e.preventDefault();
+      const target = tb.getAttribute('data-settings-tab');
+      tabBtns.forEach((b) => b.classList.toggle('is-active', b === tb));
+      if (genPane) genPane.hidden = target !== 'general';
+      if (ctrlPane) ctrlPane.hidden = target !== 'controls';
+    });
+  });
+
+  // Subtle global click SFX on UI buttons
+  document.addEventListener('click', (e) => {
+    const btn = e.target && e.target.closest ? e.target.closest('button') : null;
+    if (!btn || btn.disabled) return;
+    if (btn.id === 'btn-walk' || btn.id === 'btn-rev' || btn.id === 'btn-left' || btn.id === 'btn-right') return;
+    playSfx('click');
+  }, { passive: true });
+
+  _initialized = true;
+}
+
+HC.VintageGUI = {
+  init,
+  hydrateSvgs,
+  renderIcon,
+  playSfx,
+  updateVitals,
+  step,
+  setDesc,
+  renderAudioControls,
+};
+
+})();
+
 // --- js/ui.js ---
 const __MOD_UI = (() => {
 'use strict';
@@ -42168,7 +44200,7 @@ function initUpgradeUI({ store, quests, onUpgrade, onPreview, onRefill, onClose 
 
     const actionBtn = document.createElement('button');
     actionBtn.type = 'button';
-    actionBtn.className = 'ws-up-btn ws-action-btn';
+    actionBtn.className = 'vintage-pill-btn ws-action-btn';
     if (isEquipped) {
       actionBtn.disabled = true;
       actionBtn.textContent = t('ws_equipped');
@@ -42198,6 +44230,7 @@ function initUpgradeUI({ store, quests, onUpgrade, onPreview, onRefill, onClose 
           return;
         }
         const msg = t('ws_upgraded', { name: t(line.nameKey), lv: selLabel });
+        if (HC.VintageGUI && HC.VintageGUI.playSfx) HC.VintageGUI.playSfx('confirm');
         refresh();
         if (onUpgrade) onUpgrade(line.key, true, msg);
       });
@@ -43282,11 +45315,23 @@ function initTouchControls({ animator, survival, onJump, onEat, onInteract, onSl
   // ---------- overlay portrait / layar penuh ----------
   const rotate = document.createElement('div');
   rotate.id = 'rotate-hint';
-  rotate.innerHTML = '<div class="rh-card"><div class="rh-icon">📱↻</div>' +
-    `<div class="rh-title" id="rh-title">${tr('touch_rotate_title', 'Rotate Phone to LANDSCAPE')}</div>` +
-    `<div class="rh-sub" id="rh-sub">${tr('touch_rotate_sub', 'Analog stick on the left, action buttons on the right.')}</div>` +
-    `<button id="btn-fullscreen" type="button">${tr('touch_fullscreen', 'Fullscreen + Lock')}</button></div>`;
+  rotate.innerHTML =
+    '<div class="rh-card ornate-panel">' +
+      '<span class="js-corner" data-pos="tl"></span>' +
+      '<span class="js-corner" data-pos="tr"></span>' +
+      '<span class="js-corner" data-pos="bl"></span>' +
+      '<span class="js-corner" data-pos="br"></span>' +
+      '<div class="ornate-panel-inner">' +
+        '<div class="rh-icon">📱↻</div>' +
+        `<div class="rh-title" id="rh-title">${tr('touch_rotate_title', 'Rotate Phone to LANDSCAPE')}</div>` +
+        `<div class="rh-sub" id="rh-sub">${tr('touch_rotate_sub', 'Analog stick on the left, action buttons on the right.')}</div>` +
+        `<button id="btn-fullscreen" type="button" class="vintage-pill-btn">${tr('touch_fullscreen', 'Fullscreen + Lock')}</button>` +
+      '</div>' +
+    '</div>';
   document.body.appendChild(rotate);
+  if (typeof globalThis !== 'undefined' && globalThis.HC && globalThis.HC.VintageGUI && globalThis.HC.VintageGUI.hydrateSvgs) {
+    globalThis.HC.VintageGUI.hydrateSvgs(rotate);
+  }
 
   async function goFullscreenLandscape() {
     try {
@@ -43414,9 +45459,11 @@ function initTouchControls({ animator, survival, onJump, onEat, onInteract, onSl
     b.id = d.id; b.type = 'button';
     b.className = 'act ' + d.cls;
     b.innerHTML =
-      `<span class="ic" aria-hidden="true">${d.icon}</span>` +
-      `<span class="lbl">${tr(d.labelKey, d.label)}</span>` +
-      (d.sub ? `<span class="sub">${tr(d.subKey, d.sub)}</span>` : '');
+      '<span class="act-well">' +
+        `<span class="ic" aria-hidden="true">${d.icon}</span>` +
+        `<span class="lbl">${tr(d.labelKey, d.label)}</span>` +
+        (d.sub ? `<span class="sub">${tr(d.subKey, d.sub)}</span>` : '') +
+      '</span>';
     padBtns.appendChild(b);
   }
   document.body.appendChild(padBtns);
@@ -44384,6 +46431,7 @@ const hudWheel = document.getElementById('hud-wheel');
 const hudNpc = document.getElementById('hud-npc');
 const hudNpcMsg = document.getElementById('hud-npc-msg');
 const hudGold = document.getElementById('hud-gold');
+const hudTopGold = document.getElementById('hud-top-gold');
 const hudTime = document.getElementById('hud-time');
 const portraitHpFill = document.getElementById('portrait-hp-fill');
 const portraitLvBadge = document.getElementById('portrait-lv-badge');
@@ -44407,6 +46455,7 @@ const letterCardEl = document.getElementById('letter-card');
 const cutsceneBoxEl = document.getElementById('cutscene-box');
 const csSpeakerEl = document.getElementById('cs-speaker');
 const csTextEl = document.getElementById('cs-text');
+const csChoicesEl = document.getElementById('cs-choices');
 const btnCutsceneNext = document.getElementById('btn-cutscene-next');
 const npcMiniBarEl = document.getElementById('npc-mini-bar');
 const questHudEl = document.getElementById('quest-hud');
@@ -44532,8 +46581,15 @@ let storyStage = 'done';    // 'to_radnar' | 'find_cart' | 'done'
 let _radnarCutscenePlayed = false;
 let _cutsceneIdx = 0;
 let _cutsceneGuardNpc = null;
+let _csPhase = 'dialogue'; // 'sign' | 'approach' | 'dialogue'
+let _csTimer = 0;
 const _csCamPos = new THREE.Vector3();
 const _csCamTarget = new THREE.Vector3();
+const _csSignCamPos = new THREE.Vector3();
+const _csSignCamTarget = new THREE.Vector3();
+const _csTalkCamPos = new THREE.Vector3();
+const _csTalkCamTarget = new THREE.Vector3();
+const _csGuardGoal = { x: 0, z: 0 };
 const _menuCamPos = new THREE.Vector3();
 const _menuCamTarget = new THREE.Vector3();
 let _menuCamT = 0;
@@ -44891,19 +46947,29 @@ function toggleInspectMode() {
 // Bar HP / stamina / lapar / haus + pesan kontekstual.
 const VITAL_ROWS = [['hp', 'v-hp'], ['stamina', 'v-sta'], ['hunger', 'v-food'], ['thirst', 'v-water']];
 function syncVitals() {
-  for (const [key, id] of VITAL_ROWS) {
-    const val = Math.round(survival[key]);
-    const maxVal = key === 'hp' ? (survival.hpMax || 100) : key === 'stamina' ? (survival.staminaMax || 100) : 100;
-    const pct = Math.max(0, Math.min(100, Math.round((val / maxVal) * 100)));
-    const el = document.getElementById(id);
-    if (el) el.style.width = pct + '%';
-    const txt = document.getElementById(id + '-t');
-    if (txt) txt.textContent = String(val);
-    if (el && el.parentElement && el.parentElement.parentElement) {
-      el.parentElement.parentElement.classList.toggle('low', pct < 25);
+  const hpMax = survival.hpMax || 100;
+  const staMax = survival.staminaMax || 100;
+  if (HC.VintageGUI && HC.VintageGUI.updateVitals) {
+    HC.VintageGUI.updateVitals({
+      hp: survival.hp,
+      hpMax,
+      stamina: survival.stamina,
+      staminaMax: staMax,
+      hunger: survival.hunger,
+      thirst: survival.thirst,
+    });
+  } else {
+    for (const [key, id] of VITAL_ROWS) {
+      const val = Math.round(survival[key]);
+      const maxVal = key === 'hp' ? hpMax : key === 'stamina' ? staMax : 100;
+      const pct = Math.max(0, Math.min(100, Math.round((val / maxVal) * 100)));
+      const el = document.getElementById(id);
+      if (el) el.style.width = pct + '%';
+      const txt = document.getElementById(id + '-t');
+      if (txt) txt.textContent = `${val}/${maxVal}`;
     }
   }
-  const hpPct = Math.max(0, Math.min(100, Math.round((survival.hp / (survival.hpMax || 100)) * 100)));
+  const hpPct = Math.max(0, Math.min(100, Math.round((survival.hp / hpMax) * 100)));
   if (portraitHpFill) portraitHpFill.style.width = hpPct + '%';
   const msg = document.getElementById('v-msg');
   if (msg && msg.textContent !== survival.msg) msg.textContent = survival.msg;
@@ -44931,11 +46997,19 @@ function syncHorseStats() {
   syncVitals();
 }
 
+const STAT_PIXEL_ICONS = {
+  speed: 'stat_boot',
+  stamina: 'buff_spd',
+  power: 'stat_fist',
+  vitality: 'stat_heart',
+};
+
 renderHorseUpgrades = function renderHorseUpgradeRows() {
   if (!horseUpgradeListEl) return;
   horseUpgradeListEl.innerHTML = '';
   const gold = Math.floor(quests.gold || 0);
   if (hudGold) hudGold.textContent = `${gold} G`;
+  if (hudTopGold) hudTopGold.textContent = `${gold} G`;
   for (const def of HORSE_STAT_DEFS) {
     const curLv = horseStats.levels[def.key] || 1;
     const isMax = curLv >= def.maxLv;
@@ -44944,28 +47018,46 @@ renderHorseUpgrades = function renderHorseUpgradeRows() {
 
     const row = document.createElement('div');
     row.className = 'hu-row';
+    const effTxt = isMax ? `${def.format(curLv)} (MAX)` : `${def.format(curLv)} → ${def.format(curLv + 1)}`;
+    row.addEventListener('mouseenter', () => {
+      if (HC.VintageGUI && HC.VintageGUI.setDesc) {
+        HC.VintageGUI.setDesc(t(def.nameKey), `${effTxt}${!isMax ? ` • ${cost} G` : ''}`);
+      }
+    });
 
-    const info = document.createElement('div');
-    info.className = 'hu-info';
-    const nameDiv = document.createElement('div');
-    nameDiv.className = 'hu-name';
-    nameDiv.innerHTML = `<span>${def.icon} ${t(def.nameKey)}</span><span class="hu-lv">Lv.${curLv}/${def.maxLv}</span>`;
-    const effDiv = document.createElement('div');
-    effDiv.className = 'hu-effect';
-    effDiv.textContent = isMax
-      ? `${def.format(curLv)} (MAX)`
-      : `${def.format(curLv)} → ${def.format(curLv + 1)}`;
-    info.append(nameDiv, effDiv);
+    const med = document.createElement('div');
+    med.className = 'circle-medallion hu-med';
+    const icoName = STAT_PIXEL_ICONS[def.key] || 'star';
+    const icoSvg = (HC.VintageGUI && HC.VintageGUI.renderIcon) ? HC.VintageGUI.renderIcon(icoName, 20) : def.icon;
+    med.innerHTML = `<div class="circle-medallion-inner">${icoSvg}</div>`;
+
+    const mid = document.createElement('div');
+    mid.className = 'hu-mid';
+
+    const nameRow = document.createElement('div');
+    nameRow.className = 'hu-name-row';
+    nameRow.innerHTML = `<span class="hu-name-txt">${t(def.nameKey)}</span><span class="hu-eff-txt">${effTxt}</span>`;
+
+    const pipWrap = document.createElement('div');
+    pipWrap.className = 'hu-pip-wrap';
+
+    const pipBar = document.createElement('div');
+    pipBar.className = 'pip-bar-group';
+    for (let i = 1; i <= def.maxLv; i++) {
+      const seg = document.createElement('span');
+      seg.className = `pip-seg${i <= curLv ? ' filled' : ''}`;
+      pipBar.appendChild(seg);
+    }
 
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'hu-btn';
+    btn.className = 'pip-btn';
     if (isMax) {
       btn.disabled = true;
       btn.textContent = t('max_btn');
     } else {
-      btn.textContent = `${t('upgrade_btn')} (${cost} G)`;
-      if (!canBuy) btn.style.opacity = '0.72';
+      btn.textContent = `+ ${cost}G`;
+      if (!canBuy) btn.style.opacity = '0.68';
       btn.addEventListener('click', (e) => {
         e.preventDefault();
         const res = horseStats.upgradeStat(def.key, quests);
@@ -44973,6 +47065,7 @@ renderHorseUpgrades = function renderHorseUpgradeRows() {
           showToast(t('not_enough_gold', { g: cost }));
           return;
         }
+        if (HC.VintageGUI && HC.VintageGUI.playSfx) HC.VintageGUI.playSfx('confirm');
         syncHorseStats();
         renderHorseUpgrades();
         if (ui && ui.refresh) ui.refresh();
@@ -44980,7 +47073,14 @@ renderHorseUpgrades = function renderHorseUpgradeRows() {
         showToast(t('horse_upgraded', { stat: t(def.nameKey), lv: res.level, g: res.cost }));
       });
     }
-    row.append(info, btn);
+    pipWrap.append(pipBar, btn);
+    mid.append(nameRow, pipWrap);
+
+    const valCircle = document.createElement('div');
+    valCircle.className = 'stat-val-circle';
+    valCircle.textContent = String(curLv);
+
+    row.append(med, mid, valCircle);
     horseUpgradeListEl.appendChild(row);
   }
 };
@@ -45030,6 +47130,10 @@ function computeWorkshopCamera(ws) {
 
 function openWorkshop(ws) {
   if (!ws || physics.flipped) return false;
+  if (!physics.hitched) {
+    showToast(t('ws_need_cart_hitched'));
+    return false;
+  }
   if (animator.state === 'sleep') doSleepToggle();
   if (animator.inspectMode) setInspectMode(false);
   setStatsPanelOpen(false);
@@ -45148,6 +47252,7 @@ function saveGameState(silent = true) {
       cartLevels: { ...store.levels },
       horseStats: { ...horseStats.levels },
       timeOfDay: world.timeOfDay || 0.08,
+      grazedGrass: world.getGrazedState ? world.getGrazedState() : null,
       horse: { x: animator.x, z: animator.z, yaw: animator.yaw },
       cart: { x: physics.pos.x, z: physics.pos.z, yaw: physics.yaw, hitched: !!physics.hitched },
       vitals: {
@@ -45360,6 +47465,7 @@ function loadGameState() {
     survival.thirst = Math.max(0, Math.min(100, save.vitals.thirst ?? 100));
   }
   if (typeof save.timeOfDay === 'number') world.timeOfDay = save.timeOfDay;
+  if (save.grazedGrass && world.restoreGrazedState) world.restoreGrazedState(save.grazedGrass);
 
   while (party.members && party.members.length) party.releaseLast();
 
@@ -45402,10 +47508,12 @@ function loadGameState() {
 const CUTSCENE_KEYS = ['cutscene_line_1', 'cutscene_line_2', 'cutscene_line_3', 'cutscene_line_4'];
 function renderCutsceneStep() {
   if (!cutsceneBoxEl) return;
+  if (csChoicesEl) { csChoicesEl.hidden = true; csChoicesEl.innerHTML = ''; }
   if (csSpeakerEl) csSpeakerEl.textContent = t('cutscene_guard_name');
   if (csTextEl) csTextEl.textContent = t(CUTSCENE_KEYS[_cutsceneIdx] || CUTSCENE_KEYS[0]);
   if (letterCardEl) letterCardEl.hidden = (_cutsceneIdx !== 2);
   if (btnCutsceneNext) {
+    btnCutsceneNext.hidden = false;
     btnCutsceneNext.textContent = _cutsceneIdx >= CUTSCENE_KEYS.length - 1
       ? t('cutscene_finish_btn')
       : t('cutscene_next_btn');
@@ -45417,6 +47525,8 @@ function startRadnarCutscene() {
   _radnarCutscenePlayed = true;
   gameMode = 'cutscene';
   _cutsceneIdx = 0;
+  _csPhase = 'sign';
+  _csTimer = 0;
   keysHeld.forward = false;
   keysHeld.backward = false;
   keysHeld.left = false;
@@ -45432,36 +47542,69 @@ function startRadnarCutscene() {
   if (mapUI && mapUI.isOpen) mapUI.close();
 
   document.body.classList.add('cutscene-open');
-  if (cutsceneBoxEl) cutsceneBoxEl.hidden = false;
+  if (cutsceneBoxEl) cutsceneBoxEl.hidden = true;
+  if (letterCardEl) letterCardEl.hidden = true;
 
-  // Bring a Radnar guard/villager beside the horse to speak
+  // 1. Frame the RADNAR village entrance sign plaque first
+  const rad = (world.VILLAGES && world.VILLAGES[0]) || null;
+  const sign = rad && rad.gateSign;
+  const fx = Math.cos(animator.yaw), fz = -Math.sin(animator.yaw);
+  const lx = -fz, lz = fx;
+  if (sign) {
+    // Gate arch yaw faces along road; pick side toward horse so RADNAR plaque faces camera cleanly
+    const gFx = Math.cos(sign.yaw), gFz = -Math.sin(sign.yaw);
+    const sideDot = (animator.x - sign.x) * gFx + (animator.z - sign.z) * gFz;
+    const dirSign = sideDot >= 0 ? 1 : -1;
+    _csSignCamTarget.set(sign.x, sign.y, sign.z);
+    _csSignCamPos.set(
+      sign.x + gFx * dirSign * 7.2 - gFz * 1.4,
+      sign.groundY + 3.8,
+      sign.z + gFz * dirSign * 7.2 + gFx * 1.4
+    );
+  } else {
+    const gy = world.terrainHeightAt ? world.terrainHeightAt(animator.x, animator.z) : 0;
+    _csSignCamTarget.set(animator.x + fx * 6.0, gy + 3.2, animator.z + fz * 6.0);
+    _csSignCamPos.set(animator.x - fx * 3.0, gy + 3.6, animator.z - fz * 3.0);
+  }
+
+  // 2. Place Radnar guard ahead inside village so he slowly walks toward the horse
+  const gx = animator.x + fx * 2.2 + lx * 1.1;
+  const gz = animator.z + fz * 2.2 + lz * 1.1;
+  _csGuardGoal.x = gx;
+  _csGuardGoal.z = gz;
   const radGuard = (party.wild || []).find((w) => !w.recruited && w.site === 'radnar' && (w.role.id === 'guard' || w.role.id === 'warrior'))
     || (party.wild || []).find((w) => !w.recruited && w.site === 'radnar');
   if (radGuard && radGuard.root) {
     _cutsceneGuardNpc = radGuard;
-    const fx = Math.cos(animator.yaw), fz = -Math.sin(animator.yaw);
-    const lx = -fz, lz = fx;
-    const gx = animator.x + fx * 2.1 + lx * 1.1;
-    const gz = animator.z + fz * 2.1 + lz * 1.1;
-    radGuard.x = gx;
-    radGuard.z = gz;
-    const gy = world.terrainHeightAt ? world.terrainHeightAt(gx, gz) : 0;
-    radGuard.root.position.set(gx, gy, gz);
-    radGuard.root.rotation.y = Math.atan2(animator.x - gx, animator.z - gz);
-    _csCamTarget.set((animator.x + gx) * 0.5, gy + 1.1, (animator.z + gz) * 0.5);
-    _csCamPos.set(_csCamTarget.x + lx * 4.4 - fx * 1.8, gy + 2.3, _csCamTarget.z + lz * 4.4 - fz * 1.8);
+    const startGx = gx + fx * 6.2 + lx * 0.8;
+    const startGz = gz + fz * 6.2 + lz * 0.8;
+    const startGy = world.terrainHeightAt ? world.terrainHeightAt(startGx, startGz) : 0;
+    radGuard.x = startGx;
+    radGuard.z = startGz;
+    radGuard.root.position.set(startGx, startGy, startGz);
+    radGuard.root.rotation.y = Math.atan2(animator.x - startGx, animator.z - startGz);
+    const st = radGuard.root.userData && radGuard.root.userData.npc;
+    if (st && st.vel) { st.vel.x = 0; st.vel.z = 0; }
+    const goalGy = world.terrainHeightAt ? world.terrainHeightAt(gx, gz) : startGy;
+    _csTalkCamTarget.set((animator.x + gx) * 0.5, goalGy + 1.1, (animator.z + gz) * 0.5);
+    _csTalkCamPos.set(_csTalkCamTarget.x + lx * 4.4 - fx * 1.8, goalGy + 2.3, _csTalkCamTarget.z + lz * 4.4 - fz * 1.8);
   } else {
+    _cutsceneGuardNpc = null;
     const gy = world.terrainHeightAt ? world.terrainHeightAt(animator.x, animator.z) : 0;
-    const fx = Math.cos(animator.yaw), fz = -Math.sin(animator.yaw);
-    _csCamTarget.set(animator.x, gy + 1.1, animator.z);
-    _csCamPos.set(animator.x - fx * 3.8 + fz * 2.8, gy + 2.4, animator.z - fz * 3.8 - fx * 2.8);
+    _csTalkCamTarget.set(animator.x, gy + 1.1, animator.z);
+    _csTalkCamPos.set(animator.x - fx * 3.8 + fz * 2.8, gy + 2.4, animator.z - fz * 3.8 - fx * 2.8);
   }
-  renderCutsceneStep();
+
+  _csCamPos.copy(_csSignCamPos);
+  _csCamTarget.copy(_csSignCamTarget);
+  camera.position.copy(_csSignCamPos);
+  controls.target.copy(_csSignCamTarget);
+  controls.update();
   return true;
 }
 
 function advanceCutscene() {
-  if (gameMode !== 'cutscene') return false;
+  if (gameMode !== 'cutscene' || _csPhase !== 'dialogue') return false;
   _cutsceneIdx += 1;
   if (_cutsceneIdx < CUTSCENE_KEYS.length) {
     renderCutsceneStep();
@@ -45530,7 +47673,182 @@ if (btnMenuNew) btnMenuNew.addEventListener('click', (e) => { e.preventDefault()
 if (btnMenuLoad) btnMenuLoad.addEventListener('click', (e) => { e.preventDefault(); loadGameState(); });
 if (btnSaveGame) btnSaveGame.addEventListener('click', (e) => { e.preventDefault(); saveGameState(false); });
 if (btnReturnMenu) btnReturnMenu.addEventListener('click', (e) => { e.preventDefault(); enterMainMenu(); });
-if (btnCutsceneNext) btnCutsceneNext.addEventListener('click', (e) => { e.preventDefault(); advanceCutscene(); });
+if (btnCutsceneNext) btnCutsceneNext.addEventListener('click', (e) => {
+  e.preventDefault();
+  if (_farmerDlg) advanceFarmerDialogue();
+  else advanceCutscene();
+});
+
+// ---- Percakapan Petani & Kerja Paruh Waktu Panen (wajib punya NPC rekrutan, 5G/tanaman ke toko) ----
+let _farmerDlg = null;
+
+function findNearbyFarmer(x, z, maxDist = 5.4) {
+  if (!party || !Array.isArray(party.wild)) return null;
+  let best = null;
+  let bestD = maxDist;
+  for (let i = 0; i < party.wild.length; i++) {
+    const w = party.wild[i];
+    if (!w || w.recruited || w.isIndoors || !w.role || w.role.id !== 'farmer') continue;
+    const vp = w.villageProfile;
+    if (!vp || !vp.farmPlot) continue;
+    const d = Math.hypot(x - w.x, z - w.z);
+    if (d <= bestD) {
+      bestD = d;
+      best = {
+        npc: w,
+        dist: d,
+        villageId: vp.villageId,
+        villageName: vp.farmPlot.villageName || vp.villageId,
+        farmPlot: vp.farmPlot,
+        shopDrop: vp.shopDrop || (vp.villageRef && vp.villageRef.stations && vp.villageRef.stations.shopDrop) || null,
+      };
+    }
+  }
+  return best;
+}
+
+function closeFarmerDialogue() {
+  if (!_farmerDlg) return;
+  _farmerDlg = null;
+  if (cutsceneBoxEl) cutsceneBoxEl.hidden = true;
+  if (csChoicesEl) { csChoicesEl.hidden = true; csChoicesEl.innerHTML = ''; }
+  if (btnCutsceneNext) btnCutsceneNext.hidden = false;
+  _lastDockSig = '';
+  renderNpcDock();
+}
+
+function renderFarmerDialogue() {
+  if (!_farmerDlg || !cutsceneBoxEl || !csTextEl) return;
+  const d = _farmerDlg;
+  const line = d.lines[d.idx];
+  if (!line) { closeFarmerDialogue(); return; }
+  if (csSpeakerEl) csSpeakerEl.textContent = t('farmer_speaker', { village: d.villageName });
+  csTextEl.textContent = t(line.key, { village: d.villageName });
+  const isLast = d.idx >= d.lines.length - 1;
+  if (isLast && d.choices && d.choices.length && csChoicesEl) {
+    csChoicesEl.innerHTML = '';
+    for (const ch of d.choices) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `vintage-pill-btn${ch.secondary ? ' secondary' : ''}`;
+      btn.textContent = t(ch.labelKey);
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (ch.onPick) ch.onPick();
+      });
+      csChoicesEl.appendChild(btn);
+    }
+    csChoicesEl.hidden = false;
+    if (btnCutsceneNext) btnCutsceneNext.hidden = true;
+  } else {
+    if (csChoicesEl) { csChoicesEl.hidden = true; csChoicesEl.innerHTML = ''; }
+    if (btnCutsceneNext) {
+      btnCutsceneNext.hidden = false;
+      btnCutsceneNext.textContent = isLast ? t('farmer_btn_ok') : t('cutscene_next_btn');
+    }
+  }
+  cutsceneBoxEl.hidden = false;
+}
+
+function advanceFarmerDialogue() {
+  if (!_farmerDlg) return false;
+  if (_farmerDlg.idx < _farmerDlg.lines.length - 1) {
+    _farmerDlg.idx += 1;
+    renderFarmerDialogue();
+    return true;
+  }
+  if (_farmerDlg.choices && _farmerDlg.choices.length) return false;
+  closeFarmerDialogue();
+  return true;
+}
+
+function startFarmerDialogue(farmerEntry) {
+  if (!farmerEntry || !farmerEntry.farmPlot) return false;
+  if (gameMode !== 'play' || workshopOpen) return false;
+  stopForSurvivalAction();
+  const fp = farmerEntry.farmPlot;
+  const vName = farmerEntry.villageName || 'Radnar';
+  const hasCrew = !!(party && party.members && party.members.length > 0);
+  const workingHere = !!(party && party.isFarmJobActive && party.isFarmJobActive(farmerEntry.villageId));
+  let ripeCount = 0;
+  for (const tl of fp.tiles || []) if (tl.stage === 2) ripeCount++;
+
+  if (workingHere) {
+    _farmerDlg = {
+      villageName: vName,
+      idx: 0,
+      lines: [{ key: 'farmer_dlg_working' }],
+      choices: [
+        {
+          labelKey: 'farmer_btn_recall',
+          secondary: true,
+          onPick: () => {
+            party.stopFarmJob(true);
+            closeFarmerDialogue();
+            showToast(t('farmer_job_recalled', { village: vName }));
+          },
+        },
+        { labelKey: 'farmer_btn_keep', onPick: () => closeFarmerDialogue() },
+      ],
+    };
+  } else if (!hasCrew) {
+    _farmerDlg = {
+      villageName: vName,
+      idx: 0,
+      lines: [{ key: 'farmer_dlg_no_crew_1' }, { key: 'farmer_dlg_no_crew_2' }],
+      choices: null,
+    };
+  } else if (ripeCount <= 0) {
+    _farmerDlg = {
+      villageName: vName,
+      idx: 0,
+      lines: [{ key: 'farmer_dlg_no_crops' }],
+      choices: null,
+    };
+  } else {
+    _farmerDlg = {
+      villageName: vName,
+      idx: 0,
+      lines: [{ key: 'farmer_dlg_intro' }, { key: 'farmer_dlg_offer' }],
+      choices: [
+        { labelKey: 'farmer_btn_decline', secondary: true, onPick: () => closeFarmerDialogue() },
+        {
+          labelKey: 'farmer_btn_accept',
+          onPick: () => {
+            const started = party.startFarmJob(fp, farmerEntry.shopDrop, {
+              onCropDelivered: ({ member, count, gold, shopStock, villageName }) => {
+                quests.gold = (quests.gold || 0) + gold;
+                showToast(t('farm_harvest_toast', {
+                  name: (member && member.role && member.role.name) || 'NPC',
+                  count,
+                  village: villageName || vName,
+                  stock: shopStock,
+                  gold,
+                }));
+                if (ui && ui.refresh) ui.refresh();
+                syncVitals();
+              },
+              onComplete: (jobInfo) => {
+                const totalCrops = (jobInfo && jobInfo.delivered) || 0;
+                if (totalCrops > 0) {
+                  showToast(t('farmer_job_done', {
+                    village: (jobInfo && jobInfo.villageName) || vName,
+                    count: totalCrops,
+                    gold: totalCrops * 5,
+                  }));
+                }
+              },
+            });
+            closeFarmerDialogue();
+            if (started) showToast(t('farmer_job_started', { village: vName }));
+          },
+        },
+      ],
+    };
+  }
+  renderFarmerDialogue();
+  return true;
+}
 
 function applyTranslations() {
   document.documentElement.lang = getLang();
@@ -45546,6 +47864,7 @@ function applyTranslations() {
   syncMenuLangChips();
   refreshMainMenuUI();
   if (gameMode === 'cutscene') renderCutsceneStep();
+  if (_farmerDlg) renderFarmerDialogue();
   refreshQualityBar();
   renderHorseUpgrades();
   if (ui && ui.refreshLang) ui.refreshLang();
@@ -45600,7 +47919,14 @@ function doEat() {
   const ctx = survCtx();
   ctx.speed = 0;
   const ok = survival.tryEat(ctx);
-  if (ok) animator.setState('graze');
+  if (ok) {
+    animator.setState('graze');
+    if (world.grazeGrassAt) {
+      const muzzleX = animator.x + Math.cos(animator.yaw) * 1.05;
+      const muzzleZ = animator.z - Math.sin(animator.yaw) * 1.05;
+      world.grazeGrassAt(muzzleX, muzzleZ, 1.65);
+    }
+  }
   syncVitals();
 }
 function doDrink() {
@@ -45614,10 +47940,29 @@ function doDrink() {
   }
   syncVitals();
 }
+function cancelEatDrink() {
+  if (survival.eatT > 0 || survival.drinkT > 0) {
+    survival.eatT = 0;
+    survival.drinkT = 0;
+    survival.msg = '';
+    if (animator.state === 'graze') animator.setState(runLatched ? 'run' : 'walk');
+    syncVitals();
+  }
+}
+function doEatOrDrink() {
+  if ((survival.canDrink && survival.canDrink()) || (world.isAtWater && world.isAtWater(animator.x, animator.z))) {
+    doDrink();
+  } else {
+    doEat();
+  }
+}
 function doInteract() {
   if (gameMode === 'cutscene') {
     advanceCutscene();
     return true;
+  }
+  if (_farmerDlg) {
+    return advanceFarmerDialogue();
   }
   if (gameMode !== 'play') return false;
   if (workshopOpen) {
@@ -45639,13 +47984,14 @@ function doInteract() {
   const nearGiver = (!quests.activeQuest && hasCart) ? quests.getNearbyQuestNpc(animator.x, animator.z, party.wild, 6.2) : null;
   if (nearGiver) return tryAcceptQuestAtGiver(nearGiver);
 
-  const ws = (hasCart && world.findNearestWorkshop) ? world.findNearestWorkshop(animator.x, animator.z, 11.5) : null;
+  const ws = (hasCart && world.findNearestWorkshop) ? world.findNearestWorkshop(animator.x, animator.z, 4.2) : null;
   if (ws) return openWorkshop(ws);
 
-  if (survival.canDrink && survival.canDrink()) {
-    doDrink();
-    return true;
+  const nearFarmer = findNearbyFarmer(animator.x, animator.z, 5.4);
+  if (nearFarmer) {
+    return startFarmerDialogue(nearFarmer);
   }
+
   showToast(t('no_interact_near'));
   return false;
 }
@@ -45687,7 +48033,8 @@ if (btnWalkEl) {
     e.preventDefault();
     btnForwardHeld = true;
     btnWalkEl.classList.add('held');
-    if (!survival.eating && !survival.drinking && (animator.state === 'graze' || animator.state === 'sleep')) {
+    cancelEatDrink();
+    if (animator.state === 'graze' || animator.state === 'sleep') {
       animator.setState(runLatched ? 'run' : 'walk');
     }
   };
@@ -45710,7 +48057,8 @@ if (btnRevEl) {
     e.preventDefault();
     btnBackwardHeld = true;
     btnRevEl.classList.add('held');
-    if (!survival.eating && !survival.drinking && (animator.state === 'graze' || animator.state === 'sleep')) {
+    cancelEatDrink();
+    if (animator.state === 'graze' || animator.state === 'sleep') {
       animator.setState('walk');
     }
   };
@@ -45729,7 +48077,7 @@ if (btnRevEl) {
 }
 bindBtn('btn-run', () => toggleRun());
 bindBtn('btn-jump', () => doJump());
-bindBtn('btn-graze', () => doEat());
+bindBtn('btn-graze', () => doEatOrDrink());
 bindBtn('btn-interact', () => doInteract());
 bindBtn('btn-sleep', () => doSleepToggle());
 if (btnInspectEl) {
@@ -45747,9 +48095,9 @@ bindBtn('btn-map', () => mapUI.toggle());
 
 const touchUI = initTouchControls({
   animator, survival,
-  onJump: doJump, onEat: doEat, onInteract: doInteract, onSleep: doSleepToggle, onRunToggle: toggleRun, onHitch: toggleHitch,
+  onJump: doJump, onEat: doEatOrDrink, onInteract: doInteract, onSleep: doSleepToggle, onRunToggle: toggleRun, onHitch: toggleHitch,
   onInspect: (on) => setInspectMode(on, !!on),
-  isTouchDevice: matchMedia('(pointer: coarse)').matches,
+  isTouchDevice: matchMedia('(pointer: coarse)').matches || location.search.includes('touch=1'),
 });
 if (touchUI && touchUI.refreshLang) {
   onLangChange(() => touchUI.refreshLang());
@@ -45868,7 +48216,10 @@ function renderNpcDock() {
   const nearGiver = (hasCart && !quests.activeQuest) ? quests.getNearbyQuestNpc(animator.x, animator.z, party.wild, 6.2) : null;
   const offer = nearGiver ? quests.getOfferForVillage(nearGiver.villageId, party.wild) : null;
   const nearWorkshop = (hasCart && !workshopOpen && world.findNearestWorkshop)
-    ? world.findNearestWorkshop(animator.x, animator.z, 11.5)
+    ? world.findNearestWorkshop(animator.x, animator.z, 4.2)
+    : null;
+  const nearFarmer = (!workshopOpen && !_farmerDlg)
+    ? findNearbyFarmer(animator.x, animator.z, 5.4)
     : null;
   const isStationary = Math.abs(animator.speed) < 0.85 && Math.hypot(physics.vel.x, physics.vel.z) < 0.85;
   const canHitchAction = hasCart && !physics.flipped && ((!physics.hitched) || hitchAnim.active);
@@ -45882,12 +48233,12 @@ function renderNpcDock() {
     : al.longErr > 1.25 ? 'rev'
     : 'pos';
   const langKey = getLang();
-  const sig = `${langKey}|${nearOldCart ? 'C' : ''}|${near ? near.npc.role.id : ''}|${nearGiver ? nearGiver.npc.uid : ''}|${nearWorkshop ? nearWorkshop.villageId : ''}@${hitchMode}${physics.flipped ? ':F' : ''}`;
+  const sig = `${langKey}|${nearOldCart ? 'C' : ''}|${near ? near.npc.role.id : ''}|${nearGiver ? nearGiver.npc.uid : ''}|${nearWorkshop ? `${nearWorkshop.villageId}:${physics.hitched ? 'H' : 'U'}` : ''}|${nearFarmer ? nearFarmer.villageId : ''}@${hitchMode}${physics.flipped ? ':F' : ''}`;
   if (sig === _lastDockSig) return;
   _lastDockSig = sig;
 
   npcDockEl.innerHTML = '';
-  const hasAny = nearOldCart || !!near || !!(offer && nearGiver) || !!nearWorkshop || (canHitchAction && hitchMode !== 'none');
+  const hasAny = nearOldCart || !!near || !!(offer && nearGiver) || !!nearWorkshop || !!nearFarmer || (canHitchAction && hitchMode !== 'none');
   npcDockEl.hidden = !hasAny;
   if (!hasAny) return;
 
@@ -45917,11 +48268,28 @@ function renderNpcDock() {
     const wBtn = document.createElement('button');
     wBtn.type = 'button';
     wBtn.className = 'npc-nearby-card';
-    wBtn.style.background = 'rgba(14, 116, 144, 0.92)';
-    wBtn.style.borderColor = '#38bdf8';
-    wBtn.textContent = t('ws_prompt', { village: nearWorkshop.villageName });
+    if (physics.hitched) {
+      wBtn.style.background = 'rgba(14, 116, 144, 0.92)';
+      wBtn.style.borderColor = '#38bdf8';
+      wBtn.textContent = t('ws_prompt', { village: nearWorkshop.villageName });
+    } else {
+      wBtn.style.background = 'rgba(71, 56, 77, 0.92)';
+      wBtn.style.borderColor = '#b39570';
+      wBtn.textContent = t('ws_need_cart_short');
+    }
     bindTapSafe(wBtn, () => openWorkshop(nearWorkshop));
     npcDockEl.appendChild(wBtn);
+  }
+
+  if (nearFarmer) {
+    const fBtn = document.createElement('button');
+    fBtn.type = 'button';
+    fBtn.className = 'npc-nearby-card';
+    fBtn.style.background = 'rgba(161, 98, 7, 0.94)';
+    fBtn.style.borderColor = '#facc15';
+    fBtn.textContent = t('farmer_talk_btn', { village: nearFarmer.villageName });
+    bindTapSafe(fBtn, () => startFarmerDialogue(nearFarmer));
+    npcDockEl.appendChild(fBtn);
   }
 
   if (near) {
@@ -46419,7 +48787,6 @@ function resetRig() {
   syncHitchUi();
   syncFlipBanner();
 }
-bindBtn('btn-reset', resetRig);
 
 // ---- Vignette malam mengikuti siklus 10 menit otomatis ----
 const vignetteEl = document.getElementById('cozy-vignette');
@@ -46467,22 +48834,35 @@ window.addEventListener('keydown', (e) => {
     }
     return;
   }
+  if (_farmerDlg) {
+    if (k === 'escape') { e.preventDefault(); closeFarmerDialogue(); return; }
+    if (k === ' ' || k === 'enter' || k === 'f') {
+      e.preventDefault();
+      if (!e.repeat) advanceFarmerDialogue();
+      return;
+    }
+    if (k === 'w' || k === 's' || k === 'a' || k === 'd' || k.startsWith('arrow')) {
+      closeFarmerDialogue();
+    }
+  }
   if (k === 'w' || k === 'arrowup') {
     keysHeld.forward = true;
-    if (!survival.eating && !survival.drinking && (animator.state === 'graze' || animator.state === 'sleep')) {
+    cancelEatDrink();
+    if (animator.state === 'graze' || animator.state === 'sleep') {
       animator.setState(runLatched ? 'run' : 'walk');
     }
     e.preventDefault();
   }
   else if (k === 's' || k === 'arrowdown') {
     keysHeld.backward = true;
-    if (!survival.eating && !survival.drinking && (animator.state === 'graze' || animator.state === 'sleep')) {
+    cancelEatDrink();
+    if (animator.state === 'graze' || animator.state === 'sleep') {
       animator.setState('walk');
     }
     e.preventDefault();
   }
-  else if (k === 'arrowleft' || k === 'a') { keysHeld.left = true; syncSteerInput(); e.preventDefault(); }
-  else if (k === 'arrowright' || k === 'd') { keysHeld.right = true; syncSteerInput(); e.preventDefault(); }
+  else if (k === 'arrowleft' || k === 'a') { keysHeld.left = true; cancelEatDrink(); syncSteerInput(); e.preventDefault(); }
+  else if (k === 'arrowright' || k === 'd') { keysHeld.right = true; cancelEatDrink(); syncSteerInput(); e.preventDefault(); }
   else if (k === '1') {
     runLatched = false;
     animator.setState('walk');
@@ -46517,7 +48897,7 @@ window.addEventListener('keydown', (e) => {
       syncHitchUi();
     }
   }
-  else if (k === '3' || k === 'e') doEat();
+  else if (k === '3' || k === 'e') { e.preventDefault(); if (!e.repeat) doEatOrDrink(); }
   else if (k === '4' || k === 'f') { e.preventDefault(); if (!e.repeat) doInteract(); }
   else if (k === 'z') { e.preventDefault(); if (!e.repeat) doSleepToggle(); }
   else if (k === 'm') { e.preventDefault(); if (!e.repeat) mapUI.toggle(); }
@@ -46527,7 +48907,6 @@ window.addEventListener('keydown', (e) => {
   else if (k === 'g') recruitNearbyNPC();
   else if (k === 'h') releaseLastNPC();
   else if (k === 'v') { e.preventDefault(); if (!e.repeat) toggleHitch(); }
-  else if (k === 'x') resetRig();
 });
 window.addEventListener('keyup', (e) => {
   const k = e.key.toLowerCase();
@@ -47009,6 +49388,69 @@ function stepSim(dt) {
     animator.speed = 0;
     animator.targetSpeed = 0;
     animator.update(dt);
+
+    _csTimer += dt;
+    if (_csPhase === 'sign') {
+      // Gentle subtle zoom toward the RADNAR sign plaque for 2.3s
+      const u = HC.clamp(_csTimer / 2.3, 0, 1);
+      _csCamTarget.copy(_csSignCamTarget);
+      _csCamPos.copy(_csSignCamPos).lerp(_csSignCamTarget, u * 0.14);
+      if (_csTimer >= 2.3) {
+        _csSignCamPos.copy(_csCamPos);
+        _csPhase = 'approach';
+        _csTimer = 0;
+      }
+    } else if (_csPhase === 'approach') {
+      // Smooth camera glide to the horse + village guard walks slowly toward the horse
+      const glideDur = 2.8;
+      const u = HC.smooth(HC.clamp(_csTimer / glideDur, 0, 1));
+      _csCamTarget.lerpVectors(_csSignCamTarget, _csTalkCamTarget, u);
+      _csCamPos.lerpVectors(_csSignCamPos, _csTalkCamPos, u);
+
+      let guardArrived = true;
+      if (_cutsceneGuardNpc && _cutsceneGuardNpc.root) {
+        const g = _cutsceneGuardNpc;
+        const dx = _csGuardGoal.x - g.x;
+        const dz = _csGuardGoal.z - g.z;
+        const dist = Math.hypot(dx, dz);
+        const st = g.root.userData && g.root.userData.npc;
+        if (dist > 0.18) {
+          guardArrived = false;
+          const walkSpd = 1.65;
+          const step = Math.min(dist, walkSpd * dt);
+          g.x += (dx / dist) * step;
+          g.z += (dz / dist) * step;
+          const gy = world.terrainHeightAt ? world.terrainHeightAt(g.x, g.z) : 0;
+          g.root.position.set(g.x, gy, g.z);
+          g.root.rotation.y = Math.atan2(dx, dz);
+          if (st && st.vel) {
+            st.vel.x = (dx / dist) * walkSpd;
+            st.vel.z = (dz / dist) * walkSpd;
+          }
+        } else {
+          g.x = _csGuardGoal.x;
+          g.z = _csGuardGoal.z;
+          const gy = world.terrainHeightAt ? world.terrainHeightAt(g.x, g.z) : 0;
+          g.root.position.set(g.x, gy, g.z);
+          g.root.rotation.y = Math.atan2(animator.x - g.x, animator.z - g.z);
+          if (st && st.vel) { st.vel.x = 0; st.vel.z = 0; }
+        }
+      }
+
+      if (_csTimer >= glideDur && guardArrived) {
+        _csPhase = 'dialogue';
+        if (cutsceneBoxEl) cutsceneBoxEl.hidden = false;
+        renderCutsceneStep();
+      }
+    } else {
+      _csCamTarget.copy(_csTalkCamTarget);
+      _csCamPos.copy(_csTalkCamPos);
+      if (_cutsceneGuardNpc && _cutsceneGuardNpc.root) {
+        const st = _cutsceneGuardNpc.root.userData && _cutsceneGuardNpc.root.userData.npc;
+        if (st && st.vel) { st.vel.x = 0; st.vel.z = 0; }
+      }
+    }
+
     if (_cutsceneGuardNpc && _cutsceneGuardNpc.root && HC.animateNPC) {
       HC.animateNPC(_cutsceneGuardNpc.root, dt);
     }
@@ -47016,7 +49458,7 @@ function stepSim(dt) {
     updateCartLantern(dt);
     scene.updateMatrixWorld(true);
     if (physics.syncVisual) physics.syncVisual();
-    const kCs = 1 - Math.exp(-5.0 * dt);
+    const kCs = 1 - Math.exp(-6.5 * dt);
     controls.target.lerp(_csCamTarget, kCs);
     camera.position.lerp(_csCamPos, kCs);
     controls.update();
@@ -47036,11 +49478,15 @@ function stepSim(dt) {
     }
   }
   // --- horse controls & workshop lock ---
-  const wasActing = survival.eating || survival.drinking;
-  const acting = wasActing;
   const pcForward = !workshopOpen && !!(keysHeld.forward || btnForwardHeld || window.__forceForward);
   const pcBackward = !workshopOpen && !!(keysHeld.backward || btnBackwardHeld || window.__forceBackward);
   const stickActive = !workshopOpen && !!(touchUI.active && touchUI.joystick && touchUI.joystick.pad && touchUI.joystick.pad.active);
+  const stickMove = stickActive && Math.hypot(touchUI.joystick.vec.x || 0, touchUI.joystick.vec.y || 0) > 0.14;
+  if (pcForward || pcBackward || keysHeld.left || keysHeld.right || stickMove) {
+    cancelEatDrink();
+  }
+  const wasActing = survival.eating || survival.drinking;
+  const acting = wasActing;
   if (workshopOpen) {
     animator.setSteer(0);
     animator.setThrottle(0);
@@ -47406,7 +49852,9 @@ function stepSim(dt) {
     hudWheel.style.color = lost > 0 ? '#c084fc' : worst <= 0 ? '#f87171' : worst < 45 ? '#fb923c' : '';
   }
   if (hudGold) hudGold.textContent = `${quests.gold} G`;
+  if (hudTopGold) hudTopGold.textContent = `${quests.gold} G`;
   if (hudTime && world.getTimeLabel) hudTime.textContent = world.getTimeLabel();
+  if (HC.VintageGUI && HC.VintageGUI.step) HC.VintageGUI.step(dt);
 
   if (portraitRender && ((portraitRender.frameCount++ & 3) === 0)) {
     const nowT = world.totalTime || 0;
@@ -47441,6 +49889,15 @@ function frame(now) {
 }
 
 applyTranslations();
+if (HC.VintageGUI && HC.VintageGUI.init) HC.VintageGUI.init();
+const _qMap = document.getElementById('btn-quick-map');
+if (_qMap) _qMap.addEventListener('click', (e) => { e.preventDefault(); if (mapUI) mapUI.toggle(); });
+const _qStats = document.getElementById('btn-quick-stats');
+if (_qStats) _qStats.addEventListener('click', (e) => { e.preventDefault(); setStatsPanelOpen(statsPanelEl ? statsPanelEl.hidden : false); });
+const _qInspect = document.getElementById('btn-quick-inspect');
+if (_qInspect) _qInspect.addEventListener('click', (e) => { e.preventDefault(); toggleInspectMode(); });
+const _qSet = document.getElementById('btn-quick-settings');
+if (_qSet) _qSet.addEventListener('click', (e) => { e.preventDefault(); setSettingsPanelOpen(settingsPanelEl ? settingsPanelEl.hidden : false); });
 enterMainMenu();
 
 window.RIG = {

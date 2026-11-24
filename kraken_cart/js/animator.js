@@ -3,12 +3,12 @@ import './voxel.js';
 import './horse.js';
 const THREE = HC.THREE, S = HC.vs;
 
-  const { CY, L1, L2, HOOF_H } = HC.HORSE;
+  const { CY, TORSO_REF = 23.5, L1, L2, HOOF_H } = HC.HORSE;
 
-  // Badan kuda diturunkan sedikit supaya kaki punya ruang tekuk (sebelumnya tulang kaki
-  // selalu mentok lurus karena jarak pinggul->tapak lebih panjang dari panjang tulang).
-  const STANCE_DROP = 1.20;              // voxel: badan turun tipis biar lutut/sikut kelihatan menekuk ke DEPAN
+  // Badan kuda cukup tinggi seperti kuda dewasa dengan kurva sendi anatomis alami.
+  const STANCE_DROP = 0.62;
   const UP_AXIS = new THREE.Vector3(0, 1, 0);
+  const LOCAL_Z = new THREE.Vector3(0, 0, 1);
 
   // Solve 2-bone IK in world space: Hip H -> Knee K -> Ankle A
   // bendSign: +1 bends knee toward +X (front leg carpus/fetlock sweep), -1 bends hock toward -X (rear leg)
@@ -111,6 +111,9 @@ const THREE = HC.THREE, S = HC.vs;
       this._hoofAxis = new THREE.Vector3();
       this._qHoof = new THREE.Quaternion();
       this._qYaw = new THREE.Quaternion();
+      this._qGround = new THREE.Quaternion();
+      this._qAir = new THREE.Quaternion();
+      this._qSleep = new THREE.Quaternion();
       this._knee2 = new THREE.Vector3();
       this._sleepKneeW = new THREE.Vector3();
       this._sleepAnkleW = new THREE.Vector3();
@@ -357,7 +360,7 @@ const THREE = HC.THREE, S = HC.vs;
       const runPitch = Math.cos(p2) * 0.085 * this.runBlend;
       const walkRoll = Math.sin(p2) * 0.022 * (1 - this.runBlend);
 
-      const standTorsoY = CY * S - STANCE_DROP * S + ghMid + (walkBob + runBob) * moveAmt + jumpHeave - this.grazeBlend * 0.40;
+      const standTorsoY = CY * S - STANCE_DROP * S + ghMid + (walkBob + runBob) * moveAmt + jumpHeave - this.grazeBlend * 0.48;
       // Belly voxel bottom = 16 -> -7.5*S = -0.469 m below torso pivot; resting height ghMid + 0.50 m puts belly flush on turf with gentle breathing heave
       const sleepTorsoY = ghMid + 0.50 + breath * 0.016;
       const torsoY = HC.lerp(standTorsoY, sleepTorsoY, sl);
@@ -403,7 +406,7 @@ const THREE = HC.THREE, S = HC.vs;
 
       this.horse.neckLow.position.set(
         (11.0 + this.grazeBlend * 1.4 + sl * 0.6) * S,
-        ((27.6 - CY) - this.grazeBlend * 4.2 - sl * 2.2) * S,
+        ((27.6 - TORSO_REF) - this.grazeBlend * 4.2 - sl * 2.2) * S,
         0
       );
       this.horse.neckUp.position.set(0, 7.4 * S, 0);
@@ -534,7 +537,7 @@ const THREE = HC.THREE, S = HC.vs;
 
         // Rest neutral foot X/Z beneath hip, diputar mengikuti heading kuda
         const hx = leg.hipLocal.x, hz = leg.hipLocal.z;
-        const stanceShift = leg.front ? 0.03 : -0.04;
+        const stanceShift = leg.front ? 0.02 : -0.08;
         const footX = this.x + hx * cy + hz * sy + (strideX + stanceShift) * cy;
         const footZ = this.z - hx * sy + hz * cy - (strideX + stanceShift) * sy;
 
@@ -553,9 +556,8 @@ const THREE = HC.THREE, S = HC.vs;
         leg.footWorld.set(footX, groundY, footZ);
         leg.stanceBlend = HC.damp(leg.stanceBlend, stance, 18, dt);
 
-        // Solve 2-bone IK di bidang sagital kuda.
-        // SEMUA kaki (depan & belakang) sendinya menonjol KE DEPAN -> bendSign +1.
-        // (Dulu kaki belakang pakai -1, jadi sikut/lututnya kelipat ke belakang & kelihatan kebalik.)
+        // Solve 2-bone IK di bidang sagital kuda:
+        // Semua kaki (depan & belakang) sikunya menekuk menghadap ke depan (+1).
         const bendSign = 1;
         solveLegIK(this._hipW, this._ankleW, l1World, l2World, bendSign, this._kneeW, cy, -sy);
 
@@ -603,18 +605,16 @@ const THREE = HC.THREE, S = HC.vs;
         HC.aimBone(leg.lowerMesh, this._kneeW, this._ankleW);
         leg.lowerMesh.updateMatrixWorld(true);
 
-        // Orient hoof: when planted on ground/pebble, align flush to surface normal!
-        // When swinging in air, curl hoof naturally with fetlockFlex
-        const slopeAngle = Math.atan2(-(this._normW.x * cy - this._normW.z * sy), this._normW.y);
-        const airAngle = fetlockFlex;
-        const standHoofPitch = HC.lerp(airAngle, slopeAngle, leg.stanceBlend);
-        const sleepHoofPitch = leg.front ? -1.42 : -1.24;
-        const hoofPitch = HC.lerp(standHoofPitch, sleepHoofPitch, sl);
-        // pitch terhadap sumbu lateral kuda (fz, 0, -fx) lalu diputar sesuai heading kuda
-        this._hoofAxis.set(-sy, 0, -cy);
-        this._qHoof.setFromAxisAngle(this._hoofAxis, hoofPitch);
+        // Orient hoof: flush to terrain normal when planted, pure sagittal curl when airborne
         this._qYaw.setFromAxisAngle(UP_AXIS, this.yaw);
-        this._qHoof.premultiply(this._qYaw);
+        this._qGround.setFromUnitVectors(UP_AXIS, this._normW).multiply(this._qYaw);
+        this._qAir.setFromAxisAngle(LOCAL_Z, fetlockFlex).premultiply(this._qYaw);
+        this._qHoof.copy(this._qAir).slerp(this._qGround, leg.stanceBlend);
+        if (sl > 0.005) {
+          const sleepHoofPitch = leg.front ? -1.42 : -1.24;
+          this._qSleep.setFromAxisAngle(LOCAL_Z, sleepHoofPitch).premultiply(this._qYaw);
+          this._qHoof.slerp(this._qSleep, sl);
+        }
         HC.setWorldQuat(leg.hoof, this._qHoof);
       }
     }

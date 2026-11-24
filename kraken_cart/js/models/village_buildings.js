@@ -2463,10 +2463,9 @@ function createMarketStall(palette, ctx = {}, opts = {}) {
 
   group.userData = {
     kind: 'market_stall',
-    collider: {
-      radius: Math.hypot(w * 0.5 + 0.15, d * 0.5 + 0.15) * 0.80,
-      height: h + 0.32,
-    },
+    colliders: [
+      { localX: 0, localZ: -0.45, radius: Math.max(w * 0.42, 1.08), height: h + 0.25 },
+    ],
     lanterns,
     animated: {},
   };

@@ -28,19 +28,19 @@ HC.NPC_ROLES = [
   { id:'warrior', name:'Petarung', e:'⚔️', recruitable:true, robe:0x8f3b3b, hood:0x5a2323,
     hp:150, dmg:20, speed:3.3,
     skill:{ id:'taunt', name:'Tameng Hidup', e:'😤', desc:'Menarik perhatian monster supaya menyerang dirinya' } },
-  { id:'guardian', name:'Guardian', e:'🛡️', recruitable:true, robe:0x37527a, hood:0x22314d,
+  { id:'guardian', name:'Penjaga Perisai', e:'🛡️', recruitable:true, robe:0x37527a, hood:0x22314d,
     hp:210, dmg:10, speed:2.9,
     skill:{ id:'aegis', name:'Aegis Pelindung', e:'🛡️', desc:'Damage yang diterima seluruh tim & pemain -18% · memancing monster' } },
   { id:'merchant', name:'Pedagang', e:'🏪', recruitable:false, robe:0xc9a24b, hood:0x8a6a1e,
     hp:100, dmg:6, speed:2.6,
     skill:{ id:'trade', name:'Jiwa Dagang', e:'🪙', desc:'Menjual barang & membeli hasil buruanmu' } },
-  { id:'dungeonmaster', name:'Dungeon Master', e:'🧙', recruitable:false, robe:0x4a2a6a, hood:0x2a1a3a,
+  { id:'dungeonmaster', name:'Penguasa Reruntuhan', e:'🧙', recruitable:false, robe:0x4a2a6a, hood:0x2a1a3a,
     hp:150, dmg:10, speed:2.8,
     skill:{ id:'dchange', name:'Penjaga Reruntuhan', e:'🗝️', desc:'Menjual Dungeon Changer — mengubah level dungeon' } },
-  { id:'petmerchant', name:'Pet Merchant', e:'🐾', recruitable:false, robe:0xefe6d5, hood:0x854c24,
+  { id:'petmerchant', name:'Pedagang Hewan', e:'🐾', recruitable:false, robe:0xefe6d5, hood:0x854c24,
     hp:140, dmg:14, speed:3.2,
     skill:{ id:'petguard', name:'Penjaga Kandang', e:'🐾', desc:'Bergerak & bertarung hanya dalam radius 4 blok dari kandang pet' } },
-  { id:'lionknight', name:'Manusia Singa', e:'🦁', recruitable:true, rare:true, weight:9,
+  { id:'lionknight', name:'Ksatria Singa', e:'🦁', recruitable:true, rare:true, weight:9,
     robe:0xC8912F, hood:0xFFD700, hp:260, dmg:26, speed:3.6,
     skill:{ id:'lionclaw', name:'Auman Singa', e:'🦁', desc:'Pasif Cakar Singa: +20% damage · +jangkauan pedang · memancing monster · Aktif AUMAN SINGA: raungan 360° dua gelombang (1,3× + 0,7×) merusak & mendorong semua monster di sekeliling' } },
   { id:'elfmage', name:'Penyihir Elf', e:'🔮', recruitable:true, rare:true, weight:10,
@@ -55,13 +55,13 @@ HC.NPC_ROLES = [
   { id:'goblin', name:'Goblin Emas', e:'👺', recruitable:true, rare:true, weight:9,
     robe:0x4f9e3a, hood:0xd9a531, hp:185, dmg:19, speed:4.6,
     skill:{ id:'backstab', name:'Backstab Leap', e:'🗡️', desc:'Loncat ke punggung monster · 5 tusukan beruntun (total damage 5×) · monster yang ditunggangi tak bisa membalas' } },
-  { id:'magesupport', name:'Mage Support', e:'🔯', recruitable:true, rare:true, legendary:true, weight:6,
+  { id:'magesupport', name:'Penyihir Pendukung', e:'🔯', recruitable:true, rare:true, legendary:true, weight:6,
     robe:0x3a5a8c, hood:0x6a8fd0, hp:160, dmg:16, speed:3.4,
     skill:{ id:'support', name:'Dukungan Arcane', e:'🔯', desc:'Aura Pasif +15% DEF tim saat direkrut · Healing Aura memulihkan tim bertahap · Aura Perisai aktif · Hujan Bintang' } },
-  { id:'royalguard', name:'Royal Guard', e:'🛡️', recruitable:true, rare:true, weight:8,
+  { id:'royalguard', name:'Pengawal Kerajaan', e:'🛡️', recruitable:true, rare:true, weight:8,
     robe:0xb02a26, hood:0xe0b048, hp:300, dmg:24, speed:3.0,
     skill:{ id:'royalbash', name:'Shield Bash', e:'👑', desc:'BASH: hantaman perisai membuat mob di kerucut depan pingsan (stun) · PROVOKE: menantang mob di sekitar untuk menyerangnya · damage diterima -70% selama menantang' } },
-  { id:'lich', name:'Lich', e:'☠️', recruitable:true, rare:true, mythic:true, weight:4,
+  { id:'lich', name:'Raja Tulang', e:'☠️', recruitable:true, rare:true, mythic:true, weight:4,
     robe:0x161a20, hood:0x2f8a4e, hp:380, dmg:42, speed:3.2,
     skill:{ id:'lich_wrath', name:'Lich Wrath', e:'☠️', desc:'⚡ Sambaran Petir Ungu beruntun · 🧟 Bangkitkan 3 Zombie Pembantai dari tanah kubur (HP, Damage & Durasi scaling level) · 🩸 Sedot Nyawa memulihkan HP' } },
 ];
@@ -124,7 +124,7 @@ const NPC_ROLE_TEXT = {
 };
 
 HC.localizeNpcRoles = function () {
-  const english = HC.getLang && HC.getLang() === 'en';
+  const english = !HC.getLang || HC.getLang() !== 'id';
   for (const role of HC.NPC_ROLES) {
     const original = NPC_ROLE_TEXT[role.id];
     if (!original) continue;
@@ -155,11 +155,11 @@ HC.localizeNpcRoles();
    dinormalisasi ke tinggi targetnya sendiri supaya proporsi Sylvan tetap,
    tapi ukurannya masuk akal di samping gerobak SHOD (bak setinggi ±1 m). */
 HC.NPC_HEIGHT = {
-  guard: 1.72, hunter: 1.74, miner: 1.64, farmer: 1.72, herbal: 1.68,
-  warrior: 1.80, guardian: 1.86, merchant: 1.72, dungeonmaster: 1.80,
-  petmerchant: 1.82, lionknight: 2.05, elfmage: 1.82, stonegiant: 2.90,
-  rabbitwarrior: 1.56, goblin: 1.22, magesupport: 1.80, royalguard: 2.00,
-  lich: 2.30,
+  guard: 2.38, hunter: 2.38, miner: 2.26, farmer: 2.34, herbal: 2.28,
+  warrior: 2.46, guardian: 2.52, merchant: 2.36, dungeonmaster: 2.42,
+  petmerchant: 2.42, lionknight: 2.70, elfmage: 2.42, stonegiant: 3.55,
+  rabbitwarrior: 2.15, goblin: 1.68, magesupport: 2.42, royalguard: 2.65,
+  lich: 2.95,
 };
 
 function sitLegGroups(parts = {}) {
@@ -200,8 +200,8 @@ HC.buildNPC = function (role, pose = 'stand') {
      siluet, bukan offset). Jadi cukup skala — jangan digeser naik, nanti
      karakternya ngambang. Pose duduk dibatasi lebih pendek supaya raksasa
      3 m tidak menembus atap gerobak. */
-  const baseH = HC.NPC_HEIGHT[role.id] || 1.75;
-  const targetH = pose === 'sit' ? Math.min(baseH, 2.05) : baseH;
+  const baseH = HC.NPC_HEIGHT[role.id] || 2.35;
+  const targetH = pose === 'sit' ? Math.min(baseH * 0.78, 2.05) : baseH;
   root.updateMatrixWorld(true);
   const raw = new THREE.Box3().setFromObject(mesh);
   const rawH = Math.max(0.01, raw.max.y - raw.min.y);
@@ -465,6 +465,9 @@ function updateVillageResident(item, dt, horse, world) {
     harvest: true,
     holdingDoor: false,
     goingToDoor: false,
+    farmTileIdx: -1,
+    farmAction: 'harvest',
+    carriedCrops: 0,
   });
 
   const groundFn = (x, z) => ((world && world.heightAt) ? world.heightAt(x, z)
@@ -619,6 +622,131 @@ function updateVillageResident(item, dt, horse, world) {
         }
       }
     }
+  } else if (vp.behindStall && vp.workKind === 'shop') {
+    // Pedagang berjaga tepat di belakang meja/bangunan toko menghadap pembeli
+    const post = stations[0];
+    if (post) {
+      item.x = post.x;
+      item.z = post.z;
+      if (vp.fixedY !== null && vp.fixedY !== undefined) customY = vp.fixedY;
+      if (distH < prof.face) {
+        vb.dir = Math.atan2(dxH, dzH);
+      } else if (post.faceX !== undefined && post.faceZ !== undefined) {
+        vb.dir = Math.atan2(post.faceX - item.x, post.faceZ - item.z);
+      }
+      lookHead = Math.sin((item._vClock = (item._vClock || 0) + dt) * 1.1) * 0.18;
+    }
+    vb.state = 'work_at_station';
+  } else if (vp.workKind === 'farm' && vp.farmPlot && Array.isArray(vp.farmPlot.tiles) && vp.farmPlot.tiles.length) {
+    // Siklus petani nyata: pilih petak matang/kosong -> berjalan -> panen/tanam -> setor hasil panen ke toko desa
+    const farmPlot = vp.farmPlot;
+    const sp = (st.speed || 3.0) * 0.52;
+    const pickNextFarmTile = () => {
+      let ripe = -1, empty = -1;
+      for (let ti = 0; ti < farmPlot.tiles.length; ti++) {
+        const tl = farmPlot.tiles[ti];
+        if (tl.stage === 2 && ripe < 0) ripe = ti;
+        if (tl.stage === 0 && empty < 0) empty = ti;
+      }
+      if (ripe >= 0) return { idx: ripe, action: 'harvest' };
+      if (empty >= 0) return { idx: empty, action: 'plant' };
+      return null;
+    };
+
+    if (vb.state === 'deliver_shop') {
+      const drop = vp.shopDrop || stations[0];
+      const dx = drop.x - item.x, dz = drop.z - item.z;
+      const d = Math.hypot(dx, dz);
+      vb.t -= dt;
+      if (d < 0.75 || vb.t <= 0) {
+        vb.state = 'deliver_unload';
+        vb.t = 2.0;
+        if (drop.faceX !== undefined && drop.faceZ !== undefined) {
+          vb.dir = Math.atan2(drop.faceX - item.x, drop.faceZ - item.z);
+        }
+      } else {
+        vb.dir = Math.atan2(dx, dz);
+        item.x += (dx / d) * sp * dt;
+        item.z += (dz / d) * sp * dt;
+        walkSpeed = sp;
+        if (world && typeof world.resolveCircleCollision === 'function') {
+          const colRes = world.resolveCircleCollision(item.x, item.z, 0.34);
+          if (colRes.hit) { item.x = colRes.x; item.z = colRes.z; }
+        }
+      }
+    } else if (vb.state === 'deliver_unload') {
+      vb.t -= dt;
+      if (vb.t <= 0) {
+        if (vb.carriedCrops > 0 && world && world.addVillageShopStock) {
+          world.addVillageShopStock(vp.villageRef || vp.villageId, vb.carriedCrops);
+        }
+        vb.carriedCrops = 0;
+        vb.state = 'farm_seek';
+        vb.t = 0.2;
+      }
+    } else if (vb.state === 'farm_work') {
+      const tile = farmPlot.tiles[vb.farmTileIdx];
+      vb.t -= dt;
+      isWork = true;
+      vb.harvest = (vb.farmAction === 'harvest');
+      if (tile) vb.dir = Math.atan2(tile.x - item.x, tile.z - item.z);
+      if (vb.t <= 0) {
+        if (tile && vb.farmAction === 'harvest' && tile.stage === 2 && world && world.harvestFarmTile) {
+          world.harvestFarmTile(farmPlot, tile.index, false);
+          vb.carriedCrops = (vb.carriedCrops || 0) + 1;
+        } else if (tile && vb.farmAction === 'plant' && tile.stage === 0 && world && world.plantFarmTile) {
+          world.plantFarmTile(farmPlot, tile.index);
+        }
+        const nextJob = pickNextFarmTile();
+        if (vb.carriedCrops >= 2 || (vb.carriedCrops > 0 && (!nextJob || nextJob.action !== 'harvest'))) {
+          vb.state = 'deliver_shop';
+          vb.t = 18.0;
+        } else {
+          vb.state = 'farm_seek';
+          vb.t = 0.2;
+        }
+      }
+    } else if (vb.state === 'farm_walk') {
+      const tile = farmPlot.tiles[vb.farmTileIdx];
+      if (!tile) {
+        vb.state = 'farm_seek';
+      } else {
+        const dx = tile.x - item.x, dz = tile.z - item.z;
+        const d = Math.hypot(dx, dz);
+        vb.t -= dt;
+        if (d < 0.78 || vb.t <= 0) {
+          vb.state = 'farm_work';
+          vb.t = 3.2;
+          vb.dir = Math.atan2(tile.x - item.x, tile.z - item.z);
+        } else {
+          vb.dir = Math.atan2(dx, dz);
+          item.x += (dx / d) * sp * dt;
+          item.z += (dz / d) * sp * dt;
+          walkSpeed = sp;
+          if (world && typeof world.resolveCircleCollision === 'function') {
+            const colRes = world.resolveCircleCollision(item.x, item.z, 0.34);
+            if (colRes.hit) { item.x = colRes.x; item.z = colRes.z; }
+          }
+        }
+      }
+    } else {
+      // farm_seek / idle menunggu tanaman tumbuh
+      vb.t -= dt;
+      if (vb.t <= 0 || vb.state !== 'farm_idle') {
+        const job = pickNextFarmTile();
+        if (job) {
+          vb.farmTileIdx = job.idx;
+          vb.farmAction = job.action;
+          vb.state = 'farm_walk';
+          vb.t = 14.0;
+        } else {
+          vb.state = 'farm_idle';
+          vb.t = 2.5;
+          vb.dir = Math.atan2(farmPlot.x - item.x, farmPlot.z - item.z);
+          lookHead = Math.sin((item._vClock = (item._vClock || 0) + dt) * 1.1) * 0.25;
+        }
+      }
+    }
   } else if (vb.state === 'walk_to_target') {
     const tgt = vb.target || stations[0];
     const dx = tgt.x - item.x;
@@ -737,7 +865,7 @@ HC.updateWildNPC = function (item, dt, horse, world, rigCtx = null) {
   const activeRig = rigCtx || HC._activeRigCtx || (world && world._rigObsCtx) || null;
   if (HC.combatAI && HC.mobs && HC.combatAI.stepWild(item, dt || 1 / 60, horse, world)) return;
   if (item.villageProfile && updateVillageResident(item, dt || 1 / 60, horse, world)) {
-    if (activeRig && HC.resolveRigObstacle) {
+    if (activeRig && HC.resolveRigObstacle && !item.villageProfile.behindStall) {
       const rigRes = HC.resolveRigObstacle(item.x, item.z, 0.36, activeRig.horse, activeRig.cart);
       if (rigRes.hit) {
         item.x = rigRes.x;
@@ -1549,6 +1677,189 @@ HC.NPCParty = class {
       return;
     }
 
+    // ---- state === 'farm_job': NPC rekrutan bekerja paruh waktu memanen & mengantar hasil ke toko desa ----
+    if (m.state === 'farm_job') {
+      const job = this._farmJob;
+      const farmPlot = job && job.farmPlot;
+      if (!job || !farmPlot || !Array.isArray(farmPlot.tiles) || (physics && physics.flipped)
+        || Math.hypot(hx - farmPlot.x, hz - farmPlot.z) > 36) {
+        m.farmTileIdx = -1;
+        m.carriedCrops = 0;
+        if (physics && physics.flipped) {
+          m.state = 'following';
+        } else {
+          m.state = 'boarding';
+          m.boardT = 0;
+          m.hopFrom = null;
+        }
+        return;
+      }
+
+      const claimedByOther = (idx) => this.members.some((o) => o !== m && o.state === 'farm_job' && o.farmTileIdx === idx);
+      const pickNextTile = () => {
+        let bestRipe = -1, bestRipeD = Infinity;
+        let bestEmpty = -1, bestEmptyD = Infinity;
+        for (let i = 0; i < farmPlot.tiles.length; i++) {
+          if (claimedByOther(i)) continue;
+          const tl = farmPlot.tiles[i];
+          const d = Math.hypot(tl.x - m.x, tl.z - m.z);
+          if (tl.stage === 2 && d < bestRipeD) { bestRipeD = d; bestRipe = i; }
+          else if (tl.stage === 0 && d < bestEmptyD) { bestEmptyD = d; bestEmpty = i; }
+        }
+        if (bestRipe >= 0) return { idx: bestRipe, action: 'harvest' };
+        if (bestEmpty >= 0) return { idx: bestEmpty, action: 'plant' };
+        return null;
+      };
+
+      let walkingNow = false;
+      let workingNow = false;
+      let curSpeed = 0;
+      const sp = 2.65;
+
+      if (m.farmPhase === 'deliver_walk') {
+        const drop = job.shopDrop || { x: farmPlot.x, z: farmPlot.z };
+        const dx = drop.x - m.x, dz = drop.z - m.z;
+        const d = Math.hypot(dx, dz);
+        if (d > 0.95) {
+          const move = Math.min(d, sp * dt);
+          m.x += (dx / d) * move;
+          m.z += (dz / d) * move;
+          m.dir = this._turnToward(m.dir, Math.atan2(dx, dz), 9.0, dt);
+          walkingNow = true;
+          curSpeed = sp;
+          resolveProps(0.34);
+        } else {
+          m.farmPhase = 'deliver_drop';
+          m.farmWorkT = 0.95;
+          if (drop.faceX !== undefined && drop.faceZ !== undefined) {
+            m.dir = this._turnToward(m.dir, Math.atan2(drop.faceX - m.x, drop.faceZ - m.z), 10.0, dt);
+          }
+          _armSwing(m);
+        }
+      } else if (m.farmPhase === 'deliver_drop') {
+        m.farmWorkT -= dt;
+        workingNow = true;
+        if (m.farmWorkT <= 0) {
+          const qty = Math.max(1, m.carriedCrops || 1);
+          m.carriedCrops = 0;
+          const newStock = (this.world && this.world.addVillageShopStock)
+            ? this.world.addVillageShopStock(job.villageRef || farmPlot.villageId, qty)
+            : 0;
+          job.delivered = (job.delivered || 0) + qty;
+          if (typeof job.onCropDelivered === 'function') {
+            job.onCropDelivered({
+              member: m,
+              count: qty,
+              gold: qty * 5,
+              shopStock: newStock,
+              villageName: job.villageName,
+            });
+          }
+          m.farmPhase = 'seek';
+          m.farmTileIdx = -1;
+        }
+      } else if (m.farmPhase === 'work_tile') {
+        const tl = farmPlot.tiles[m.farmTileIdx];
+        if (!tl) {
+          m.farmPhase = 'seek';
+          m.farmTileIdx = -1;
+        } else {
+          m.dir = this._turnToward(m.dir, Math.atan2(tl.x - m.x, tl.z - m.z), 10.0, dt);
+          m.farmWorkT -= dt;
+          workingNow = true;
+          m.farmSwingCd = (m.farmSwingCd || 0) - dt;
+          if (m.farmSwingCd <= 0) { m.farmSwingCd = 1.05; _armSwing(m); }
+          if (m.farmWorkT <= 0) {
+            if (m.farmAction === 'harvest' && tl.stage === 2 && this.world && this.world.harvestFarmTile) {
+              this.world.harvestFarmTile(farmPlot, tl.index, false);
+              m.carriedCrops = (m.carriedCrops || 0) + 1;
+              m.farmTileIdx = -1;
+              m.farmPhase = 'deliver_walk';
+            } else if (m.farmAction === 'plant' && tl.stage === 0 && this.world && this.world.plantFarmTile) {
+              this.world.plantFarmTile(farmPlot, tl.index);
+              m.farmTileIdx = -1;
+              m.farmPhase = 'seek';
+            } else {
+              m.farmTileIdx = -1;
+              m.farmPhase = 'seek';
+            }
+          }
+        }
+      } else if (m.farmPhase === 'walk_tile') {
+        const tl = farmPlot.tiles[m.farmTileIdx];
+        if (!tl || (m.farmAction === 'harvest' && tl.stage !== 2) || (m.farmAction === 'plant' && tl.stage !== 0)) {
+          m.farmTileIdx = -1;
+          m.farmPhase = 'seek';
+        } else {
+          const dx = tl.x - m.x, dz = tl.z - m.z;
+          const d = Math.hypot(dx, dz);
+          if (d > 0.85) {
+            const move = Math.min(d, sp * dt);
+            m.x += (dx / d) * move;
+            m.z += (dz / d) * move;
+            m.dir = this._turnToward(m.dir, Math.atan2(dx, dz), 9.0, dt);
+            walkingNow = true;
+            curSpeed = sp;
+            resolveProps(0.34);
+          } else {
+            m.farmPhase = 'work_tile';
+            m.farmWorkT = 2.2;
+            m.farmSwingCd = 0.1;
+          }
+        }
+      } else {
+        // seek
+        if (m.carriedCrops > 0) {
+          m.farmPhase = 'deliver_walk';
+        } else {
+          const next = pickNextTile();
+          if (next) {
+            m.farmTileIdx = next.idx;
+            m.farmAction = next.action;
+            m.farmPhase = 'walk_tile';
+          } else {
+            // Semua petak sudah selesai dipanen & ditanam -> kembali naik ke gerobak
+            m.farmTileIdx = -1;
+            m.state = 'boarding';
+            m.boardT = 0;
+            m.hopFrom = null;
+            const anyStillWorking = this.members.some((o) => o !== m && o.state === 'farm_job');
+            if (!anyStillWorking) {
+              const finishedJob = this._farmJob;
+              this._farmJob = null;
+              if (finishedJob && typeof finishedJob.onComplete === 'function') {
+                finishedJob.onComplete(finishedJob);
+              }
+            }
+            this._notify();
+            return;
+          }
+        }
+      }
+
+      const gy = this._groundY(m.x, m.z);
+      root.position.set(m.x, gy, m.z);
+      root.rotation.set(0, m.dir, 0);
+      if (st) {
+        st.pos.copy(root.position);
+        st.vel.x = walkingNow ? Math.sin(m.dir) * curSpeed : 0;
+        st.vel.z = walkingNow ? Math.cos(m.dir) * curSpeed : 0;
+        st.walking = walkingNow;
+        st.working = workingNow;
+        if (workingNow) {
+          st.farmT = 1;
+          st.farmTask = { action: m.farmAction === 'plant' ? 'plant' : 'harvest' };
+        } else {
+          st.farmT = 0;
+          st.farmTask = null;
+        }
+        st.swing = walkingNow ? 0 : _tickSwing(m, dt);
+        st.headAngle = 0;
+      }
+      HC.animateNPC(root, dt);
+      return;
+    }
+
     // ---- state === 'following': bertarung taktis jika ada musuh, atau pungut barang jatuh 1 per 1, atau ikuti gerobak ----
     if (HC.combatAI && HC.mobs && HC.combatAI.stepPartyMember(m, dt, hx, hz, hyaw, c, physics, this)) {
       this._dropMemberCargo(m, physics);
@@ -1986,6 +2297,65 @@ HC.NPCParty = class {
     this.lastMessage = this._text('npc_msg_recruited', `${role.e} ${role.name} direkrut - berjalan ke belakang gerobak... (${fx.note})`, { e: role.e, name: role.name, note: fx.note, role });
     this._notify();
     return role;
+  }
+  isFarmJobActive(villageId = null) {
+    if (!this._farmJob) return false;
+    const anyWorking = this.members.some((m) => m.state === 'farm_job');
+    if (!anyWorking) { this._farmJob = null; return false; }
+    if (villageId && this._farmJob.villageId !== villageId) return false;
+    return true;
+  }
+  startFarmJob(farmPlot, shopDrop, { onCropDelivered = null, onComplete = null } = {}) {
+    if (!farmPlot || !this.members.length) return false;
+    if (this.physics && this.physics.flipped) return false;
+    this._farmJob = {
+      villageId: farmPlot.villageId,
+      villageName: farmPlot.villageName,
+      villageRef: farmPlot.villageRef || null,
+      farmPlot,
+      shopDrop: shopDrop || { x: farmPlot.x, z: farmPlot.z },
+      onCropDelivered,
+      onComplete,
+      delivered: 0,
+    };
+    for (const m of this.members) {
+      this._clearWaterTask(m);
+      this._dropMemberCargo(m, this.physics);
+      if (m.state === 'seated' || m.state === 'hopping_in') {
+        this._detachSeated(m, this.cart);
+        const rear = this._cartRearWorld(this.cart, 1.2, (m.seatIndex - 0.5) * 0.75);
+        this._spawnStanding(m, rear.x, rear.z, rear.yaw + Math.PI);
+      } else if (!m.root) {
+        const rear = this._cartRearWorld(this.cart, 1.2, (m.seatIndex - 0.5) * 0.75);
+        this._spawnStanding(m, rear.x, rear.z, rear.yaw + Math.PI);
+      }
+      m.state = 'farm_job';
+      m.farmPhase = 'seek';
+      m.farmTileIdx = -1;
+      m.farmAction = 'harvest';
+      m.farmWorkT = 0;
+      m.carriedCrops = 0;
+    }
+    this._syncDefaultPassengers(this.cart);
+    this._notify();
+    return true;
+  }
+  stopFarmJob(boardBack = true) {
+    this._farmJob = null;
+    for (const m of this.members) {
+      if (m.state === 'farm_job') {
+        m.farmTileIdx = -1;
+        m.carriedCrops = 0;
+        if (boardBack && !(this.physics && this.physics.flipped)) {
+          m.state = 'boarding';
+          m.boardT = 0;
+          m.hopFrom = null;
+        } else {
+          m.state = 'following';
+        }
+      }
+    }
+    this._notify();
   }
   boardMember(uid) {
     if (this.physics && this.physics.flipped) {

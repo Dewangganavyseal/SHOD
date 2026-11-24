@@ -408,7 +408,7 @@ const NPC_Farmer = (() => {
           st.swingActive = true;
           st.workCycle = 0.04;
         }
-        const rate = isPlanting ? 2.6 : (isFarming ? 2.35 : 2.9);
+        const rate = isPlanting ? 0.92 : (isFarming ? 0.85 : 1.65);
         st.workCycle += dt * rate;
         if (st.workCycle >= 1) {
           if (isFarming || (n.swing && n.swing > 0.15)) {

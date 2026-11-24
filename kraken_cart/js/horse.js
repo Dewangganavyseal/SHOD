@@ -4,13 +4,14 @@ const THREE = HC.THREE, V = HC.VoxelBuilder, P = HC.PAL;
 
 
   // Horse authored in voxel units (1u = 6.25cm). Ground = y 0. Body pivot center y = CY.
-  const CY = 23.5;
-  const L1 = 12.6;   // upper leg bone
-  const L2 = 10.4;   // lower leg bone (cannon)
+  const TORSO_REF = 23.5;
+  const CY = 25.0;
+  const L1 = 13.0;   // upper leg bone
+  const L2 = 11.4;   // lower leg bone (cannon)
   const HOOF_H = 2.1;
   const ANKLE_Y = HOOF_H; // IK chain target height above ground
 
-  HC.HORSE = { CY, L1, L2, HOOF_H, ANKLE_Y, SHOULDER_Y: 25, HIP_Y: 25.4 };
+  HC.HORSE = { CY, TORSO_REF, L1, L2, HOOF_H, ANKLE_Y, SHOULDER_Y: 25, HIP_Y: 25.4 };
 
   HC.buildHorse = function () {
     const root = new THREE.Group();
@@ -22,7 +23,7 @@ const THREE = HC.THREE, V = HC.VoxelBuilder, P = HC.PAL;
     root.add(torso);
 
     const tb = new V();
-    const B = (x0, y0, z0, x1, y1, z1, c, j) => tb.box(x0, y0 - CY, z0, x1, y1 - CY, z1, c, j);
+    const B = (x0, y0, z0, x1, y1, z1, c, j) => tb.box(x0, y0 - TORSO_REF, z0, x1, y1 - TORSO_REF, z1, c, j);
 
     // barrel: stacked layers, elliptical cross-section (voxel smooth silhouette)
     for (let y = 16; y <= 30; y++) {
@@ -93,7 +94,7 @@ const THREE = HC.THREE, V = HC.VoxelBuilder, P = HC.PAL;
     // ---------------- NECK LOWER ----------------
     const S = HC.vs;
     const neckLow = new THREE.Group();
-    neckLow.position.set(11.0 * S, (27.6 - CY) * S, 0);
+    neckLow.position.set(11.0 * S, (27.6 - TORSO_REF) * S, 0);
     torso.add(neckLow);
 
     const collarLeft = new THREE.Object3D();
@@ -103,10 +104,10 @@ const THREE = HC.THREE, V = HC.VoxelBuilder, P = HC.PAL;
     collarRight.position.set(0.5 * S, 2.6 * S, -4.5 * S);
     neckLow.add(collarRight);
     const girthLeft = new THREE.Object3D();
-    girthLeft.position.set(1.8 * S, (21.5 - CY) * S, 5.7 * S);
+    girthLeft.position.set(1.8 * S, (21.5 - TORSO_REF) * S, 5.7 * S);
     torso.add(girthLeft);
     const girthRight = new THREE.Object3D();
-    girthRight.position.set(1.8 * S, (21.5 - CY) * S, -5.7 * S);
+    girthRight.position.set(1.8 * S, (21.5 - TORSO_REF) * S, -5.7 * S);
     torso.add(girthRight);
 
     const nb = new V();
@@ -230,7 +231,7 @@ const THREE = HC.THREE, V = HC.VoxelBuilder, P = HC.PAL;
     // ---------------- TAIL ----------------
     const tailSegs = [];
     let tailParent = torso;
-    let tailPos = new THREE.Vector3(-15.0 * S, (29.6 - CY) * S, 0);
+    let tailPos = new THREE.Vector3(-15.0 * S, (29.6 - TORSO_REF) * S, 0);
     for (let i = 0; i < 5; i++) {
       const g = new THREE.Group();
       g.position.copy(tailPos);
@@ -259,21 +260,31 @@ const THREE = HC.THREE, V = HC.VoxelBuilder, P = HC.PAL;
 
     for (const def of legDefs) {
       const hipGroup = new THREE.Group();
-      hipGroup.position.set(def.hip[0] * S, (def.hip[1] - CY) * S, def.hip[2] * S);
+      hipGroup.position.set(def.hip[0] * S, (def.hip[1] - TORSO_REF) * S, def.hip[2] * S);
       torso.add(hipGroup);
 
-      // upper bone (thigh / humerus) — geometry hangs along -Y from pivot
+      // upper bone (thigh / humerus) — sculpted muscular volume tapering into knee/hock
       const uv = new V();
       if (def.front) {
-        uv.box(-2.2, -L1, -2.1, 2.4, 1.2, 2.1, P.coatMid);
-        uv.box(-1.9, -L1 * 0.7, -2.35, 2.0, 0.2, 2.35, P.coatWarm);
-        uv.box(-1.6, -L1, -1.5, 1.9, -L1 * 0.55, 1.5, P.coatDark, 0.03);
+        // Broad muscular shoulder & upper forearm
+        uv.box(-3, -4, -2, 3, 2, 2, P.coatMid);
+        uv.box(-2, -3, -2, 3, 1, 2, P.coatWarm, 0.03);
+        // Mid forearm muscle belly + front radius contour
+        uv.box(-2, -8, -2, 2, -4, 2, P.coatMid);
+        uv.box(0, -7, -1, 3, -2, 1, P.coatWarm, 0.03);
+        // Tapered lower forearm + rear tendon
+        uv.box(-2, -L1, -1, 1, -8, 1, P.coatDark, 0.03);
+        uv.box(-1, -10, -2, 1, -7, 2, P.coatMid, 0.02);
       } else {
-        uv.box(-2.8, -L1, -2.4, 2.9, 1.8, 2.4, P.coatMid);
-        uv.box(-2.4, -L1 * 0.75, -2.7, 2.6, 1.0, 2.7, P.coatWarm);
-        uv.box(-2.0, -L1, -1.7, 2.2, -L1 * 0.6, 1.7, P.coatDark, 0.03);
-        // haunch bulge
-        uv.box(-2.2, -L1 * 0.9, -1.1, 1.8, -L1 * 0.2, 1.1, P.coatLite, 0.03);
+        // Powerful upper haunch / quarter
+        uv.box(-4, -5, -2, 3, 2, 2, P.coatMid);
+        uv.box(-3, -4, -2, 2, 1, 2, P.coatWarm, 0.03);
+        uv.box(-3, -6, -1, 2, 0, 1, P.coatLite, 0.03);
+        // Curved gaskin muscle belly
+        uv.box(-3, -9, -2, 2, -5, 2, P.coatMid);
+        uv.box(-2, -8, -2, 2, -5, 2, P.coatWarm, 0.03);
+        // Taper above hock
+        uv.box(-2, -L1, -1, 1, -9, 1, P.coatDark, 0.03);
       }
       const upperMesh = uv.build(0, 0, 0);
       hipGroup.add(upperMesh);
@@ -284,45 +295,61 @@ const THREE = HC.THREE, V = HC.VoxelBuilder, P = HC.PAL;
       upperMesh.add(knee);
 
       const lv = new V();
-      lv.box(-1.35, -L2, -1.25, 1.35, 0.8, 1.25, P.coatDark);
-      lv.box(-1.1, -L2 * 0.9, -1.45, 1.1, -L2 * 0.15, 1.45, P.coatMid, 0.03);
-      // fetlock joint
-      lv.box(-1.5, -L2 - 0.2, -1.4, 1.5, -L2 + 0.9, 1.4, P.coatDark, 0.02);
-      // cream sock on front legs
-      if (def.front) {
-        lv.box(-1.3, -L2 * 0.55, -1.3, 1.3, -L2 + 1.0, 1.3, P.sock, 0.015);
-      } else {
-        lv.box(-1.3, -L2 * 0.35, -1.3, 1.3, -L2 + 1.0, 1.3, P.coatDark, 0.02);
-      }
+      const l2i = Math.round(L2);
+      // Upper cannon + rear flexor tendon ridge
+      lv.box(-1, -4, -1, 1, 0, 1, P.coatDark);
+      lv.box(-2, -4, -1, -1, -1, 1, P.coatDark, 0.02);
+      lv.box(-1, -4, -1, 2, -2, 1, P.coatMid, 0.03);
+
+      // White socks (P.sock) on ALL 4 LEGS with sculpted fetlock joint & rear feather tuft
+      lv.box(-1, -7, -1, 2, -5, 1, P.sock, 0.015);
+      lv.box(-2, -7, -1, -1, -5, 1, P.sock, 0.02);
+      // Volumetric fetlock ankle swell (symmetric Z: -2..2)
+      lv.box(-2, -10, -2, 2, -8, 2, P.sock, 0.015);
+      lv.del(2, -8, -2); lv.del(2, -8, 2);
+      lv.del(2, -10, -2); lv.del(2, -10, 2);
+      // Rear fetlock tuft / draft feathering
+      lv.box(-3, -11, -1, -1, -8, 1, P.sock, 0.02);
+      // Pastern into coronet band
+      lv.box(-1, -l2i, -1, 2, -10, 1, P.sock, 0.015);
       const lowerMesh = lv.build(0, 0, 0);
       knee.add(lowerMesh);
 
-      // hoof pivot at end of lower
+      // Volumetric bell-shaped hoof + flat iron horseshoe (symmetric Z: -2..2)
       const hoof = new THREE.Group();
       hoof.position.set(0, -L2 * S, 0);
       lowerMesh.add(hoof);
       const hv = new V();
-      hv.box(-1.6, -HOOF_H, -1.5, 1.7, 0.1, 1.5, P.hoof, 0.02);
-      hv.box(-1.5, -HOOF_H, -1.4, 1.6, -HOOF_H + 0.5, 1.4, P.hoofShoe, 0.03);
-      hv.box(-1.4, -HOOF_H - 0.35, -1.3, 1.5, -HOOF_H, 1.3, P.hoofShoe, 0.02);
-      // shoe nails
-      for (const s of [-1, 1]) {
-        hv.box(1.2, -HOOF_H - 0.3, s * 0.8, 1.4, -HOOF_H + 0.2, s * 1.0, P.iron, 0.01);
-        hv.box(-1.3, -HOOF_H - 0.3, s * 0.8, -1.1, -HOOF_H + 0.2, s * 1.0, P.iron, 0.01);
+      // Upper coronet & hoof wall
+      hv.box(-1, -1, -2, 2, 0, 2, P.hoof, 0.02);
+      hv.del(2, 0, -2); hv.del(2, 0, 2);
+      hv.del(-1, 0, -2); hv.del(-1, 0, 2);
+      // Flared lower hoof bell + iron horseshoe sole
+      hv.box(-2, -2, -2, 3, -1, 2, P.hoof, 0.02);
+      hv.del(3, -1, -2); hv.del(3, -1, 2);
+      hv.del(-2, -1, -2); hv.del(-2, -1, 2);
+      hv.box(-2, -2, -2, 3, -2, 2, P.hoofShoe, 0.02);
+      hv.del(3, -2, -2); hv.del(3, -2, 2);
+      hv.del(-2, -2, -2); hv.del(-2, -2, 2);
+      for (const s of [-2, 2]) {
+        hv.set(1, -2, s, P.iron, 0.01);
+        hv.set(-1, -2, s, P.iron, 0.01);
       }
       const hoofMesh = hv.build(0, 0, 0);
       hoof.add(hoofMesh);
 
-      // knee joint knuckle block on all 4 legs
+      // Sculpted knee joint facing forward on all 4 legs
       {
         const kb = new V();
-        kb.box(-1.6, -1.2, -1.5, 1.6, 1.2, 1.5, P.coatDark, 0.02);
+        kb.box(-1, -1, -2, 2, 1, 2, P.coatDark, 0.02);
+        kb.del(-1, -1, -2); kb.del(-1, -1, 2);
+        kb.box(1, -1, -1, 2, 1, 1, P.coatMid, 0.02);
         knee.add(kb.build(0, 0, 0));
       }
 
       legs.push({
         id: def.id, front: def.front, hipGroup, upperMesh, knee, lowerMesh, hoof, hoofMesh,
-        hipLocal: new THREE.Vector3(def.hip[0] * S, (def.hip[1] - CY) * S, def.hip[2] * S),
+        hipLocal: new THREE.Vector3(def.hip[0] * S, (def.hip[1] - TORSO_REF) * S, def.hip[2] * S),
         phaseOffset: 0,
         footWorld: new THREE.Vector3(),
         stanceBlend: 1

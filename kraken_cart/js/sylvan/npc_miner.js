@@ -439,7 +439,7 @@ const NPC_Miner = (() => {
           st.workCycle = 0.05;
         }
         // Kecepatan ayun beliung (skill digger / tambang terasa cepat & bertenaga)
-        const swingRate = isWorking ? 2.45 : 2.85;
+        const swingRate = isWorking ? 1.0 : 1.75;
         st.workCycle += dt * swingRate;
         if (st.workCycle >= 1) {
           if (isWorking || (n.swing && n.swing > 0.15)) {

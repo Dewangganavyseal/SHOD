@@ -3,10 +3,13 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover" />
-  <meta name="theme-color" content="#f5f5f6" />
+  <meta name="theme-color" content="#382e3b" />
   <meta name="mobile-web-app-capable" content="yes" />
-  <title>SHOD — KrakenOne Studio</title>
-  <link rel="stylesheet" href="./css/style.css?v=hutan31" />
+  <title>SHOD: Beyond Journey's End</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Silkscreen:wght@400;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./css/style.css?v=vintage18" />
   <script type="importmap">
   {
     "imports": {
@@ -19,99 +22,303 @@
 <body>
   <div id="app"></div>
   <div id="cozy-vignette"></div>
+  <canvas id="fx-canvas" aria-hidden="true"></canvas>
+  <div id="float-layer" aria-hidden="true"></div>
 
-  <!-- Top-Left HUD: 3D Horse Head Portrait + Exposed Vitals + Settings + Squad + Quest -->
+  <!-- Top-Left HUD: GUI 1 Medallion Overlaying Full-Width 4-Corner Bar Frame + Coin & Squad + Quest -->
   <div id="hud-top-left">
-    <div id="tl-head-row">
-      <button id="btn-horse-portrait" type="button" data-i18n-title="portrait_title" title="Click to open Horse Stats &amp; Upgrades" aria-expanded="false">
-        <canvas id="horse-portrait-canvas" width="128" height="128" aria-hidden="true"></canvas>
-        <span id="portrait-lv-badge">Lv1</span>
-        <span class="hp-mini-bar"><i id="portrait-hp-fill"></i></span>
-      </button>
-      <div id="tl-vitals-wrap">
-        <div id="vitals" role="region" aria-label="Horse Vitals">
-          <div class="vital hp"><span class="v-label">HP</span><div class="bar"><i id="v-hp"></i></div><b id="v-hp-t">100</b></div>
-          <div class="vital sta"><span class="v-label">STAM</span><div class="bar"><i id="v-sta"></i></div><b id="v-sta-t">100</b></div>
-          <div class="vital food"><span class="v-label">FOOD</span><div class="bar"><i id="v-food"></i></div><b id="v-food-t">100</b></div>
-          <div class="vital water"><span class="v-label">WATER</span><div class="bar"><i id="v-water"></i></div><b id="v-water-t">100</b></div>
+    <div class="hud-assembly">
+      <div class="hud-frame-wrap">
+        <div class="hud-frame-full">
+          <span class="js-hud-corner" data-pos="tl" data-size="22"></span>
+          <span class="js-hud-corner" data-pos="bl" data-size="22"></span>
+          <span class="js-hud-corner" data-pos="tr" data-size="22"></span>
+          <span class="js-hud-corner" data-pos="br" data-size="22"></span>
+          <div class="hud-bar-inner-well">
+            <div id="vitals" role="region" aria-label="Horse Vitals">
+              <div id="v-row-hp" class="surv-bar-row">
+                <div class="surv-bar-frame">
+                  <div class="surv-track tall">
+                    <div id="v-ghost-hp" class="surv-ghost" style="width:100%"></div>
+                    <div id="v-surge-hp" class="surv-surge" style="width:100%"></div>
+                    <div class="surv-fill fill-hp" style="width:100%"><i id="v-hp"></i><div id="v-shimmer-hp" class="surv-shimmer"></div></div>
+                    <div id="v-flash-hp" class="surv-flash"></div>
+                  </div>
+                </div>
+              </div>
+              <div id="v-row-stamina" class="surv-bar-row">
+                <div class="surv-bar-frame">
+                  <div class="surv-track">
+                    <div id="v-ghost-stamina" class="surv-ghost" style="width:100%"></div>
+                    <div id="v-surge-stamina" class="surv-surge" style="width:100%"></div>
+                    <div class="surv-fill fill-stamina" style="width:100%"><i id="v-sta"></i><div id="v-shimmer-stamina" class="surv-shimmer"></div></div>
+                    <div id="v-flash-stamina" class="surv-flash"></div>
+                  </div>
+                </div>
+              </div>
+              <div id="v-row-hunger" class="surv-bar-row">
+                <div class="surv-bar-frame">
+                  <div class="surv-track">
+                    <div id="v-ghost-hunger" class="surv-ghost" style="width:100%"></div>
+                    <div id="v-surge-hunger" class="surv-surge" style="width:100%"></div>
+                    <div class="surv-fill fill-hunger" style="width:100%"><i id="v-food"></i><div id="v-shimmer-hunger" class="surv-shimmer"></div></div>
+                    <div id="v-flash-hunger" class="surv-flash"></div>
+                  </div>
+                </div>
+              </div>
+              <div id="v-row-thirst" class="surv-bar-row">
+                <div class="surv-bar-frame">
+                  <div class="surv-track">
+                    <div id="v-ghost-thirst" class="surv-ghost" style="width:100%"></div>
+                    <div id="v-surge-thirst" class="surv-surge" style="width:100%"></div>
+                    <div class="surv-fill fill-thirst" style="width:100%"><i id="v-water"></i><div id="v-shimmer-thirst" class="surv-shimmer"></div></div>
+                    <div id="v-flash-thirst" class="surv-flash"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-        <div id="v-msg" class="sub"></div>
+
+        <div class="hud-medallion-anchor left">
+          <button id="btn-horse-portrait" type="button" class="pixel-medallion-btn" data-i18n-title="portrait_title" title="Click to open Horse Stats &amp; Upgrades" aria-expanded="false">
+            <span class="portrait-well">
+              <canvas id="horse-portrait-canvas" width="128" height="128" aria-hidden="true"></canvas>
+            </span>
+            <span class="js-medallion-ring medallion-ring-overlay" data-size="84"></span>
+            <span id="portrait-lv-badge">Lv1</span>
+            <span class="hp-mini-bar" aria-hidden="true"><i id="portrait-hp-fill"></i></span>
+          </button>
+        </div>
       </div>
-      <button id="btn-settings" type="button" data-i18n-title="settings_title" title="Settings" aria-expanded="false">⚙️</button>
+
+      <div class="hud-nums-col">
+        <b id="v-hp-t" class="px-txt-outline num-hp">100/100</b>
+        <b id="v-sta-t" class="px-txt-outline num-sta">100/100</b>
+        <b id="v-food-t" class="px-txt-outline num-hng">100/100</b>
+        <b id="v-water-t" class="px-txt-outline num-thr">100/100</b>
+      </div>
     </div>
 
+    <div class="hud-sub-row">
+      <div class="hud-gold-pouch" title="Gold">
+        <span class="js-icon" data-icon="coin" data-size="18"></span>
+        <span id="hud-top-gold" class="font-pixel-title px-txt-outline">120 G</span>
+      </div>
+      <div id="hud-top-buffs" class="hud-buffs-strip">
+        <span class="js-icon" data-icon="buff_atk" data-size="18"></span>
+        <span class="js-icon" data-icon="buff_def" data-size="18"></span>
+        <span class="js-icon" data-icon="buff_spd" data-size="18"></span>
+        <span class="js-icon" data-icon="buff_hp" data-size="18"></span>
+        <span class="js-icon" data-icon="buff_lv" data-size="18"></span>
+      </div>
+    </div>
+
+    <div id="v-msg" class="sub px-txt-outline"></div>
     <div id="npc-mini-bar" aria-label="Recruited NPCs"></div>
     <div id="quest-hud"></div>
+  </div>
 
-    <!-- Popover Horse Stats & Attribute Upgrades (on portrait click) -->
-    <div id="horse-stats-panel" class="hud-popover" hidden>
-      <div class="pop-head">
-        <span data-i18n="stats_heading">🐴 HORSE STATS &amp; UPGRADES</span>
-        <button id="btn-stats-close" type="button" class="pop-close" aria-label="Close">✕</button>
+  <!-- Popover Horse Stats & Attribute Upgrades: GUI 1 Hinge-Connected Panels -->
+  <div id="horse-stats-panel" class="hud-popover gui1-stats-modal" hidden>
+    <button id="btn-stats-close" type="button" class="btn-close-x gui1-stats-x" aria-label="Close">
+      <span class="js-icon" data-icon="close_x" data-size="26"></span>
+    </button>
+    <div class="gui1-stats-scroll">
+      <div class="gui1-col-left">
+      <div class="ornate-panel">
+        <span class="js-corner" data-pos="tl"></span>
+        <span class="js-corner" data-pos="tr"></span>
+        <span class="js-corner" data-pos="bl"></span>
+        <span class="js-corner" data-pos="br"></span>
+        <div class="pill-header"><div class="pill-header-core">STATUS</div></div>
+        <div class="ornate-panel-inner">
+          <span class="js-filigree" data-pos="top"></span>
+          <span class="js-filigree" data-pos="bottom"></span>
+          <div class="stats-grid">
+            <div><span data-i18n="stat_mode">Mode</span>: <b id="hud-state">WALK</b></div>
+            <div><span data-i18n="stat_cur_speed">Speed</span>: <b id="hud-speed">0.0 km/h</b></div>
+            <div><span data-i18n="stat_heading">Steering</span>: <b id="hud-head">STRAIGHT</b></div>
+            <div><span data-i18n="stat_roll">Tilt</span>: <b id="hud-roll">0°</b></div>
+            <div><span data-i18n="stat_cargo">Cargo</span>: <b id="hud-cargo">0 npc • 8/8</b></div>
+            <div><span data-i18n="stat_wheels">Wheels</span>: <b id="hud-wheel">100 · 100 · 100 · 100</b></div>
+            <div><span data-i18n="stat_squad">Squad</span>: <b id="hud-npc">0/3</b></div>
+            <div><span data-i18n="stat_gold">Gold</span>: <b id="hud-gold">120 G</b></div>
+            <div class="stats-span-2"><span data-i18n="stat_time">Time</span>: <b id="hud-time">07:55 • Morning</b></div>
+          </div>
+          <div class="status-buff-grid">
+            <span class="sb-cell"><span class="js-icon" data-icon="buff_atk" data-size="18"></span></span>
+            <span class="sb-cell"><span class="js-icon" data-icon="buff_def" data-size="18"></span></span>
+            <span class="sb-cell"><span class="js-icon" data-icon="buff_spd" data-size="18"></span></span>
+            <span class="sb-cell"><span class="js-icon" data-icon="buff_hp" data-size="18"></span></span>
+            <span class="sb-cell"><span class="js-icon" data-icon="buff_lv" data-size="18"></span></span>
+          </div>
+        </div>
       </div>
-      <div class="hu-section-title" data-i18n="horse_upgrades_title">Horse Attribute Upgrades</div>
-      <div id="horse-upgrade-list"></div>
-      <div class="stats-grid">
-        <div><span data-i18n="stat_mode">Mode</span>: <b id="hud-state">WALK</b></div>
-        <div><span data-i18n="stat_cur_speed">Speed</span>: <b id="hud-speed">0.0 km/h</b></div>
-        <div><span data-i18n="stat_heading">Steering</span>: <b id="hud-head">STRAIGHT</b></div>
-        <div><span data-i18n="stat_roll">Tilt</span>: <b id="hud-roll">0°</b></div>
-        <div><span data-i18n="stat_cargo">Cargo</span>: <b id="hud-cargo">0 npc • 8/8 items</b></div>
-        <div><span data-i18n="stat_wheels">Wheels</span>: <b id="hud-wheel">100 · 100 · 100 · 100</b></div>
-        <div><span data-i18n="stat_squad">NPC Squad</span>: <b id="hud-npc">0/3</b></div>
-        <div><span data-i18n="stat_gold">Gold</span>: <b id="hud-gold">120 G</b></div>
-        <div><span data-i18n="stat_time">Time</span>: <b id="hud-time">07:55 • Morning</b></div>
+
+      <div class="hinge-v"></div>
+
+      <div class="ornate-panel">
+        <span class="js-corner" data-pos="tl"></span>
+        <span class="js-corner" data-pos="tr"></span>
+        <span class="js-corner" data-pos="bl"></span>
+        <span class="js-corner" data-pos="br"></span>
+        <div class="ornate-panel-inner compact-pad">
+          <div id="desc-title" class="desc-title px-txt" data-i18n="horse_upgrades_title">Horse Attribute Upgrades</div>
+          <p id="desc-body" class="desc-body px-txt">Select a horse attribute on the right to upgrade Speed, Stamina, Pull Power, or Toughness HP.</p>
+          <div id="hud-npc-msg" class="sub" data-i18n="npc_hint_default">Village NPCs can be recruited.</div>
+        </div>
       </div>
-      <div id="hud-npc-msg" class="sub" data-i18n="npc_hint_default">Village NPCs can be recruited.</div>
     </div>
 
-    <!-- Popover Settings (Language + Visual Quality) -->
-    <div id="settings-panel" class="hud-popover" hidden>
-      <div class="pop-head">
-        <span data-i18n="settings_heading">⚙️ SETTINGS</span>
-        <button id="btn-settings-close" type="button" class="pop-close" aria-label="Close">✕</button>
+    <div class="hinge-h"></div>
+
+    <div class="ornate-panel gui1-col-stats">
+      <span class="js-corner" data-pos="tl"></span>
+      <span class="js-corner" data-pos="tr"></span>
+      <span class="js-corner" data-pos="bl"></span>
+      <span class="js-corner" data-pos="br"></span>
+      <div class="pill-header">
+        <div class="pill-header-core">
+          <span class="js-icon" data-icon="sword" data-size="13"></span>
+          <span data-i18n="stats_heading">STAT POIN</span>
+          <span class="js-icon" data-icon="crown" data-size="13"></span>
+        </div>
       </div>
-      <div class="settings-sec-label" data-i18n="language_label">Language</div>
-      <div class="lang-bar" id="lang-bar" title="Language">
-        <button type="button" class="lang-chip active" data-lang="en" data-i18n="lang_en">English</button>
-        <button type="button" class="lang-chip" data-lang="id" data-i18n="lang_id">Indonesia</button>
+      <div class="ornate-panel-inner">
+        <span class="js-filigree" data-pos="top"></span>
+        <span class="js-filigree" data-pos="bottom"></span>
+        <div class="stat-banner">
+          <span class="sb-left"><span class="js-icon" data-icon="crown" data-size="16"></span> <span data-i18n="horse_upgrades_title">Attribute Upgrades</span></span>
+        </div>
+        <div id="horse-upgrade-list"></div>
       </div>
-      <div class="settings-sec-label" data-i18n="quality_label">Visual Quality</div>
-      <div class="quality-bar" id="quality-bar" title="Visual Quality"></div>
-      <div class="settings-actions">
-        <button id="btn-save-game" type="button" class="settings-act-btn" data-i18n="menu_save_btn">💾 Save Expedition</button>
-        <button id="btn-return-menu" type="button" class="settings-act-btn secondary" data-i18n="menu_return_btn">🏠 Main Menu</button>
-      </div>
-      <div class="settings-note" data-i18n="settings_note">Day–night cycle runs automatically every 10 minutes.</div>
+    </div>
     </div>
   </div>
 
-  <!-- Top-Right HUD: Minimap only (Workshop is now in-world at villages) -->
+  <!-- Popover Settings: GUI 1 Ornate Settings Panel -->
+  <div id="settings-panel" class="hud-popover gui1-settings-modal ornate-panel" hidden>
+    <span class="js-corner" data-pos="tl"></span>
+    <span class="js-corner" data-pos="tr"></span>
+    <span class="js-corner" data-pos="bl"></span>
+    <span class="js-corner" data-pos="br"></span>
+    <div class="pill-header">
+      <div class="pill-header-core">
+        <span class="gear-spin"><span class="js-icon" data-icon="gear" data-size="13"></span></span>
+        <span data-i18n="settings_heading">SETTINGS</span>
+        <span class="js-icon" data-icon="wrench" data-size="13"></span>
+      </div>
+    </div>
+    <button id="btn-settings-close" type="button" class="btn-close-x" aria-label="Close">
+      <span class="js-icon" data-icon="close_x" data-size="26"></span>
+    </button>
+    <div class="ornate-panel-inner">
+      <span class="js-filigree" data-pos="top"></span>
+      <span class="js-filigree" data-pos="bottom"></span>
+
+      <div class="settings-tabs">
+        <button type="button" class="settings-tab-btn is-active" data-settings-tab="general" data-i18n="set_tab_general">General</button>
+        <button type="button" class="settings-tab-btn" data-settings-tab="controls" data-i18n="set_tab_controls">Controls</button>
+      </div>
+
+      <div id="settings-tab-general">
+        <div id="vintage-audio-controls"></div>
+
+        <div class="settings-sec-label" data-i18n="language_label">Language</div>
+        <div class="lang-bar" id="lang-bar" title="Language">
+          <button type="button" class="lang-chip active" data-lang="en" data-i18n="lang_en">English</button>
+          <button type="button" class="lang-chip" data-lang="id" data-i18n="lang_id">Indonesia</button>
+        </div>
+        <div class="settings-sec-label" data-i18n="quality_label">Visual Quality</div>
+        <div class="quality-bar" id="quality-bar" title="Visual Quality"></div>
+        <div class="settings-actions">
+          <div class="menu-stack-wrap">
+            <span class="menu-bracket tl"></span><span class="menu-bracket tr"></span>
+            <span class="menu-bracket bl"></span><span class="menu-bracket br"></span>
+            <button id="btn-save-game" type="button" class="vintage-pill-btn w-full" data-i18n="menu_save_btn">💾 Save Expedition</button>
+          </div>
+          <div class="menu-stack-wrap">
+            <span class="menu-bracket tl"></span><span class="menu-bracket tr"></span>
+            <span class="menu-bracket bl"></span><span class="menu-bracket br"></span>
+            <button id="btn-return-menu" type="button" class="vintage-pill-btn secondary w-full" data-i18n="menu_return_btn">🏠 Main Menu</button>
+          </div>
+        </div>
+        <div class="settings-note" data-i18n="settings_note">Day–night cycle runs automatically every 10 minutes.</div>
+      </div>
+
+      <div id="settings-tab-controls" hidden>
+        <div id="settings-controls-guide">
+          <div class="ctrl-row"><span class="ctrl-key">W / S · ↑ / ↓</span><span class="ctrl-desc" data-i18n="ctrl_g_move">Move Forward / Reverse</span></div>
+          <div class="ctrl-row"><span class="ctrl-key">A / D · ← / →</span><span class="ctrl-desc" data-i18n="ctrl_g_steer">Steer Left / Right</span></div>
+          <div class="ctrl-row"><span class="ctrl-key">Shift / R</span><span class="ctrl-desc" data-i18n="ctrl_g_run">Toggle Run</span></div>
+          <div class="ctrl-row"><span class="ctrl-key">Space</span><span class="ctrl-desc" data-i18n="ctrl_g_jump">Jump / Lift Cart</span></div>
+          <div class="ctrl-row"><span class="ctrl-key">F</span><span class="ctrl-desc" data-i18n="ctrl_g_interact">Interact / Quest / Workshop</span></div>
+          <div class="ctrl-row"><span class="ctrl-key">E</span><span class="ctrl-desc" data-i18n="ctrl_g_graze">Eat / Drink</span></div>
+          <div class="ctrl-row"><span class="ctrl-key">Q</span><span class="ctrl-desc" data-i18n="ctrl_g_inspect">Hold: Inspect Cart &amp; Supplies</span></div>
+          <div class="ctrl-row"><span class="ctrl-key">V</span><span class="ctrl-desc" data-i18n="ctrl_g_hitch">Hitch / Unhitch Cart</span></div>
+          <div class="ctrl-row"><span class="ctrl-key">G / H</span><span class="ctrl-desc" data-i18n="ctrl_g_npc">Recruit / Release NPC</span></div>
+          <div class="ctrl-row"><span class="ctrl-key">Z</span><span class="ctrl-desc" data-i18n="ctrl_g_sleep">Sleep / Rest Horse</span></div>
+          <div class="ctrl-row"><span class="ctrl-key">M</span><span class="ctrl-desc" data-i18n="ctrl_g_map">World Map</span></div>
+          <div class="ctrl-row"><span class="ctrl-key">Mouse</span><span class="ctrl-desc" data-i18n="ctrl_g_camera">Drag: Orbit • Wheel: Zoom</span></div>
+        </div>
+        <div class="settings-note" data-i18n="ctrl_g_mobile_note">Mobile: Left analog stick to move, right gold medallions for actions.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Top-Right HUD: Settings Square Gold Button + Ornate Minimap Frame -->
   <div id="hud-top-right">
-    <div id="minimap-wrap" role="button" tabindex="0" title="Click or press M to open World Map">
-      <canvas id="minimap-canvas" width="144" height="144"></canvas>
-      <span class="mm-compass">N</span>
-      <span class="mm-key" data-i18n="map_badge">[M] Map</span>
-      <div id="minimap-loc" class="mm-loc">Forest &amp; Trail</div>
+    <div class="tr-row">
+      <button id="btn-settings" type="button" class="square-gold-btn sm" data-i18n-title="settings_title" title="Settings" aria-expanded="false">
+        <span class="square-gold-btn-well"><span class="js-icon" data-icon="gear_big" data-size="22"></span></span>
+      </button>
+      <div id="minimap-wrap" class="ornate-panel minimap-ornate" role="button" tabindex="0" title="Click or press M to open World Map">
+        <span class="js-corner" data-pos="tl"></span>
+        <span class="js-corner" data-pos="tr"></span>
+        <span class="js-corner" data-pos="bl"></span>
+        <span class="js-corner" data-pos="br"></span>
+        <div class="minimap-inner-well">
+          <canvas id="minimap-canvas" width="144" height="144"></canvas>
+          <span class="mm-compass">N</span>
+          <span class="mm-key" data-i18n="map_badge">[M] Map</span>
+          <div id="minimap-loc" class="mm-loc">Forest &amp; Trail</div>
+        </div>
+      </div>
     </div>
   </div>
 
   <aside id="npc-dock" aria-label="Contextual Actions" hidden></aside>
 
-  <!-- Bottom Village Cart Workshop Bar (Isometric Cart View) -->
-  <section id="workshop-bar" hidden>
-    <div class="ws-head">
-      <div class="ws-title-wrap">
-        <span id="ws-title">🔧 CART WORKSHOP</span>
-        <span id="ws-gold" class="ws-gold-pill">💰 120 G</span>
-        <span id="ws-mats" class="ws-mats-row"></span>
-      </div>
-      <div class="ws-head-actions">
-        <button id="btn-ws-refill" type="button" class="ws-refill-btn" data-i18n="ws_refill_btn">🍎💧 Refill Supplies (10 G)</button>
-        <button id="btn-ws-close" type="button" class="ws-close-btn" data-i18n="ws_exit">Done [Esc / F]</button>
+  <!-- Bottom Village Cart Workshop Bar (Ornate Vintage Panel + 3D Slide Carousel) -->
+  <section id="workshop-bar" class="ornate-panel" hidden>
+    <span class="js-corner" data-pos="tl"></span>
+    <span class="js-corner" data-pos="tr"></span>
+    <span class="js-corner" data-pos="bl"></span>
+    <span class="js-corner" data-pos="br"></span>
+    <div class="pill-header">
+      <div class="pill-header-core">
+        <span class="js-icon" data-icon="wrench" data-size="13"></span>
+        <span id="ws-title">CART WORKSHOP</span>
       </div>
     </div>
-    <div id="ws-items" class="ws-cards"></div>
+    <button id="btn-ws-close" type="button" class="btn-close-x" data-i18n-title="ws_exit" title="Done [Esc / F]" aria-label="Close">
+      <span class="js-icon" data-icon="close_x" data-size="26"></span>
+    </button>
+    <div class="ornate-panel-inner compact-pad">
+      <span class="js-filigree" data-pos="top"></span>
+      <span class="js-filigree" data-pos="bottom"></span>
+      <div class="ws-head">
+        <div class="ws-title-wrap">
+          <span id="ws-gold" class="ws-gold-pill">120 G</span>
+          <span id="ws-mats" class="ws-mats-row"></span>
+        </div>
+        <div class="ws-head-actions">
+          <button id="btn-ws-refill" type="button" class="vintage-pill-btn ws-refill-btn" data-i18n="ws_refill_btn">🍎💧 Refill Supplies (10 G)</button>
+        </div>
+      </div>
+      <div id="ws-items" class="ws-cards"></div>
+    </div>
   </section>
 
   <!-- Toast Notifikasi Ringkas -->
@@ -129,79 +336,107 @@
 
   <!-- World Map Modal (Press M or Tap Minimap) -->
   <div id="worldmap-modal" hidden>
-    <div class="wm-card">
-      <div class="wm-head">
-        <div>
-          <div class="wm-title" data-i18n="map_modal_title">🗺️ WORLD MAP</div>
+    <div class="wm-card ornate-panel">
+      <span class="js-corner" data-pos="tl"></span>
+      <span class="js-corner" data-pos="tr"></span>
+      <span class="js-corner" data-pos="bl"></span>
+      <span class="js-corner" data-pos="br"></span>
+      <div class="pill-header">
+        <div class="pill-header-core">
+          <span class="js-icon" data-icon="map_scroll" data-size="13"></span>
+          <span data-i18n="map_modal_title">WORLD MAP</span>
+        </div>
+      </div>
+      <button id="btn-worldmap-close" type="button" class="btn-close-x" data-i18n-title="map_close_btn" title="Close (M)" aria-label="Close">
+        <span class="js-icon" data-icon="close_x" data-size="26"></span>
+      </button>
+      <div class="ornate-panel-inner">
+        <span class="js-filigree" data-pos="top"></span>
+        <span class="js-filigree" data-pos="bottom"></span>
+        <div class="wm-head">
           <div id="worldmap-coords" class="wm-sub">X: 0m • Z: 0m</div>
         </div>
-        <button id="btn-worldmap-close" type="button" class="wm-close" data-i18n="map_close_btn">✕ Close (M)</button>
+        <canvas id="worldmap-canvas" width="600" height="600"></canvas>
+        <div class="wm-legend">
+          <span><i>📍</i> <span data-i18n="map_legend_horse">Horse Position</span></span>
+          <span><i>🏘️</i> <span data-i18n="map_legend_villages">5 Villages (Radnar, Zenoa, Casna, Kohona, Valen)</span></span>
+          <span><i>⭐</i> <span data-i18n="map_legend_quest">Quest Target</span></span>
+          <span><i>〰️</i> <span data-i18n="map_legend_water">River &amp; Roads</span></span>
+        </div>
       </div>
-      <canvas id="worldmap-canvas" width="600" height="600"></canvas>
-      <div class="wm-legend">
-        <span><i>📍</i> <span data-i18n="map_legend_horse">Horse Position</span></span>
-        <span><i>🏘️</i> <span data-i18n="map_legend_villages">5 Villages (Radnar, Zenoa, Casna, Kohona, Valen)</span></span>
-        <span><i>⭐</i> <span data-i18n="map_legend_quest">Quest Target</span></span>
-        <span><i>〰️</i> <span data-i18n="map_legend_water">River &amp; Roads</span></span>
+    </div>
+  </div>
+
+  <!-- GUI 1 Bottom-Right 4 Square Gold Action Icons (Desktop) -->
+  <div id="desktop-quick-cluster" aria-label="Quick Menu Shortcuts">
+    <button id="btn-quick-map" type="button" class="square-gold-btn" title="World Map (M)">
+      <span class="square-gold-btn-well"><span class="js-icon" data-icon="map_scroll" data-size="26"></span></span>
+    </button>
+    <button id="btn-quick-stats" type="button" class="square-gold-btn" title="Horse Stats &amp; Upgrades">
+      <span class="square-gold-btn-well"><span class="js-icon" data-icon="bust_gold" data-size="26"></span></span>
+    </button>
+    <button id="btn-quick-inspect" type="button" class="square-gold-btn" title="Inspect Cart &amp; Supplies (Q)">
+      <span class="square-gold-btn-well"><span class="js-icon" data-icon="chest" data-size="26"></span></span>
+    </button>
+    <button id="btn-quick-settings" type="button" class="square-gold-btn" title="Settings">
+      <span class="square-gold-btn-well"><span class="js-icon" data-icon="gear_big" data-size="26"></span></span>
+    </button>
+  </div>
+
+  <div id="flip-banner" class="ornate-panel" hidden>
+    <div class="ornate-panel-inner compact-pad fb-inner">
+      <div class="fb-text" data-i18n="flip_banner_text">⚠️ Cart flipped! Wheels -20% HP · Horse unhitched</div>
+      <button id="btn-start-flip" type="button" class="vintage-pill-btn"><span data-i18n="flip_banner_btn">🔄 Right Cart</span> (<span id="fb-npc-count">0</span> NPC)</button>
+    </div>
+  </div>
+
+  <div id="flip-minigame" class="ornate-panel" hidden>
+    <span class="js-corner" data-pos="tl"></span>
+    <span class="js-corner" data-pos="tr"></span>
+    <span class="js-corner" data-pos="bl"></span>
+    <span class="js-corner" data-pos="br"></span>
+    <div class="pill-header">
+      <div class="pill-header-core"><span class="fm-title" data-i18n="flip_title">LIFT THE CART</span></div>
+    </div>
+    <div class="ornate-panel-inner">
+      <div class="fm-head">
+        <span class="fm-help" id="fm-help-badge">0 NPC (Solo — Heavy!)</span>
+      </div>
+      <div class="fm-prog-wrap">
+        <div class="fm-prog-bar"><i id="fm-prog-fill"></i></div>
+        <b id="fm-prog-pct">0%</b>
+      </div>
+      <div class="fm-track" id="fm-track">
+        <div class="fm-zone" id="fm-zone"><div class="fm-perfect" id="fm-perfect"></div></div>
+        <div class="fm-cursor" id="fm-cursor"></div>
+      </div>
+      <div class="fm-feedback" id="fm-feedback" data-i18n="flip_hint">Press SPACE or PUSH when needle is in the green zone!</div>
+      <div class="fm-actions">
+        <button id="btn-flip-push" type="button" class="vintage-pill-btn fm-push" data-i18n="flip_push_btn">💪 PUSH! (Space)</button>
+        <button id="btn-flip-cancel" type="button" class="vintage-pill-btn secondary fm-cancel" data-i18n="flip_cancel_btn">Cancel</button>
       </div>
     </div>
   </div>
 
-  <div id="controls">
-    <button id="btn-left" class="steer" title="Turn Left (A / ←)"><span class="k">A/← </span><span data-i18n="ctrl_left">Left</span></button>
-    <button id="btn-right" class="steer" title="Turn Right (D / →)"><span class="k">D/→ </span><span data-i18n="ctrl_right">Right</span></button>
-    <button id="btn-walk" class="primary" title="Hold to Walk (W / ↑)"><span class="k">W/↑ </span><span data-i18n="ctrl_walk">Forward</span></button>
-    <button id="btn-rev" title="Hold to Reverse (S / ↓)"><span class="k">S/↓ </span><span data-i18n="ctrl_rev">Reverse</span></button>
-    <button id="btn-run" title="Toggle Run (2 / R / Shift)"><span class="k">R. </span><span data-i18n="ctrl_run">Run</span></button>
-    <button id="btn-jump"><span class="k">Space. </span><span data-i18n="ctrl_jump">Jump</span></button>
-    <button id="btn-graze" title="Graze on Grass (E)"><span class="k">E. </span><span data-i18n="ctrl_graze">Graze</span></button>
-    <button id="btn-interact" title="Interact with Quest NPC / Cart Workshop (F)"><span class="k">F. </span><span data-i18n="ctrl_interact">Interact</span></button>
-    <button id="btn-sleep" title="Sleep / Rest Horse (Z)"><span class="k">Z. </span><span data-i18n="ctrl_sleep">Sleep</span></button>
-    <button id="btn-inspect" title="Hold Q to Inspect Wheels &amp; Cart Supplies"><span class="k">Q. </span><span data-i18n="ctrl_inspect">Inspect</span></button>
-    <button id="btn-recruit"><span class="k">G. </span><span data-i18n="ctrl_recruit">Recruit</span></button>
-    <button id="btn-release"><span class="k">H. </span><span data-i18n="ctrl_release">Release</span></button>
-    <button id="btn-hitch" title="Hitch / Unhitch Cart Harness (V)"><span class="k">V. </span><span data-i18n="ctrl_hitch_detach">Unhitch [V]</span></button>
-    <button id="btn-map" title="Open World Map (M)"><span class="k">M. </span><span data-i18n="ctrl_map">Map</span></button>
-    <button id="btn-pebble"><span class="k">B. </span><span data-i18n="ctrl_pebble">Pebbles</span></button>
-    <button id="btn-ramp" class="warn"><span class="k">T. </span><span data-i18n="ctrl_ramp">Slope</span></button>
-    <button id="btn-reset"><span class="k">X. </span><span data-i18n="ctrl_reset">Reset</span></button>
-  </div>
-
-  <div id="flip-banner" hidden>
-    <div class="fb-text" data-i18n="flip_banner_text">⚠️ Cart flipped! Wheels -20% HP · Horse unhitched</div>
-    <button id="btn-start-flip" type="button"><span data-i18n="flip_banner_btn">🔄 Right Cart</span> (<span id="fb-npc-count">0</span> NPC)</button>
-  </div>
-
-  <div id="flip-minigame" hidden>
-    <div class="fm-head">
-      <span class="fm-title" data-i18n="flip_title">💪 LIFT THE CART</span>
-      <span class="fm-help" id="fm-help-badge">0 NPC (Solo — Heavy!)</span>
-    </div>
-    <div class="fm-prog-wrap">
-      <div class="fm-prog-bar"><i id="fm-prog-fill"></i></div>
-      <b id="fm-prog-pct">0%</b>
-    </div>
-    <div class="fm-track" id="fm-track">
-      <div class="fm-zone" id="fm-zone"><div class="fm-perfect" id="fm-perfect"></div></div>
-      <div class="fm-cursor" id="fm-cursor"></div>
-    </div>
-    <div class="fm-feedback" id="fm-feedback" data-i18n="flip_hint">Press SPACE or PUSH when needle is in the green zone!</div>
-    <div class="fm-actions">
-      <button id="btn-flip-push" type="button" class="fm-push" data-i18n="flip_push_btn">💪 PUSH! (Space)</button>
-      <button id="btn-flip-cancel" type="button" class="fm-cancel" data-i18n="flip_cancel_btn">Cancel</button>
-    </div>
-  </div>
-
-  <!-- Left-Aligned Main Menu over Live Grazing 3D Meadow Backdrop -->
+  <!-- Left-Aligned Main Menu over Live Grazing 3D Meadow Backdrop (Framed Title & Buttons) -->
   <div id="main-menu" role="dialog" aria-modal="true" aria-label="Main Menu">
     <div class="mm-panel">
-      <div class="mm-badge">🐴 KRAKENONE STUDIO</div>
-      <h1 class="mm-title" data-i18n="menu_title">SHOD</h1>
-      <p class="mm-sub" data-i18n="menu_subtitle">The Hero's Loyal Steed &amp; Supply Expedition</p>
+      <div class="mm-logo-wrap">
+        <img class="mm-logo-img" src="./assets/shod_logo.png?v=vintage12" alt="SHOD" />
+      </div>
+      <p class="mm-sub px-txt">Beyond Journey's End</p>
       <div class="mm-buttons">
-        <button id="btn-menu-load" type="button" class="mm-btn primary" data-i18n="menu_load_game">Load Game</button>
-        <div id="menu-save-info" class="mm-save-info" data-i18n="menu_no_save">No saved expedition found</div>
-        <button id="btn-menu-new" type="button" class="mm-btn new" data-i18n="menu_new_game">New Game</button>
+        <div class="menu-stack-wrap selected">
+          <span class="menu-bracket tl"></span><span class="menu-bracket tr"></span>
+          <span class="menu-bracket bl"></span><span class="menu-bracket br"></span>
+          <button id="btn-menu-load" type="button" class="vintage-pill-btn mm-btn primary" data-i18n="menu_load_game">Load Game</button>
+        </div>
+        <div id="menu-save-info" class="mm-save-info px-txt" data-i18n="menu_no_save">No saved expedition found</div>
+        <div class="menu-stack-wrap">
+          <span class="menu-bracket tl"></span><span class="menu-bracket tr"></span>
+          <span class="menu-bracket bl"></span><span class="menu-bracket br"></span>
+          <button id="btn-menu-new" type="button" class="vintage-pill-btn mm-btn new" data-i18n="menu_new_game">New Game</button>
+        </div>
       </div>
       <div class="mm-lang-wrap">
         <div class="lang-bar" id="menu-lang-bar" title="Language">
@@ -214,20 +449,32 @@
 
   <!-- Hero's Farewell Letter Card (Cutscene Step 3) -->
   <div id="letter-card" hidden>
-    <div class="lc-parchment">
-      <div class="lc-head" data-i18n="letter_title">Hero's Last Note</div>
-      <p class="lc-body" data-i18n="letter_body"></p>
-      <div class="lc-sign" data-i18n="letter_sign"></div>
+    <div class="lc-parchment-wrap">
+      <img class="lc-parchment-img" src="./assets/hero_letter_bg.png" alt="" aria-hidden="true" />
+      <div class="lc-content">
+        <div class="lc-head" data-i18n="letter_title">Hero's Last Note</div>
+        <p class="lc-body" data-i18n="letter_body"></p>
+        <div class="lc-sign" data-i18n="letter_sign"></div>
+      </div>
     </div>
   </div>
 
   <!-- Simple Radnar Guard Story Cutscene Bar -->
   <div id="cutscene-box" hidden>
-    <div class="cs-card">
-      <div class="cs-speaker" id="cs-speaker">Village Guard (Radnar)</div>
-      <div class="cs-text" id="cs-text"></div>
-      <div class="cs-foot">
-        <button id="btn-cutscene-next" type="button" class="cs-next" data-i18n="cutscene_next_btn">Continue →</button>
+    <div class="cs-card ornate-panel">
+      <span class="js-corner" data-pos="tl"></span>
+      <span class="js-corner" data-pos="tr"></span>
+      <span class="js-corner" data-pos="bl"></span>
+      <span class="js-corner" data-pos="br"></span>
+      <div class="pill-header">
+        <div class="pill-header-core"><span class="cs-speaker" id="cs-speaker">Village Guard (Radnar)</span></div>
+      </div>
+      <div class="ornate-panel-inner compact-pad">
+        <div class="cs-text px-txt" id="cs-text"></div>
+        <div class="cs-foot">
+          <div class="cs-choices" id="cs-choices" hidden></div>
+          <button id="btn-cutscene-next" type="button" class="vintage-pill-btn cs-next" data-i18n="cutscene_next_btn">Continue →</button>
+        </div>
       </div>
     </div>
   </div>
@@ -253,7 +500,7 @@
     (function boot() {
       function loadBundle() {
         const s = document.createElement('script');
-        s.src = './dist/game.bundle.js?v=hutan44';
+        s.src = './dist/game.bundle.js?v=vintage18';
         s.onerror = () => reportBootError('Failed to load ./dist/game.bundle.js');
         document.body.appendChild(s);
       }
@@ -265,7 +512,7 @@
 
       const mod = document.createElement('script');
       mod.type = 'module';
-      mod.src = './js/main.js?v=hutan21';
+      mod.src = './js/main.js?v=vintage18';
       mod.onerror = () => loadBundle();
       document.body.appendChild(mod);
     })();

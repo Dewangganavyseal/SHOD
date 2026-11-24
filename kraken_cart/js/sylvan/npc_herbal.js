@@ -469,7 +469,7 @@ const NPC_Herbal = (() => {
           st.swingActive = true;
           st.workCycle = 0.04;
         }
-        const rate = isWorking ? 2.4 : 2.85;
+        const rate = isWorking ? 0.95 : 1.75;
         st.workCycle += dt * rate;
         if (st.workCycle >= 1) {
           if (isWorking || (n.swing && n.swing > 0.15)) {

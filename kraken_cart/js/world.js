@@ -3360,7 +3360,7 @@ class World {
             return entry;
         }
 
-        function createStylizedPineTree(x, z, scale = 1.0, variant = 'tall_alpine', colorKey = 'emerald') {
+        function createStylizedPineTree(x, z, scale = 1.0, variant = 'tall_alpine', colorKey = 'emerald', heightRatio = 1.0) {
             const group = new THREE.Group();
             const y = getTerrainHeight(x, z);
             group.position.set(x, y - 0.08, z);
@@ -3384,8 +3384,8 @@ class World {
             foliageMesh.frustumCulled = false;
             canopyPivot.add(foliageMesh);
 
-            group.scale.setScalar(scale);
-            const centerH = cfg.h * scale * 0.52;
+            group.scale.set(scale, scale * heightRatio, scale);
+            const centerH = cfg.h * scale * heightRatio * 0.52;
             const treeData = {
                 type: 'tree',
                 treeKind: 'pine',
@@ -3396,13 +3396,13 @@ class World {
                 phase: Math.random() * Math.PI * 2,
                 rustleBoost: 0,
                 leafColor: new THREE.Color(pal.burstColor),
-                boundingSphere: new THREE.Sphere(new THREE.Vector3(x, y + centerH, z), cfg.h * scale * 0.65)
+                boundingSphere: new THREE.Sphere(new THREE.Vector3(x, y + centerH, z), cfg.h * scale * Math.max(1, heightRatio) * 0.65)
             };
             group.userData = treeData;
             swayingCanopies.push(treeData);
             interactiveTrees.push(group);
             scene.add(group);
-            addCircleCollider('tree', x, z, cfg.baseR * scale * 1.18, y + cfg.h * scale, group);
+            addCircleCollider('tree', x, z, cfg.baseR * scale * 1.18, y + cfg.h * scale * heightRatio, group);
             return group;
         }
 
@@ -3897,7 +3897,7 @@ class World {
             return mergedWoodGeo;
         }
 
-        function createBotWDeciduousTree(x, z, scale = 1.0, colorKey = 'emerald') {
+        function createBotWDeciduousTree(x, z, scale = 1.0, colorKey = 'emerald', heightRatio = 1.0) {
             const group = new THREE.Group();
             const y = getTerrainHeight(x, z);
             group.position.set(x, y - 0.08, z);
@@ -3924,7 +3924,7 @@ class World {
             foliageMesh.frustumCulled = false;
             canopyPivot.add(foliageMesh);
 
-            group.scale.setScalar(scale);
+            group.scale.set(scale, scale * heightRatio, scale);
             const treeData = {
                 type: 'tree',
                 treeKind: 'deciduous',
@@ -3935,28 +3935,28 @@ class World {
                 phase: Math.random() * Math.PI * 2,
                 rustleBoost: 0,
                 leafColor: new THREE.Color(pal.burstColor),
-                boundingSphere: new THREE.Sphere(new THREE.Vector3(x, y + 3.4 * scale, z), 3.6 * scale)
+                boundingSphere: new THREE.Sphere(new THREE.Vector3(x, y + 3.4 * scale * heightRatio, z), 3.6 * scale * Math.max(1, heightRatio))
             };
             group.userData = treeData;
             swayingCanopies.push(treeData);
             interactiveTrees.push(group);
             scene.add(group);
-            addCircleCollider('tree', x, z, 0.34 * scale * 1.18, y + 4.5 * scale, group);
+            addCircleCollider('tree', x, z, 0.34 * scale * 1.18, y + 4.5 * scale * heightRatio, group);
             return group;
         }
 
         // Hero Foreground & Midground Valley Trees framing the campfire, pond & Truckful road
         const heroTrees = [
-            { x: -10.8, z: -2.6, s: 1.05, kind: 'deciduous', c: 'emerald' },
-            { x: -11.6, z: 8.6, s: 0.96, kind: 'pine', v: 'broad_woodland', c: 'teal' },
-            { x: 5.2, z: -7.8, s: 1.08, kind: 'deciduous', c: 'olive' },
-            { x: 13.8, z: 3.4, s: 1.02, kind: 'pine', v: 'tall_alpine', c: 'emerald' },
-            { x: 12.6, z: 10.6, s: 0.95, kind: 'deciduous', c: 'emerald' },
-            { x: -0.6, z: -9.8, s: 1.12, kind: 'pine', v: 'tall_alpine', c: 'teal' },
-            { x: 3.6, z: 12.2, s: 0.92, kind: 'pine', v: 'young_bushy', c: 'olive' },
-            { x: -12.8, z: 2.8, s: 1.02, kind: 'pine', v: 'high_canopy', c: 'emerald' },
-            { x: 9.8, z: -4.2, s: 0.98, kind: 'deciduous', c: 'teal' },
-            { x: -10.2, z: 14.5, s: 0.94, kind: 'deciduous', c: 'olive' }
+            { x: -10.8, z: -2.6, s: 1.38, hr: 1.12, kind: 'deciduous', c: 'emerald' },
+            { x: -11.6, z: 8.6, s: 0.72, hr: 0.90, kind: 'pine', v: 'broad_woodland', c: 'teal' },
+            { x: 5.2, z: -7.8, s: 1.46, hr: 1.15, kind: 'deciduous', c: 'olive' },
+            { x: 13.8, z: 3.4, s: 1.54, hr: 1.18, kind: 'pine', v: 'tall_alpine', c: 'emerald' },
+            { x: 12.6, z: 10.6, s: 0.66, hr: 0.88, kind: 'deciduous', c: 'emerald' },
+            { x: -0.6, z: -9.8, s: 1.42, hr: 1.10, kind: 'pine', v: 'tall_alpine', c: 'teal' },
+            { x: 3.6, z: 12.2, s: 0.62, hr: 0.85, kind: 'pine', v: 'young_bushy', c: 'olive' },
+            { x: -12.8, z: 2.8, s: 1.18, hr: 1.05, kind: 'pine', v: 'high_canopy', c: 'emerald' },
+            { x: 9.8, z: -4.2, s: 0.96, hr: 0.96, kind: 'deciduous', c: 'teal' },
+            { x: -10.2, z: 14.5, s: 0.78, hr: 0.92, kind: 'deciduous', c: 'olive' }
         ];
         const treeGrid = new Map();
         const TREE_CELL = 3.6;
@@ -3999,9 +3999,9 @@ class World {
             if (getRoadDistance(ht.x, ht.z) < 3.2) return;
             registerTreeSpot(ht.x, ht.z);
             if (ht.kind === 'deciduous') {
-                createBotWDeciduousTree(ht.x, ht.z, ht.s, ht.c);
+                createBotWDeciduousTree(ht.x, ht.z, ht.s, ht.c, ht.hr || 1.0);
             } else {
-                createStylizedPineTree(ht.x, ht.z, ht.s, ht.v, ht.c);
+                createStylizedPineTree(ht.x, ht.z, ht.s, ht.v, ht.c, ht.hr || 1.0);
             }
         });
 
@@ -4012,16 +4012,21 @@ class World {
             if (!isValidForestTreePos(x, z, minSp)) return false;
             registerTreeSpot(x, z);
             const idx = treeIdxSeq++;
-            const scale = 0.88 + Math.random() * 0.48;
+            const tier = Math.random();
+            // Variasi tinggi pohon yang kontras: pendek/muda, sedang, dan tinggi menjulang
+            const scale = tier < 0.28
+                ? (0.52 + Math.random() * 0.28)
+                : (tier < 0.70 ? (0.85 + Math.random() * 0.40) : (1.30 + Math.random() * 0.50));
+            const heightRatio = 0.82 + Math.random() * 0.42;
             if (Math.random() < deadChance) {
                 createStylizedDeadPine(x, z, scale * 1.04);
             } else {
                 const v = variantCycle[idx % variantCycle.length];
                 const c = colorCycle[(idx + Math.floor(idx / 3)) % colorCycle.length];
                 if (v === 'deciduous') {
-                    createBotWDeciduousTree(x, z, scale, c);
+                    createBotWDeciduousTree(x, z, scale, c, heightRatio);
                 } else {
-                    createStylizedPineTree(x, z, scale, v, c);
+                    createStylizedPineTree(x, z, scale, v, c, heightRatio);
                 }
             }
             return true;
@@ -5085,6 +5090,177 @@ class World {
             }
         })();
 
+        // ---- Sebaran Bebatuan, Kayu Tumbang & Tunggul Pohon di Area Hutan Kosong ----
+        (function buildForestRocksAndWood() {
+            let seed = 918273;
+            const rand = () => {
+                seed = (seed * 1664525 + 1013904223) >>> 0;
+                return seed / 4294967296;
+            };
+
+            const isValidForestFloorProp = (x, z, minClear = 4.6) => {
+                if (Math.hypot(x, z) < 12.0) return false;
+                if (Math.abs(x) > TERRAIN_SIZE * 0.47 || Math.abs(z) > TERRAIN_SIZE * 0.47) return false;
+                if (getRoadDistance(x, z) < minClear) return false;
+                if (Math.hypot(x - POND_CENTER.x, z - POND_CENTER.z) < POND_CENTER.radius + 4.2) return false;
+                if (Math.abs(z - riverCenterZ(x)) < riverHalfWidthAt(x) + RIVER.bank + 3.8) return false;
+                for (let vi = 0; vi < VILLAGES.length; vi++) {
+                    const v = VILLAGES[vi];
+                    if (Math.hypot(x - v.cx, z - v.cz) < v.radius * 2.25) return false;
+                }
+                return true;
+            };
+
+            const mossyRockMat = new THREE.MeshStandardMaterial({ color: 0x6c7a72, roughness: 0.90 });
+            applyStylizedCelShading(mossyRockMat, { rimStrength: 0.16, shadowLift: 0.50 });
+            const logBarkMat = new THREE.MeshStandardMaterial({ color: 0x6b4b32, roughness: 0.92 });
+            applyStylizedCelShading(logBarkMat, { rimStrength: 0.12, shadowLift: 0.46 });
+            const heartWoodMat = new THREE.MeshStandardMaterial({ color: 0xc29e6f, roughness: 0.85 });
+            applyStylizedCelShading(heartWoodMat, { rimStrength: 0.10, shadowLift: 0.54 });
+            const mossCapMat = new THREE.MeshStandardMaterial({ color: 0x4f7f42, roughness: 0.92 });
+            applyStylizedCelShading(mossCapMat, { rimStrength: 0.14, shadowLift: 0.52 });
+
+            const rockGeos = [
+                new THREE.DodecahedronGeometry(1.0, 0),
+                new THREE.DodecahedronGeometry(1.0, 1),
+            ];
+            rockGeos.forEach((g, gi) => {
+                const pos = g.attributes.position;
+                for (let i = 0; i < pos.count; i++) {
+                    const vx = pos.getX(i), vy = pos.getY(i), vz = pos.getZ(i);
+                    const n = 0.86 + 0.24 * Math.sin(vx * 3.7 + vy * 2.9 + gi * 1.3 + vz * 4.1);
+                    pos.setXYZ(i, vx * n, vy * (vy < 0 ? 0.72 : n * 0.88), vz * n);
+                }
+                g.computeVertexNormals();
+            });
+
+            // Shared unit cylinder aligned along local X for fallen logs (kompatibel dengan addTraversableLog)
+            const logUnitGeo = new THREE.CylinderGeometry(0.92, 1.0, 1.0, 7);
+            logUnitGeo.rotateZ(Math.PI * 0.5);
+            const logCapGeo = new THREE.CylinderGeometry(0.84, 0.84, 1.02, 7);
+            logCapGeo.rotateZ(Math.PI * 0.5);
+            const stumpBodyGeo = new THREE.CylinderGeometry(0.76, 1.05, 1.0, 7);
+            stumpBodyGeo.translate(0, 0.5, 0);
+            const stumpTopGeo = new THREE.CylinderGeometry(0.72, 0.72, 0.05, 7);
+            stumpTopGeo.translate(0, 1.0, 0);
+
+            // 1) Sebaran Bebatuan Hutan (batu besar berkolider + kerikil satelit)
+            let rocksPlaced = 0;
+            for (let attempt = 0; attempt < 420 && rocksPlaced < 105; attempt++) {
+                const ang = rand() * Math.PI * 2;
+                const rad = 14.0 + Math.sqrt(rand()) * 210.0;
+                const x = Math.cos(ang) * rad;
+                const z = Math.sin(ang) * rad;
+                if (!isValidForestFloorProp(x, z, 4.6)) continue;
+
+                const y = getTerrainHeight(x, z);
+                const isBig = rand() < 0.62;
+                const s = isBig ? (0.72 + rand() * 0.92) : (0.34 + rand() * 0.34);
+                const mat = rand() < 0.45 ? mossyRockMat : rockMat;
+                const geo = rockGeos[rand() < 0.55 ? 0 : 1];
+
+                const rock = new THREE.Mesh(geo, mat);
+                rock.position.set(x, y + s * 0.30, z);
+                rock.scale.set(s * (0.95 + rand() * 0.45), s * (0.62 + rand() * 0.35), s * (0.90 + rand() * 0.45));
+                rock.rotation.set((rand() - 0.5) * 0.45, rand() * Math.PI * 2, (rand() - 0.5) * 0.45);
+                rock.castShadow = !isMobileDevice && Math.hypot(x, z) < 42;
+                rock.receiveShadow = true;
+                scene.add(rock);
+                if (isBig) {
+                    addRockMeshCollider('forest_rock', rock);
+                }
+
+                // 1-2 batu kecil satelit di sekitar batu utama
+                const satCount = isBig ? (1 + (rand() < 0.5 ? 1 : 0)) : 0;
+                for (let k = 0; k < satCount; k++) {
+                    const sa = rand() * Math.PI * 2;
+                    const sd = s * (0.85 + rand() * 0.75);
+                    const sx = x + Math.cos(sa) * sd;
+                    const sz = z + Math.sin(sa) * sd;
+                    const sy = getTerrainHeight(sx, sz);
+                    const ss = 0.24 + rand() * 0.32;
+                    const sat = new THREE.Mesh(rockGeos[0], mat);
+                    sat.position.set(sx, sy + ss * 0.28, sz);
+                    sat.scale.set(ss * 1.15, ss * 0.68, ss);
+                    sat.rotation.set(rand() * 0.4, rand() * Math.PI * 2, rand() * 0.4);
+                    sat.receiveShadow = true;
+                    scene.add(sat);
+                }
+                rocksPlaced++;
+            }
+
+            // 2) Sebaran Kayu Tumbang & Tunggul Pohon di Hutan Kosong
+            let logsPlaced = 0;
+            for (let attempt = 0; attempt < 360 && logsPlaced < 55; attempt++) {
+                const ang = rand() * Math.PI * 2;
+                const rad = 15.0 + Math.sqrt(rand()) * 205.0;
+                const x = Math.cos(ang) * rad;
+                const z = Math.sin(ang) * rad;
+                if (!isValidForestFloorProp(x, z, 5.2)) continue;
+
+                const yaw = rand() * Math.PI * 2;
+                const len = 2.2 + rand() * 2.5;
+                const radius = 0.17 + rand() * 0.15;
+                const y = getTerrainHeight(x, z);
+
+                const logGroup = new THREE.Group();
+                logGroup.position.set(x, y + radius * 0.58, z);
+                logGroup.rotation.y = yaw;
+
+                const trunkMesh = new THREE.Mesh(logUnitGeo, logBarkMat);
+                trunkMesh.scale.set(len, radius, radius);
+                trunkMesh.castShadow = !isMobileDevice && Math.hypot(x, z) < 38;
+                trunkMesh.receiveShadow = true;
+                logGroup.add(trunkMesh);
+
+                const capMesh = new THREE.Mesh(logCapGeo, heartWoodMat);
+                capMesh.scale.set(len, radius * 0.88, radius * 0.88);
+                logGroup.add(capMesh);
+
+                if (rand() < 0.6) {
+                    const mossPatch = new THREE.Mesh(rockGeos[0], mossCapMat);
+                    mossPatch.position.set((rand() - 0.5) * len * 0.45, radius * 0.72, 0);
+                    mossPatch.scale.set(0.35 + rand() * 0.45, 0.10, radius * 0.75);
+                    logGroup.add(mossPatch);
+                }
+
+                scene.add(logGroup);
+                addTraversableLog(logGroup, radius, len);
+                logsPlaced++;
+            }
+
+            let stumpsPlaced = 0;
+            for (let attempt = 0; attempt < 280 && stumpsPlaced < 42; attempt++) {
+                const ang = rand() * Math.PI * 2;
+                const rad = 14.0 + Math.sqrt(rand()) * 200.0;
+                const x = Math.cos(ang) * rad;
+                const z = Math.sin(ang) * rad;
+                if (!isValidForestFloorProp(x, z, 4.6)) continue;
+
+                const y = getTerrainHeight(x, z);
+                const rBot = 0.24 + rand() * 0.22;
+                const h = 0.42 + rand() * 0.52;
+
+                const stumpGroup = new THREE.Group();
+                stumpGroup.position.set(x, y - 0.06, z);
+                stumpGroup.rotation.y = rand() * Math.PI * 2;
+
+                const body = new THREE.Mesh(stumpBodyGeo, logBarkMat);
+                body.scale.set(rBot, h, rBot);
+                body.castShadow = !isMobileDevice && Math.hypot(x, z) < 36;
+                body.receiveShadow = true;
+                stumpGroup.add(body);
+
+                const top = new THREE.Mesh(stumpTopGeo, heartWoodMat);
+                top.scale.set(rBot, h, rBot);
+                stumpGroup.add(top);
+
+                scene.add(stumpGroup);
+                addCircleCollider('stump', x, z, rBot * 1.05, y + h, stumpGroup);
+                stumpsPlaced++;
+            }
+        })();
+
         // ---- 5 Desa Terhubung Jaringan Jalan (posisi & jumlah bangunan diacak dari modul model) ----
         const villageAnimated = {
             smokePuffs: [],
@@ -5095,6 +5271,7 @@ class World {
         };
         const villageWorkshops = [];
         const villageWells = [];
+        const villageFarms = [];
         const villageData = {
             buildings: {},
             buildingList: [],
@@ -5216,6 +5393,7 @@ class World {
                 gateArch.rotation.y = gateP.yaw;
                 villageGroup.add(gateArch);
                 registerModelMeta(gateArch, gateP.x, gateY, gateP.z, gateP.yaw, 'gate_post', gateScale);
+                vRec.gateSign = { x: gateP.x, y: gateY + 4.65 * gateScale, z: gateP.z, yaw: gateP.yaw, groundY: gateY };
 
                 const gSouthP = streetPt(-22.5, -2.4);
                 const gSouthFace = streetPt(-28.0, 0);
@@ -5296,6 +5474,7 @@ class World {
                     }
 
                     if (lot.kind === 'blacksmith' && !vRec.stations.forge) {
+                        vRec.blacksmithLot = { x: hx, z: hz, yaw, sc, w: lot.w, d: lot.d };
                         const forgeStand = localToWorldXZ(hx, hz, yaw, sc, 1.45, -2.55);
                         vRec.stations.forge = { x: forgeStand.x, z: forgeStand.z, faceX: hx, faceZ: hz };
                         // Zona Bengkel Gerobak tepat di depan bangunan pandai besi menghadap jalan & rumput sekitar
@@ -5334,10 +5513,61 @@ class World {
                         vRec.stations.tavernPorch = { x: tavFront.x, z: tavFront.z, faceX: hx, faceZ: hz };
                     } else if (lot.kind === 'stall') {
                         const stallFront = localToWorldXZ(hx, hz, yaw, sc, 0, -1.75);
+                        const stallBack = localToWorldXZ(hx, hz, yaw, sc, 0.22, 0.52);
+                        const shopDrop = localToWorldXZ(hx, hz, yaw, sc, -1.55, -1.35);
                         const stallSpot = { x: stallFront.x, z: stallFront.z, faceX: p.roadX, faceZ: p.roadZ };
-                        if (!vRec.stations.stallA) vRec.stations.stallA = stallSpot;
-                        else vRec.stations.stallB = stallSpot;
+                        if (!vRec.stations.stallA) {
+                            vRec.stations.stallA = stallSpot;
+                            vRec.stations.merchantPost = {
+                                x: stallBack.x,
+                                z: stallBack.z,
+                                y: hy + 0.16 * sc,
+                                faceX: stallFront.x,
+                                faceZ: stallFront.z,
+                                behindStall: true,
+                            };
+                            vRec.stations.shopDrop = { x: shopDrop.x, z: shopDrop.z, faceX: hx, faceZ: hz };
+                            // Visual peti stok panen di samping toko merchant (bertambah saat petani/pemain panen)
+                            const stockCrates = [];
+                            const stockCrateMat = new THREE.MeshLambertMaterial({ color: 0x9c6e3b });
+                            const stockWheatMat = new THREE.MeshLambertMaterial({ color: 0xebbf3b });
+                            const stockCarrotMat = new THREE.MeshLambertMaterial({ color: 0xe86e24 });
+                            for (let ci = 0; ci < 8; ci++) {
+                                const col = ci % 2;
+                                const row = Math.floor(ci / 2) % 2;
+                                const tier = Math.floor(ci / 4);
+                                const cg = new THREE.Group();
+                                const crateBox = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.34, 0.42), stockCrateMat);
+                                crateBox.position.y = 0.17;
+                                crateBox.castShadow = !isMobileDevice;
+                                crateBox.receiveShadow = true;
+                                cg.add(crateBox);
+                                const produce = new THREE.Mesh(
+                                    new THREE.BoxGeometry(0.38, 0.14, 0.34),
+                                    ci % 2 === 0 ? stockWheatMat : stockCarrotMat
+                                );
+                                produce.position.y = 0.36;
+                                cg.add(produce);
+                                const cp = localToWorldXZ(hx, hz, yaw, sc, -1.38 - col * 0.36, -0.35 + row * 0.34);
+                                const cy = getTerrainHeight(cp.x, cp.z);
+                                cg.position.set(cp.x, cy + tier * 0.35, cp.z);
+                                cg.rotation.y = yaw + (ci % 3 - 1) * 0.08;
+                                cg.visible = ci < 2; // mulai dengan 2 peti stok awal (4 hasil panen)
+                                villageGroup.add(cg);
+                                stockCrates.push(cg);
+                            }
+                            vRec.shopStock = {
+                                villageId: v.id,
+                                villageName: v.name,
+                                crops: 4,
+                                deliveredTotal: 0,
+                                crates: stockCrates,
+                            };
+                        } else {
+                            vRec.stations.stallB = stallSpot;
+                        }
                     } else if (lot.kind === 'barn' && !vRec.stations.barnYard) {
+                        vRec.barnLot = { x: hx, z: hz, yaw, sc, w: lot.w, d: lot.d };
                         vRec.stations.barnYard = { x: approachWorld.x, z: approachWorld.z, faceX: hx, faceZ: hz };
                     } else if (lot.kind === 'cottage' && !vRec.stations.garden) {
                         const gardenSpot = localToWorldXZ(hx, hz, yaw, sc, 1.8, -3.5);
@@ -5351,6 +5581,163 @@ class World {
                         door: pathEnd,
                         seed: lot.seed || 1,
                     });
+                }
+
+                // 2B. Lahan Pertanian Kecil Desa (bisa ditanam & dipanen petani maupun pemain -> masuk stok toko desa)
+                {
+                    const bl = vRec.barnLot;
+                    let fpX, fpZ, fpYaw;
+                    if (bl) {
+                        const sidePt = localToWorldXZ(bl.x, bl.z, bl.yaw, bl.sc, bl.w * 0.5 + 2.45, 0.35);
+                        fpX = sidePt.x;
+                        fpZ = sidePt.z;
+                        fpYaw = bl.yaw;
+                    } else {
+                        const spFarm = streetPt(6.5, -13.5);
+                        fpX = spFarm.x;
+                        fpZ = spFarm.z;
+                        fpYaw = spFarm.yaw;
+                    }
+                    const fpY = getTerrainHeight(fpX, fpZ);
+                    paintGrassVisibilityCircle(fpX, fpZ, 3.6, 0.0);
+
+                    const farmGroup = new THREE.Group();
+                    farmGroup.position.set(fpX, fpY, fpZ);
+                    farmGroup.rotation.y = fpYaw;
+                    villageGroup.add(farmGroup);
+
+                    const soilMat = new THREE.MeshLambertMaterial({ color: 0x5c3d24 });
+                    const furrowMat = new THREE.MeshLambertMaterial({ color: 0x472e19 });
+                    const fenceMat = new THREE.MeshLambertMaterial({ color: 0x7c5733 });
+                    const sproutMat = new THREE.MeshLambertMaterial({ color: 0x5ca638 });
+                    const growMat = new THREE.MeshLambertMaterial({ color: 0x4f912f });
+                    const ripeWheatMat = new THREE.MeshLambertMaterial({ color: 0xebc23f });
+                    const ripeCarrotMat = new THREE.MeshLambertMaterial({ color: 0xeb6e23 });
+
+                    // Petak tanah gembur + 3 bedengan alur bajak
+                    const plotW = 4.6, plotD = 3.6;
+                    const soilBase = new THREE.Mesh(new THREE.BoxGeometry(plotW, 0.14, plotD), soilMat);
+                    soilBase.position.y = 0.05;
+                    soilBase.receiveShadow = true;
+                    farmGroup.add(soilBase);
+                    for (let r = -1; r <= 1; r++) {
+                        const ridge = new THREE.Mesh(new THREE.BoxGeometry(plotW - 0.55, 0.10, 0.72), furrowMat);
+                        ridge.position.set(0, 0.13, r * 1.05);
+                        ridge.receiveShadow = true;
+                        farmGroup.add(ridge);
+                    }
+                    // Pagar kayu rendah di 3 sisi (bagian depan -Z terbuka untuk akses petani/kuda)
+                    const halfW = plotW * 0.5 + 0.18, halfD = plotD * 0.5 + 0.18;
+                    const postCoords = [
+                        [-halfW, -halfD], [halfW, -halfD],
+                        [-halfW, 0], [halfW, 0],
+                        [-halfW, halfD], [0, halfD], [halfW, halfD],
+                    ];
+                    for (const [px, pz] of postCoords) {
+                        const post = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.82, 0.14), fenceMat);
+                        post.position.set(px, 0.41, pz);
+                        post.castShadow = !isMobileDevice;
+                        farmGroup.add(post);
+                    }
+                    // Rel pagar kiri, kanan, belakang
+                    for (const ry of [0.32, 0.64]) {
+                        const railBack = new THREE.Mesh(new THREE.BoxGeometry(halfW * 2, 0.09, 0.08), fenceMat);
+                        railBack.position.set(0, ry, halfD);
+                        farmGroup.add(railBack);
+                        for (const sx of [-1, 1]) {
+                            const railSide = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.09, halfD * 2), fenceMat);
+                            railSide.position.set(sx * halfW, ry, 0);
+                            farmGroup.add(railSide);
+                        }
+                    }
+
+                    // 9 petak tanaman (3x3): stage 0 = bibit/kosong, 1 = tumbuh hijau, 2 = matang siap panen
+                    const tiles = [];
+                    const cropTypes = ['wheat', 'wheat', 'carrot'];
+                    for (let r = 0; r < 3; r++) {
+                        for (let c = 0; c < 3; c++) {
+                            const lx = (c - 1) * 1.28;
+                            const lz = (r - 1) * 1.05;
+                            const tileWorld = localToWorldXZ(fpX, fpZ, fpYaw, 1.0, lx, lz);
+                            const cropKind = cropTypes[(r + c) % cropTypes.length];
+
+                            const tg = new THREE.Group();
+                            tg.position.set(lx, 0.16, lz);
+                            farmGroup.add(tg);
+
+                            // Stage 0: bibit kecil baru ditanam
+                            const s0 = new THREE.Group();
+                            for (let k = 0; k < 3; k++) {
+                                const sp = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.14, 0.09), sproutMat);
+                                sp.position.set((k - 1) * 0.18, 0.07, (k % 2 - 0.5) * 0.14);
+                                s0.add(sp);
+                            }
+                            tg.add(s0);
+
+                            // Stage 1: batang hijau sedang
+                            const s1 = new THREE.Group();
+                            for (let k = 0; k < 5; k++) {
+                                const ang = (k / 5) * Math.PI * 2;
+                                const stMesh = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.44, 0.10), growMat);
+                                stMesh.position.set(Math.cos(ang) * 0.20, 0.22, Math.sin(ang) * 0.16);
+                                stMesh.rotation.z = (k % 2 ? 0.12 : -0.12);
+                                s1.add(stMesh);
+                            }
+                            tg.add(s1);
+
+                            // Stage 2: tanaman matang siap panen (gandum emas tinggi atau wortel lebat)
+                            const s2 = new THREE.Group();
+                            if (cropKind === 'wheat') {
+                                for (let k = 0; k < 6; k++) {
+                                    const ang = (k / 6) * Math.PI * 2;
+                                    const stalk = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.82, 0.11), ripeWheatMat);
+                                    stalk.position.set(Math.cos(ang) * 0.22, 0.41, Math.sin(ang) * 0.18);
+                                    stalk.rotation.z = (k % 2 ? 0.14 : -0.14);
+                                    s2.add(stalk);
+                                }
+                            } else {
+                                for (let k = 0; k < 4; k++) {
+                                    const ang = (k / 4) * Math.PI * 2 + 0.4;
+                                    const rootMesh = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.22, 0.15), ripeCarrotMat);
+                                    rootMesh.position.set(Math.cos(ang) * 0.18, 0.11, Math.sin(ang) * 0.15);
+                                    s2.add(rootMesh);
+                                    const leafTop = new THREE.Mesh(new THREE.BoxGeometry(0.20, 0.34, 0.20), growMat);
+                                    leafTop.position.set(Math.cos(ang) * 0.18, 0.36, Math.sin(ang) * 0.15);
+                                    s2.add(leafTop);
+                                }
+                            }
+                            tg.add(s2);
+
+                            const idxTile = r * 3 + c;
+                            const initStage = idxTile < 5 ? 2 : (idxTile < 7 ? 1 : 0);
+                            s0.visible = initStage === 0;
+                            s1.visible = initStage === 1;
+                            s2.visible = initStage === 2;
+
+                            tiles.push({
+                                index: idxTile,
+                                x: tileWorld.x,
+                                z: tileWorld.z,
+                                cropKind,
+                                stage: initStage,
+                                growT: initStage === 1 ? 10 : 0,
+                                stageMeshes: [s0, s1, s2],
+                            });
+                        }
+                    }
+
+                    const farmRec = {
+                        villageId: v.id,
+                        villageName: v.name,
+                        villageRef: vRec,
+                        x: fpX,
+                        z: fpZ,
+                        yaw: fpYaw,
+                        tiles,
+                    };
+                    vRec.farmPlot = farmRec;
+                    vRec.stations.farmPlot = { x: fpX, z: fpZ, faceX: fpX, faceZ: fpZ };
+                    villageFarms.push(farmRec);
                 }
 
                 // 3. Alun-alun Tengah: Sumur Batu Beratap + Papan Pengumuman + Bangku + Pot Bunga
@@ -5696,9 +6083,12 @@ class World {
     this._lastGrassTileZ = 0;
     this.VILLAGE_WORKSHOPS = villageWorkshops;
     this.VILLAGE_WELLS = villageWells;
+    this.VILLAGE_FARMS = villageFarms;
     this.cycleEnabled = true;
-    this.cycleDuration = 600.0; // Siklus penuh siang-malam 10 menit
+    this.cycleDuration = 600.0; // Siklus penuh siang-malam 10 menit (1 hari = 24 jam game)
     this.timeOfDay = 0.08;      // Mulai pagi cerah (~07:55)
+    this.dayClock = this.timeOfDay;
+    this._grazedPatches = [];
     this._cycleTarget = {
       bgTop: MOODS.morning.bgTop.clone(),
       bgBottom: MOODS.morning.bgBottom.clone(),
@@ -6055,14 +6445,15 @@ class World {
       const pickHome = (prefKey, fallbackIdx = 0) =>
         bldgs[prefKey] || bList[fallbackIdx % Math.max(1, bList.length)] || null;
 
-      // Tepat 4 warga per desa: 2 petani (farmer, herbal), 1 penjual (merchant/petmerchant), 1 petarung (guard/warrior/hunter/lionknight/rabbitwarrior)
+      // Tepat 4 warga per desa: 2 petani (farmer, herbal), 1 penjual (merchant/petmerchant), 1 petarung
       const roster = [
         {
           roleId: 'farmer',
           workKind: 'farm',
-          spawn: st.barnYard || st.garden || st.plaza,
+          spawn: st.farmPlot || st.barnYard || st.garden || st.plaza,
           homeBldg: pickHome('barn', 0),
-          stations: [st.barnYard, st.garden, pickPlanter(0), st.well].filter(Boolean),
+          stations: [st.farmPlot, st.barnYard, st.garden, st.well].filter(Boolean),
+          canEnterHouse: true,
         },
         {
           roleId: 'herbal',
@@ -6070,13 +6461,15 @@ class World {
           spawn: pickPlanter(0) || st.garden || st.well,
           homeBldg: pickHome('cottage_sw', 1),
           stations: [pickPlanter(0), pickPlanter(1), st.garden, st.well].filter(Boolean),
+          canEnterHouse: true,
         },
         {
           roleId: vRec.merchantRole || 'merchant',
           workKind: 'shop',
-          spawn: st.stallA || st.plaza,
-          homeBldg: pickHome('cottage_nw', 2),
-          stations: [st.stallA, st.stallB, st.noticeBoard, st.well].filter(Boolean),
+          spawn: st.merchantPost || st.stallA || st.plaza,
+          homeBldg: null,
+          stations: [st.merchantPost || st.stallA || st.plaza].filter(Boolean),
+          canEnterHouse: false,
         },
         {
           roleId: vRec.fighterRole || 'guard',
@@ -6084,19 +6477,27 @@ class World {
           spawn: st.gateSouth || st.plaza,
           homeBldg: pickHome('tavern', 3),
           stations: [st.gateSouth, st.plaza, st.gateNorth, st.tavernPorch, pickBench(0)].filter(Boolean),
+          canEnterHouse: true,
         },
       ];
 
       for (let rIdx = 0; rIdx < roster.length; rIdx++) {
         const cfg = roster[rIdx];
         const sp0 = cfg.spawn || st.plaza || { x: vRec.cx, z: vRec.cz, faceX: vRec.cx, faceZ: vRec.cz + 1 };
-        const jitterAng = (rIdx * 1.57 + vIdx * 0.85) % (Math.PI * 2);
-        const tryX = sp0.x + Math.cos(jitterAng) * 0.45;
-        const tryZ = sp0.z + Math.sin(jitterAng) * 0.45;
-        const cleared = this.resolveCircleCollision(tryX, tryZ, 0.44);
-        const sx = cleared.x;
-        const sz = cleared.z;
-        const gy = this.terrainHeightAt(sx, sz);
+        let sx, sz, gy;
+        if (sp0.behindStall) {
+          sx = sp0.x;
+          sz = sp0.z;
+          gy = sp0.y !== undefined ? sp0.y : this.terrainHeightAt(sx, sz);
+        } else {
+          const jitterAng = (rIdx * 1.57 + vIdx * 0.85) % (Math.PI * 2);
+          const tryX = sp0.x + Math.cos(jitterAng) * 0.45;
+          const tryZ = sp0.z + Math.sin(jitterAng) * 0.45;
+          const cleared = this.resolveCircleCollision(tryX, tryZ, 0.44);
+          sx = cleared.x;
+          sz = cleared.z;
+          gy = this.terrainHeightAt(sx, sz);
+        }
         const fx = sp0.faceX !== undefined ? sp0.faceX : vRec.cx;
         const fz = sp0.faceZ !== undefined ? sp0.faceZ : vRec.cz;
         const yaw = Math.atan2(fx - sx, fz - sz);
@@ -6135,7 +6536,11 @@ class World {
           homeBldg: cfg.homeBldg,
           workKind: cfg.workKind,
           stations: cfg.stations.length ? cfg.stations : [sp0],
-          canEnterHouse: !!cfg.homeBldg,
+          canEnterHouse: cfg.canEnterHouse !== undefined ? cfg.canEnterHouse : !!cfg.homeBldg,
+          behindStall: !!sp0.behindStall,
+          fixedY: sp0.behindStall ? gy : null,
+          farmPlot: vRec.farmPlot || null,
+          shopDrop: st.shopDrop || st.stallA || null,
         };
         if (w.anchor) {
           w.anchor.x = sx;
@@ -6171,21 +6576,150 @@ class World {
     return this.targetMood;
   }
 
-  findNearestWorkshop(x, z, maxDist = 11.0) {
+  findNearestWorkshop(x, z, maxDist = 4.2) {
     const list = this.VILLAGE_WORKSHOPS || [];
     let best = null;
     let bestD = maxDist;
     for (let i = 0; i < list.length; i++) {
       const ws = list[i];
+      // Wajib berada di area depan bangunan bengkel (bukan belakang/samping jauh)
+      const frontX = -Math.sin(ws.shopYaw || 0);
+      const frontZ = -Math.cos(ws.shopYaw || 0);
+      const frontDot = (x - ws.shopX) * frontX + (z - ws.shopZ) * frontZ;
+      if (frontDot < 0.4) continue;
       const d = Math.hypot(x - ws.x, z - ws.z);
-      const dShop = Math.hypot(x - ws.shopX, z - ws.shopZ);
-      const effectiveD = Math.min(d, dShop - 1.5);
-      if (effectiveD <= bestD) {
-        bestD = effectiveD;
-        best = { ...ws, dist: effectiveD };
+      if (d <= bestD) {
+        bestD = d;
+        best = { ...ws, dist: d };
       }
     }
     return best;
+  }
+
+  setFarmTileStage(tile, stage) {
+    if (!tile) return;
+    const clamped = Math.max(0, Math.min(2, stage | 0));
+    tile.stage = clamped;
+    if (clamped === 0) tile.growT = 0;
+    if (Array.isArray(tile.stageMeshes)) {
+      for (let i = 0; i < tile.stageMeshes.length; i++) {
+        tile.stageMeshes[i].visible = (i === clamped);
+      }
+    }
+  }
+
+  addVillageShopStock(vRecOrId, amount = 1) {
+    const qty = Math.max(0, Math.floor(amount || 0));
+    if (!qty) return 0;
+    let vRec = (vRecOrId && typeof vRecOrId === 'object') ? vRecOrId : null;
+    if (!vRec && this.villageData && Array.isArray(this.villageData.villages)) {
+      vRec = this.villageData.villages.find((v) => v.id === vRecOrId) || null;
+    }
+    if (!vRec) return 0;
+    if (!vRec.shopStock) {
+      vRec.shopStock = { villageId: vRec.id, villageName: vRec.name, crops: 0, deliveredTotal: 0, crates: [] };
+    }
+    vRec.shopStock.crops += qty;
+    vRec.shopStock.deliveredTotal += qty;
+    if (Array.isArray(vRec.shopStock.crates)) {
+      const visCount = Math.min(vRec.shopStock.crates.length, Math.max(1, Math.ceil(vRec.shopStock.crops / 2)));
+      for (let i = 0; i < vRec.shopStock.crates.length; i++) {
+        vRec.shopStock.crates[i].visible = i < visCount;
+      }
+    }
+    return vRec.shopStock.crops;
+  }
+
+  harvestFarmTile(farmPlot, tileIdx, autoStock = true) {
+    if (!farmPlot || !Array.isArray(farmPlot.tiles)) return null;
+    const tile = farmPlot.tiles[tileIdx];
+    if (!tile || tile.stage !== 2) return null;
+    this.setFarmTileStage(tile, 0);
+    const totalStock = autoStock ? this.addVillageShopStock(farmPlot.villageRef || farmPlot.villageId, 1) : (farmPlot.villageRef?.shopStock?.crops || 0);
+    return { harvested: 1, cropKind: tile.cropKind, shopStock: totalStock };
+  }
+
+  plantFarmTile(farmPlot, tileIdx) {
+    if (!farmPlot || !Array.isArray(farmPlot.tiles)) return false;
+    const tile = farmPlot.tiles[tileIdx];
+    if (!tile || tile.stage !== 0) return false;
+    this.setFarmTileStage(tile, 1);
+    tile.growT = 0;
+    return true;
+  }
+
+  findNearestFarmPlot(x, z, maxDist = 4.8) {
+    const list = this.VILLAGE_FARMS || [];
+    let best = null;
+    let bestD = maxDist;
+    for (let i = 0; i < list.length; i++) {
+      const fp = list[i];
+      const d = Math.hypot(x - fp.x, z - fp.z);
+      if (d <= bestD) {
+        bestD = d;
+        let ripeCount = 0, emptyCount = 0;
+        for (const t of fp.tiles || []) {
+          if (t.stage === 2) ripeCount++;
+          else if (t.stage === 0) emptyCount++;
+        }
+        best = {
+          farm: fp,
+          villageId: fp.villageId,
+          villageName: fp.villageName,
+          dist: d,
+          ripeCount,
+          emptyCount,
+          shopStock: fp.villageRef?.shopStock?.crops || 0,
+        };
+      }
+    }
+    return best;
+  }
+
+  interactFarmPlot(farmPlot) {
+    if (!farmPlot || !Array.isArray(farmPlot.tiles)) return null;
+    let harvested = 0;
+    let planted = 0;
+    for (let i = 0; i < farmPlot.tiles.length; i++) {
+      if (farmPlot.tiles[i].stage === 2) {
+        this.setFarmTileStage(farmPlot.tiles[i], 0);
+        harvested++;
+      }
+    }
+    if (harvested > 0) {
+      const shopStock = this.addVillageShopStock(farmPlot.villageRef || farmPlot.villageId, harvested);
+      return { action: 'harvest', count: harvested, shopStock, villageName: farmPlot.villageName };
+    }
+    for (let i = 0; i < farmPlot.tiles.length; i++) {
+      if (farmPlot.tiles[i].stage === 0) {
+        this.setFarmTileStage(farmPlot.tiles[i], 1);
+        farmPlot.tiles[i].growT = 0;
+        planted++;
+      }
+    }
+    if (planted > 0) {
+      return { action: 'plant', count: planted, shopStock: farmPlot.villageRef?.shopStock?.crops || 0, villageName: farmPlot.villageName };
+    }
+    return { action: 'growing', count: 0, shopStock: farmPlot.villageRef?.shopStock?.crops || 0, villageName: farmPlot.villageName };
+  }
+
+  _updateVillageFarms(delta) {
+    const farms = this.VILLAGE_FARMS;
+    if (!farms || !farms.length) return;
+    const STAGE_DUR = 28.0; // ~28 detik per tahap tumbuh
+    for (let i = 0; i < farms.length; i++) {
+      const tiles = farms[i].tiles;
+      for (let j = 0; j < tiles.length; j++) {
+        const t = tiles[j];
+        if (t.stage < 2) {
+          t.growT = (t.growT || 0) + delta;
+          if (t.growT >= STAGE_DUR) {
+            t.growT = 0;
+            this.setFarmTileStage(t, t.stage + 1);
+          }
+        }
+      }
+    }
   }
 
   findNearestWaterSource(x, z, maxDist = 18.0) {
@@ -6258,21 +6792,35 @@ class World {
 
   getOldCartSpot() {
     const rad = (this.VILLAGES || []).find((v) => v.id === 'radnar') || (this.VILLAGES && this.VILLAGES[0]);
+    const bs = rad && rad.blacksmithLot;
+    if (bs) {
+      const cosY = Math.cos(bs.yaw);
+      const sinY = Math.sin(bs.yaw);
+      const toWorld = (lx, lz) => {
+        const sx = lx * bs.sc;
+        const sz = lz * bs.sc;
+        return [bs.x + sx * cosY + sz * sinY, bs.z - sx * sinY + sz * cosY];
+      };
+      const baseZOff = bs.d * 0.5 + 3.6;
+      const candidates = [
+        toWorld(0, baseZOff),
+        toWorld(1.8, baseZOff + 0.5),
+        toWorld(-1.8, baseZOff + 0.5),
+        toWorld(0, baseZOff + 1.8),
+        toWorld(3.2, baseZOff + 1.2),
+        toWorld(-3.2, baseZOff + 1.2),
+      ];
+      for (const [cx, cz] of candidates) {
+        const col = this.resolveCircleCollision ? this.resolveCircleCollision(cx, cz, 2.35) : { hit: false };
+        if (!col.hit) {
+          return { x: cx, z: cz, yaw: bs.yaw, villageId: 'radnar' };
+        }
+      }
+      const [fx, fz] = candidates[0];
+      return { x: fx, z: fz, yaw: bs.yaw, villageId: 'radnar' };
+    }
     const baseZ = (rad ? rad.cz : 76.0) + 23.5;
     const roadX = this._getRoadCenterX ? this._getRoadCenterX(baseZ) : 0;
-    const candidates = [
-      [roadX + 8.5, baseZ + 1.5],
-      [roadX - 9.0, baseZ + 2.0],
-      [roadX + 7.5, baseZ + 5.5],
-      [roadX - 7.5, baseZ + 6.0],
-      [roadX, baseZ + 7.5],
-    ];
-    for (const [cx, cz] of candidates) {
-      const col = this.resolveCircleCollision ? this.resolveCircleCollision(cx, cz, 2.35) : { hit: false };
-      if (!col.hit) {
-        return { x: cx, z: cz, yaw: -Math.PI * 0.55, villageId: 'radnar' };
-      }
-    }
     return { x: roadX + 8.5, z: baseZ + 4.0, yaw: -Math.PI * 0.55, villageId: 'radnar' };
   }
 
@@ -6317,7 +6865,10 @@ class World {
 
   _updateDayNightCycle(delta) {
     if (!this.cycleEnabled || !this.cycleDuration) return;
-    this.timeOfDay = (this.timeOfDay + delta / this.cycleDuration) % 1.0;
+    const dayStep = delta / this.cycleDuration;
+    this.timeOfDay = (this.timeOfDay + dayStep) % 1.0;
+    this.dayClock = (this.dayClock || 0) + dayStep;
+    this._updateGrazedGrass();
     const t = this.timeOfDay;
     const { morning, sunset, night } = this.MOODS;
     const sm = (a, b, x) => {
@@ -6673,6 +7224,67 @@ class World {
     return this.waterEdgeDistance(x, z) <= 0.70;
   }
 
+  grazeGrassAt(x, z, radius = 1.65) {
+    if (!this._paintGrassVisibilityCircle || !this._grassMapTexture) return false;
+    this._paintGrassVisibilityCircle(x, z, radius, 0.0);
+    this._grassMapTexture.needsUpdate = true;
+    if (!this._grazedPatches) this._grazedPatches = [];
+    this._grazedPatches.push({
+      x,
+      z,
+      r: radius,
+      regrowAt: (this.dayClock || 0) + 1.0, // Tumbuh kembali setelah 1 hari (24 jam)
+    });
+    return true;
+  }
+
+  _updateGrazedGrass() {
+    if (!this._grazedPatches || !this._grazedPatches.length) return;
+    if (!this._paintGrassVisibilityCircle || !this._grassMapTexture) return;
+    const now = this.dayClock || 0;
+    let dirty = false;
+    for (let i = this._grazedPatches.length - 1; i >= 0; i--) {
+      const p = this._grazedPatches[i];
+      if (now >= p.regrowAt) {
+        this._paintGrassVisibilityCircle(p.x, p.z, p.r * 1.15, 1.0);
+        this._grazedPatches.splice(i, 1);
+        dirty = true;
+      }
+    }
+    if (dirty) this._grassMapTexture.needsUpdate = true;
+  }
+
+  getGrazedState() {
+    return {
+      dayClock: this.dayClock || 0,
+      patches: (this._grazedPatches || []).map((p) => ({
+        x: p.x, z: p.z, r: p.r, regrowAt: p.regrowAt,
+      })),
+    };
+  }
+
+  restoreGrazedState(state) {
+    if (!state) return;
+    if (typeof state.dayClock === 'number') this.dayClock = state.dayClock;
+    if (!Array.isArray(state.patches)) return;
+    this._grazedPatches = [];
+    const now = this.dayClock || 0;
+    let dirty = false;
+    for (let i = 0; i < state.patches.length; i++) {
+      const p = state.patches[i];
+      if (!p || typeof p.x !== 'number' || typeof p.z !== 'number') continue;
+      if (now < (p.regrowAt || 0)) {
+        const r = p.r || 1.65;
+        this._grazedPatches.push({ x: p.x, z: p.z, r, regrowAt: p.regrowAt });
+        if (this._paintGrassVisibilityCircle) {
+          this._paintGrassVisibilityCircle(p.x, p.z, r, 0.0);
+          dirty = true;
+        }
+      }
+    }
+    if (dirty && this._grassMapTexture) this._grassMapTexture.needsUpdate = true;
+  }
+
   isOnGrass(x, z) {
     if (this.isOnRoad(x, z)) return false;
     if (this.isAtWater(x, z)) return false;
@@ -6683,6 +7295,12 @@ class World {
       const nx = v.fz || 0, nz = -(v.fx || 1);
       if (Math.hypot(x - (v.cx + nx * 5.8), z - (v.cz + nz * 5.8)) < 6.5) return false;
       if (Math.hypot(x - v.cx, z - v.cz) < 3.4) return false;
+    }
+    if (this._grazedPatches && this._grazedPatches.length) {
+      for (let i = 0; i < this._grazedPatches.length; i++) {
+        const p = this._grazedPatches[i];
+        if (Math.hypot(x - p.x, z - p.z) < p.r * 0.85) return false;
+      }
     }
     return true;
   }
@@ -7313,6 +7931,7 @@ class World {
     // Streaming rumput rimbun 15x15m mengikuti posisi pemain + siklus 10 menit otomatis
     this._updateStreamingGrass(horseX, horseZ);
     this._updateDayNightCycle(delta);
+    this._updateVillageFarms(delta);
 
     // Bayangan mode 'static' (HP menengah): peta bayangan digambar ulang tiap
     // 5 frame, bukan tiap frame. Gerak lambat tetap dapat bayangan, biaya turun.

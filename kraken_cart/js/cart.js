@@ -1102,16 +1102,17 @@ HC.buildCart = function (pivotY = 0.58, upgrades = {}) {
   // Starter gerobak kosong tanpa penumpang (direkrut langsung di desa)
   const passengers = [];
 
-  // Swinging iron lantern (sisi kanan bak, +z) — pendulum 2 sumbu di fisika
+  // Swinging iron lantern (sisi kanan bak, +z) — terpasang rapat pada tiang sudut depan bak
+  const lanternMountY = Math.max(stakeTop + 2.5, 16);
   const lanternPivot = new THREE.Group();
-  lanternPivot.position.set(22 * S, 18 * S, (zSide + 4.2) * S);
+  lanternPivot.position.set((xFront - 0.2) * S, (lanternMountY - 0.2) * S, (zSide + 2.7) * S);
   body.add(lanternPivot);
 
-  // Braket statis: lengan besi dari tiang sudut bak, menjulur keluar supaya
-  // lentera bebas berayun tanpa membentur rel atau roda.
+  // Braket besi menempel langsung ke tiang sudut depan (x = xFront, z = zSide..zSide+1)
   const bracket = new V(S);
-  bracket.box(21.2, 16.6, zSide - 0.4, 22.8, 17.4, zSide + 4.0, P.ironDark, 0.02);
-  bracket.box(21.7, 17.4, zSide + 3.8, 22.3, 18.2, zSide + 4.6, P.iron, 0.02);
+  bracket.box(xFront - 0.8, 8.0, zSide + 0.4, xFront + 0.4, lanternMountY, zSide + 1.5, P.ironDark, 0.02);
+  bracket.box(xFront - 0.6, lanternMountY - 0.8, zSide + 1.2, xFront + 0.2, lanternMountY + 0.2, zSide + 2.9, P.ironDark, 0.02);
+  bracket.box(xFront - 0.4, lanternMountY - 1.2, zSide + 2.4, xFront, lanternMountY - 0.2, zSide + 2.9, P.iron, 0.02);
   body.add(bracket.build(0, 0, 0));
 
   const lanternUnit = buildCartLantern(lanternTier, true);

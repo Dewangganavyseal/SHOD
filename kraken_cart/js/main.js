@@ -8,6 +8,7 @@ import './animator.js';
 import './npc.js';
 import './mobs.js';
 import './sylvan/models.js';
+import './vintage_gui.js';
 import { UpgradeStore, HorseStatsStore, MATERIAL_DEFS, UPGRADE_COSTS, HORSE_STAT_DEFS } from './upgrades.js';
 import { initUpgradeUI } from './ui.js';
 import { Survival } from './survival.js';
@@ -382,6 +383,7 @@ const hudWheel = document.getElementById('hud-wheel');
 const hudNpc = document.getElementById('hud-npc');
 const hudNpcMsg = document.getElementById('hud-npc-msg');
 const hudGold = document.getElementById('hud-gold');
+const hudTopGold = document.getElementById('hud-top-gold');
 const hudTime = document.getElementById('hud-time');
 const portraitHpFill = document.getElementById('portrait-hp-fill');
 const portraitLvBadge = document.getElementById('portrait-lv-badge');
@@ -405,6 +407,7 @@ const letterCardEl = document.getElementById('letter-card');
 const cutsceneBoxEl = document.getElementById('cutscene-box');
 const csSpeakerEl = document.getElementById('cs-speaker');
 const csTextEl = document.getElementById('cs-text');
+const csChoicesEl = document.getElementById('cs-choices');
 const btnCutsceneNext = document.getElementById('btn-cutscene-next');
 const npcMiniBarEl = document.getElementById('npc-mini-bar');
 const questHudEl = document.getElementById('quest-hud');
@@ -530,8 +533,15 @@ let storyStage = 'done';    // 'to_radnar' | 'find_cart' | 'done'
 let _radnarCutscenePlayed = false;
 let _cutsceneIdx = 0;
 let _cutsceneGuardNpc = null;
+let _csPhase = 'dialogue'; // 'sign' | 'approach' | 'dialogue'
+let _csTimer = 0;
 const _csCamPos = new THREE.Vector3();
 const _csCamTarget = new THREE.Vector3();
+const _csSignCamPos = new THREE.Vector3();
+const _csSignCamTarget = new THREE.Vector3();
+const _csTalkCamPos = new THREE.Vector3();
+const _csTalkCamTarget = new THREE.Vector3();
+const _csGuardGoal = { x: 0, z: 0 };
 const _menuCamPos = new THREE.Vector3();
 const _menuCamTarget = new THREE.Vector3();
 let _menuCamT = 0;
@@ -889,19 +899,29 @@ function toggleInspectMode() {
 // Bar HP / stamina / lapar / haus + pesan kontekstual.
 const VITAL_ROWS = [['hp', 'v-hp'], ['stamina', 'v-sta'], ['hunger', 'v-food'], ['thirst', 'v-water']];
 function syncVitals() {
-  for (const [key, id] of VITAL_ROWS) {
-    const val = Math.round(survival[key]);
-    const maxVal = key === 'hp' ? (survival.hpMax || 100) : key === 'stamina' ? (survival.staminaMax || 100) : 100;
-    const pct = Math.max(0, Math.min(100, Math.round((val / maxVal) * 100)));
-    const el = document.getElementById(id);
-    if (el) el.style.width = pct + '%';
-    const txt = document.getElementById(id + '-t');
-    if (txt) txt.textContent = String(val);
-    if (el && el.parentElement && el.parentElement.parentElement) {
-      el.parentElement.parentElement.classList.toggle('low', pct < 25);
+  const hpMax = survival.hpMax || 100;
+  const staMax = survival.staminaMax || 100;
+  if (HC.VintageGUI && HC.VintageGUI.updateVitals) {
+    HC.VintageGUI.updateVitals({
+      hp: survival.hp,
+      hpMax,
+      stamina: survival.stamina,
+      staminaMax: staMax,
+      hunger: survival.hunger,
+      thirst: survival.thirst,
+    });
+  } else {
+    for (const [key, id] of VITAL_ROWS) {
+      const val = Math.round(survival[key]);
+      const maxVal = key === 'hp' ? hpMax : key === 'stamina' ? staMax : 100;
+      const pct = Math.max(0, Math.min(100, Math.round((val / maxVal) * 100)));
+      const el = document.getElementById(id);
+      if (el) el.style.width = pct + '%';
+      const txt = document.getElementById(id + '-t');
+      if (txt) txt.textContent = `${val}/${maxVal}`;
     }
   }
-  const hpPct = Math.max(0, Math.min(100, Math.round((survival.hp / (survival.hpMax || 100)) * 100)));
+  const hpPct = Math.max(0, Math.min(100, Math.round((survival.hp / hpMax) * 100)));
   if (portraitHpFill) portraitHpFill.style.width = hpPct + '%';
   const msg = document.getElementById('v-msg');
   if (msg && msg.textContent !== survival.msg) msg.textContent = survival.msg;
@@ -929,11 +949,19 @@ function syncHorseStats() {
   syncVitals();
 }
 
+const STAT_PIXEL_ICONS = {
+  speed: 'stat_boot',
+  stamina: 'buff_spd',
+  power: 'stat_fist',
+  vitality: 'stat_heart',
+};
+
 renderHorseUpgrades = function renderHorseUpgradeRows() {
   if (!horseUpgradeListEl) return;
   horseUpgradeListEl.innerHTML = '';
   const gold = Math.floor(quests.gold || 0);
   if (hudGold) hudGold.textContent = `${gold} G`;
+  if (hudTopGold) hudTopGold.textContent = `${gold} G`;
   for (const def of HORSE_STAT_DEFS) {
     const curLv = horseStats.levels[def.key] || 1;
     const isMax = curLv >= def.maxLv;
@@ -942,28 +970,46 @@ renderHorseUpgrades = function renderHorseUpgradeRows() {
 
     const row = document.createElement('div');
     row.className = 'hu-row';
+    const effTxt = isMax ? `${def.format(curLv)} (MAX)` : `${def.format(curLv)} → ${def.format(curLv + 1)}`;
+    row.addEventListener('mouseenter', () => {
+      if (HC.VintageGUI && HC.VintageGUI.setDesc) {
+        HC.VintageGUI.setDesc(t(def.nameKey), `${effTxt}${!isMax ? ` • ${cost} G` : ''}`);
+      }
+    });
 
-    const info = document.createElement('div');
-    info.className = 'hu-info';
-    const nameDiv = document.createElement('div');
-    nameDiv.className = 'hu-name';
-    nameDiv.innerHTML = `<span>${def.icon} ${t(def.nameKey)}</span><span class="hu-lv">Lv.${curLv}/${def.maxLv}</span>`;
-    const effDiv = document.createElement('div');
-    effDiv.className = 'hu-effect';
-    effDiv.textContent = isMax
-      ? `${def.format(curLv)} (MAX)`
-      : `${def.format(curLv)} → ${def.format(curLv + 1)}`;
-    info.append(nameDiv, effDiv);
+    const med = document.createElement('div');
+    med.className = 'circle-medallion hu-med';
+    const icoName = STAT_PIXEL_ICONS[def.key] || 'star';
+    const icoSvg = (HC.VintageGUI && HC.VintageGUI.renderIcon) ? HC.VintageGUI.renderIcon(icoName, 20) : def.icon;
+    med.innerHTML = `<div class="circle-medallion-inner">${icoSvg}</div>`;
+
+    const mid = document.createElement('div');
+    mid.className = 'hu-mid';
+
+    const nameRow = document.createElement('div');
+    nameRow.className = 'hu-name-row';
+    nameRow.innerHTML = `<span class="hu-name-txt">${t(def.nameKey)}</span><span class="hu-eff-txt">${effTxt}</span>`;
+
+    const pipWrap = document.createElement('div');
+    pipWrap.className = 'hu-pip-wrap';
+
+    const pipBar = document.createElement('div');
+    pipBar.className = 'pip-bar-group';
+    for (let i = 1; i <= def.maxLv; i++) {
+      const seg = document.createElement('span');
+      seg.className = `pip-seg${i <= curLv ? ' filled' : ''}`;
+      pipBar.appendChild(seg);
+    }
 
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'hu-btn';
+    btn.className = 'pip-btn';
     if (isMax) {
       btn.disabled = true;
       btn.textContent = t('max_btn');
     } else {
-      btn.textContent = `${t('upgrade_btn')} (${cost} G)`;
-      if (!canBuy) btn.style.opacity = '0.72';
+      btn.textContent = `+ ${cost}G`;
+      if (!canBuy) btn.style.opacity = '0.68';
       btn.addEventListener('click', (e) => {
         e.preventDefault();
         const res = horseStats.upgradeStat(def.key, quests);
@@ -971,6 +1017,7 @@ renderHorseUpgrades = function renderHorseUpgradeRows() {
           showToast(t('not_enough_gold', { g: cost }));
           return;
         }
+        if (HC.VintageGUI && HC.VintageGUI.playSfx) HC.VintageGUI.playSfx('confirm');
         syncHorseStats();
         renderHorseUpgrades();
         if (ui && ui.refresh) ui.refresh();
@@ -978,7 +1025,14 @@ renderHorseUpgrades = function renderHorseUpgradeRows() {
         showToast(t('horse_upgraded', { stat: t(def.nameKey), lv: res.level, g: res.cost }));
       });
     }
-    row.append(info, btn);
+    pipWrap.append(pipBar, btn);
+    mid.append(nameRow, pipWrap);
+
+    const valCircle = document.createElement('div');
+    valCircle.className = 'stat-val-circle';
+    valCircle.textContent = String(curLv);
+
+    row.append(med, mid, valCircle);
     horseUpgradeListEl.appendChild(row);
   }
 };
@@ -1028,6 +1082,10 @@ function computeWorkshopCamera(ws) {
 
 function openWorkshop(ws) {
   if (!ws || physics.flipped) return false;
+  if (!physics.hitched) {
+    showToast(t('ws_need_cart_hitched'));
+    return false;
+  }
   if (animator.state === 'sleep') doSleepToggle();
   if (animator.inspectMode) setInspectMode(false);
   setStatsPanelOpen(false);
@@ -1146,6 +1204,7 @@ function saveGameState(silent = true) {
       cartLevels: { ...store.levels },
       horseStats: { ...horseStats.levels },
       timeOfDay: world.timeOfDay || 0.08,
+      grazedGrass: world.getGrazedState ? world.getGrazedState() : null,
       horse: { x: animator.x, z: animator.z, yaw: animator.yaw },
       cart: { x: physics.pos.x, z: physics.pos.z, yaw: physics.yaw, hitched: !!physics.hitched },
       vitals: {
@@ -1358,6 +1417,7 @@ function loadGameState() {
     survival.thirst = Math.max(0, Math.min(100, save.vitals.thirst ?? 100));
   }
   if (typeof save.timeOfDay === 'number') world.timeOfDay = save.timeOfDay;
+  if (save.grazedGrass && world.restoreGrazedState) world.restoreGrazedState(save.grazedGrass);
 
   while (party.members && party.members.length) party.releaseLast();
 
@@ -1400,10 +1460,12 @@ function loadGameState() {
 const CUTSCENE_KEYS = ['cutscene_line_1', 'cutscene_line_2', 'cutscene_line_3', 'cutscene_line_4'];
 function renderCutsceneStep() {
   if (!cutsceneBoxEl) return;
+  if (csChoicesEl) { csChoicesEl.hidden = true; csChoicesEl.innerHTML = ''; }
   if (csSpeakerEl) csSpeakerEl.textContent = t('cutscene_guard_name');
   if (csTextEl) csTextEl.textContent = t(CUTSCENE_KEYS[_cutsceneIdx] || CUTSCENE_KEYS[0]);
   if (letterCardEl) letterCardEl.hidden = (_cutsceneIdx !== 2);
   if (btnCutsceneNext) {
+    btnCutsceneNext.hidden = false;
     btnCutsceneNext.textContent = _cutsceneIdx >= CUTSCENE_KEYS.length - 1
       ? t('cutscene_finish_btn')
       : t('cutscene_next_btn');
@@ -1415,6 +1477,8 @@ function startRadnarCutscene() {
   _radnarCutscenePlayed = true;
   gameMode = 'cutscene';
   _cutsceneIdx = 0;
+  _csPhase = 'sign';
+  _csTimer = 0;
   keysHeld.forward = false;
   keysHeld.backward = false;
   keysHeld.left = false;
@@ -1430,36 +1494,69 @@ function startRadnarCutscene() {
   if (mapUI && mapUI.isOpen) mapUI.close();
 
   document.body.classList.add('cutscene-open');
-  if (cutsceneBoxEl) cutsceneBoxEl.hidden = false;
+  if (cutsceneBoxEl) cutsceneBoxEl.hidden = true;
+  if (letterCardEl) letterCardEl.hidden = true;
 
-  // Bring a Radnar guard/villager beside the horse to speak
+  // 1. Frame the RADNAR village entrance sign plaque first
+  const rad = (world.VILLAGES && world.VILLAGES[0]) || null;
+  const sign = rad && rad.gateSign;
+  const fx = Math.cos(animator.yaw), fz = -Math.sin(animator.yaw);
+  const lx = -fz, lz = fx;
+  if (sign) {
+    // Gate arch yaw faces along road; pick side toward horse so RADNAR plaque faces camera cleanly
+    const gFx = Math.cos(sign.yaw), gFz = -Math.sin(sign.yaw);
+    const sideDot = (animator.x - sign.x) * gFx + (animator.z - sign.z) * gFz;
+    const dirSign = sideDot >= 0 ? 1 : -1;
+    _csSignCamTarget.set(sign.x, sign.y, sign.z);
+    _csSignCamPos.set(
+      sign.x + gFx * dirSign * 7.2 - gFz * 1.4,
+      sign.groundY + 3.8,
+      sign.z + gFz * dirSign * 7.2 + gFx * 1.4
+    );
+  } else {
+    const gy = world.terrainHeightAt ? world.terrainHeightAt(animator.x, animator.z) : 0;
+    _csSignCamTarget.set(animator.x + fx * 6.0, gy + 3.2, animator.z + fz * 6.0);
+    _csSignCamPos.set(animator.x - fx * 3.0, gy + 3.6, animator.z - fz * 3.0);
+  }
+
+  // 2. Place Radnar guard ahead inside village so he slowly walks toward the horse
+  const gx = animator.x + fx * 2.2 + lx * 1.1;
+  const gz = animator.z + fz * 2.2 + lz * 1.1;
+  _csGuardGoal.x = gx;
+  _csGuardGoal.z = gz;
   const radGuard = (party.wild || []).find((w) => !w.recruited && w.site === 'radnar' && (w.role.id === 'guard' || w.role.id === 'warrior'))
     || (party.wild || []).find((w) => !w.recruited && w.site === 'radnar');
   if (radGuard && radGuard.root) {
     _cutsceneGuardNpc = radGuard;
-    const fx = Math.cos(animator.yaw), fz = -Math.sin(animator.yaw);
-    const lx = -fz, lz = fx;
-    const gx = animator.x + fx * 2.1 + lx * 1.1;
-    const gz = animator.z + fz * 2.1 + lz * 1.1;
-    radGuard.x = gx;
-    radGuard.z = gz;
-    const gy = world.terrainHeightAt ? world.terrainHeightAt(gx, gz) : 0;
-    radGuard.root.position.set(gx, gy, gz);
-    radGuard.root.rotation.y = Math.atan2(animator.x - gx, animator.z - gz);
-    _csCamTarget.set((animator.x + gx) * 0.5, gy + 1.1, (animator.z + gz) * 0.5);
-    _csCamPos.set(_csCamTarget.x + lx * 4.4 - fx * 1.8, gy + 2.3, _csCamTarget.z + lz * 4.4 - fz * 1.8);
+    const startGx = gx + fx * 6.2 + lx * 0.8;
+    const startGz = gz + fz * 6.2 + lz * 0.8;
+    const startGy = world.terrainHeightAt ? world.terrainHeightAt(startGx, startGz) : 0;
+    radGuard.x = startGx;
+    radGuard.z = startGz;
+    radGuard.root.position.set(startGx, startGy, startGz);
+    radGuard.root.rotation.y = Math.atan2(animator.x - startGx, animator.z - startGz);
+    const st = radGuard.root.userData && radGuard.root.userData.npc;
+    if (st && st.vel) { st.vel.x = 0; st.vel.z = 0; }
+    const goalGy = world.terrainHeightAt ? world.terrainHeightAt(gx, gz) : startGy;
+    _csTalkCamTarget.set((animator.x + gx) * 0.5, goalGy + 1.1, (animator.z + gz) * 0.5);
+    _csTalkCamPos.set(_csTalkCamTarget.x + lx * 4.4 - fx * 1.8, goalGy + 2.3, _csTalkCamTarget.z + lz * 4.4 - fz * 1.8);
   } else {
+    _cutsceneGuardNpc = null;
     const gy = world.terrainHeightAt ? world.terrainHeightAt(animator.x, animator.z) : 0;
-    const fx = Math.cos(animator.yaw), fz = -Math.sin(animator.yaw);
-    _csCamTarget.set(animator.x, gy + 1.1, animator.z);
-    _csCamPos.set(animator.x - fx * 3.8 + fz * 2.8, gy + 2.4, animator.z - fz * 3.8 - fx * 2.8);
+    _csTalkCamTarget.set(animator.x, gy + 1.1, animator.z);
+    _csTalkCamPos.set(animator.x - fx * 3.8 + fz * 2.8, gy + 2.4, animator.z - fz * 3.8 - fx * 2.8);
   }
-  renderCutsceneStep();
+
+  _csCamPos.copy(_csSignCamPos);
+  _csCamTarget.copy(_csSignCamTarget);
+  camera.position.copy(_csSignCamPos);
+  controls.target.copy(_csSignCamTarget);
+  controls.update();
   return true;
 }
 
 function advanceCutscene() {
-  if (gameMode !== 'cutscene') return false;
+  if (gameMode !== 'cutscene' || _csPhase !== 'dialogue') return false;
   _cutsceneIdx += 1;
   if (_cutsceneIdx < CUTSCENE_KEYS.length) {
     renderCutsceneStep();
@@ -1528,7 +1625,182 @@ if (btnMenuNew) btnMenuNew.addEventListener('click', (e) => { e.preventDefault()
 if (btnMenuLoad) btnMenuLoad.addEventListener('click', (e) => { e.preventDefault(); loadGameState(); });
 if (btnSaveGame) btnSaveGame.addEventListener('click', (e) => { e.preventDefault(); saveGameState(false); });
 if (btnReturnMenu) btnReturnMenu.addEventListener('click', (e) => { e.preventDefault(); enterMainMenu(); });
-if (btnCutsceneNext) btnCutsceneNext.addEventListener('click', (e) => { e.preventDefault(); advanceCutscene(); });
+if (btnCutsceneNext) btnCutsceneNext.addEventListener('click', (e) => {
+  e.preventDefault();
+  if (_farmerDlg) advanceFarmerDialogue();
+  else advanceCutscene();
+});
+
+// ---- Percakapan Petani & Kerja Paruh Waktu Panen (wajib punya NPC rekrutan, 5G/tanaman ke toko) ----
+let _farmerDlg = null;
+
+function findNearbyFarmer(x, z, maxDist = 5.4) {
+  if (!party || !Array.isArray(party.wild)) return null;
+  let best = null;
+  let bestD = maxDist;
+  for (let i = 0; i < party.wild.length; i++) {
+    const w = party.wild[i];
+    if (!w || w.recruited || w.isIndoors || !w.role || w.role.id !== 'farmer') continue;
+    const vp = w.villageProfile;
+    if (!vp || !vp.farmPlot) continue;
+    const d = Math.hypot(x - w.x, z - w.z);
+    if (d <= bestD) {
+      bestD = d;
+      best = {
+        npc: w,
+        dist: d,
+        villageId: vp.villageId,
+        villageName: vp.farmPlot.villageName || vp.villageId,
+        farmPlot: vp.farmPlot,
+        shopDrop: vp.shopDrop || (vp.villageRef && vp.villageRef.stations && vp.villageRef.stations.shopDrop) || null,
+      };
+    }
+  }
+  return best;
+}
+
+function closeFarmerDialogue() {
+  if (!_farmerDlg) return;
+  _farmerDlg = null;
+  if (cutsceneBoxEl) cutsceneBoxEl.hidden = true;
+  if (csChoicesEl) { csChoicesEl.hidden = true; csChoicesEl.innerHTML = ''; }
+  if (btnCutsceneNext) btnCutsceneNext.hidden = false;
+  _lastDockSig = '';
+  renderNpcDock();
+}
+
+function renderFarmerDialogue() {
+  if (!_farmerDlg || !cutsceneBoxEl || !csTextEl) return;
+  const d = _farmerDlg;
+  const line = d.lines[d.idx];
+  if (!line) { closeFarmerDialogue(); return; }
+  if (csSpeakerEl) csSpeakerEl.textContent = t('farmer_speaker', { village: d.villageName });
+  csTextEl.textContent = t(line.key, { village: d.villageName });
+  const isLast = d.idx >= d.lines.length - 1;
+  if (isLast && d.choices && d.choices.length && csChoicesEl) {
+    csChoicesEl.innerHTML = '';
+    for (const ch of d.choices) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `vintage-pill-btn${ch.secondary ? ' secondary' : ''}`;
+      btn.textContent = t(ch.labelKey);
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (ch.onPick) ch.onPick();
+      });
+      csChoicesEl.appendChild(btn);
+    }
+    csChoicesEl.hidden = false;
+    if (btnCutsceneNext) btnCutsceneNext.hidden = true;
+  } else {
+    if (csChoicesEl) { csChoicesEl.hidden = true; csChoicesEl.innerHTML = ''; }
+    if (btnCutsceneNext) {
+      btnCutsceneNext.hidden = false;
+      btnCutsceneNext.textContent = isLast ? t('farmer_btn_ok') : t('cutscene_next_btn');
+    }
+  }
+  cutsceneBoxEl.hidden = false;
+}
+
+function advanceFarmerDialogue() {
+  if (!_farmerDlg) return false;
+  if (_farmerDlg.idx < _farmerDlg.lines.length - 1) {
+    _farmerDlg.idx += 1;
+    renderFarmerDialogue();
+    return true;
+  }
+  if (_farmerDlg.choices && _farmerDlg.choices.length) return false;
+  closeFarmerDialogue();
+  return true;
+}
+
+function startFarmerDialogue(farmerEntry) {
+  if (!farmerEntry || !farmerEntry.farmPlot) return false;
+  if (gameMode !== 'play' || workshopOpen) return false;
+  stopForSurvivalAction();
+  const fp = farmerEntry.farmPlot;
+  const vName = farmerEntry.villageName || 'Radnar';
+  const hasCrew = !!(party && party.members && party.members.length > 0);
+  const workingHere = !!(party && party.isFarmJobActive && party.isFarmJobActive(farmerEntry.villageId));
+  let ripeCount = 0;
+  for (const tl of fp.tiles || []) if (tl.stage === 2) ripeCount++;
+
+  if (workingHere) {
+    _farmerDlg = {
+      villageName: vName,
+      idx: 0,
+      lines: [{ key: 'farmer_dlg_working' }],
+      choices: [
+        {
+          labelKey: 'farmer_btn_recall',
+          secondary: true,
+          onPick: () => {
+            party.stopFarmJob(true);
+            closeFarmerDialogue();
+            showToast(t('farmer_job_recalled', { village: vName }));
+          },
+        },
+        { labelKey: 'farmer_btn_keep', onPick: () => closeFarmerDialogue() },
+      ],
+    };
+  } else if (!hasCrew) {
+    _farmerDlg = {
+      villageName: vName,
+      idx: 0,
+      lines: [{ key: 'farmer_dlg_no_crew_1' }, { key: 'farmer_dlg_no_crew_2' }],
+      choices: null,
+    };
+  } else if (ripeCount <= 0) {
+    _farmerDlg = {
+      villageName: vName,
+      idx: 0,
+      lines: [{ key: 'farmer_dlg_no_crops' }],
+      choices: null,
+    };
+  } else {
+    _farmerDlg = {
+      villageName: vName,
+      idx: 0,
+      lines: [{ key: 'farmer_dlg_intro' }, { key: 'farmer_dlg_offer' }],
+      choices: [
+        { labelKey: 'farmer_btn_decline', secondary: true, onPick: () => closeFarmerDialogue() },
+        {
+          labelKey: 'farmer_btn_accept',
+          onPick: () => {
+            const started = party.startFarmJob(fp, farmerEntry.shopDrop, {
+              onCropDelivered: ({ member, count, gold, shopStock, villageName }) => {
+                quests.gold = (quests.gold || 0) + gold;
+                showToast(t('farm_harvest_toast', {
+                  name: (member && member.role && member.role.name) || 'NPC',
+                  count,
+                  village: villageName || vName,
+                  stock: shopStock,
+                  gold,
+                }));
+                if (ui && ui.refresh) ui.refresh();
+                syncVitals();
+              },
+              onComplete: (jobInfo) => {
+                const totalCrops = (jobInfo && jobInfo.delivered) || 0;
+                if (totalCrops > 0) {
+                  showToast(t('farmer_job_done', {
+                    village: (jobInfo && jobInfo.villageName) || vName,
+                    count: totalCrops,
+                    gold: totalCrops * 5,
+                  }));
+                }
+              },
+            });
+            closeFarmerDialogue();
+            if (started) showToast(t('farmer_job_started', { village: vName }));
+          },
+        },
+      ],
+    };
+  }
+  renderFarmerDialogue();
+  return true;
+}
 
 function applyTranslations() {
   document.documentElement.lang = getLang();
@@ -1544,6 +1816,7 @@ function applyTranslations() {
   syncMenuLangChips();
   refreshMainMenuUI();
   if (gameMode === 'cutscene') renderCutsceneStep();
+  if (_farmerDlg) renderFarmerDialogue();
   refreshQualityBar();
   renderHorseUpgrades();
   if (ui && ui.refreshLang) ui.refreshLang();
@@ -1598,7 +1871,14 @@ function doEat() {
   const ctx = survCtx();
   ctx.speed = 0;
   const ok = survival.tryEat(ctx);
-  if (ok) animator.setState('graze');
+  if (ok) {
+    animator.setState('graze');
+    if (world.grazeGrassAt) {
+      const muzzleX = animator.x + Math.cos(animator.yaw) * 1.05;
+      const muzzleZ = animator.z - Math.sin(animator.yaw) * 1.05;
+      world.grazeGrassAt(muzzleX, muzzleZ, 1.65);
+    }
+  }
   syncVitals();
 }
 function doDrink() {
@@ -1612,10 +1892,29 @@ function doDrink() {
   }
   syncVitals();
 }
+function cancelEatDrink() {
+  if (survival.eatT > 0 || survival.drinkT > 0) {
+    survival.eatT = 0;
+    survival.drinkT = 0;
+    survival.msg = '';
+    if (animator.state === 'graze') animator.setState(runLatched ? 'run' : 'walk');
+    syncVitals();
+  }
+}
+function doEatOrDrink() {
+  if ((survival.canDrink && survival.canDrink()) || (world.isAtWater && world.isAtWater(animator.x, animator.z))) {
+    doDrink();
+  } else {
+    doEat();
+  }
+}
 function doInteract() {
   if (gameMode === 'cutscene') {
     advanceCutscene();
     return true;
+  }
+  if (_farmerDlg) {
+    return advanceFarmerDialogue();
   }
   if (gameMode !== 'play') return false;
   if (workshopOpen) {
@@ -1637,13 +1936,14 @@ function doInteract() {
   const nearGiver = (!quests.activeQuest && hasCart) ? quests.getNearbyQuestNpc(animator.x, animator.z, party.wild, 6.2) : null;
   if (nearGiver) return tryAcceptQuestAtGiver(nearGiver);
 
-  const ws = (hasCart && world.findNearestWorkshop) ? world.findNearestWorkshop(animator.x, animator.z, 11.5) : null;
+  const ws = (hasCart && world.findNearestWorkshop) ? world.findNearestWorkshop(animator.x, animator.z, 4.2) : null;
   if (ws) return openWorkshop(ws);
 
-  if (survival.canDrink && survival.canDrink()) {
-    doDrink();
-    return true;
+  const nearFarmer = findNearbyFarmer(animator.x, animator.z, 5.4);
+  if (nearFarmer) {
+    return startFarmerDialogue(nearFarmer);
   }
+
   showToast(t('no_interact_near'));
   return false;
 }
@@ -1685,7 +1985,8 @@ if (btnWalkEl) {
     e.preventDefault();
     btnForwardHeld = true;
     btnWalkEl.classList.add('held');
-    if (!survival.eating && !survival.drinking && (animator.state === 'graze' || animator.state === 'sleep')) {
+    cancelEatDrink();
+    if (animator.state === 'graze' || animator.state === 'sleep') {
       animator.setState(runLatched ? 'run' : 'walk');
     }
   };
@@ -1708,7 +2009,8 @@ if (btnRevEl) {
     e.preventDefault();
     btnBackwardHeld = true;
     btnRevEl.classList.add('held');
-    if (!survival.eating && !survival.drinking && (animator.state === 'graze' || animator.state === 'sleep')) {
+    cancelEatDrink();
+    if (animator.state === 'graze' || animator.state === 'sleep') {
       animator.setState('walk');
     }
   };
@@ -1727,7 +2029,7 @@ if (btnRevEl) {
 }
 bindBtn('btn-run', () => toggleRun());
 bindBtn('btn-jump', () => doJump());
-bindBtn('btn-graze', () => doEat());
+bindBtn('btn-graze', () => doEatOrDrink());
 bindBtn('btn-interact', () => doInteract());
 bindBtn('btn-sleep', () => doSleepToggle());
 if (btnInspectEl) {
@@ -1745,9 +2047,9 @@ bindBtn('btn-map', () => mapUI.toggle());
 
 const touchUI = initTouchControls({
   animator, survival,
-  onJump: doJump, onEat: doEat, onInteract: doInteract, onSleep: doSleepToggle, onRunToggle: toggleRun, onHitch: toggleHitch,
+  onJump: doJump, onEat: doEatOrDrink, onInteract: doInteract, onSleep: doSleepToggle, onRunToggle: toggleRun, onHitch: toggleHitch,
   onInspect: (on) => setInspectMode(on, !!on),
-  isTouchDevice: matchMedia('(pointer: coarse)').matches,
+  isTouchDevice: matchMedia('(pointer: coarse)').matches || location.search.includes('touch=1'),
 });
 if (touchUI && touchUI.refreshLang) {
   onLangChange(() => touchUI.refreshLang());
@@ -1866,7 +2168,10 @@ function renderNpcDock() {
   const nearGiver = (hasCart && !quests.activeQuest) ? quests.getNearbyQuestNpc(animator.x, animator.z, party.wild, 6.2) : null;
   const offer = nearGiver ? quests.getOfferForVillage(nearGiver.villageId, party.wild) : null;
   const nearWorkshop = (hasCart && !workshopOpen && world.findNearestWorkshop)
-    ? world.findNearestWorkshop(animator.x, animator.z, 11.5)
+    ? world.findNearestWorkshop(animator.x, animator.z, 4.2)
+    : null;
+  const nearFarmer = (!workshopOpen && !_farmerDlg)
+    ? findNearbyFarmer(animator.x, animator.z, 5.4)
     : null;
   const isStationary = Math.abs(animator.speed) < 0.85 && Math.hypot(physics.vel.x, physics.vel.z) < 0.85;
   const canHitchAction = hasCart && !physics.flipped && ((!physics.hitched) || hitchAnim.active);
@@ -1880,12 +2185,12 @@ function renderNpcDock() {
     : al.longErr > 1.25 ? 'rev'
     : 'pos';
   const langKey = getLang();
-  const sig = `${langKey}|${nearOldCart ? 'C' : ''}|${near ? near.npc.role.id : ''}|${nearGiver ? nearGiver.npc.uid : ''}|${nearWorkshop ? nearWorkshop.villageId : ''}@${hitchMode}${physics.flipped ? ':F' : ''}`;
+  const sig = `${langKey}|${nearOldCart ? 'C' : ''}|${near ? near.npc.role.id : ''}|${nearGiver ? nearGiver.npc.uid : ''}|${nearWorkshop ? `${nearWorkshop.villageId}:${physics.hitched ? 'H' : 'U'}` : ''}|${nearFarmer ? nearFarmer.villageId : ''}@${hitchMode}${physics.flipped ? ':F' : ''}`;
   if (sig === _lastDockSig) return;
   _lastDockSig = sig;
 
   npcDockEl.innerHTML = '';
-  const hasAny = nearOldCart || !!near || !!(offer && nearGiver) || !!nearWorkshop || (canHitchAction && hitchMode !== 'none');
+  const hasAny = nearOldCart || !!near || !!(offer && nearGiver) || !!nearWorkshop || !!nearFarmer || (canHitchAction && hitchMode !== 'none');
   npcDockEl.hidden = !hasAny;
   if (!hasAny) return;
 
@@ -1915,11 +2220,28 @@ function renderNpcDock() {
     const wBtn = document.createElement('button');
     wBtn.type = 'button';
     wBtn.className = 'npc-nearby-card';
-    wBtn.style.background = 'rgba(14, 116, 144, 0.92)';
-    wBtn.style.borderColor = '#38bdf8';
-    wBtn.textContent = t('ws_prompt', { village: nearWorkshop.villageName });
+    if (physics.hitched) {
+      wBtn.style.background = 'rgba(14, 116, 144, 0.92)';
+      wBtn.style.borderColor = '#38bdf8';
+      wBtn.textContent = t('ws_prompt', { village: nearWorkshop.villageName });
+    } else {
+      wBtn.style.background = 'rgba(71, 56, 77, 0.92)';
+      wBtn.style.borderColor = '#b39570';
+      wBtn.textContent = t('ws_need_cart_short');
+    }
     bindTapSafe(wBtn, () => openWorkshop(nearWorkshop));
     npcDockEl.appendChild(wBtn);
+  }
+
+  if (nearFarmer) {
+    const fBtn = document.createElement('button');
+    fBtn.type = 'button';
+    fBtn.className = 'npc-nearby-card';
+    fBtn.style.background = 'rgba(161, 98, 7, 0.94)';
+    fBtn.style.borderColor = '#facc15';
+    fBtn.textContent = t('farmer_talk_btn', { village: nearFarmer.villageName });
+    bindTapSafe(fBtn, () => startFarmerDialogue(nearFarmer));
+    npcDockEl.appendChild(fBtn);
   }
 
   if (near) {
@@ -2417,7 +2739,6 @@ function resetRig() {
   syncHitchUi();
   syncFlipBanner();
 }
-bindBtn('btn-reset', resetRig);
 
 // ---- Vignette malam mengikuti siklus 10 menit otomatis ----
 const vignetteEl = document.getElementById('cozy-vignette');
@@ -2465,22 +2786,35 @@ window.addEventListener('keydown', (e) => {
     }
     return;
   }
+  if (_farmerDlg) {
+    if (k === 'escape') { e.preventDefault(); closeFarmerDialogue(); return; }
+    if (k === ' ' || k === 'enter' || k === 'f') {
+      e.preventDefault();
+      if (!e.repeat) advanceFarmerDialogue();
+      return;
+    }
+    if (k === 'w' || k === 's' || k === 'a' || k === 'd' || k.startsWith('arrow')) {
+      closeFarmerDialogue();
+    }
+  }
   if (k === 'w' || k === 'arrowup') {
     keysHeld.forward = true;
-    if (!survival.eating && !survival.drinking && (animator.state === 'graze' || animator.state === 'sleep')) {
+    cancelEatDrink();
+    if (animator.state === 'graze' || animator.state === 'sleep') {
       animator.setState(runLatched ? 'run' : 'walk');
     }
     e.preventDefault();
   }
   else if (k === 's' || k === 'arrowdown') {
     keysHeld.backward = true;
-    if (!survival.eating && !survival.drinking && (animator.state === 'graze' || animator.state === 'sleep')) {
+    cancelEatDrink();
+    if (animator.state === 'graze' || animator.state === 'sleep') {
       animator.setState('walk');
     }
     e.preventDefault();
   }
-  else if (k === 'arrowleft' || k === 'a') { keysHeld.left = true; syncSteerInput(); e.preventDefault(); }
-  else if (k === 'arrowright' || k === 'd') { keysHeld.right = true; syncSteerInput(); e.preventDefault(); }
+  else if (k === 'arrowleft' || k === 'a') { keysHeld.left = true; cancelEatDrink(); syncSteerInput(); e.preventDefault(); }
+  else if (k === 'arrowright' || k === 'd') { keysHeld.right = true; cancelEatDrink(); syncSteerInput(); e.preventDefault(); }
   else if (k === '1') {
     runLatched = false;
     animator.setState('walk');
@@ -2515,7 +2849,7 @@ window.addEventListener('keydown', (e) => {
       syncHitchUi();
     }
   }
-  else if (k === '3' || k === 'e') doEat();
+  else if (k === '3' || k === 'e') { e.preventDefault(); if (!e.repeat) doEatOrDrink(); }
   else if (k === '4' || k === 'f') { e.preventDefault(); if (!e.repeat) doInteract(); }
   else if (k === 'z') { e.preventDefault(); if (!e.repeat) doSleepToggle(); }
   else if (k === 'm') { e.preventDefault(); if (!e.repeat) mapUI.toggle(); }
@@ -2525,7 +2859,6 @@ window.addEventListener('keydown', (e) => {
   else if (k === 'g') recruitNearbyNPC();
   else if (k === 'h') releaseLastNPC();
   else if (k === 'v') { e.preventDefault(); if (!e.repeat) toggleHitch(); }
-  else if (k === 'x') resetRig();
 });
 window.addEventListener('keyup', (e) => {
   const k = e.key.toLowerCase();
@@ -3007,6 +3340,69 @@ function stepSim(dt) {
     animator.speed = 0;
     animator.targetSpeed = 0;
     animator.update(dt);
+
+    _csTimer += dt;
+    if (_csPhase === 'sign') {
+      // Gentle subtle zoom toward the RADNAR sign plaque for 2.3s
+      const u = HC.clamp(_csTimer / 2.3, 0, 1);
+      _csCamTarget.copy(_csSignCamTarget);
+      _csCamPos.copy(_csSignCamPos).lerp(_csSignCamTarget, u * 0.14);
+      if (_csTimer >= 2.3) {
+        _csSignCamPos.copy(_csCamPos);
+        _csPhase = 'approach';
+        _csTimer = 0;
+      }
+    } else if (_csPhase === 'approach') {
+      // Smooth camera glide to the horse + village guard walks slowly toward the horse
+      const glideDur = 2.8;
+      const u = HC.smooth(HC.clamp(_csTimer / glideDur, 0, 1));
+      _csCamTarget.lerpVectors(_csSignCamTarget, _csTalkCamTarget, u);
+      _csCamPos.lerpVectors(_csSignCamPos, _csTalkCamPos, u);
+
+      let guardArrived = true;
+      if (_cutsceneGuardNpc && _cutsceneGuardNpc.root) {
+        const g = _cutsceneGuardNpc;
+        const dx = _csGuardGoal.x - g.x;
+        const dz = _csGuardGoal.z - g.z;
+        const dist = Math.hypot(dx, dz);
+        const st = g.root.userData && g.root.userData.npc;
+        if (dist > 0.18) {
+          guardArrived = false;
+          const walkSpd = 1.65;
+          const step = Math.min(dist, walkSpd * dt);
+          g.x += (dx / dist) * step;
+          g.z += (dz / dist) * step;
+          const gy = world.terrainHeightAt ? world.terrainHeightAt(g.x, g.z) : 0;
+          g.root.position.set(g.x, gy, g.z);
+          g.root.rotation.y = Math.atan2(dx, dz);
+          if (st && st.vel) {
+            st.vel.x = (dx / dist) * walkSpd;
+            st.vel.z = (dz / dist) * walkSpd;
+          }
+        } else {
+          g.x = _csGuardGoal.x;
+          g.z = _csGuardGoal.z;
+          const gy = world.terrainHeightAt ? world.terrainHeightAt(g.x, g.z) : 0;
+          g.root.position.set(g.x, gy, g.z);
+          g.root.rotation.y = Math.atan2(animator.x - g.x, animator.z - g.z);
+          if (st && st.vel) { st.vel.x = 0; st.vel.z = 0; }
+        }
+      }
+
+      if (_csTimer >= glideDur && guardArrived) {
+        _csPhase = 'dialogue';
+        if (cutsceneBoxEl) cutsceneBoxEl.hidden = false;
+        renderCutsceneStep();
+      }
+    } else {
+      _csCamTarget.copy(_csTalkCamTarget);
+      _csCamPos.copy(_csTalkCamPos);
+      if (_cutsceneGuardNpc && _cutsceneGuardNpc.root) {
+        const st = _cutsceneGuardNpc.root.userData && _cutsceneGuardNpc.root.userData.npc;
+        if (st && st.vel) { st.vel.x = 0; st.vel.z = 0; }
+      }
+    }
+
     if (_cutsceneGuardNpc && _cutsceneGuardNpc.root && HC.animateNPC) {
       HC.animateNPC(_cutsceneGuardNpc.root, dt);
     }
@@ -3014,7 +3410,7 @@ function stepSim(dt) {
     updateCartLantern(dt);
     scene.updateMatrixWorld(true);
     if (physics.syncVisual) physics.syncVisual();
-    const kCs = 1 - Math.exp(-5.0 * dt);
+    const kCs = 1 - Math.exp(-6.5 * dt);
     controls.target.lerp(_csCamTarget, kCs);
     camera.position.lerp(_csCamPos, kCs);
     controls.update();
@@ -3034,11 +3430,15 @@ function stepSim(dt) {
     }
   }
   // --- horse controls & workshop lock ---
-  const wasActing = survival.eating || survival.drinking;
-  const acting = wasActing;
   const pcForward = !workshopOpen && !!(keysHeld.forward || btnForwardHeld || window.__forceForward);
   const pcBackward = !workshopOpen && !!(keysHeld.backward || btnBackwardHeld || window.__forceBackward);
   const stickActive = !workshopOpen && !!(touchUI.active && touchUI.joystick && touchUI.joystick.pad && touchUI.joystick.pad.active);
+  const stickMove = stickActive && Math.hypot(touchUI.joystick.vec.x || 0, touchUI.joystick.vec.y || 0) > 0.14;
+  if (pcForward || pcBackward || keysHeld.left || keysHeld.right || stickMove) {
+    cancelEatDrink();
+  }
+  const wasActing = survival.eating || survival.drinking;
+  const acting = wasActing;
   if (workshopOpen) {
     animator.setSteer(0);
     animator.setThrottle(0);
@@ -3404,7 +3804,9 @@ function stepSim(dt) {
     hudWheel.style.color = lost > 0 ? '#c084fc' : worst <= 0 ? '#f87171' : worst < 45 ? '#fb923c' : '';
   }
   if (hudGold) hudGold.textContent = `${quests.gold} G`;
+  if (hudTopGold) hudTopGold.textContent = `${quests.gold} G`;
   if (hudTime && world.getTimeLabel) hudTime.textContent = world.getTimeLabel();
+  if (HC.VintageGUI && HC.VintageGUI.step) HC.VintageGUI.step(dt);
 
   if (portraitRender && ((portraitRender.frameCount++ & 3) === 0)) {
     const nowT = world.totalTime || 0;
@@ -3439,6 +3841,15 @@ function frame(now) {
 }
 
 applyTranslations();
+if (HC.VintageGUI && HC.VintageGUI.init) HC.VintageGUI.init();
+const _qMap = document.getElementById('btn-quick-map');
+if (_qMap) _qMap.addEventListener('click', (e) => { e.preventDefault(); if (mapUI) mapUI.toggle(); });
+const _qStats = document.getElementById('btn-quick-stats');
+if (_qStats) _qStats.addEventListener('click', (e) => { e.preventDefault(); setStatsPanelOpen(statsPanelEl ? statsPanelEl.hidden : false); });
+const _qInspect = document.getElementById('btn-quick-inspect');
+if (_qInspect) _qInspect.addEventListener('click', (e) => { e.preventDefault(); toggleInspectMode(); });
+const _qSet = document.getElementById('btn-quick-settings');
+if (_qSet) _qSet.addEventListener('click', (e) => { e.preventDefault(); setSettingsPanelOpen(settingsPanelEl ? settingsPanelEl.hidden : false); });
 enterMainMenu();
 
 window.RIG = {

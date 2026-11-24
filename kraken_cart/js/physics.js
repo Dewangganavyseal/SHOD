@@ -6,8 +6,8 @@ const UP = new THREE.Vector3(0, 1, 0);
 // Batas guling: gerobak boleh miring sampai 75°, begitu nyentuh batas itu
 // langsung jatuh rebah (~89°) lalu berhenti total. Bukan animasi: sudut 75°
 // tetap dicapai dari momen gaya & kontak roda.
-const FLIP_ANG = 75 * Math.PI / 180;   // 1.3090 rad — batas guling
-const LAY_ANG  = 1.20;                 // di atas ini sudah lewat titik balik -> rebah sekali jalan
+const FLIP_ANG = 80 * Math.PI / 180;   // 1.3963 rad — batas guling 80°
+const LAY_ANG  = 76 * Math.PI / 180;   // 1.3265 rad — di atas ini rebah sekali jalan
 const REST_ANG = 1.56;                 // sudut rebah final (~89.4°)
 
 // AABB visual barang di frame bak. localHalf/localCenter disimpan tanpa
@@ -130,13 +130,17 @@ function computeCargoSupports(items, boxesByItem, maxGap = 0.035, maxPenetration
           if (Math.abs(ab.y - bb.y) > ab.hy + bb.hy + maxGap) continue;
           const bBottom = bb.y - bb.hy;
           const bTop = bb.y + bb.hy;
+          const aCenterOnB = Math.abs(ab.x - bb.x) <= bb.hx + ab.hx * 0.15
+            && Math.abs(ab.z - bb.z) <= bb.hz + ab.hz * 0.15;
           if (aBottom >= bTop - maxPenetration && aBottom <= bTop + maxGap
-            && cargoBoxOverlapXZ(ab, bb)) {
+            && aCenterOnB && cargoBoxOverlapXZ(ab, bb)) {
             if (bTop > supports[i].y) supports[i] = { y: bTop, by: b };
           }
           const aTop = ab.y + ab.hy;
+          const bCenterOnA = Math.abs(bb.x - ab.x) <= ab.hx + bb.hx * 0.15
+            && Math.abs(bb.z - ab.z) <= ab.hz + bb.hz * 0.15;
           if (bBottom >= aTop - maxPenetration && bBottom <= aTop + maxGap
-            && cargoBoxOverlapXZ(ab, bb)) {
+            && bCenterOnA && cargoBoxOverlapXZ(ab, bb)) {
             if (aTop > supports[j].y) supports[j] = { y: aTop, by: a };
           }
         }
@@ -441,9 +445,12 @@ function computeCargoSupports(items, boxesByItem, maxGap = 0.035, maxPenetration
       this.comLocal = new THREE.Vector3(-L * 0.05, H * 0.44, 0);
 
       // Tali tarik (traces) nyambung dari sabuk perut kuda ke ujung singletree
+      const bodyYOff = (this.cart && this.cart.body)
+        ? this.cart.body.position.y
+        : (0.42 * HC.cartScale - this.pivotY);
       this.traceLocal = [
-        new THREE.Vector3(35.0 * S, 12.2 * S, 9.2 * S),
-        new THREE.Vector3(35.0 * S, 12.2 * S, -9.2 * S)
+        new THREE.Vector3(35.0 * S, 12.2 * S + bodyYOff, 9.2 * S),
+        new THREE.Vector3(35.0 * S, 12.2 * S + bodyYOff, -9.2 * S)
       ];
       this.traceRest = [null, null];
       // Ujung batang penarik (thills) tepat di kalung kuda (mengacu HC.shaftTipVox)
@@ -700,7 +707,11 @@ function computeCargoSupports(items, boxesByItem, maxGap = 0.035, maxPenetration
           const pwr = this.pullPowerScale || 1.0;
           let F = this.kTrace * pwr * (L - this.traceRest[i]) - this.cTrace * relN;
           F = Math.max(0, Math.min(22000 * pwr, F));
-          if (F > 0) addForce(-nx * F, -ny * F, -nz * F, bx, by, bz);
+          if (F > 0) {
+            const fyPull = -ny * F * 0.20;
+            const applyY = Math.min(by, com.y + 0.02);
+            addForce(-nx * F, fyPull, -nz * F, bx, applyY, bz);
+          }
         }
       }
 
@@ -856,27 +867,11 @@ function computeCargoSupports(items, boxesByItem, maxGap = 0.035, maxPenetration
         const aR = Math.abs(this.roll);
         this._tipCrit = crit;
         this._tipArm = hCom * Math.sin(aR) - bEff * Math.cos(aR);
-        if (this._tipArm > 0 && !lying) {
-          this.rollV += Math.sign(this.roll) * (m * g * this._tipArm / this.Iroll) * h * 2.2;
+        // Hanya dorong guling oleh gravitasi jika kemiringan sudah ekstrem (>55°) dan titik berat melewati garis roda
+        if (this._tipArm > 0 && aR > 55 * Math.PI / 180 && !lying) {
+          this.rollV += Math.sign(this.roll) * (m * g * this._tipArm / this.Iroll) * h * 1.8;
         }
-        /* ---- guling karena KEMIRINGAN (tanah/cross-slope), bukan tikungan ----
-           Begitu titik berat keluar dari garis roda, kontak roda sisi luar jadi
-           poros: tidak ada lagi yang bisa menahan. Tapi kontak pegas kaku punya
-           torsi pemulih raksasa (roda sisi dalam dianggap menembus tanah), jadi
-           tanpa latch ini momen gravitasi selalu kalah dan gerobak cuma ikut
-           miring rapi di tanjakan curam — persis keluhan "tidak mau terguling".
-           Syaratnya harus bertahan 0.12 s supaya kerikil/gundukan tidak
-           menggulingkan gerobak. */
-        const beyondCrit = Math.abs(this.roll) > 0.90 * crit;
-        if (!this.flipped && Math.abs(this.roll) < LAY_ANG && (beyondCrit || this._tipArm > 0.04)) {
-          this._tipGravT = (this._tipGravT || 0) + h;
-          if (this._tipGravT > (beyondCrit ? 0.03 : 0.12)) {
-            this._tipGravT = 0;
-            this._triggerFlip('roll', Math.sign(this.roll) || 1, true);
-          }
-        } else {
-          this._tipGravT = 0;
-        }
+        this._tipGravT = 0;
       }
 
       // redaman struktur ringan (bukan "ditarik ke nol")
@@ -980,25 +975,8 @@ function computeCargoSupports(items, boxesByItem, maxGap = 0.035, maxPenetration
           this.rollV += ((rollTgt - this.roll) * kDrive - this.rollV * cDrive) * h;
         }
 
-        /* ---- batas stabilitas statis: kapan gerobak MULAI terguling ----
-           Selama titik berat masih di dalam garis roda luar, suspensi bisa
-           menahan. Begitu percepatan lateral melewati batas itu (ban nyeret
-           karena roda tidak membelok), roda dalam terangkat dan tidak ada lagi
-           yang menahan -> bodi lanjut jatuh ke samping. Ambangnya diturunkan
-           dari geometri asli (separuh trek / tinggi titik berat), bukan angka
-           hiasan, dan harus bertahan ~0,2 s supaya tikungan sekilas tidak
-           langsung menggulingkan gerobak. */
-        if (!lying) {
-          const hCom = Math.max(0.45, com.y - rootY);
-          const bArm = (this._halfTrack || 1.0) * 0.62;
-          const aTip = (this.tipAccel || (0.45 * g * bArm / hCom));
-          if (aLatAbs > aTip) this._tipT = (this._tipT || 0) + h;
-          else this._tipT = Math.max(0, (this._tipT || 0) - h * 2.5);
-          if (!this.flipped && this._tipT > 0.20 && Math.abs(this.roll) < LAY_ANG) {
-            this._tipT = 0;
-            this._triggerFlip('roll', -Math.sign(aLat) || 1, true);
-          }
-        }
+        // Batas guling ditentukan langsung oleh sudut kemiringan 80° (FLIP_ANG), bukan timer tikungan prematur
+        this._tipT = 0;
         if (this.flipped && Math.abs(this.roll) < LAY_ANG) {
           if (this._tipLatched) {
             /* Terguling karena tikungan: sudut sudah lewat batas stabilitas, jadi
@@ -1350,7 +1328,7 @@ function computeCargoSupports(items, boxesByItem, maxGap = 0.035, maxPenetration
         this.heaveVel = (this.heave - prevHeaveNow) / dt;
         // pitch/roll jolt tetap dari beda tinggi antar roda (bukan common mode)
         const pitchDiff = n ? pitchRise / n : 0;
-        this.pitchV += (pitchDiff - meanRise) * 3.2;
+        this.pitchV += pitchDiff * 2.4;
 
         /* Poros kaku = bodi dipaku ke poros, jadi sikapnya MENGIKUTI bidang empat
            roda, bukan diredam pegas. Di sini bidang itu dipakai sebagai sudut
@@ -1367,23 +1345,31 @@ function computeCargoSupports(items, boxesByItem, maxGap = 0.035, maxPenetration
           const wheelBase = Math.max(0.6, Math.abs(this.wheels[0]?.wa.x - this.wheels[2]?.wa.x) || 1.7);
           const trackW = Math.max(0.6, Math.abs(this.wheels[0]?.wa.z - this.wheels[1]?.wa.z) || 2.0);
           if (fn && rn) {
-            const pitchGeo = Math.atan2((fy / fn) - (ry / rn), wheelBase);
+            const pitchGeo = Math.max(-0.45, Math.min(0.45, Math.atan2((fy / fn) - (ry / rn), wheelBase)));
             this.pitch += (pitchGeo - this.pitch) * Math.min(1, dt * 30);
+            this.pitchV *= Math.exp(-4.0 * dt);
           }
           if (ln && rrn) {
-            const rollGeo = Math.atan2((ly / ln) - (rry / rrn), trackW);
-            /* Poros kaku mengikuti bidang roda HANYA selama roda masih menapak.
-               Begitu badan lewat batas stabilitas (titik berat keluar dari garis
-               roda), roda sisi dalam sudah terangkat, jadi bidang roda tidak lagi
-               mengikat. Dulu tarikan ini tetap jalan sampai 72 deg, jadi gerobak
-               di tanjakan curam cuma ikut miring dan TIDAK PERNAH terguling
-               (sudut ditahan di bidang roda, momen gravitasi selalu kalah).
-               Sekarang tarikannya dilepas mulai 0.75 x sudut kritis. */
-            const critR = this._tipCrit || 0.68;
+            // Pada Euler('YZX'): roll > 0 memutar +Z turun, jadi sisi +Z lebih tinggi (ly > rry) butuh roll negatif
+            const rollGeo = Math.max(-0.45, Math.min(0.45, Math.atan2((rry / rrn) - (ly / ln), trackW)));
+            const critR = Math.max(this._tipCrit || 0.68, 1.15);
             const ratio = Math.abs(this.roll) / critR;
-            const follow = ratio <= 0.75 ? 1 : Math.max(0, 1 - (ratio - 0.75) / 0.25);
+            const follow = ratio <= 0.78 ? 1 : Math.max(0, 1 - (ratio - 0.78) / 0.22);
             this.roll += (rollGeo - this.roll) * Math.min(1, dt * 14 * follow);
           }
+        }
+      } else if (!this.susRigid && !this.flipped && !this._lying) {
+        let fy = 0, fn = 0, ry = 0, rn = 0;
+        for (const w of this.wheels) {
+          if (!w.contact || w.detached) continue;
+          const sy = this.world.wheelHeightAt(w.world.x, w.world.z, w.ref.radius);
+          if (w.wa.x > 0.01) { fy += sy; fn++; } else if (w.wa.x < -0.01) { ry += sy; rn++; }
+        }
+        if (fn && rn) {
+          const wheelBase = Math.max(0.6, Math.abs(this.wheels[0]?.wa.x - this.wheels[2]?.wa.x) || 1.7);
+          const pitchGeo = Math.max(-0.45, Math.min(0.45, Math.atan2((fy / fn) - (ry / rn), wheelBase)));
+          this.pitch += (pitchGeo - this.pitch) * Math.min(1, dt * 10);
+          this.pitchV *= Math.exp(-3.5 * dt);
         }
       }
 
@@ -1728,6 +1714,7 @@ function computeCargoSupports(items, boxesByItem, maxGap = 0.035, maxPenetration
         item.localPos = item.homePos.clone();
         item.localVel = new THREE.Vector3();
         item.localAng = new THREE.Vector3(item.homeRot.x, item.homeRot.y, item.homeRot.z);
+        item.localQuat = new THREE.Quaternion().setFromEuler(item.homeRot);
         item.localAngVel = new THREE.Vector3();
         item.floorY = item.homePos.y;
         item.bounciness = 0.38 + (i % 3) * 0.08;
@@ -1736,7 +1723,7 @@ function computeCargoSupports(items, boxesByItem, maxGap = 0.035, maxPenetration
         item.vel = new THREE.Vector3();
         item.angVel = new THREE.Vector3();
         item.mesh.position.copy(item.homePos);
-        item.mesh.rotation.copy(item.homeRot);
+        item.mesh.quaternion.copy(item.localQuat);
         // Collider PER BARANG: AABB dari mesh aslinya (bukan satu radius seragam).
         // Dipakai untuk tabrakan barang-barang di dalam bak maupun saat tumpah.
         const bb = new THREE.Box3().setFromObject(item.mesh);
@@ -1858,82 +1845,45 @@ function computeCargoSupports(items, boxesByItem, maxGap = 0.035, maxPenetration
           }
         }
 
-        // Gravity projected into tilted bed frame + lateral/fore-aft inertial forces
-        // Percepatan gerobak dibatasi: rem mendadak bikin cartAccX puluhan m/s²
-        // dan itu cukup buat nyembur barang 4 m/s ke depan.
-        const accClamped = Math.max(-6, Math.min(6, cartAccX));
-        const gx = -Math.sin(this.pitch) * g * 1.4 - accClamped * 0.38;
-        const gz =  Math.sin(this.roll)  * g * 1.5 - this.rollV * 1.9;
+        // Gravity projected into tilted bed frame + centrifugal & inertial slosh forces
+        const accClamped = Math.max(-8, Math.min(8, cartAccX));
+        const centClamped = Math.max(-7, Math.min(7, this.centrifugal || 0));
+        const gx = -Math.sin(this.pitch) * g * 1.35 - accClamped * 0.65;
+        const gz =  Math.sin(this.roll)  * g * 1.45 - centClamped * 0.55 - this.rollV * 1.4;
         const gy = -Math.cos(this.roll) * Math.cos(this.pitch) * g;
 
         // Collision footprint and visual centre in the cart's local frame.
         const cyaw = Math.cos(it.localAng.y), syaw = Math.sin(it.localAng.y);
         const hx = Math.abs(cyaw) * it.half.x + Math.abs(syaw) * it.half.z;
         const hz = Math.abs(syaw) * it.half.x + Math.abs(cyaw) * it.half.z;
-        // Batas dalam bak memakai AABB visual barang (localHalf/localCenter),
-        // bukan titik origin mesh. Origin sering bergeser dari pusat visual,
-        // jadi clamp lama bisa membiarkan sisi barang menembus pagar.
         const vCenter = it.localCenter || { x: 0, z: 0 };
         const vHalf = it.localHalf || { x: hx / 0.9, z: hz / 0.9 };
         const bed = { xMin: bedMinX, xMax: bedMaxX, zMin: bedMinZ, zMax: bedMaxZ };
         const limits = cargoBedLimits(vCenter, vHalf, it.localAng.y, bed);
         const { minX: inMinX, maxX: inMaxX, minZ: inMinZ, maxZ: inMaxZ } = limits;
-        const vcx = limits.fp.x, vcz = limits.fp.z;
-        const visualHx = limits.fp.hx, visualHz = limits.fp.hz;
         it._wallMinX = inMinX; it._wallMaxX = inMaxX;
         it._wallMinZ = inMinZ; it._wallMaxZ = inMaxZ;
-
-        // Slot asal juga di-clamp ke dalam bak. Kalau nggak, tarikan "pulang"
-        // melawan pagar tiap frame -> barang bergetar/muter di tempat.
-        const homeX = Math.min(inMaxX, Math.max(inMinX, it.homePos.x));
-        const homeZ = Math.min(inMaxZ, Math.max(inMinZ, it.homePos.z));
-
-        // Gentle packing friction toward home slot when flat, loose enough to slide & clatter against neighbors.
-        // Kalau frame sebelumnya barang lagi bersentuhan (pagar/barang lain), tarikan
-        // slot dimatikan: kalau ditarik terus sementara tetangganya menahan, dua gaya
-        // itu berkelahi tiap frame -> barang getar/muter di tempat.
-        const touching = it._touchPrev === true;
         it._touchPrev = false;
-        // Dead zone 10 cm: kalau barang sudah dekat slotnya, tarikan dimatikan.
-        // Tanpa dead zone, slot yang saling tumpang-tindih bikin tarik-vs-tolak
-        // berulang tiap frame -> barang kelihatan muter terus.
-        const dhx = homeX - it.localPos.x, dhz = homeZ - it.localPos.z;
-        const dh = Math.hypot(dhx, dhz);
-        // Tarikan slot HARUS dibatasi. Pegas murni (pos * k) tanpa redaman bikin
-        // kecepatan numpuk terus selama barang ketahan tetangga, lalu nyembur
-        // begitu lepas -> barang lompat/berputar liar.
-        let homePullX = 0, homePullZ = 0;
-        const calm = Math.abs(it.localVel.x) + Math.abs(it.localVel.z) < 0.45;
-        if (!touching && !hasSupport && calm && dh > 0.10) {
-          // Nudge pelan doang: 0,28 m/s. Tujuannya cuma ngerapihin, bukan
-          // nyeret barang balik ke slot sambil ngelawan tetangga (itu yang
-          // bikin geser-goyang terus walaupun gerobak diam).
-          const k = 6.0, vCap = 0.28;
-          const tx = Math.max(-vCap, Math.min(vCap, dhx * k));
-          const tz = Math.max(-vCap, Math.min(vCap, dhz * k));
-          homePullX = (tx - it.localVel.x) * 1.6;
-          homePullZ = (tz - it.localVel.z) * 1.6;
-        }
 
-        it.localVel.x += (gx + homePullX) * dt;
-        it.localVel.z += (gz + homePullZ) * dt;
+        // Barang bebas bergeser/terombang-ambing di dalam bak seperti benda lepas di dalam mangkuk
+        it.localVel.x += gx * dt;
+        it.localVel.z += gz * dt;
         it.localVel.y += gy * dt;
 
-        // Direct impulse kick when sitting on the plank and a wheel hits a pebble/rock
-        if (onFloor && localBumpKick > 0.18) {
-          const hop = Math.min(1.45, 0.38 + localBumpKick * (0.45 + (i % 3) * 0.15));
+        // Direct impulse kick when sitting on the plank/stack and a wheel hits a bump
+        if (onFloor && localBumpKick > 0.35) {
+          const hop = Math.min(0.95, 0.22 + (localBumpKick - 0.35) * (0.32 + (i % 3) * 0.08));
           it.localVel.y = Math.max(it.localVel.y, hop);
           it.localVel.x += (Math.random() - 0.5) * hop * 0.55;
           it.localVel.z += (Math.random() - 0.5) * hop * 0.65;
-          it.localAngVel.x += (Math.random() - 0.5) * hop * 5.5;
-          it.localAngVel.z += (Math.random() - 0.5) * hop * 5.5;
+          it.localAngVel.x += (Math.random() - 0.5) * hop * 5.0;
+          it.localAngVel.y += (Math.random() - 0.5) * hop * 2.5;
+          it.localAngVel.z += (Math.random() - 0.5) * hop * 5.0;
         }
 
-        // Damping
-        it.localVel.multiplyScalar(Math.exp(-2.8 * dt));
-        // Jaring pengaman: kecepatan lokal dibatasi 3.2 m/s. Tanpa ini satu bug
-        // solver bisa nyembur puluhan m/s dan barang langsung hilang dari bak.
-        if (it.localVel.lengthSq() > 2.25) it.localVel.setLength(1.5);
+        // Light air damping so cargo sloshes freely
+        it.localVel.multiplyScalar(Math.exp(-0.85 * dt));
+        if (it.localVel.lengthSq() > 10.24) it.localVel.setLength(3.2);
         it.localPos.addScaledVector(it.localVel, dt);
 
         // Batas atas dinamis: barang boleh terpantul bebas di dalam bak saat kena guncangan.
@@ -1943,43 +1893,44 @@ function computeCargoSupports(items, boxesByItem, maxGap = 0.035, maxPenetration
           if (it.localVel.y > 0) it.localVel.y = 0;
         }
 
-        // Floor contact + bounce inside cart bed
+        // Floor / stack contact + sliding friction (lebih licin di atas barang lain supaya meluncur jatuh saat miring)
         if (it.localPos.y < restY) {
           const impact = -it.localVel.y;
           it.localPos.y = restY;
-          if (impact > 0.22) {
-            it.localVel.y = impact * it.bounciness;
-            it.localAngVel.x += (Math.random() - 0.5) * impact * 3.2;
-            it.localAngVel.z += (Math.random() - 0.5) * impact * 3.2;
+          if (impact > 0.20) {
+            it.localVel.y = impact * Math.max(0.22, it.bounciness);
+            it.localAngVel.x += (Math.random() - 0.5) * impact * 3.8;
+            it.localAngVel.z += (Math.random() - 0.5) * impact * 3.8;
           } else {
             it.localVel.y = 0;
           }
-          // Floor friction
-          it.localVel.x *= 0.88;
-          it.localVel.z *= 0.88;
+          const floorFriction = hasSupport ? Math.exp(-1.8 * dt) : Math.exp(-3.4 * dt);
+          it.localVel.x *= floorFriction;
+          it.localVel.z *= floorFriction;
         }
 
-        // Penahan Pagar Kayu Bak: barang TIDAK akan keluar dari gerobak selama masih
-        // berada di balik pagar kayu (di bawah tinggi pagar) dan gerobak belum terguling.
-        // Hanya tumpah jika fisik barang benar-benar terlempar melewati tinggi pagar atau gerobak terbalik.
+        // Penahan Pagar Kayu Bak: barang HANYA jatuh jika gerobak terbalik ATAU barang
+        // benar-benar terlempar melompati pagar dan keluar melewati batas luar gerobak.
         const wallKick = (v) => (Math.abs(v) > 0.35 ? Math.min(0.9, Math.abs(v) * 1.5) : 0);
-        const itemSupportY = it.localPos.y - (it.half ? it.half.y * 0.25 : 0.08);
-        if (it.localPos.z < inMinZ) {
-          if (this.flipped || itemSupportY > railTopY + 0.02) {
-            this.ejectItemToWorld(it, 0.9);
-            continue;
-          }
+        const itemBottomY = it.localPos.y - (it.half ? it.half.y * 0.85 : 0.12);
+        const outOfBed = (
+          it.localPos.z < bedMinZ - 0.12 ||
+          it.localPos.z > bedMaxZ + 0.12 ||
+          it.localPos.x < bedMinX - 0.14 ||
+          it.localPos.x > bedMaxX + 0.14
+        );
+        if (this.flipped || outOfBed) {
+          this.ejectItemToWorld(it, 0.75);
+          continue;
+        }
+        if (it.localPos.z < inMinZ && itemBottomY <= railTopY + 0.04) {
           const v = it.localVel.z;
           it.localPos.z = inMinZ;
           it.localVel.z = Math.abs(v) > 0.35 ? Math.abs(v) * 0.32 : 0;
           it.localAngVel.x += wallKick(v);
           if (Math.abs(v) > 0.35) it._restT = 0;
           it._touchPrev = true;
-        } else if (it.localPos.z > inMaxZ) {
-          if (this.flipped || itemSupportY > railTopY + 0.02) {
-            this.ejectItemToWorld(it, 0.9);
-            continue;
-          }
+        } else if (it.localPos.z > inMaxZ && itemBottomY <= railTopY + 0.04) {
           const v = it.localVel.z;
           it.localPos.z = inMaxZ;
           it.localVel.z = Math.abs(v) > 0.35 ? -Math.abs(v) * 0.32 : 0;
@@ -1988,22 +1939,14 @@ function computeCargoSupports(items, boxesByItem, maxGap = 0.035, maxPenetration
           it._touchPrev = true;
         }
 
-        if (it.localPos.x < inMinX) {
-          if (this.flipped || itemSupportY > divRailTopY + 0.04) {
-            this.ejectItemToWorld(it, 0.9);
-            continue;
-          }
+        if (it.localPos.x < inMinX && itemBottomY <= divRailTopY + 0.04) {
           const v = it.localVel.x;
           it.localPos.x = inMinX;
           it.localVel.x = Math.abs(v) > 0.35 ? Math.abs(v) * 0.32 : 0;
           it.localAngVel.z -= wallKick(v);
           if (Math.abs(v) > 0.35) it._restT = 0;
           it._touchPrev = true;
-        } else if (it.localPos.x > inMaxX) {
-          if (this.flipped || itemSupportY > frontRailTopY + 0.03) {
-            this.ejectItemToWorld(it, 0.9);
-            continue;
-          }
+        } else if (it.localPos.x > inMaxX && itemBottomY <= frontRailTopY + 0.04) {
           const v = it.localVel.x;
           it.localPos.x = inMaxX;
           it.localVel.x = Math.abs(v) > 0.35 ? -Math.abs(v) * 0.32 : 0;
@@ -2012,56 +1955,51 @@ function computeCargoSupports(items, boxesByItem, maxGap = 0.035, maxPenetration
           it._touchPrev = true;
         }
 
-        // Rocking / wobble angular dynamics driven by lateral velocity & roll
-        it.localAngVel.x += (it.localVel.z * 1.8 - (it.localAng.x - it.homeRot.x) * 28) * dt;
-        it.localAngVel.z += (-it.localVel.x * 1.8 - (it.localAng.z - it.homeRot.z) * 28) * dt;
-        it.localAngVel.y += (- (it.localAng.y - it.homeRot.y) * 18) * dt;
-        it.localAngVel.y *= Math.exp(-8.5 * dt);     // sumbu tegak: jangan muter-muter
-        if (onFloor) {
-          // Barang yang duduk di papan: redaman putar jauh lebih kuat + ditarik
-          // balik ke pose aslinya, jadi berhenti goyang dan nggak spin di tempat.
-          it.localAngVel.multiplyScalar(Math.exp(-14.0 * dt));
-          it.localAngVel.x += (it.homeRot.x - it.localAng.x) * 40 * dt;
-          it.localAngVel.z += (it.homeRot.z - it.localAng.z) * 40 * dt;
+        // Gerak menggelinding bebas 360° mengikuti kecepatan di alas bak/tumpukan (tidak tergantung bentuk barang)
+        if (!it.localQuat) {
+          it.localQuat = new THREE.Quaternion().setFromEuler(
+            new THREE.Euler(it.localAng.x, it.localAng.y, it.localAng.z)
+          );
         }
-        it.localAngVel.multiplyScalar(Math.exp(-9.0 * dt));
-        if (it.localAngVel.length() > 14) it.localAngVel.setLength(14);
-        it.localAng.addScaledVector(it.localAngVel, dt);
+        if (onFloor) {
+          const rollR = Math.max(0.11, it.radius || 0.16);
+          const targetWx = it.localVel.z / rollR;
+          const targetWz = -it.localVel.x / rollR;
+          const blend = Math.min(1, dt * 14);
+          it.localAngVel.x += (targetWx - it.localAngVel.x) * blend;
+          it.localAngVel.z += (targetWz - it.localAngVel.z) * blend;
+          it.localAngVel.y *= Math.exp(-3.0 * dt);
+        } else {
+          it.localAngVel.multiplyScalar(Math.exp(-1.2 * dt));
+        }
 
-        // Batas kemiringan: barang cuma boleh goyang, bukan jungkir balik sendiri.
-        // Tanpa clamp ini sudut bisa lewat 90° lalu "muter" keliling porosnya.
-        const TILT = 0.42, YAWMAX = 0.55;
-        const cl = (ang, home, lim, key) => {
-          const d = ang - home;
-          if (d > lim) { it.localAng[key] = home + lim; if (it.localAngVel[key] > 0) it.localAngVel[key] = 0; }
-          else if (d < -lim) { it.localAng[key] = home - lim; if (it.localAngVel[key] < 0) it.localAngVel[key] = 0; }
-        };
-        cl(it.localAng.x, it.homeRot.x, TILT, 'x');
-        cl(it.localAng.z, it.homeRot.z, TILT, 'z');
-        cl(it.localAng.y, it.homeRot.y, YAWMAX, 'y');
+        const wMag = it.localAngVel.length();
+        if (wMag > 14) it.localAngVel.setLength(14);
+        const wStep = Math.min(wMag, 14);
+        if (wStep > 1e-4) {
+          const ax = this._cargoRollAxis || (this._cargoRollAxis = new THREE.Vector3());
+          const dq = this._cargoRollDq || (this._cargoRollDq = new THREE.Quaternion());
+          ax.copy(it.localAngVel).divideScalar(wMag);
+          dq.setFromAxisAngle(ax, wStep * dt);
+          it.localQuat.premultiply(dq).normalize();
+        }
+        it.localAng.y += it.localAngVel.y * dt;
 
-        /* Barang yang sudah tenang harus benar-benar berhenti.
-           Dulu osilasi kecil terus dipompa oleh gaya rekat slot + pantulan pagar,
-           jadi barang kelihatan "muter-muter" padahal gerobak diam. Sekarang:
-           kalau 0,18 s tidak ada gerakan berarti dan dia duduk di papan, kecepatan
-           + putaran dipaksa nol dan sudutnya ditarik balik ke pose asalnya. */
-        const still = it.localVel.lengthSq() < 0.02 && it.localAngVel.lengthSq() < 0.09;
+        // Hanya tenang total kalau bak datar, barang di lantai papan, dan kecepatan nyaris nol
+        const cartFlat = Math.abs(this.roll) < 0.06 && Math.abs(this.pitch) < 0.06;
+        const still = cartFlat && !hasSupport && it.localVel.lengthSq() < 0.015 && it.localAngVel.lengthSq() < 0.06;
         it._restT = still ? (it._restT || 0) + dt : 0;
-        if (it._restT > 0.18 && onFloor) {
-          it.localVel.x *= Math.exp(-20 * dt);
-          it.localVel.z *= Math.exp(-20 * dt);
+        if (it._restT > 0.25 && onFloor) {
+          it.localVel.x *= Math.exp(-16 * dt);
+          it.localVel.z *= Math.exp(-16 * dt);
           if (Math.abs(it.localVel.x) < 0.01) it.localVel.x = 0;
           if (Math.abs(it.localVel.z) < 0.01) it.localVel.z = 0;
-          it.localAngVel.multiplyScalar(Math.exp(-26 * dt));
+          it.localAngVel.multiplyScalar(Math.exp(-20 * dt));
           if (it.localAngVel.length() < 0.02) it.localAngVel.set(0, 0, 0);
-          const snap = Math.min(1, dt * 6);
-          it.localAng.x += (it.homeRot.x - it.localAng.x) * snap;
-          it.localAng.z += (it.homeRot.z - it.localAng.z) * snap;
-          it.localAng.y += (it.homeRot.y - it.localAng.y) * snap;
         }
 
         it.mesh.position.copy(it.localPos);
-        it.mesh.rotation.set(it.localAng.x, it.localAng.y, it.localAng.z);
+        it.mesh.quaternion.copy(it.localQuat);
       }
 
       // Narrow-phase uses the mesh-derived compound boxes so empty corners
@@ -2095,59 +2033,63 @@ function computeCargoSupports(items, boxesByItem, maxGap = 0.035, maxPenetration
           if (ox <= 0 || oy <= 0 || oz <= 0) continue;
           a._touchPrev = true; b._touchPrev = true;
           if (oy <= ox && oy <= oz) {
-            // beda lapis: nggak ada dorongan vertikal, cukup redam
+            // beda lapis: barang atas tetap bisa meluncur bebas di atas barang bawah saat miring
             const top = dy >= 0 ? b : a;
             if (top.localVel.y < 0) top.localVel.y = 0;
-            top.localVel.x *= 0.9; top.localVel.z *= 0.9;
-            top.localAngVel.x *= 0.7; top.localAngVel.z *= 0.7;
+            const slideDamp = Math.exp(-1.8 * dt);
+            top.localVel.x *= slideDamp; top.localVel.z *= slideDamp;
+            top.localAngVel.x *= 0.92; top.localAngVel.z *= 0.92;
           } else if (ox <= oz) {
             const s = dx >= 0 ? 1 : -1;
             a.localPos.x -= s * ox * 0.5; b.localPos.x += s * ox * 0.5;
             const av = a.localVel.x, bv = b.localVel.x;
-            if ((bv - av) * s < 0) {
-              // Tumbukan inelastis: dua barang yang berdesakan langsung samain
-              // kecepatan (nggak ada pantulan). Restitusi bikin energi numpuk
-              // tiap frame -> barang nempel pagar sambil "nyelemot" 1,2 m/s.
-              const avg = (av + bv) * 0.5;
-              a.localVel.x = avg; b.localVel.x = avg;
+            const relV = bv - av;
+            if (relV * s < 0) {
+              const e = 0.25;
+              const j = -(1 + e) * relV * 0.5;
+              a.localVel.x -= j; b.localVel.x += j;
             }
-            // Kick putar cuma kalau tabrakannya nyata (>0,4 m/s). Impuls 0,5
-            // rad/s tiap frame bikin barang berputar nonstop saat berdesakan.
-            const kx = Math.abs(bv - av) > 0.4 ? Math.min(0.25, Math.abs(bv - av) * 0.5) : 0;
+            const kx = Math.abs(relV) > 0.22 ? Math.min(1.4, Math.abs(relV) * 0.85) : 0;
             a.localAngVel.z -= s * kx; b.localAngVel.z += s * kx;
+            a.localAngVel.y += (Math.random() - 0.5) * kx * 0.6;
+            b.localAngVel.y -= (Math.random() - 0.5) * kx * 0.6;
           } else {
             const s = dz >= 0 ? 1 : -1;
             a.localPos.z -= s * oz * 0.5; b.localPos.z += s * oz * 0.5;
             const av = a.localVel.z, bv = b.localVel.z;
-            if ((bv - av) * s < 0) {
-              const avg = (av + bv) * 0.5;
-              a.localVel.z = avg; b.localVel.z = avg;
+            const relV = bv - av;
+            if (relV * s < 0) {
+              const e = 0.25;
+              const j = -(1 + e) * relV * 0.5;
+              a.localVel.z -= j; b.localVel.z += j;
             }
-            const kz = Math.abs(bv - av) > 0.4 ? Math.min(0.25, Math.abs(bv - av) * 0.5) : 0;
+            const kz = Math.abs(relV) > 0.22 ? Math.min(1.4, Math.abs(relV) * 0.85) : 0;
             a.localAngVel.x += s * kz; b.localAngVel.x -= s * kz;
+            a.localAngVel.y += (Math.random() - 0.5) * kz * 0.6;
+            b.localAngVel.y -= (Math.random() - 0.5) * kz * 0.6;
           }
         }
       }
 
-      // Jaring pengaman terakhir: setelah semua dorongan (pagar + tetangga),
-      // posisi visual di-clamp sekali lagi supaya dorongan tetangga tidak
-      // mendorong sisi barang keluar pagar. Lalu sinkronkan mesh pada frame ini.
+      // Jaring pengaman terakhir: jaga barang tetap di dalam mangkuk pagar selama di bawah tinggi pagar.
       for (const it of items) {
         if (it.spilled || it.hiddenForQuest) continue;
         if (it._wallMinX !== undefined) {
+          const itemBottomY = it.localPos.y - (it.half ? it.half.y * 0.85 : 0.12);
           const center = it.localCenter || { x: 0, z: 0 };
           const half = it.localHalf || { x: it.half.x / 0.9, z: it.half.z / 0.9 };
           const bed = { xMin: bedMinX, xMax: bedMaxX, zMin: bedMinZ, zMax: bedMaxZ };
           const lim = cargoBedLimits(center, half, it.localAng.y, bed);
-          it.localPos.x = Math.min(lim.maxX, Math.max(lim.minX, it.localPos.x));
-          it.localPos.z = Math.min(lim.maxZ, Math.max(lim.minZ, it.localPos.z));
+          if (itemBottomY <= divRailTopY + 0.04 && it.localPos.x < lim.minX) it.localPos.x = lim.minX;
+          if (itemBottomY <= frontRailTopY + 0.04 && it.localPos.x > lim.maxX) it.localPos.x = lim.maxX;
+          if (itemBottomY <= railTopY + 0.04) {
+            it.localPos.z = Math.min(lim.maxZ, Math.max(lim.minZ, it.localPos.z));
+          }
         }
         it.mesh.position.copy(it.localPos);
-        // Di frame BAK, barang mestinya hampir diam (baknya yang bergerak).
-        // Batas 1,2 m/s ini yang bikin nggak ada lagi barang "nyelemot" 2,5 m/s
-        // sambil nempel pagar lalu muter terus.
-        if (it.localVel.lengthSq() > 1.44) it.localVel.setLength(1.2);
-        if (it.localAngVel.lengthSq() > 0.81) it.localAngVel.setLength(0.9);
+        if (it.localQuat) it.mesh.quaternion.copy(it.localQuat);
+        if (it.localVel.lengthSq() > 10.24) it.localVel.setLength(3.2);
+        if (it.localAngVel.lengthSq() > 144) it.localAngVel.setLength(12.0);
       }
 
       // 2) World physics for spilled cargo items (gravity, ground + pebble bounce, rolling, item-item collisions)
@@ -2413,9 +2355,11 @@ function computeCargoSupports(items, boxesByItem, maxGap = 0.035, maxPenetration
       if (item.localPos && item.homePos) item.localPos.copy(item.homePos);
       if (item.localVel) item.localVel.set(0, 0, 0);
       if (item.localAng && item.homeRot) item.localAng.set(item.homeRot.x, item.homeRot.y, item.homeRot.z);
+      if (item.localQuat && item.homeRot) item.localQuat.setFromEuler(item.homeRot);
       if (item.localAngVel) item.localAngVel.set(0, 0, 0);
       if (item.mesh && item.homePos) item.mesh.position.copy(item.homePos);
-      if (item.mesh && item.homeRot) item.mesh.rotation.copy(item.homeRot);
+      if (item.mesh && item.localQuat) item.mesh.quaternion.copy(item.localQuat);
+      else if (item.mesh && item.homeRot) item.mesh.rotation.copy(item.homeRot);
       item._restT = 0.5;
       return (this.spilled || []).length;
     }
