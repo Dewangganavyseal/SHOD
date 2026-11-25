@@ -1121,6 +1121,32 @@ button:active:not(:disabled) { transform: translateY(1px); }
   text-overflow: ellipsis;
   pointer-events: none;
 }
+.mm-zoom-bar {
+  position: absolute;
+  right: 4px;
+  bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 4;
+}
+.mm-zoom-btn {
+  width: 17px;
+  height: 17px;
+  padding: 0;
+  border: 1px solid var(--outline);
+  border-radius: 3px;
+  background: rgba(42, 34, 46, 0.88);
+  color: var(--gold-hi);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.mm-zoom-btn:hover { background: rgba(74, 58, 76, 0.96); color: #fff; }
 
 /* ====================== BOTTOM VILLAGE CART WORKSHOP BAR ====================== */
 #workshop-bar {
@@ -1375,19 +1401,38 @@ body.workshop-open #cargo-label-overlay {
 #wheel-hp-overlay { position: fixed; inset: 0; pointer-events: none; z-index: 22; }
 #wheel-hp-overlay[hidden] { display: none; }
 #cargo-label-overlay { position: fixed; inset: 0; pointer-events: none; z-index: 23; overflow: hidden; }
+.cargo-leader-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+}
 .cargo-tag {
   position: absolute;
   transform: translate(-50%, -108%);
-  display: inline-flex; flex-direction: column; align-items: center; gap: 1px;
-  padding: 3px 7px;
+  display: inline-flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 4px 8px;
   border-radius: 4px;
-  background: var(--plum-bg);
-  border: 2px solid var(--gold-mid);
+  background: rgba(44, 35, 47, 0.90);
+  border: 1.5px solid rgba(255, 255, 255, 0.78);
   color: var(--text-cream);
   font-size: 9.5px;
   white-space: nowrap;
-  box-shadow: 0 3px 0 rgba(52, 40, 43, 0.45);
+  box-shadow: 0 3px 8px rgba(18, 12, 24, 0.55);
   pointer-events: none;
+  transition: left 0.08s linear, top 0.08s linear;
+}
+.cargo-tag.callout-left {
+  transform: translate(-100%, -50%);
+  align-items: flex-end;
+  border-right: 2.5px solid #ffffff;
+}
+.cargo-tag.callout-right {
+  transform: translate(0%, -50%);
+  align-items: flex-start;
+  border-left: 2.5px solid #ffffff;
 }
 .cargo-tag-row { display: inline-flex; align-items: center; gap: 4px; }
 .cargo-tag .cq-badge { font-size: 8px; padding: 1px 4px; border-radius: 3px; background: var(--gold-mid); color: var(--outline); }
@@ -1428,15 +1473,47 @@ body.workshop-open #cargo-label-overlay {
 }
 #worldmap-modal[hidden] { display: none; }
 .wm-card { max-width: min(94vw, 600px); max-height: calc(100vh - 24px); }
-.wm-head { display: flex; justify-content: center; margin-bottom: 6px; }
+.wm-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
 .wm-sub { font-size: 10px; color: var(--gold-hi); }
+.wm-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.wm-ctrl-btn {
+  min-width: 24px;
+  height: 22px;
+  padding: 0 6px;
+  border: 1.5px solid var(--outline);
+  border-radius: 4px;
+  background: var(--plum-bg);
+  color: var(--gold-hi);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.wm-ctrl-wide { min-width: 34px; font-size: 10px; }
+.wm-ctrl-btn:hover { background: #5a4661; color: #fff; }
 #worldmap-canvas {
   width: min(82vw, calc(100vh - 154px), 500px);
   height: min(82vw, calc(100vh - 154px), 500px);
   border: 2px solid var(--outline);
   align-self: center;
   display: block;
+  cursor: grab;
+  touch-action: none;
 }
+#worldmap-canvas.is-panning { cursor: grabbing; }
 .wm-legend {
   display: flex;
   flex-wrap: wrap;

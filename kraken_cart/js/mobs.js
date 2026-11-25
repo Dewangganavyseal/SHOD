@@ -5,6 +5,14 @@ import {
   animateSmallBandit,
   animateBigBandit,
 } from './models/bandit_models.js';
+import {
+  buildSunRuinsGolem,
+  animateSunRuinsGolem,
+} from './models/sun_ruins_golem_model.js';
+import {
+  buildCrystalGolem,
+  animateCrystalGolem,
+} from './models/crystal_golem_model.js';
 
 const THREE = HC.THREE;
 
@@ -2889,20 +2897,32 @@ function keepBanditInForest(pos, world, radius) {
 
 class BanditMob {
   constructor(scene, world, vfx, variant, waypoints, yaw = 0) {
+    const isRuinsGolem = variant === 'ruins_golem';
+    const isCrystalGolem = variant === 'crystal_golem';
+    const isGolem = isRuinsGolem || isCrystalGolem;
+    const isBig = variant === 'big';
+
     this.kind = 'bandit';
-    this.variant = variant === 'big' ? 'big' : 'small';
-    const isBig = this.variant === 'big';
+    this.isGolem = isGolem;
+    this.variant = isRuinsGolem ? 'ruins_golem' : isCrystalGolem ? 'crystal_golem' : (isBig ? 'big' : 'small');
 
     this.scene = scene;
     this.world = world;
     this.vfx = vfx;
 
     const isMobile = !!(HC.QUALITY && HC.QUALITY.key !== 'high');
-    const built = isBig ? buildBigBandit(isMobile) : buildSmallBandit(isMobile);
+    const built = isRuinsGolem
+      ? buildSunRuinsGolem(isMobile)
+      : isCrystalGolem
+        ? buildCrystalGolem(isMobile)
+        : (isBig ? buildBigBandit(isMobile) : buildSmallBandit(isMobile));
     this.mesh = built.mesh;
     this.parts = built.parts;
     this.material = built.material;
-    this.hpBar = new HealthBar3D(scene, { isEnemy: true, width: isBig ? 1.42 : 1.04 });
+    this.hpBar = new HealthBar3D(scene, {
+      isEnemy: true,
+      width: isGolem ? 2.15 : (isBig ? 1.42 : 1.04),
+    });
 
     this.waypoints = Array.isArray(waypoints) && waypoints.length ? waypoints : [{ x: 0, z: 0 }];
     this.wpIdx = 0;
@@ -2914,18 +2934,18 @@ class BanditMob {
     this.heading = yaw;
     this.targetHeading = yaw;
 
-    this.maxHp = isBig ? 240 : 115;
+    this.maxHp = isGolem ? 560 : (isBig ? 240 : 115);
     this.hp = this.maxHp;
-    this.dmg = isBig ? 26 : 14;
-    this.walkSpd = isBig ? 1.45 : 2.10;
+    this.dmg = isGolem ? 36 : (isBig ? 26 : 14);
+    this.walkSpd = isGolem ? 1.05 : (isBig ? 1.45 : 2.10);
     // Kecepatan lari bandit minimal 30% lebih pelan dari kuda berlari (5.25 * 0.70 = 3.675 m/s)
-    this.chaseSpd = isBig ? 2.65 : 3.55;
+    this.chaseSpd = isGolem ? 1.95 : (isBig ? 2.65 : 3.55);
     this.isRoadAmbush = false;
-    this.radius = isBig ? 0.68 : 0.45;
-    this.reach = isBig ? 2.65 : 2.05;
-    this.windupDur = isBig ? 0.68 : 0.38;
-    this.recoverDur = isBig ? 0.92 : 0.60;
-    this.hpBarOffset = isBig ? 2.78 : 1.92;
+    this.radius = isGolem ? 1.18 : (isBig ? 0.68 : 0.45);
+    this.reach = isGolem ? 3.35 : (isBig ? 2.65 : 2.05);
+    this.windupDur = isGolem ? 0.88 : (isBig ? 0.68 : 0.38);
+    this.recoverDur = isGolem ? 1.05 : (isBig ? 0.92 : 0.60);
+    this.hpBarOffset = isRuinsGolem ? 4.35 : isCrystalGolem ? 4.20 : (isBig ? 2.78 : 1.92);
 
     this.dead = false;
     this.respawnTimer = 0;
@@ -2941,7 +2961,7 @@ class BanditMob {
     this.posture = 0;
     this.postureHold = 0;
     this.atkCd = 0;
-    this.strafeDir = isBig ? 1 : (Math.random() > 0.5 ? 1 : -1);
+    this.strafeDir = (isBig || isGolem) ? 1 : (Math.random() > 0.5 ? 1 : -1);
 
     this.flashTimer = 0;
     this.hitstunTimer = 0;
@@ -2959,11 +2979,22 @@ class BanditMob {
       swing: 0,
       telegraph: 0,
       target: null,
+      dead: false,
+      state: 'idle',
     };
 
     this.mesh.position.set(this.x, this.y, this.z);
     this.mesh.rotation.y = this.heading;
     this.scene.add(this.mesh);
+  }
+
+  _runVariantAnim(dt) {
+    this.animState.dead = !!this.dead;
+    this.animState.state = this.state;
+    if (this.variant === 'ruins_golem') animateSunRuinsGolem(this.animState, dt);
+    else if (this.variant === 'crystal_golem') animateCrystalGolem(this.animState, dt);
+    else if (this.variant === 'big') animateBigBandit(this.animState, dt);
+    else animateSmallBandit(this.animState, dt);
   }
 
   _setState(next, dur = 1.0) {
@@ -3120,7 +3151,7 @@ class BanditMob {
         inVillage = refZ > 42 && refZ < 110 && Math.abs(refX - vCx) < 30;
       }
       if (!inVillage) {
-        const aggroRange = this.isRoadAmbush ? 24.0 : 13.5;
+        const aggroRange = this.isRoadAmbush ? 24.0 : (this.variant === 'crystal_golem' ? 11.5 : 13.5);
         const dHorse = anim ? Math.hypot(anim.x - this.x, anim.z - this.z) : Infinity;
         const dCart = phys ? Math.hypot(phys.pos.x - this.x, phys.pos.z - this.z) : Infinity;
         const horseAlive = fullCtx.horseHp === undefined || fullCtx.horseHp > 1;
@@ -3169,11 +3200,16 @@ class BanditMob {
         return;
       }
       const fallU = clamp(this.stateTime / 0.55, 0, 1);
-      this.mesh.position.set(this.x, this.y - fallU * 0.25, this.z);
-      this.mesh.rotation.set(-fallU * 1.48, this.heading, fallU * 0.25);
+      if (this.isGolem) {
+        this.mesh.position.set(this.x, this.y - fallU * 0.12, this.z);
+        this.mesh.rotation.set(-fallU * 0.35, this.heading, 0);
+      } else {
+        this.mesh.position.set(this.x, this.y - fallU * 0.25, this.z);
+        this.mesh.rotation.set(-fallU * 1.48, this.heading, fallU * 0.25);
+      }
       this.animState.vel.x = 0; this.animState.vel.z = 0;
       this.animState.telegraph = 0;
-      (this.variant === 'big' ? animateBigBandit : animateSmallBandit)(this.animState, dt);
+      this._runVariantAnim(dt);
       this.hpBar.setPosture(0, false);
       this.hpBar.setHp(0, this.maxHp, true, dt);
       this.hpBar.updateTransform(this.x, this.y + this.hpBarOffset * 0.5, this.z, dt);
@@ -3191,8 +3227,8 @@ class BanditMob {
       const tp = this.target.getPos();
       const dHome = Math.hypot(this.x - this.homeX, this.z - this.homeZ);
       const dTgt = tp ? Math.hypot(tp.x - this.x, tp.z - this.z) : 999;
-      const homeCap = this.isRoadAmbush ? 44.0 : 25.0;
-      const tgtCap = this.isRoadAmbush ? 28.0 : 17.5;
+      const homeCap = this.isRoadAmbush ? 44.0 : (this.variant === 'crystal_golem' ? 11.0 : this.isGolem ? 17.0 : 25.0);
+      const tgtCap = this.isRoadAmbush ? 28.0 : (this.variant === 'crystal_golem' ? 12.5 : 17.5);
       if (!this.target.isAlive() || dHome > homeCap || dTgt > tgtCap) {
         this.target = null;
       } else if ((this.target.isCart || this.target.isHorse) && fullCtx) {
@@ -3243,34 +3279,36 @@ class BanditMob {
         this._setState('attack_strike', 0.34);
       }
     } else if (this.state === 'attack_strike') {
-      forwardSpeed = this.variant === 'big' ? 1.50 : 2.95;
+      forwardSpeed = this.isGolem ? 1.25 : (this.variant === 'big' ? 1.50 : 2.95);
       if (!this.strikeDealt && this.stateTime >= 0.06) {
         this.strikeDealt = true;
         this.animState.swing = 0.35;
-        const isBig = this.variant === 'big';
+        const isHeavy = this.variant === 'big' || this.isGolem;
+        const arcMain = this.variant === 'crystal_golem' ? 0x22d3ee : this.variant === 'ruins_golem' ? 0xfbbf24 : (isHeavy ? 0xd93829 : 0xe63946);
+        const arcAccent = this.variant === 'crystal_golem' ? 0xc084fc : this.variant === 'ruins_golem' ? 0x7dd3fc : 0xffe48f;
         if (this.vfx) {
           const pos = new THREE.Vector3(
-            this.x + Math.sin(this.heading) * (isBig ? 1.15 : 0.65),
-            this.y + (isBig ? 0.35 : 0.85),
-            this.z + Math.cos(this.heading) * (isBig ? 1.15 : 0.65)
+            this.x + Math.sin(this.heading) * (isHeavy ? 1.45 : 0.65),
+            this.y + (isHeavy ? 0.35 : 0.85),
+            this.z + Math.cos(this.heading) * (isHeavy ? 1.45 : 0.65)
           );
           this.vfx.spawnSlashArc(
-            new THREE.Vector3(this.x, this.y + (isBig ? 0.45 : 0.1), this.z),
+            new THREE.Vector3(this.x, this.y + (isHeavy ? 0.65 : 0.1), this.z),
             this.heading,
-            isBig ? 0xd93829 : 0xe63946,
-            0xffe48f,
+            arcMain,
+            arcAccent,
             this.strafeDir,
-            isBig ? 1.45 : 0.95
+            this.isGolem ? 2.05 : (isHeavy ? 1.45 : 0.95)
           );
-          if (isBig) {
-            this.vfx.spawnRing(pos, 0xff7b39, 0.6, 3.6, 0.35, true);
+          if (isHeavy) {
+            this.vfx.spawnRing(pos, this.variant === 'crystal_golem' ? 0x22d3ee : 0xffbe0b, 0.75, this.isGolem ? 4.6 : 3.6, 0.38, true);
           }
         }
         if (this.target) {
           const tp = this.target.getPos();
           const d = Math.hypot(tp.x - this.x, tp.z - this.z);
           if (d < effReach + 0.55) {
-            const dealt = this.target.takeHit(this.dmg, this.x, this.z, isBig);
+            const dealt = this.target.takeHit(this.dmg, this.x, this.z, isHeavy);
             if ((this.target.isCart || this.target.isHorse) && dealt > 0) {
               if (this.vfx) {
                 const hitV = new THREE.Vector3(
@@ -3278,7 +3316,7 @@ class BanditMob {
                   this.y + 0.95,
                   (tp.z + this.z) * 0.5
                 );
-                this.vfx.spawnHitImpact(hitV, this.target.isHorse ? 0xf87171 : 0xff9f43, isBig);
+                this.vfx.spawnHitImpact(hitV, this.target.isHorse ? 0xf87171 : 0xff9f43, isHeavy);
                 const dmgLbl = this.target.isHorse ? `-${dealt} HP!` : `CART -${dealt}!`;
                 this.vfx.spawnDamageText(hitV.clone().add(new THREE.Vector3(0, 0.7, 0)), dmgLbl, 'npcHit');
                 this.vfx.playSfx('hit');
@@ -3294,7 +3332,7 @@ class BanditMob {
         this.strafeDir *= -1;
       }
       if (this.stateTime >= 0.34) {
-        this.atkCd = this.variant === 'big' ? 1.95 : 1.15;
+        this.atkCd = this.isGolem ? 2.25 : (this.variant === 'big' ? 1.95 : 1.15);
         this._setState('attack_recover', this.recoverDur);
       }
     } else if (this.state === 'attack_recover') {
@@ -3347,7 +3385,7 @@ class BanditMob {
             this._setState('idle', randRange(1.6, 3.4));
           } else {
             this.targetHeading = Math.atan2(wx, wz);
-            this.heading = turnToward(this.heading, this.targetHeading, 4.6, dt);
+            this.heading = turnToward(this.heading, this.targetHeading, this.isGolem ? 2.4 : 4.6, dt);
             forwardSpeed = this.walkSpd;
           }
         }
@@ -3360,15 +3398,26 @@ class BanditMob {
     this.z += vz * dt;
 
     if (Math.hypot(this.knockVx, this.knockVz) > 0.05) {
-      this.x += this.knockVx * dt;
-      this.z += this.knockVz * dt;
+      const kbScale = this.isGolem ? 0.25 : 1.0;
+      this.x += this.knockVx * kbScale * dt;
+      this.z += this.knockVz * kbScale * dt;
       const dampK = Math.exp(-8.5 * dt);
       this.knockVx *= dampK;
       this.knockVz *= dampK;
     }
 
     const pos2 = { x: this.x, z: this.z };
-    const col = keepBanditInForest(pos2, this.world, this.radius);
+    const col = this.isGolem ? { hit: false, nx: 0, nz: 0 } : keepBanditInForest(pos2, this.world, this.radius);
+    if (this.isGolem) {
+      const lim = this.variant === 'crystal_golem' ? 6.2 : 12.0;
+      const dxH = pos2.x - this.homeX;
+      const dzH = pos2.z - this.homeZ;
+      const dH = Math.hypot(dxH, dzH);
+      if (dH > lim && dH > 1e-4) {
+        pos2.x = this.homeX + (dxH / dH) * lim;
+        pos2.z = this.homeZ + (dzH / dH) * lim;
+      }
+    }
     this.x = pos2.x;
     this.z = pos2.z;
     if (col.hit && Math.hypot(col.nx, col.nz) > 1e-4 && !this.target) {
@@ -3377,10 +3426,10 @@ class BanditMob {
     this.y = groundY(this.world, this.x, this.z);
 
     this.mesh.position.set(this.x, this.y, this.z);
-    const staggerTilt = this.state === 'stagger' ? Math.sin(globalTime * 9.0) * 0.14 : 0;
+    const staggerTilt = this.state === 'stagger' ? Math.sin(globalTime * 9.0) * (this.isGolem ? 0.06 : 0.14) : 0;
     this.mesh.rotation.set(0, this.heading, staggerTilt);
     if (this.recoilPop > 0) {
-      const pop = Math.sin(this.recoilPop * Math.PI) * 0.12;
+      const pop = Math.sin(this.recoilPop * Math.PI) * (this.isGolem ? 0.05 : 0.12);
       this.mesh.scale.set(1 + pop * 0.7, 1 - pop, 1 + pop * 0.4);
     } else {
       this.mesh.scale.setScalar(1);
@@ -3390,7 +3439,7 @@ class BanditMob {
     this.animState.vel.z = vz;
     this.animState.telegraph = teleTarget;
     this.animState.target = this.target;
-    (this.variant === 'big' ? animateBigBandit : animateSmallBandit)(this.animState, dt);
+    this._runVariantAnim(dt);
 
     this.hpBar.setPosture(this.posture, this.inCombat);
     this.hpBar.setHp(this.hp, this.maxHp, this.inCombat, dt);
@@ -4362,17 +4411,38 @@ class ForestMobs {
       { x: -330.0, z:  85.0, kind: 'bandit_camp', variants: ['big', 'small'] },
       { x: -265.0, z: 235.0, kind: 'boar', count: 2 },
       { x: -165.0, z: 320.0, kind: 'bandit_camp', variants: ['small', 'small'] },
+      // Pemukiman Bandit Utama & sekeliling dataran luar
+      { x: -414.0, z: 122.0, kind: 'bandit_camp', variants: ['big', 'big', 'small', 'small'] },
+      { x: -432.0, z: 132.0, kind: 'bandit_camp', variants: ['big', 'small'] },
+      // Golem Penjaga Reruntuhan Kuno (Solar Relic Golem) & Goa Kristal (Crystal Prism Golem)
+      {
+        x: 242.0, z: -351.0,
+        kind: 'golem_site',
+        variant: 'ruins_golem',
+        homeAngle: -2.6,
+        waypoints: [{ x: 242.0, z: -351.0 }, { x: 249.5, z: -353.0 }, { x: 246.0, z: -346.5 }],
+      },
+      {
+        x: 416.0, z: 263.5,
+        kind: 'golem_site',
+        variant: 'crystal_golem',
+        homeAngle: -2.35,
+        waypoints: [{ x: 416.0, z: 263.5 }, { x: 413.2, z: 266.2 }, { x: 418.2, z: 266.5 }],
+      },
     ];
 
     const zones = [];
     for (let i = 0; i < seeds.length; i++) {
       const s = seeds[i];
-      if (!this._isValidZonePos(s.x, s.z, s.kind === 'rabbit')) continue;
+      if (s.kind !== 'golem_site' && !this._isValidZonePos(s.x, s.z, s.kind === 'rabbit')) continue;
       zones.push({
         id: i,
         x: s.x,
         z: s.z,
         kind: s.kind,
+        variant: s.variant || null,
+        homeAngle: s.homeAngle || 0,
+        waypoints: s.waypoints || null,
         count: s.count || 2,
         variants: s.variants || ['small', 'small'],
         spawned: false,
@@ -4407,8 +4477,9 @@ class ForestMobs {
         spawned.push(b);
       }
     } else if (z.kind === 'bandit_camp') {
-      if (this.bandits.length >= 8) return;
-      const room = Math.min(z.variants.length, 8 - this.bandits.length);
+      const regBandits = this.bandits.filter((b) => b && !b.isGolem).length;
+      if (regBandits >= 8) return;
+      const room = Math.min(z.variants.length, 8 - regBandits);
       for (let k = 0; k < room; k++) {
         const variant = z.variants[k] === 'big' ? 'big' : 'small';
         const rad = variant === 'big' ? 0.68 : 0.45;
@@ -4427,6 +4498,10 @@ class ForestMobs {
         this.bandits.push(bd);
         spawned.push(bd);
       }
+    } else if (z.kind === 'golem_site') {
+      const gm = new BanditMob(this.scene, this.world, this.vfx, z.variant, z.waypoints || [{ x: z.x, z: z.z }], z.homeAngle || 0);
+      this.bandits.push(gm);
+      spawned.push(gm);
     }
     if (spawned.length > 0) {
       z.entities = spawned;
@@ -4475,7 +4550,8 @@ class ForestMobs {
       for (const ent of z.entities) {
         if (ent) minD = Math.min(minD, Math.hypot(ent.x - hx, ent.z - hz));
       }
-      if (minD > DESPAWN_DIST) {
+      const despawnLim = z.kind === 'golem_site' ? 115.0 : DESPAWN_DIST;
+      if (minD > despawnLim) {
         this._despawnZone(z, party);
       }
     }
@@ -4486,7 +4562,8 @@ class ForestMobs {
       const z = this._zones[i];
       if (z.spawned) continue;
       const d = Math.hypot(z.x - hx, z.z - hz);
-      if (d <= SPAWN_DIST) candidates.push({ z, d });
+      const spawnLim = z.kind === 'golem_site' ? 88.0 : SPAWN_DIST;
+      if (d <= spawnLim) candidates.push({ z, d });
     }
     candidates.sort((a, b) => a.d - b.d);
     for (let i = 0; i < candidates.length; i++) {

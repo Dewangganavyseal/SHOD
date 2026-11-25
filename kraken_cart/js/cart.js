@@ -852,6 +852,7 @@ HC.setQuestCargoOnCart = function (cart, physics, cargoKind = 'spices', count = 
       localPos: hp.clone(),
       localVel: new THREE.Vector3(),
       localAng: new THREE.Vector3(hr.x, hr.y, hr.z),
+      localQuat: new THREE.Quaternion().setFromEuler(hr),
       localAngVel: new THREE.Vector3(),
       floorY: hp.y,
       bounciness: 0.36 + (p % 3) * 0.06,

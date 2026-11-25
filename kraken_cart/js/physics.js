@@ -1793,48 +1793,138 @@ function computeCargoSupports(items, boxesByItem, maxGap = 0.035, maxPenetration
     updateCargo(dt, cartAccX = 0, susKickY = 0) {
       const g = 9.81;
       const items = this.cart.cargoItems;
+      if (!items || !items.length) return;
+      const stepDt = Math.min(0.033, Math.max(0.004, dt));
+      const invDt = 1 / stepDt;
 
-      // 1) In-bed dynamic rigid body physics (jostle on pebbles, slide on tilt, collide with rails & each other)
       const capSpec = (this.cart.specs && this.cart.specs.capSpec) || { bedHalfL: 22, railTopVox: 16.5 };
-      // Kargo ada di kompartemen DEPAN (mulai tepat di depan sekat x=1, sampai ujung depan bak).
-      // Kabin penumpang sekarang di BURITAN, jadi jangan pakai bedMinX negatif lagi.
       const bedMinX = 1.6 * S, bedMaxX = ((capSpec.bedFrontX ?? 24) - 2.0) * S;
       const halfW = Math.max(6, (capSpec.bedHalfW ?? 15) - 1);
-      const bedMinZ = -halfW * S,  bedMaxZ = halfW * S;
+      const bedMinZ = -halfW * S, bedMaxZ = halfW * S;
+      const plankY = 6.0 * S;
       const railTopY = (capSpec.railTopVox ?? 16.5) * S;
       const frontRailTopY = Math.min(railTopY, 13.5 * S);
       const divRailTopY = Math.max(railTopY, 18.0 * S);
 
-      // Contact sheets come from each mesh's merged voxel boxes. Calculate them
-      // before integration so a falling item lands on the actual shape below it.
-      const supportBoxes = items.map((item) => worldCargoBoxes(item));
-      const supports = computeCargoSupports(items, supportBoxes);
-      for (let i = 0; i < items.length; i++) {
-        items[i]._supportY = supports[i].y;
-        items[i]._supportBy = supports[i].by;
-      }
-
-      // Wheel pebble shock impulse (rate of compression only, so standing compression never levitates cargo)
+      // Wheel shock (only positive compression rate)
       let wheelShock = 0;
       for (const w of this.wheels) {
         const dComp = Math.max(0, w.comp - (w.prevComp || 0));
         w.prevComp = w.comp;
-        w.cornerJolt = dComp / Math.max(0.008, dt);
+        w.cornerJolt = dComp / Math.max(0.008, stepDt);
         wheelShock += w.cornerJolt;
       }
 
+      // Apakah gerobak sedang aktif bergerak / miring berubah / terguncang?
+      const cartSpeed = Math.hypot(this.vel.x, this.vel.z);
+      const dRoll = Math.abs(this.roll - (this._prevCargoRoll ?? this.roll)) * invDt;
+      const dPitch = Math.abs(this.pitch - (this._prevCargoPitch ?? this.pitch)) * invDt;
+      this._prevCargoRoll = this.roll;
+      this._prevCargoPitch = this.pitch;
+      const cartAgitated = this.flipped
+        || cartSpeed > 0.14
+        || Math.abs(this.rollV) > 0.08
+        || Math.abs(this.pitchV) > 0.08
+        || dRoll > 0.08
+        || dPitch > 0.08
+        || Math.abs(cartAccX) > 0.45
+        || wheelShock > 0.08;
+
+      const tmpV = this._cargoTmpV || (this._cargoTmpV = new THREE.Vector3());
+      const rotAxis = this._cargoRollAxis || (this._cargoRollAxis = new THREE.Vector3());
+      const rotDq = this._cargoRollDq || (this._cargoRollDq = new THREE.Quaternion());
+
+      // Helper: siapkan data geometri pusat (c0) & ukuran tiap barang supaya berputar murni di titik tengahnya
+      const ensureItemGeom = (it) => {
+        if (!it.localQuat) {
+          it.localQuat = new THREE.Quaternion().setFromEuler(
+            it.homeRot || new THREE.Euler(it.localAng.x, it.localAng.y, it.localAng.z)
+          );
+        }
+        if (!it._c0) {
+          const vc = it.localCenter || new THREE.Vector3();
+          const q0 = new THREE.Quaternion().setFromEuler(it.homeRot || new THREE.Euler());
+          it._c0 = new THREE.Vector3(vc.x, vc.y, vc.z).applyQuaternion(q0);
+        }
+        const vh = it.localHalf || (it.half ? new THREE.Vector3(it.half.x / 0.9, it.half.y / 0.9, it.half.z / 0.9) : new THREE.Vector3(0.14, 0.14, 0.14));
+        it._vh = vh;
+        // Radius horizontal seragam (tidak berubah saat barang berputar -> nol getaran AABB!)
+        it._colR = Math.max(0.08, (vh.x + vh.z) * 0.44);
+        const q = it.localQuat;
+        const r10 = 2 * (q.x * q.y + q.w * q.z);
+        const r11 = 1 - 2 * (q.x * q.x + q.z * q.z);
+        const r12 = 2 * (q.y * q.z - q.w * q.x);
+        it._rotHalfY = Math.abs(r10) * vh.x + Math.abs(r11) * vh.y + Math.abs(r12) * vh.z;
+      };
+
       for (let i = 0; i < items.length; i++) {
         const it = items[i];
-        if (it.spilled || it.hiddenForQuest) continue;
+        if (!it || it.spilled || it.hiddenForQuest) continue;
+        ensureItemGeom(it);
+        if (cartAgitated) it._sleepTimer = 0;
+      }
 
-        // Barang bisa diam di alas bak ATAU di permukaan barang lain. Support
-        // diambil dari collider voxel, jadi hanya bagian mesh yang benar-benar
-        // bertumpuk yang menahan barang di atasnya.
-        const hasSupport = it._supportBy && it._supportY > it.floorY + 0.02;
-        const restY = hasSupport ? it._supportY - it._colBottom : it.floorY;
-        const onFloor = it.localPos.y <= restY + 0.012;
+      // Hitung tumpukan antar-barang dari posisi pusat visual sebenarnya (center = localPos + _c0)
+      for (let i = 0; i < items.length; i++) {
+        const a = items[i];
+        if (!a || a.spilled || a.hiddenForQuest) continue;
+        let bestSurfY = plankY;
+        let bestBy = null;
+        const ax = a.localPos.x + a._c0.x;
+        const az = a.localPos.z + a._c0.z;
+        const aBot = (a.localPos.y + a._c0.y) - a._rotHalfY;
+        for (let j = 0; j < items.length; j++) {
+          if (i === j) continue;
+          const b = items[j];
+          if (!b || b.spilled || b.hiddenForQuest) continue;
+          if (b._supportBy === a) continue;
+          const bx = b.localPos.x + b._c0.x;
+          const bz = b.localPos.z + b._c0.z;
+          const bTop = (b.localPos.y + b._c0.y) + b._rotHalfY;
+          const hDist = Math.hypot(ax - bx, az - bz);
+          // Pusat barang atas harus berada di atas bidang barang bawah; lewat tepi -> langsung jatuh ke lantai
+          if (hDist <= b._colR * 0.92 && aBot >= bTop - 0.09 && aBot <= bTop + 0.05) {
+            if (bTop > bestSurfY) {
+              bestSurfY = bTop;
+              bestBy = b;
+            }
+          }
+        }
+        a._supportSurfY = bestSurfY;
+        a._supportBy = bestBy;
+        // Jika pendukungnya hilang atau bergerak, bangunkan barang di atasnya
+        if (bestBy && (bestBy._sleepTimer || 0) < 0.22) a._sleepTimer = 0;
+        if (!bestBy && a.localPos.y + a._c0.y - a._rotHalfY > plankY + 0.018) a._sleepTimer = 0;
+      }
 
-        // Corner-localized wheel jolt transmitted through the wooden planks ONLY when resting on the plank
+      const accClamped = Math.max(-8, Math.min(8, cartAccX));
+      const centClamped = Math.max(-7, Math.min(7, this.centrifugal || 0));
+      const gx = -Math.sin(this.pitch) * g * 1.35 - accClamped * 0.65;
+      const gz =  Math.sin(this.roll)  * g * 1.45 - centClamped * 0.55 - this.rollV * 1.4;
+      const gy = -Math.cos(this.roll) * Math.cos(this.pitch) * g;
+
+      // Pass 1: Integrasi gaya untuk barang yang belum tidur (asleep)
+      for (let i = 0; i < items.length; i++) {
+        const it = items[i];
+        if (!it || it.spilled || it.hiddenForQuest) continue;
+        it._prevRollX = it.localPos.x;
+        it._prevRollZ = it.localPos.z;
+
+        const hasSupport = !!it._supportBy;
+        const surfY = it._supportSurfY ?? plankY;
+        const restY = surfY + it._rotHalfY - it._c0.y;
+        it._restYNow = restY;
+        const onFloor = it.localPos.y <= restY + 0.015;
+        it._onFloorNow = onFloor;
+
+        // Jika gerobak diam (termasuk di lereng miring!) dan barang sudah tenang menapak -> kunci 100% stabil tanpa getar/putar!
+        if (!this.flipped && (it._sleepTimer || 0) >= 0.22 && onFloor) {
+          it.localPos.y = restY;
+          it.localVel.set(0, 0, 0);
+          it.localAngVel.set(0, 0, 0);
+          continue;
+        }
+
         let localBumpKick = 0;
         if (onFloor) {
           for (const w of this.wheels) {
@@ -1845,251 +1935,178 @@ function computeCargoSupports(items, boxesByItem, maxGap = 0.035, maxPenetration
           }
         }
 
-        // Gravity projected into tilted bed frame + centrifugal & inertial slosh forces
-        const accClamped = Math.max(-8, Math.min(8, cartAccX));
-        const centClamped = Math.max(-7, Math.min(7, this.centrifugal || 0));
-        const gx = -Math.sin(this.pitch) * g * 1.35 - accClamped * 0.65;
-        const gz =  Math.sin(this.roll)  * g * 1.45 - centClamped * 0.55 - this.rollV * 1.4;
-        const gy = -Math.cos(this.roll) * Math.cos(this.pitch) * g;
+        it.localVel.x += gx * stepDt;
+        it.localVel.z += gz * stepDt;
+        it.localVel.y += gy * stepDt;
 
-        // Collision footprint and visual centre in the cart's local frame.
-        const cyaw = Math.cos(it.localAng.y), syaw = Math.sin(it.localAng.y);
-        const hx = Math.abs(cyaw) * it.half.x + Math.abs(syaw) * it.half.z;
-        const hz = Math.abs(syaw) * it.half.x + Math.abs(cyaw) * it.half.z;
-        const vCenter = it.localCenter || { x: 0, z: 0 };
-        const vHalf = it.localHalf || { x: hx / 0.9, z: hz / 0.9 };
-        const bed = { xMin: bedMinX, xMax: bedMaxX, zMin: bedMinZ, zMax: bedMaxZ };
-        const limits = cargoBedLimits(vCenter, vHalf, it.localAng.y, bed);
-        const { minX: inMinX, maxX: inMaxX, minZ: inMinZ, maxZ: inMaxZ } = limits;
-        it._wallMinX = inMinX; it._wallMaxX = inMaxX;
-        it._wallMinZ = inMinZ; it._wallMaxZ = inMaxZ;
-        it._touchPrev = false;
-
-        // Barang bebas bergeser/terombang-ambing di dalam bak seperti benda lepas di dalam mangkuk
-        it.localVel.x += gx * dt;
-        it.localVel.z += gz * dt;
-        it.localVel.y += gy * dt;
-
-        // Direct impulse kick when sitting on the plank/stack and a wheel hits a bump
-        if (onFloor && localBumpKick > 0.35) {
-          const hop = Math.min(0.95, 0.22 + (localBumpKick - 0.35) * (0.32 + (i % 3) * 0.08));
+        if (onFloor && localBumpKick > 0.40) {
+          const hop = Math.min(0.90, 0.20 + (localBumpKick - 0.40) * (0.30 + (i % 3) * 0.07));
           it.localVel.y = Math.max(it.localVel.y, hop);
-          it.localVel.x += (Math.random() - 0.5) * hop * 0.55;
-          it.localVel.z += (Math.random() - 0.5) * hop * 0.65;
-          it.localAngVel.x += (Math.random() - 0.5) * hop * 5.0;
-          it.localAngVel.y += (Math.random() - 0.5) * hop * 2.5;
-          it.localAngVel.z += (Math.random() - 0.5) * hop * 5.0;
+          it.localVel.x += (((i * 7) % 5) - 2) * 0.08 * hop;
+          it.localVel.z += (((i * 11) % 5) - 2) * 0.09 * hop;
+          it._sleepTimer = 0;
         }
 
-        // Light air damping so cargo sloshes freely
-        it.localVel.multiplyScalar(Math.exp(-0.85 * dt));
-        if (it.localVel.lengthSq() > 10.24) it.localVel.setLength(3.2);
-        it.localPos.addScaledVector(it.localVel, dt);
+        it.localVel.multiplyScalar(Math.exp(-1.1 * stepDt));
+        if (it.localVel.lengthSq() > 9.0) it.localVel.setLength(3.0);
+        it.localPos.addScaledVector(it.localVel, stepDt);
 
-        // Batas atas dinamis: barang boleh terpantul bebas di dalam bak saat kena guncangan.
         const ceilY = Math.max(railTopY, restY) + 0.45;
         if (it.localPos.y > ceilY) {
           it.localPos.y = ceilY;
           if (it.localVel.y > 0) it.localVel.y = 0;
         }
 
-        // Floor / stack contact + sliding friction (lebih licin di atas barang lain supaya meluncur jatuh saat miring)
         if (it.localPos.y < restY) {
           const impact = -it.localVel.y;
           it.localPos.y = restY;
-          if (impact > 0.20) {
-            it.localVel.y = impact * Math.max(0.22, it.bounciness);
-            it.localAngVel.x += (Math.random() - 0.5) * impact * 3.8;
-            it.localAngVel.z += (Math.random() - 0.5) * impact * 3.8;
+          if (impact > 0.32) {
+            it.localVel.y = impact * Math.min(0.32, it.bounciness);
           } else {
             it.localVel.y = 0;
           }
-          const floorFriction = hasSupport ? Math.exp(-1.8 * dt) : Math.exp(-3.4 * dt);
+          const floorFriction = hasSupport ? Math.exp(-2.2 * stepDt) : Math.exp(-4.2 * stepDt);
           it.localVel.x *= floorFriction;
           it.localVel.z *= floorFriction;
+          it._onFloorNow = true;
         }
 
-        // Penahan Pagar Kayu Bak: barang HANYA jatuh jika gerobak terbalik ATAU barang
-        // benar-benar terlempar melompati pagar dan keluar melewati batas luar gerobak.
-        const wallKick = (v) => (Math.abs(v) > 0.35 ? Math.min(0.9, Math.abs(v) * 1.5) : 0);
-        const itemBottomY = it.localPos.y - (it.half ? it.half.y * 0.85 : 0.12);
+        // Cek keluar batas mangkuk HANYA jika bagian bawah barang benar-benar melampaui tinggi pagar atau gerobak terbalik
+        const cx = it.localPos.x + it._c0.x;
+        const cz = it.localPos.z + it._c0.z;
         const outOfBed = (
-          it.localPos.z < bedMinZ - 0.12 ||
-          it.localPos.z > bedMaxZ + 0.12 ||
-          it.localPos.x < bedMinX - 0.14 ||
-          it.localPos.x > bedMaxX + 0.14
+          cz < bedMinZ - 0.14 ||
+          cz > bedMaxZ + 0.14 ||
+          cx < bedMinX - 0.16 ||
+          cx > bedMaxX + 0.16
         );
         if (this.flipped || outOfBed) {
           this.ejectItemToWorld(it, 0.75);
-          continue;
         }
-        if (it.localPos.z < inMinZ && itemBottomY <= railTopY + 0.04) {
-          const v = it.localVel.z;
-          it.localPos.z = inMinZ;
-          it.localVel.z = Math.abs(v) > 0.35 ? Math.abs(v) * 0.32 : 0;
-          it.localAngVel.x += wallKick(v);
-          if (Math.abs(v) > 0.35) it._restT = 0;
-          it._touchPrev = true;
-        } else if (it.localPos.z > inMaxZ && itemBottomY <= railTopY + 0.04) {
-          const v = it.localVel.z;
-          it.localPos.z = inMaxZ;
-          it.localVel.z = Math.abs(v) > 0.35 ? -Math.abs(v) * 0.32 : 0;
-          it.localAngVel.x -= wallKick(v);
-          if (Math.abs(v) > 0.35) it._restT = 0;
-          it._touchPrev = true;
-        }
-
-        if (it.localPos.x < inMinX && itemBottomY <= divRailTopY + 0.04) {
-          const v = it.localVel.x;
-          it.localPos.x = inMinX;
-          it.localVel.x = Math.abs(v) > 0.35 ? Math.abs(v) * 0.32 : 0;
-          it.localAngVel.z -= wallKick(v);
-          if (Math.abs(v) > 0.35) it._restT = 0;
-          it._touchPrev = true;
-        } else if (it.localPos.x > inMaxX && itemBottomY <= frontRailTopY + 0.04) {
-          const v = it.localVel.x;
-          it.localPos.x = inMaxX;
-          it.localVel.x = Math.abs(v) > 0.35 ? -Math.abs(v) * 0.32 : 0;
-          it.localAngVel.z += wallKick(v);
-          if (Math.abs(v) > 0.35) it._restT = 0;
-          it._touchPrev = true;
-        }
-
-        // Gerak menggelinding bebas 360° mengikuti kecepatan di alas bak/tumpukan (tidak tergantung bentuk barang)
-        if (!it.localQuat) {
-          it.localQuat = new THREE.Quaternion().setFromEuler(
-            new THREE.Euler(it.localAng.x, it.localAng.y, it.localAng.z)
-          );
-        }
-        if (onFloor) {
-          const rollR = Math.max(0.11, it.radius || 0.16);
-          const targetWx = it.localVel.z / rollR;
-          const targetWz = -it.localVel.x / rollR;
-          const blend = Math.min(1, dt * 14);
-          it.localAngVel.x += (targetWx - it.localAngVel.x) * blend;
-          it.localAngVel.z += (targetWz - it.localAngVel.z) * blend;
-          it.localAngVel.y *= Math.exp(-3.0 * dt);
-        } else {
-          it.localAngVel.multiplyScalar(Math.exp(-1.2 * dt));
-        }
-
-        const wMag = it.localAngVel.length();
-        if (wMag > 14) it.localAngVel.setLength(14);
-        const wStep = Math.min(wMag, 14);
-        if (wStep > 1e-4) {
-          const ax = this._cargoRollAxis || (this._cargoRollAxis = new THREE.Vector3());
-          const dq = this._cargoRollDq || (this._cargoRollDq = new THREE.Quaternion());
-          ax.copy(it.localAngVel).divideScalar(wMag);
-          dq.setFromAxisAngle(ax, wStep * dt);
-          it.localQuat.premultiply(dq).normalize();
-        }
-        it.localAng.y += it.localAngVel.y * dt;
-
-        // Hanya tenang total kalau bak datar, barang di lantai papan, dan kecepatan nyaris nol
-        const cartFlat = Math.abs(this.roll) < 0.06 && Math.abs(this.pitch) < 0.06;
-        const still = cartFlat && !hasSupport && it.localVel.lengthSq() < 0.015 && it.localAngVel.lengthSq() < 0.06;
-        it._restT = still ? (it._restT || 0) + dt : 0;
-        if (it._restT > 0.25 && onFloor) {
-          it.localVel.x *= Math.exp(-16 * dt);
-          it.localVel.z *= Math.exp(-16 * dt);
-          if (Math.abs(it.localVel.x) < 0.01) it.localVel.x = 0;
-          if (Math.abs(it.localVel.z) < 0.01) it.localVel.z = 0;
-          it.localAngVel.multiplyScalar(Math.exp(-20 * dt));
-          if (it.localAngVel.length() < 0.02) it.localAngVel.set(0, 0, 0);
-        }
-
-        it.mesh.position.copy(it.localPos);
-        it.mesh.quaternion.copy(it.localQuat);
       }
 
-      // Narrow-phase uses the mesh-derived compound boxes so empty corners
-      // (notably around barrels) do not generate phantom contacts. The AABB
-      // solver below remains the inexpensive response/broad-phase.
-      const collisionBoxes = items.map((item) => worldCargoBoxes(item));
+      // Pass 2: Solver PBD 3 iterasi (pisah antar-barang + tahan dinding pagar serentak -> nol interpenetrasi & nol getar!)
+      const clampItemToWalls = (it) => {
+        const r = it._colR;
+        const cx = it.localPos.x + it._c0.x;
+        const cz = it.localPos.z + it._c0.z;
+        const itemBottomY = (it.localPos.y + it._c0.y) - it._rotHalfY;
+        const minX = bedMinX + r, maxX = bedMaxX - r;
+        const minZ = bedMinZ + r, maxZ = bedMaxZ - r;
+        if (itemBottomY <= railTopY + 0.04) {
+          if (cz < minZ) it.localPos.z = minZ - it._c0.z;
+          else if (cz > maxZ) it.localPos.z = maxZ - it._c0.z;
+        }
+        if (itemBottomY <= divRailTopY + 0.04 && cx < minX) {
+          it.localPos.x = minX - it._c0.x;
+        }
+        if (itemBottomY <= frontRailTopY + 0.04 && cx > maxX) {
+          it.localPos.x = maxX - it._c0.x;
+        }
+      };
+
+      for (let iter = 0; iter < 3; iter++) {
+        for (let i = 0; i < items.length; i++) {
+          const a = items[i];
+          if (!a || a.spilled || a.hiddenForQuest) continue;
+          clampItemToWalls(a);
+          for (let j = i + 1; j < items.length; j++) {
+            const b = items[j];
+            if (!b || b.spilled || b.hiddenForQuest) continue;
+            if (a._supportBy === b || b._supportBy === a) continue;
+            const ay = a.localPos.y + a._c0.y;
+            const by = b.localPos.y + b._c0.y;
+            if (Math.abs(ay - by) >= (a._rotHalfY + b._rotHalfY) * 0.85) continue;
+
+            const ax = a.localPos.x + a._c0.x, az = a.localPos.z + a._c0.z;
+            const bx = b.localPos.x + b._c0.x, bz = b.localPos.z + b._c0.z;
+            let dx = bx - ax, dz = bz - az;
+            let d = Math.hypot(dx, dz);
+            const minDist = a._colR + b._colR;
+            if (d >= minDist) continue;
+            if (d < 1e-4) { dx = 1; dz = 0; d = 1; }
+            const nx = dx / d, nz = dz / d;
+            const pen = minDist - d;
+            const aAsleep = (a._sleepTimer || 0) >= 0.22;
+            const bAsleep = (b._sleepTimer || 0) >= 0.22;
+            const wA = aAsleep && !bAsleep ? 0.0 : (bAsleep && !aAsleep ? 1.0 : 0.5);
+            const wB = 1.0 - wA;
+            a.localPos.x -= nx * pen * wA;
+            a.localPos.z -= nz * pen * wA;
+            b.localPos.x += nx * pen * wB;
+            b.localPos.z += nz * pen * wB;
+            clampItemToWalls(a);
+            clampItemToWalls(b);
+
+            if (iter === 0) {
+              const rvx = b.localVel.x - a.localVel.x;
+              const rvz = b.localVel.z - a.localVel.z;
+              const vn = rvx * nx + rvz * nz;
+              if (vn < 0) {
+                // Hanya memantul ringan jika tabrakan cepat (> 0.55 m/s); kontak diam tidak boleh memantul!
+                const e = vn < -0.55 ? 0.18 : 0.0;
+                const jImp = -(1 + e) * vn * 0.5;
+                if (!aAsleep) { a.localVel.x -= nx * jImp; a.localVel.z -= nz * jImp; }
+                if (!bAsleep) { b.localVel.x += nx * jImp; b.localVel.z += nz * jImp; }
+              }
+            }
+          }
+        }
+      }
+
+      // Pass 3: Rekonsiliasi kecepatan PBD, rotasi menggelinding di pusat geometri, & penguncian diam (sleep)
       for (let i = 0; i < items.length; i++) {
-        const a = items[i];
-        if (a.spilled || a.hiddenForQuest || !a.half) continue;
-        const af = cargoFootprint(a.localPos.x, a.localPos.z,
-          a.localCenter || { x: 0, z: 0 }, a.localHalf || { x: a.half.x / 0.9, z: a.half.z / 0.9 }, a.localAng.y);
-        const ay = (a.localHalf && a.localHalf.y) || (a.half.y / 0.9);
-        const acy = (a.localCenter && a.localCenter.y) || 0;
-        for (let j = i + 1; j < items.length; j++) {
-          const b = items[j];
-          if (b.spilled || b.hiddenForQuest || !b.half) continue;
-          if (a._supportBy === b || b._supportBy === a) continue;
-          if (!cargoBoundsOverlap3D(collisionBoxes[i], collisionBoxes[j])) continue;
-          if (!cargoBoxesOverlap(collisionBoxes[i], collisionBoxes[j])) continue;
-          const bf = cargoFootprint(b.localPos.x, b.localPos.z,
-            b.localCenter || { x: 0, z: 0 }, b.localHalf || { x: b.half.x / 0.9, z: b.half.z / 0.9 }, b.localAng.y);
-          const by = (b.localHalf && b.localHalf.y) || (b.half.y / 0.9);
-          const bcy = (b.localCenter && b.localCenter.y) || 0;
-          const dx = bf.x - af.x;
-          const dy = (b.localPos.y + bcy) - (a.localPos.y + acy);
-          const dz = bf.z - af.z;
-          const contactPad = 0.008;
-          const ox = (af.hx + bf.hx + contactPad) - Math.abs(dx);
-          const oy = (ay + by) - Math.abs(dy);
-          const oz = (af.hz + bf.hz + contactPad) - Math.abs(dz);
-          if (ox <= 0 || oy <= 0 || oz <= 0) continue;
-          a._touchPrev = true; b._touchPrev = true;
-          if (oy <= ox && oy <= oz) {
-            // beda lapis: barang atas tetap bisa meluncur bebas di atas barang bawah saat miring
-            const top = dy >= 0 ? b : a;
-            if (top.localVel.y < 0) top.localVel.y = 0;
-            const slideDamp = Math.exp(-1.8 * dt);
-            top.localVel.x *= slideDamp; top.localVel.z *= slideDamp;
-            top.localAngVel.x *= 0.92; top.localAngVel.z *= 0.92;
-          } else if (ox <= oz) {
-            const s = dx >= 0 ? 1 : -1;
-            a.localPos.x -= s * ox * 0.5; b.localPos.x += s * ox * 0.5;
-            const av = a.localVel.x, bv = b.localVel.x;
-            const relV = bv - av;
-            if (relV * s < 0) {
-              const e = 0.25;
-              const j = -(1 + e) * relV * 0.5;
-              a.localVel.x -= j; b.localVel.x += j;
-            }
-            const kx = Math.abs(relV) > 0.22 ? Math.min(1.4, Math.abs(relV) * 0.85) : 0;
-            a.localAngVel.z -= s * kx; b.localAngVel.z += s * kx;
-            a.localAngVel.y += (Math.random() - 0.5) * kx * 0.6;
-            b.localAngVel.y -= (Math.random() - 0.5) * kx * 0.6;
-          } else {
-            const s = dz >= 0 ? 1 : -1;
-            a.localPos.z -= s * oz * 0.5; b.localPos.z += s * oz * 0.5;
-            const av = a.localVel.z, bv = b.localVel.z;
-            const relV = bv - av;
-            if (relV * s < 0) {
-              const e = 0.25;
-              const j = -(1 + e) * relV * 0.5;
-              a.localVel.z -= j; b.localVel.z += j;
-            }
-            const kz = Math.abs(relV) > 0.22 ? Math.min(1.4, Math.abs(relV) * 0.85) : 0;
-            a.localAngVel.x += s * kz; b.localAngVel.x -= s * kz;
-            a.localAngVel.y += (Math.random() - 0.5) * kz * 0.6;
-            b.localAngVel.y -= (Math.random() - 0.5) * kz * 0.6;
-          }
-        }
-      }
+        const it = items[i];
+        if (!it || it.spilled || it.hiddenForQuest) continue;
 
-      // Jaring pengaman terakhir: jaga barang tetap di dalam mangkuk pagar selama di bawah tinggi pagar.
-      for (const it of items) {
-        if (it.spilled || it.hiddenForQuest) continue;
-        if (it._wallMinX !== undefined) {
-          const itemBottomY = it.localPos.y - (it.half ? it.half.y * 0.85 : 0.12);
-          const center = it.localCenter || { x: 0, z: 0 };
-          const half = it.localHalf || { x: it.half.x / 0.9, z: it.half.z / 0.9 };
-          const bed = { xMin: bedMinX, xMax: bedMaxX, zMin: bedMinZ, zMax: bedMaxZ };
-          const lim = cargoBedLimits(center, half, it.localAng.y, bed);
-          if (itemBottomY <= divRailTopY + 0.04 && it.localPos.x < lim.minX) it.localPos.x = lim.minX;
-          if (itemBottomY <= frontRailTopY + 0.04 && it.localPos.x > lim.maxX) it.localPos.x = lim.maxX;
-          if (itemBottomY <= railTopY + 0.04) {
-            it.localPos.z = Math.min(lim.maxZ, Math.max(lim.minZ, it.localPos.z));
-          }
+        const actualDx = it.localPos.x - (it._prevRollX ?? it.localPos.x);
+        const actualDz = it.localPos.z - (it._prevRollZ ?? it.localPos.z);
+        const actualMove = Math.hypot(actualDx, actualDz);
+
+        // Rekonsiliasi kecepatan PBD: cegah kecepatan hantu menumpuk saat barang tertahan pagar/tetangga!
+        const pbdVx = actualDx * invDt;
+        const pbdVz = actualDz * invDt;
+        if (Math.abs(pbdVx) < Math.abs(it.localVel.x)) it.localVel.x = pbdVx * 0.85;
+        if (Math.abs(pbdVz) < Math.abs(it.localVel.z)) it.localVel.z = pbdVz * 0.85;
+
+        if (!cartAgitated && it._onFloorNow && actualMove < 0.0035 && Math.abs(it.localVel.y) < 0.08) {
+          it._sleepTimer = (it._sleepTimer || 0) + stepDt;
+        } else if (actualMove > 0.006 || Math.abs(it.localVel.y) > 0.15) {
+          it._sleepTimer = 0;
         }
-        it.mesh.position.copy(it.localPos);
-        if (it.localQuat) it.mesh.quaternion.copy(it.localQuat);
-        if (it.localVel.lengthSq() > 10.24) it.localVel.setLength(3.2);
-        if (it.localAngVel.lengthSq() > 144) it.localAngVel.setLength(12.0);
+
+        if ((it._sleepTimer || 0) >= 0.22 && it._onFloorNow) {
+          // Diam mutlak tanpa getar dan tanpa berputar sedikit pun
+          it.localPos.x = it._prevRollX ?? it.localPos.x;
+          it.localPos.z = it._prevRollZ ?? it.localPos.z;
+          it.localVel.set(0, 0, 0);
+          it.localAngVel.set(0, 0, 0);
+        } else if (actualMove > 0.0025) {
+          // Menggelinding murni proporsional jarak tempuh nyata (dTheta = ds / r) tanpa residual spin!
+          const rollR = Math.max(0.13, it.radius || 0.16);
+          const wx = (actualDz * invDt) / rollR;
+          const wz = -(actualDx * invDt) / rollR;
+          it.localAngVel.set(wx, 0, wz);
+          const wMag = Math.hypot(wx, wz);
+          const wClamped = Math.min(wMag, 10.0);
+          if (wClamped > 0.02) {
+            rotAxis.set(wx / wMag, 0, wz / wMag);
+            rotDq.setFromAxisAngle(rotAxis, wClamped * stepDt);
+            it.localQuat.premultiply(rotDq).normalize();
+          }
+        } else {
+          it.localAngVel.set(0, 0, 0);
+        }
+
+        // Poskan mesh dengan kompensasi pivot pusat geometri (_c0 - R(q)*localCenter) agar berputar tepat di tengah barang!
+        const vc = it.localCenter || tmpV.set(0, 0, 0);
+        tmpV.set(vc.x, vc.y, vc.z).applyQuaternion(it.localQuat);
+        it.mesh.position.set(
+          it.localPos.x + it._c0.x - tmpV.x,
+          it.localPos.y + it._c0.y - tmpV.y,
+          it.localPos.z + it._c0.z - tmpV.z
+        );
+        it.mesh.quaternion.copy(it.localQuat);
       }
 
       // 2) World physics for spilled cargo items (gravity, ground + pebble bounce, rolling, item-item collisions)

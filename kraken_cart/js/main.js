@@ -597,6 +597,19 @@ const mapUI = new MapUI({
   coordLabelEl: document.getElementById('worldmap-coords'),
   quests,
 });
+const orthoHideRoots = [
+  horse.root,
+  cart.root,
+  ...(party && party.wild ? party.wild.map((w) => w && w.root) : []),
+  ...(mobs && mobs.rabbits ? mobs.rabbits.map((r) => r && r.root) : []),
+  ...(mobs && mobs.boars ? mobs.boars.map((b) => b && b.root) : []),
+  ...(mobs && mobs.bandits ? mobs.bandits.map((b) => b && b.root) : []),
+  mobs && mobs.vfx && mobs.vfx.group,
+].filter(Boolean);
+const orthoOk = mapUI.refreshBaseFromOrtho(orthoHideRoots);
+if (!orthoOk) {
+  console.warn('[SHOD] Initial ortho map capture returned false:', world._orthoCaptureError || 'no error');
+}
 
 function createQuestMarkerMesh(symbol) {
   const g = new THREE.Group();
@@ -842,8 +855,14 @@ const _upY = new THREE.Vector3(0, 1, 0);
 let _inspectHasSaved = false;
 let _inspectReturning = false;
 
+let _inspectIntroActive = false;
+let _inspectIntroT = 0;
+
 controls.addEventListener('start', () => {
-  if (!animator.inspectMode && _inspectReturning) {
+  if (animator.inspectMode) {
+    // Pengguna mulai memutar/zoom kamera secara manual -> lepas intro lerp agar kamera bebas diputar 360°
+    _inspectIntroActive = false;
+  } else if (_inspectReturning) {
     _inspectReturning = false;
     _inspectHasSaved = false;
   }
@@ -883,9 +902,12 @@ function setInspectMode(on, notifyDenied = false) {
       _inspectHasSaved = true;
     }
     _inspectReturning = false;
+    _inspectIntroActive = true;
+    _inspectIntroT = 0;
     const side = _inspectSavedLocalOff.z >= 0 ? 1 : -1;
     _inspectTargetLocalOff.set(-1.35, 3.25, side * 6.8);
   } else if (_inspectHasSaved) {
+    _inspectIntroActive = false;
     _inspectReturning = true;
   }
   _inspectWasActive = finalNext;
@@ -1435,10 +1457,12 @@ function loadGameState() {
     horse.root.rotation.y = animator.yaw;
   }
 
-  const cPose = save.cart || { x: animator.x, z: animator.z, yaw: animator.yaw, hitched: hasCart };
+  const cPose = (!hasCart && world.getOldCartSpot)
+    ? { ...world.getOldCartSpot(), hitched: false }
+    : (save.cart || { x: animator.x, z: animator.z, yaw: animator.yaw, hitched: hasCart });
   physics.reset(animator.x, animator.z, animator.yaw);
   physics.pos.set(cPose.x, 0, cPose.z);
-  physics.yaw = cPose.yaw || animator.yaw;
+  physics.yaw = cPose.yaw !== undefined ? cPose.yaw : animator.yaw;
   physics.hitched = !!hasCart && cPose.hitched !== false;
   physics.unhitchedDroop = physics.hitched ? 0 : 1;
   physics.syncVisual();
@@ -2033,15 +2057,7 @@ bindBtn('btn-graze', () => doEatOrDrink());
 bindBtn('btn-interact', () => doInteract());
 bindBtn('btn-sleep', () => doSleepToggle());
 if (btnInspectEl) {
-  const startInsp = (e) => { e.preventDefault(); setInspectMode(true, true); };
-  const stopInsp = (e) => { if (e) e.preventDefault(); setInspectMode(false); };
-  btnInspectEl.addEventListener('pointerdown', startInsp);
-  btnInspectEl.addEventListener('pointerup', stopInsp);
-  btnInspectEl.addEventListener('pointerleave', stopInsp);
-  btnInspectEl.addEventListener('pointercancel', stopInsp);
-  btnInspectEl.addEventListener('touchstart', startInsp, { passive: false });
-  btnInspectEl.addEventListener('touchend', stopInsp, { passive: false });
-  btnInspectEl.addEventListener('touchcancel', stopInsp, { passive: false });
+  bindBtn('btn-inspect', () => setInspectMode(!animator.inspectMode, true));
 }
 bindBtn('btn-map', () => mapUI.toggle());
 
@@ -2853,7 +2869,7 @@ window.addEventListener('keydown', (e) => {
   else if (k === '4' || k === 'f') { e.preventDefault(); if (!e.repeat) doInteract(); }
   else if (k === 'z') { e.preventDefault(); if (!e.repeat) doSleepToggle(); }
   else if (k === 'm') { e.preventDefault(); if (!e.repeat) mapUI.toggle(); }
-  else if (k === 'q') { e.preventDefault(); setInspectMode(true, !e.repeat); }
+  else if (k === 'q') { e.preventDefault(); if (!e.repeat) setInspectMode(!animator.inspectMode, true); }
   else if (k === 't') spawnTipRamp();
   else if (k === 'b') world.spawnPebbleClusterAhead(animator.x, animator.z, animator.yaw);
   else if (k === 'g') recruitNearbyNPC();
@@ -2866,7 +2882,6 @@ window.addEventListener('keyup', (e) => {
   else if (k === 's' || k === 'arrowdown') keysHeld.backward = false;
   else if (k === 'arrowleft' || k === 'a') { keysHeld.left = false; syncSteerInput(); }
   else if (k === 'arrowright' || k === 'd') { keysHeld.right = false; syncSteerInput(); }
-  else if (k === 'q') setInspectMode(false);
 });
 window.addEventListener('blur', () => {
   keysHeld.forward = false;
@@ -3064,6 +3079,19 @@ function requestWaterBarrelRefill(barrelItem, waterSrc = null) {
   return false;
 }
 
+let _cargoLeaderSvg = null;
+const _cartCenterProj = new THREE.Vector3();
+
+function ensureCargoLeaderSvg() {
+  if (!cargoLabelOverlayEl) return null;
+  if (!_cargoLeaderSvg || _cargoLeaderSvg.parentNode !== cargoLabelOverlayEl) {
+    _cargoLeaderSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    _cargoLeaderSvg.setAttribute('class', 'cargo-leader-svg');
+    cargoLabelOverlayEl.insertBefore(_cargoLeaderSvg, cargoLabelOverlayEl.firstChild);
+  }
+  return _cargoLeaderSvg;
+}
+
 function syncCargoTagPool() {
   if (!cargoLabelOverlayEl) return;
   const items = (cart && cart.cargoItems) || [];
@@ -3071,6 +3099,8 @@ function syncCargoTagPool() {
     _tagCartRef = cart;
     _tagItemCount = items.length;
     cargoLabelOverlayEl.innerHTML = '';
+    _cargoLeaderSvg = null;
+    ensureCargoLeaderSvg();
     for (const item of items) {
       const tag = document.createElement('div');
       tag.className = 'cargo-tag';
@@ -3100,6 +3130,7 @@ function syncCargoTagPool() {
 function updateCargoLabelOverlay() {
   if (!cargoLabelOverlayEl || !cart || !cart.cargoItems) return;
   syncCargoTagPool();
+  const svg = ensureCargoLeaderSvg();
   const hideAll = !hasCart || gameMode !== 'play' || workshopOpen || (mapUI && mapUI.isOpen);
   const vw = Math.max(1, window.innerWidth);
   const vh = Math.max(1, window.innerHeight);
@@ -3110,6 +3141,19 @@ function updateCargoLabelOverlay() {
   const fetchingNpc = inspectOn && party && party.members
     ? party.members.find((m) => m.state === 'fetching_water')
     : null;
+
+  // Proyeksi pusat gerobak ke layar untuk membagi kolom kiri & kanan secara dinamis mengikuti sudut putar kamera
+  let cartSx = vw * 0.5;
+  if (inspectOn && cart.root) {
+    cart.root.getWorldPosition(_cartCenterProj);
+    _cartCenterProj.y += 0.55;
+    _cartCenterProj.project(camera);
+    if (_cartCenterProj.z >= -1 && _cartCenterProj.z <= 1) {
+      cartSx = (_cartCenterProj.x * 0.5 + 0.5) * vw;
+    }
+  }
+
+  const callouts = [];
 
   for (const item of cart.cargoItems) {
     const el = item._tagEl;
@@ -3138,7 +3182,7 @@ function updateCargoLabelOverlay() {
     }
 
     _projTmp.copy(_itemWorldPos);
-    _projTmp.y += isSpilled ? 0.38 : (item.supplyKind ? 0.44 : 0.34);
+    _projTmp.y += isSpilled ? 0.38 : 0.16;
     _projTmp.project(camera);
     if (_projTmp.z > 1 || _projTmp.z < -1) {
       el.style.display = 'none';
@@ -3192,14 +3236,131 @@ function updateCargoLabelOverlay() {
     }
     const nextHtml = `<span class="cargo-tag-row">${badgeHtml}<span>${itemName}${chargeHtml}</span></span>${hintHtml}`;
 
-    if (el.className !== cls) el.className = cls;
     if (el.dataset.html !== nextHtml) {
       el.dataset.html = nextHtml;
       el.innerHTML = nextHtml;
     }
-    el.style.display = '';
-    el.style.left = Math.round(sx) + 'px';
-    el.style.top = Math.round(sy) + 'px';
+
+    if (isSpilled) {
+      // Barang jatuh di tanah tetap menampilkan tag tepat di atas lokasinya
+      if (el.className !== cls) el.className = cls;
+      el.style.display = '';
+      el.style.left = Math.round(sx) + 'px';
+      el.style.top = Math.round(sy) + 'px';
+    } else {
+      callouts.push({ item, el, cls, ax: sx, ay: sy });
+    }
+  }
+
+  // Tata rapi label barang di dalam gerobak ke kolom KIRI dan KANAN + garis putih tipis (leader lines)
+  if (!callouts.length) {
+    if (svg && svg.innerHTML) svg.innerHTML = '';
+    return;
+  }
+
+  // Pisahkan ke kolom kiri/kanan berdasarkan posisi horizontal relatif terhadap gerobak
+  const leftList = [];
+  const rightList = [];
+  let minAx = vw, maxAx = 0;
+  for (const c of callouts) {
+    if (c.ax < minAx) minAx = c.ax;
+    if (c.ax > maxAx) maxAx = c.ax;
+    if (c.ax < cartSx) leftList.push(c);
+    else rightList.push(c);
+  }
+  // Seimbangkan sedikit jika semua numpuk di satu sisi
+  const maxPerSide = Math.ceil(callouts.length * 0.55);
+  if (leftList.length > maxPerSide && rightList.length < leftList.length - 1) {
+    leftList.sort((a, b) => b.ax - a.ax);
+    while (leftList.length > maxPerSide) rightList.push(leftList.shift());
+  } else if (rightList.length > maxPerSide && leftList.length < rightList.length - 1) {
+    rightList.sort((a, b) => a.ax - b.ax);
+    while (rightList.length > maxPerSide) leftList.push(rightList.shift());
+  }
+
+  const isNarrow = vw < 680;
+  const colPad = isNarrow ? 34 : 68;
+  const minMarginX = isNarrow ? 115 : 175;
+  const leftColX = Math.max(minMarginX, Math.min(vw * 0.34, minAx - colPad));
+  const rightColX = Math.min(vw - minMarginX, Math.max(vw * 0.66, maxAx + colPad));
+  const topBound = isNarrow ? 74 : 92;
+  const bottomBound = vh - (isNarrow ? 96 : 86);
+
+  const layoutColumn = (list, side) => {
+    if (!list.length) return;
+    // Urutkan atas ke bawah berdasarkan Y titik barang agar garis putih tidak pernah bersilangan
+    list.sort((a, b) => a.ay - b.ay);
+    const colX = side === 'left' ? leftColX : rightColX;
+    const heights = list.map((c) => {
+      c.el.style.display = '';
+      const h = c.el.offsetHeight || 28;
+      return Math.max(26, h);
+    });
+    const gap = isNarrow ? 6 : 9;
+
+    // Posisi awal di Y masing-masing, lalu dorong rapi agar tidak ada tumpang tindih
+    const ys = list.map((c) => Math.max(topBound + 14, Math.min(bottomBound - 14, c.ay)));
+    for (let i = 1; i < ys.length; i++) {
+      const minStep = (heights[i - 1] + heights[i]) * 0.5 + gap;
+      if (ys[i] < ys[i - 1] + minStep) ys[i] = ys[i - 1] + minStep;
+    }
+    // Jika melewati batas bawah, geser mundur ke atas
+    const lastIdx = ys.length - 1;
+    const maxLastY = bottomBound - heights[lastIdx] * 0.5;
+    if (ys[lastIdx] > maxLastY) {
+      ys[lastIdx] = maxLastY;
+      for (let i = lastIdx - 1; i >= 0; i--) {
+        const minStep = (heights[i] + heights[i + 1]) * 0.5 + gap;
+        if (ys[i] > ys[i + 1] - minStep) ys[i] = ys[i + 1] - minStep;
+      }
+    }
+    // Pastikan paling atas tidak keluar batas atas
+    if (ys[0] < topBound + heights[0] * 0.5) {
+      ys[0] = topBound + heights[0] * 0.5;
+      for (let i = 1; i < ys.length; i++) {
+        const minStep = (heights[i - 1] + heights[i]) * 0.5 + gap;
+        if (ys[i] < ys[i - 1] + minStep) ys[i] = ys[i - 1] + minStep;
+      }
+    }
+
+    for (let i = 0; i < list.length; i++) {
+      const c = list[i];
+      const ly = Math.round(ys[i]);
+      const lx = Math.round(colX);
+      const nextCls = `${c.cls} callout-${side}`;
+      if (c.el.className !== nextCls) c.el.className = nextCls;
+      c.el.style.display = '';
+      c.el.style.left = lx + 'px';
+      c.el.style.top = ly + 'px';
+      c.lx = lx;
+      c.ly = ly;
+      c.side = side;
+    }
+  };
+
+  layoutColumn(leftList, 'left');
+  layoutColumn(rightList, 'right');
+
+  // Gambar garis putih tipis + titik jangkar di atas setiap barang
+  if (svg) {
+    const parts = [];
+    const drawList = leftList.concat(rightList);
+    for (const c of drawList) {
+      const ax = Math.round(c.ax * 10) / 10;
+      const ay = Math.round(c.ay * 10) / 10;
+      const lx = c.lx;
+      const ly = c.ly;
+      const elbowX = c.side === 'left'
+        ? Math.round((lx + 18) * 10) / 10
+        : Math.round((lx - 18) * 10) / 10;
+      // Bayangan gelap tipis di bawah garis putih agar terbaca jelas di rumput/langit terang
+      parts.push(
+        `<polyline points="${ax},${ay} ${elbowX},${ly} ${lx},${ly}" fill="none" stroke="rgba(24,18,32,0.55)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" />` +
+        `<polyline points="${ax},${ay} ${elbowX},${ly} ${lx},${ly}" fill="none" stroke="rgba(255,255,255,0.92)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" />` +
+        `<circle cx="${ax}" cy="${ay}" r="3.2" fill="#ffffff" stroke="rgba(24,18,32,0.85)" stroke-width="1.2" />`
+      );
+    }
+    svg.innerHTML = parts.join('');
   }
 }
 
@@ -3713,10 +3874,17 @@ function stepSim(dt) {
     camera.position.x += dx; camera.position.y += dy; camera.position.z += dz;
 
     if (animator.inspectMode) {
-      _inspectWantOff.copy(_inspectTargetLocalOff).applyAxisAngle(_upY, animator.yaw);
-      _inspectCurOff.copy(camera.position).sub(controls.target);
-      _inspectCurOff.lerp(_inspectWantOff, 1 - Math.exp(-7.5 * dt));
-      camera.position.copy(controls.target).add(_inspectCurOff);
+      // Transisi awal singkat ke sudut inspeksi, lalu kamera bebas diputar 360° & zoom dengan OrbitControls
+      if (_inspectIntroActive) {
+        _inspectIntroT += dt;
+        _inspectWantOff.copy(_inspectTargetLocalOff).applyAxisAngle(_upY, animator.yaw);
+        _inspectCurOff.copy(camera.position).sub(controls.target);
+        _inspectCurOff.lerp(_inspectWantOff, 1 - Math.exp(-8.5 * dt));
+        camera.position.copy(controls.target).add(_inspectCurOff);
+        if (_inspectIntroT >= 0.45 || _inspectCurOff.distanceTo(_inspectWantOff) < 0.08) {
+          _inspectIntroActive = false;
+        }
+      }
     } else if (_inspectReturning && _inspectHasSaved) {
       _inspectWantOff.copy(_inspectSavedLocalOff).applyAxisAngle(_upY, animator.yaw);
       _inspectCurOff.copy(camera.position).sub(controls.target);

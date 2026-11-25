@@ -1713,7 +1713,7 @@ const DICT = {
     msg_stop_eat: 'Stop first to graze.',
     msg_need_grass: 'Must stand directly on grass to graze.',
     msg_stop_drink: 'Stop first to drink.',
-    msg_need_water: 'Stand right by the river or pond to drink.',
+    msg_need_water: 'Stand right by the river, pond, or a water puddle to drink.',
     msg_grazing: 'Horse is grazing...',
     msg_drinking: 'Horse is drinking water...',
     msg_drank_barrel: '💧 Drank fresh water from barrel! ({c}/{m} left)',
@@ -1795,7 +1795,7 @@ const DICT = {
     ctrl_g_jump: 'Jump / Lift Cart',
     ctrl_g_interact: 'Interact / Quest / Workshop',
     ctrl_g_graze: 'Eat / Drink',
-    ctrl_g_inspect: 'Hold: Inspect Cart & Supplies',
+    ctrl_g_inspect: 'Toggle: Inspect Cart & Orbit Camera',
     ctrl_g_hitch: 'Hitch / Unhitch Cart',
     ctrl_g_npc: 'Recruit / Release NPC',
     ctrl_g_sleep: 'Sleep / Rest Horse',
@@ -2058,7 +2058,7 @@ const DICT = {
     msg_stop_eat: 'Berhenti dulu untuk makan.',
     msg_need_grass: 'Harus berdiri tepat di rumput.',
     msg_stop_drink: 'Berhenti dulu untuk minum.',
-    msg_need_water: 'Dekati tepi sungai atau kolam untuk minum.',
+    msg_need_water: 'Dekati tepi sungai, kolam, atau genangan air untuk minum.',
     msg_grazing: 'Kuda makan rumput...',
     msg_drinking: 'Kuda minum air...',
     msg_drank_barrel: '💧 Minum air segar dari tong! (sisa {c}/{m})',
@@ -2134,7 +2134,7 @@ const DICT = {
     ctrl_g_jump: 'Lompat / Angkat Gerobak',
     ctrl_g_interact: 'Interaksi / Quest / Bengkel',
     ctrl_g_graze: 'Makan / Minum',
-    ctrl_g_inspect: 'Tahan: Periksa Roda & Bekal',
+    ctrl_g_inspect: 'Tekan: Periksa Gerobak & Putar Kamera',
     ctrl_g_hitch: 'Pasang / Lepas Gerobak',
     ctrl_g_npc: 'Rekrut / Lepas NPC',
     ctrl_g_sleep: 'Tidur / Istirahat',
@@ -3985,6 +3985,7 @@ HC.setQuestCargoOnCart = function (cart, physics, cargoKind = 'spices', count = 
       localPos: hp.clone(),
       localVel: new THREE.Vector3(),
       localAng: new THREE.Vector3(hr.x, hr.y, hr.z),
+      localQuat: new THREE.Quaternion().setFromEuler(hr),
       localAngVel: new THREE.Vector3(),
       floorY: hp.y,
       bounciness: 0.36 + (p % 3) * 0.06,
@@ -11208,6 +11209,5435 @@ return { createBotWRiverSurface, createNaturalRiverbanks };
 
 })();
 
+// --- js/models/sun_ruins_model.js ---
+const __MOD_SUN_RUINS = (() => {
+'use strict';
+const THREE = HC.THREE;
+
+// ============================================================================
+// DETERMINISTIC RNG & CONTEXT HELPERS
+// ============================================================================
+
+function hash01(n) {
+  const x = Math.sin(n * 127.1 + 311.7) * 43758.5453123;
+  return x - Math.floor(x);
+}
+
+function makeRng(seed = 1) {
+  let s = (seed >>> 0) || 1;
+  return function next() {
+    s = (s + 0x6d2b79f5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function cel(ctx, mat, opts) {
+  if (ctx && typeof ctx.applyStylizedCelShading === 'function') {
+    ctx.applyStylizedCelShading(mat, opts);
+  }
+  return mat;
+}
+
+function getTerrainY(ctx, x, z) {
+  if (ctx && typeof ctx.getTerrainHeight === 'function') {
+    return ctx.getTerrainHeight(x, z);
+  }
+  return 0;
+}
+
+function setShadow(mesh, ctx, cast = true, receive = true) {
+  const isMobile = !!(ctx && ctx.isMobileDevice);
+  mesh.castShadow = cast && !isMobile;
+  mesh.receiveShadow = receive;
+  return mesh;
+}
+
+// ============================================================================
+// PROCEDURAL CANVAS TEXTURES (SRGBColorSpace)
+// ============================================================================
+
+function makeCanvasTexture(w, h, drawFn, wrapS = THREE.RepeatWrapping, wrapT = THREE.RepeatWrapping, rx = 1, ry = 1) {
+  if (typeof document === 'undefined') return null;
+  const c = document.createElement('canvas');
+  c.width = w;
+  c.height = h;
+  const g = c.getContext('2d');
+  drawFn(g, w, h);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = wrapS;
+  tex.wrapT = wrapT;
+  tex.repeat.set(rx, ry);
+  tex.needsUpdate = true;
+  return tex;
+}
+
+function createLimestoneTexture(seed = 4101) {
+  return makeCanvasTexture(256, 256, (g, w, h) => {
+    const rng = makeRng(seed);
+    g.fillStyle = '#dfd0ae';
+    g.fillRect(0, 0, w, h);
+
+    // Subtle warm sunlit travertine washes
+    const washes = ['#eadec1', '#d6c39c', '#cbb589', '#efe6cf', '#ddcba6'];
+    for (let i = 0; i < 90; i++) {
+      g.fillStyle = washes[Math.floor(rng() * washes.length)];
+      g.globalAlpha = 0.20 + rng() * 0.22;
+      const x = rng() * w;
+      const y = rng() * h;
+      const rx = 8 + rng() * 24;
+      const ry = 5 + rng() * 14;
+      for (const ox of [-w, 0, w]) {
+        for (const oy of [-h, 0, h]) {
+          g.beginPath();
+          g.ellipse(x + ox, y + oy, rx, ry, (rng() - 0.5) * 0.5, 0, Math.PI * 2);
+          g.fill();
+        }
+      }
+    }
+
+    // Carved ashlar stone block courses
+    const rows = 4;
+    const rowH = h / rows;
+    const blockTones = ['#e5d8b8', '#d9c8a3', '#ceb98f', '#ece2c8', '#dfd0ac'];
+    for (let r = 0; r < rows; r++) {
+      const y0 = r * rowH;
+      const cols = r % 2 === 0 ? 3 : 4;
+      const colW = w / cols;
+      const shift = (r % 2) * (colW * 0.45);
+      for (let c = -1; c <= cols; c++) {
+        const x0 = c * colW + shift;
+        g.globalAlpha = 0.34;
+        g.fillStyle = blockTones[Math.floor(rng() * blockTones.length)];
+        g.fillRect(x0 + 2, y0 + 2, colW - 4, rowH - 4);
+
+        // Top sunlit bevel & lower shadow bevel
+        g.globalAlpha = 0.32;
+        g.fillStyle = '#faf3e1';
+        g.fillRect(x0 + 2, y0 + 2, colW - 4, 2.5);
+        g.fillStyle = '#978362';
+        g.fillRect(x0 + 2, y0 + rowH - 4, colW - 4, 2.5);
+      }
+
+      // Horizontal mortar seam
+      g.globalAlpha = 0.55;
+      g.strokeStyle = '#8b7756';
+      g.lineWidth = 2.0;
+      g.beginPath();
+      g.moveTo(0, y0 + 0.5);
+      for (let x = 16; x <= w; x += 16) {
+        g.lineTo(x, y0 + 0.5 + (rng() - 0.5) * 1.4);
+      }
+      g.stroke();
+
+      // Vertical mortar seams
+      for (let c = 0; c <= cols; c++) {
+        const vx = ((c * colW + shift) % w + w) % w;
+        g.beginPath();
+        g.moveTo(vx, y0);
+        g.lineTo(vx + (rng() - 0.5) * 1.6, y0 + rowH);
+        g.stroke();
+      }
+    }
+
+    // Hand-carved weathering fissures & tiny limestone pores
+    g.globalAlpha = 0.42;
+    g.strokeStyle = '#756245';
+    g.lineWidth = 1.25;
+    for (let k = 0; k < 16; k++) {
+      let cx = rng() * w;
+      let cy = rng() * h;
+      g.beginPath();
+      g.moveTo(cx, cy);
+      const segs = 3 + Math.floor(rng() * 4);
+      for (let s = 0; s < segs; s++) {
+        cx += (rng() - 0.5) * 26;
+        cy += (rng() - 0.35) * 20;
+        g.lineTo(cx, cy);
+      }
+      g.stroke();
+    }
+
+    g.globalAlpha = 0.24;
+    for (let p = 0; p < 220; p++) {
+      g.fillStyle = rng() > 0.45 ? '#8f7b5b' : '#f7f0de';
+      g.fillRect(rng() * w, rng() * h, 1.6, 1.6);
+    }
+    g.globalAlpha = 1.0;
+  }, THREE.RepeatWrapping, THREE.RepeatWrapping, 2, 2);
+}
+
+function createMossStoneTexture(seed = 4202) {
+  return makeCanvasTexture(256, 256, (g, w, h) => {
+    const rng = makeRng(seed);
+    g.fillStyle = '#928b79';
+    g.fillRect(0, 0, w, h);
+
+    // Mineral stone mottling
+    const stoneTones = ['#7c7666', '#a49b87', '#6c685a', '#b1a68e', '#888271'];
+    for (let i = 0; i < 120; i++) {
+      g.fillStyle = stoneTones[Math.floor(rng() * stoneTones.length)];
+      g.globalAlpha = 0.28 + rng() * 0.25;
+      const x = rng() * w;
+      const y = rng() * h;
+      const r = 6 + rng() * 18;
+      for (const ox of [-w, 0, w]) {
+        for (const oy of [-h, 0, h]) {
+          g.beginPath();
+          g.arc(x + ox, y + oy, r, 0, Math.PI * 2);
+          g.fill();
+        }
+      }
+    }
+
+    // Weathered block lines & deep stone cracks
+    g.globalAlpha = 0.48;
+    g.strokeStyle = '#4e493e';
+    g.lineWidth = 2.0;
+    for (let r = 0; r < 4; r++) {
+      const y0 = r * (h / 4);
+      g.beginPath();
+      g.moveTo(0, y0);
+      g.lineTo(w, y0);
+      g.stroke();
+    }
+    for (let c = 0; c < 14; c++) {
+      let cx = rng() * w;
+      let cy = rng() * h;
+      g.beginPath();
+      g.moveTo(cx, cy);
+      for (let s = 0; s < 4; s++) {
+        cx += (rng() - 0.5) * 24;
+        cy += (rng() - 0.5) * 24;
+        g.lineTo(cx, cy);
+      }
+      g.stroke();
+    }
+
+    // Lush deep emerald & olive creeping moss blotches
+    const mossTones = ['#395b2b', '#4d7637', '#2c4721', '#658b42', '#3f6730'];
+    for (let m = 0; m < 130; m++) {
+      g.fillStyle = mossTones[Math.floor(rng() * mossTones.length)];
+      g.globalAlpha = 0.34 + rng() * 0.34;
+      const x = rng() * w;
+      const y = rng() * h;
+      const rx = 5 + rng() * 16;
+      const ry = 4 + rng() * 13;
+      for (const ox of [-w, 0, w]) {
+        for (const oy of [-h, 0, h]) {
+          g.beginPath();
+          g.ellipse(x + ox, y + oy, rx, ry, rng() * Math.PI, 0, Math.PI * 2);
+          g.fill();
+        }
+      }
+    }
+
+    // Pale sage lichen flecks
+    g.globalAlpha = 0.36;
+    for (let l = 0; l < 95; l++) {
+      g.fillStyle = rng() > 0.4 ? '#9ab07c' : '#6c884b';
+      g.beginPath();
+      g.arc(rng() * w, rng() * h, 1.2 + rng() * 2.4, 0, Math.PI * 2);
+      g.fill();
+    }
+    g.globalAlpha = 1.0;
+  }, THREE.RepeatWrapping, THREE.RepeatWrapping, 2, 2);
+}
+
+function createMosaicFloorTexture(seed = 4303) {
+  return makeCanvasTexture(512, 512, (g, w, h) => {
+    const rng = makeRng(seed);
+    const cx = w * 0.5;
+    const cy = h * 0.5;
+
+    // Warm travertine grout base
+    g.fillStyle = '#9b8b6d';
+    g.fillRect(0, 0, w, h);
+
+    // Outer courtyard slate-limestone paving tiles
+    const tileCols = 16;
+    const step = w / tileCols;
+    const outerTones = ['#d8c8a4', '#ceb990', '#e0d3b3', '#c5af86', '#d3c19a'];
+    for (let iy = 0; iy < tileCols; iy++) {
+      for (let ix = 0; ix < tileCols; ix++) {
+        g.fillStyle = outerTones[Math.floor(rng() * outerTones.length)];
+        g.fillRect(ix * step + 2, iy * step + 2, step - 4, step - 4);
+        g.fillStyle = 'rgba(255,248,230,0.22)';
+        g.fillRect(ix * step + 2, iy * step + 2, step - 4, 3);
+      }
+    }
+
+    // Corner solar quadrant geometric inlays
+    const corners = [
+      [0, 0], [w, 0], [w, h], [0, h],
+    ];
+    for (const [kx, ky] of corners) {
+      g.fillStyle = '#477c79';
+      g.beginPath();
+      g.arc(kx, ky, 82, 0, Math.PI * 2);
+      g.fill();
+      g.fillStyle = '#cf9e46';
+      g.beginPath();
+      g.arc(kx, ky, 54, 0, Math.PI * 2);
+      g.fill();
+      g.fillStyle = '#e5d8b9';
+      g.beginPath();
+      g.arc(kx, ky, 28, 0, Math.PI * 2);
+      g.fill();
+    }
+
+    // Outer perimeter mosaic border frame
+    const pad = 16;
+    g.strokeStyle = '#6e5e44';
+    g.lineWidth = 6;
+    g.strokeRect(pad, pad, w - pad * 2, h - pad * 2);
+    g.strokeStyle = '#cf9b43';
+    g.lineWidth = 4;
+    g.strokeRect(pad + 8, pad + 8, w - (pad + 8) * 2, h - (pad + 8) * 2);
+
+    // Outer circular sun-ring framing the central sunburst
+    g.fillStyle = '#73644c';
+    g.beginPath();
+    g.arc(cx, cy, 236, 0, Math.PI * 2);
+    g.fill();
+
+    g.fillStyle = '#d9caa5';
+    g.beginPath();
+    g.arc(cx, cy, 228, 0, Math.PI * 2);
+    g.fill();
+
+    // 24-segment alternating border ring (terracotta, teal, ivory)
+    const segCount = 24;
+    for (let i = 0; i < segCount; i++) {
+      const a0 = (i / segCount) * Math.PI * 2;
+      const a1 = ((i + 1) / segCount) * Math.PI * 2;
+      g.fillStyle = i % 3 === 0 ? '#be824a' : i % 3 === 1 ? '#417d7a' : '#e6dac0';
+      g.beginPath();
+      g.moveTo(cx + Math.cos(a0) * 196, cy + Math.sin(a0) * 196);
+      g.arc(cx, cy, 224, a0 + 0.015, a1 - 0.015);
+      g.arc(cx, cy, 196, a1 - 0.015, a0 + 0.015, true);
+      g.closePath();
+      g.fill();
+    }
+
+    // Sunburst background disc
+    g.fillStyle = '#99896c';
+    g.beginPath();
+    g.arc(cx, cy, 192, 0, Math.PI * 2);
+    g.fill();
+
+    // 12-pointed golden & turquoise sunburst rays (clearly visible outside central altar!)
+    const rays = 12;
+    for (let i = 0; i < rays; i++) {
+      const ang = (i / rays) * Math.PI * 2;
+      const angNext = ((i + 0.5) / rays) * Math.PI * 2;
+      const angPrev = ((i - 0.5) / rays) * Math.PI * 2;
+
+      // Wide background wedge
+      g.fillStyle = i % 2 === 0 ? '#dfd2b2' : '#c6b38b';
+      g.beginPath();
+      g.moveTo(cx, cy);
+      g.arc(cx, cy, 188, angPrev, angNext);
+      g.closePath();
+      g.fill();
+
+      // Sharp golden solar ray
+      g.fillStyle = i % 2 === 0 ? '#d8a23e' : '#3e8482';
+      g.beginPath();
+      g.moveTo(cx + Math.cos(ang - 0.14) * 78, cy + Math.sin(ang - 0.14) * 78);
+      g.lineTo(cx + Math.cos(ang) * 186, cy + Math.sin(ang) * 186);
+      g.lineTo(cx + Math.cos(ang + 0.14) * 78, cy + Math.sin(ang + 0.14) * 78);
+      g.closePath();
+      g.fill();
+
+      // Crisp stone grout highlight along ray ridge
+      g.strokeStyle = '#6f5f46';
+      g.lineWidth = 2;
+      g.beginPath();
+      g.moveTo(cx + Math.cos(ang) * 76, cy + Math.sin(ang) * 76);
+      g.lineTo(cx + Math.cos(ang) * 186, cy + Math.sin(ang) * 186);
+      g.stroke();
+    }
+
+    // Inner mosaic rings beneath & around altar steps
+    g.strokeStyle = '#6d5e45';
+    g.lineWidth = 5;
+    g.beginPath();
+    g.arc(cx, cy, 144, 0, Math.PI * 2);
+    g.stroke();
+
+    g.fillStyle = '#cf9c3f';
+    g.beginPath();
+    g.arc(cx, cy, 112, 0, Math.PI * 2);
+    g.fill();
+
+    g.fillStyle = '#e7dbc0';
+    g.beginPath();
+    g.arc(cx, cy, 94, 0, Math.PI * 2);
+    g.fill();
+
+    g.fillStyle = '#3b7f7d';
+    g.beginPath();
+    g.arc(cx, cy, 62, 0, Math.PI * 2);
+    g.fill();
+
+    // Fine radial stone tesserae cracks & mossy edge weathering
+    g.globalAlpha = 0.34;
+    g.strokeStyle = '#61533e';
+    g.lineWidth = 1.6;
+    for (let c = 0; c < 18; c++) {
+      let x = rng() * w;
+      let y = rng() * h;
+      g.beginPath();
+      g.moveTo(x, y);
+      for (let s = 0; s < 4; s++) {
+        x += (rng() - 0.5) * 44;
+        y += (rng() - 0.5) * 44;
+        g.lineTo(x, y);
+      }
+      g.stroke();
+    }
+
+    // Subtle emerald moss creeping at mosaic corners & seams
+    for (let m = 0; m < 85; m++) {
+      const mx = rng() * w;
+      const my = rng() * h;
+      const dist = Math.hypot(mx - cx, my - cy);
+      if (dist < 155 && rng() < 0.72) continue;
+      g.fillStyle = rng() > 0.5 ? '#486d35' : '#5d8341';
+      g.globalAlpha = 0.22 + rng() * 0.24;
+      g.beginPath();
+      g.ellipse(mx, my, 4 + rng() * 14, 3 + rng() * 11, rng() * Math.PI, 0, Math.PI * 2);
+      g.fill();
+    }
+    g.globalAlpha = 1.0;
+  }, THREE.ClampToEdgeWrapping, THREE.ClampToEdgeWrapping, 1, 1);
+}
+
+function createWarmGlowTexture() {
+  return makeCanvasTexture(64, 64, (g) => {
+    const grad = g.createRadialGradient(32, 32, 2, 32, 32, 31);
+    grad.addColorStop(0.0, 'rgba(255, 248, 206, 1.0)');
+    grad.addColorStop(0.32, 'rgba(255, 188, 86, 0.70)');
+    grad.addColorStop(0.68, 'rgba(255, 118, 32, 0.24)');
+    grad.addColorStop(1.0, 'rgba(255, 96, 20, 0.0)');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, 64, 64);
+  }, THREE.ClampToEdgeWrapping, THREE.ClampToEdgeWrapping, 1, 1);
+}
+
+// ============================================================================
+// GEOMETRY MERGING & PRIMITIVE BATCH HELPERS
+// ============================================================================
+
+function mergeGeometries(rawGeos) {
+  const prepared = [];
+  let totalVerts = 0;
+
+  for (let i = 0; i < rawGeos.length; i++) {
+    const src = rawGeos[i];
+    if (!src) continue;
+    const g = src.index ? src.toNonIndexed() : src.clone();
+    const pos = g.getAttribute('position');
+    if (!pos || pos.count === 0) {
+      g.dispose();
+      continue;
+    }
+    if (!g.getAttribute('normal')) g.computeVertexNormals();
+    if (!g.getAttribute('uv')) {
+      g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(pos.count * 2), 2));
+    }
+    prepared.push(g);
+    totalVerts += pos.count;
+    src.dispose();
+  }
+
+  const positions = new Float32Array(totalVerts * 3);
+  const normals = new Float32Array(totalVerts * 3);
+  const uvs = new Float32Array(totalVerts * 2);
+
+  let offset = 0;
+  for (let i = 0; i < prepared.length; i++) {
+    const g = prepared[i];
+    const p = g.getAttribute('position');
+    const n = g.getAttribute('normal');
+    const u = g.getAttribute('uv');
+    positions.set(p.array, offset * 3);
+    normals.set(n.array, offset * 3);
+    uvs.set(u.array, offset * 2);
+    offset += p.count;
+    g.dispose();
+  }
+
+  const out = new THREE.BufferGeometry();
+  out.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  out.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
+  out.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+  out.computeBoundingSphere();
+  return out;
+}
+
+const _mat4 = new THREE.Matrix4();
+const _quat = new THREE.Quaternion();
+const _euler = new THREE.Euler();
+const _pos = new THREE.Vector3();
+const _scale = new THREE.Vector3();
+
+function pushGeo(list, geo, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0, sx = 1, sy = 1, sz = 1) {
+  _euler.set(rx, ry, rz);
+  _quat.setFromEuler(_euler);
+  _pos.set(x, y, z);
+  _scale.set(sx, sy, sz);
+  _mat4.compose(_pos, _quat, _scale);
+  geo.applyMatrix4(_mat4);
+  list.push(geo);
+}
+
+function pushBox(list, w, h, d, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0) {
+  pushGeo(list, new THREE.BoxGeometry(w, h, d), x, y, z, rx, ry, rz);
+}
+
+function pushCyl(list, rTop, rBot, h, segs, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0) {
+  pushGeo(list, new THREE.CylinderGeometry(rTop, rBot, h, segs), x, y, z, rx, ry, rz);
+}
+
+// ============================================================================
+// CUSTOM SCULPTED PROCEDURAL GEOMETRIES
+// ============================================================================
+
+/**
+ * Builds a classically fluted stone column shaft with subtle entasis taper
+ * and optional jagged slanted fracture at the top for broken ruins.
+ */
+function buildFlutedColumnGeo(rBot, rTop, height, flutes = 12, radialSegs = 36, heightSegs = 6, brokenOpts = null) {
+  const positions = [];
+  const uvs = [];
+  const rng = makeRng(brokenOpts ? brokenOpts.seed : 9001);
+
+  const ringPts = [];
+  const topAngles = [];
+  const topRads = [];
+  const topHeights = [];
+
+  for (let iy = 0; iy <= heightSegs; iy++) {
+    const t = iy / heightSegs;
+    const baseR = rBot + (rTop - rBot) * t + Math.sin(t * Math.PI) * 0.015;
+    // Fade flutes gently near bottom/top collars
+    const fluteFade = Math.min(1, t * 7.0) * (brokenOpts ? 1.0 : Math.min(1, (1 - t) * 7.0));
+    const ring = [];
+
+    for (let ir = 0; ir <= radialSegs; ir++) {
+      const u = ir / radialSegs;
+      const theta = u * Math.PI * 2;
+      const fluteWave = 0.5 + 0.5 * Math.cos(theta * flutes);
+      const fluteIndent = Math.pow(fluteWave, 1.35) * 0.058 * baseR * fluteFade;
+      const r = baseR - fluteIndent;
+      const vx = Math.cos(theta) * r;
+      const vz = Math.sin(theta) * r;
+
+      let topY = height;
+      if (brokenOpts) {
+        const jag =
+          Math.sin(theta * 4.0 + brokenOpts.phase) * 0.11 +
+          Math.cos(theta * 7.0 - brokenOpts.phase * 1.4) * 0.065 +
+          Math.sin(theta * 11.0 + brokenOpts.phase * 2.1) * 0.03;
+        topY = Math.max(0.45, height + brokenOpts.slantX * vx + brokenOpts.slantZ * vz + jag);
+      }
+
+      const vy = t * topY;
+      ring.push([vx, vy, vz, u, t]);
+
+      if (iy === heightSegs && ir < radialSegs) {
+        topAngles.push(theta);
+        topRads.push(r);
+        topHeights.push(vy);
+      }
+    }
+    ringPts.push(ring);
+  }
+
+  // Side cylinder faces
+  for (let iy = 0; iy < heightSegs; iy++) {
+    const rowA = ringPts[iy];
+    const rowB = ringPts[iy + 1];
+    for (let ir = 0; ir < radialSegs; ir++) {
+      const a = rowA[ir];
+      const b = rowA[ir + 1];
+      const c = rowB[ir + 1];
+      const d = rowB[ir];
+
+      positions.push(a[0], a[1], a[2], d[0], d[1], d[2], b[0], b[1], b[2]);
+      uvs.push(a[3], a[4], d[3], d[4], b[3], b[4]);
+
+      positions.push(b[0], b[1], b[2], d[0], d[1], d[2], c[0], c[1], c[2]);
+      uvs.push(b[3], b[4], d[3], d[4], c[3], c[4]);
+    }
+  }
+
+  // Top cap (flat for intact, fractured jagged stone plane for broken)
+  const centerTopY = brokenOpts
+    ? height + (rng() - 0.5) * 0.08
+    : height;
+  const topRow = ringPts[heightSegs];
+  for (let ir = 0; ir < radialSegs; ir++) {
+    const p1 = topRow[ir];
+    const p2 = topRow[ir + 1];
+    positions.push(0, centerTopY, 0, p2[0], p2[1], p2[2], p1[0], p1[1], p1[2]);
+    uvs.push(0.5, 0.5, 0.5 + p2[0], 0.5 + p2[2], 0.5 + p1[0], 0.5 + p1[2]);
+  }
+
+  // Bottom cap
+  const botRow = ringPts[0];
+  for (let ir = 0; ir < radialSegs; ir++) {
+    const p1 = botRow[ir];
+    const p2 = botRow[ir + 1];
+    positions.push(0, 0, 0, p1[0], p1[1], p1[2], p2[0], p2[1], p2[2]);
+    uvs.push(0.5, 0.5, 0.5 + p1[0], 0.5 + p1[2], 0.5 + p2[0], 0.5 + p2[2]);
+  }
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geo.computeVertexNormals();
+  return geo;
+}
+
+/**
+ * Builds a beveled trapezoidal voussoir stone block for curved temple arches.
+ */
+function buildVoussoirGeo(innerR, outerR, depth, halfAngle) {
+  const shape = new THREE.Shape();
+  const a0 = -halfAngle;
+  const a1 = halfAngle;
+  shape.moveTo(Math.sin(a0) * innerR, Math.cos(a0) * innerR);
+  shape.lineTo(Math.sin(a0) * outerR, Math.cos(a0) * outerR);
+  shape.lineTo(Math.sin(a1) * outerR, Math.cos(a1) * outerR);
+  shape.lineTo(Math.sin(a1) * innerR, Math.cos(a1) * innerR);
+  shape.closePath();
+
+  const geo = new THREE.ExtrudeGeometry(shape, {
+    depth,
+    bevelEnabled: true,
+    bevelThickness: 0.035,
+    bevelSize: 0.03,
+    bevelSegments: 1,
+  });
+  geo.translate(0, 0, -depth * 0.5);
+  return geo;
+}
+
+/**
+ * Builds a stylized BotW/Truckful multi-frond arched fern cluster.
+ */
+function buildFernCluster(list, cx, cy, cz, scale = 1.0, seed = 1) {
+  const rng = makeRng(seed);
+  const frondCount = 6 + Math.floor(rng() * 3);
+  for (let i = 0; i < frondCount; i++) {
+    const yaw = (i / frondCount) * Math.PI * 2 + (rng() - 0.5) * 0.35;
+    const tilt = 0.45 + rng() * 0.48;
+    const len = (0.48 + rng() * 0.32) * scale;
+    const width = (0.14 + rng() * 0.06) * scale;
+
+    // 2-segment arched blade per fern frond
+    const seg1 = new THREE.BoxGeometry(width, 0.025 * scale, len * 0.56);
+    seg1.translate(0, 0, len * 0.28);
+    pushGeo(
+      list,
+      seg1,
+      cx,
+      cy + 0.03 * scale,
+      cz,
+      -tilt,
+      yaw,
+      0
+    );
+
+    const midDist = Math.cos(tilt) * len * 0.52;
+    const midH = Math.sin(tilt) * len * 0.52;
+    const seg2 = new THREE.ConeGeometry(width * 0.55, len * 0.55, 4);
+    seg2.rotateX(Math.PI * 0.5);
+    seg2.translate(0, 0, len * 0.24);
+    pushGeo(
+      list,
+      seg2,
+      cx + Math.sin(yaw) * midDist,
+      cy + 0.03 * scale + midH,
+      cz + Math.cos(yaw) * midDist,
+      -tilt + 0.52,
+      yaw,
+      0
+    );
+  }
+}
+
+/**
+ * Builds an irregular angular weathered boulder/rubble rock.
+ */
+function pushRockChunk(list, cx, cy, cz, rx, ry, rz, yaw = 0, seed = 11) {
+  const geo = new THREE.DodecahedronGeometry(1.0, 0);
+  const pos = geo.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const vx = pos.getX(i);
+    const vy = pos.getY(i);
+    const vz = pos.getZ(i);
+    const n = 0.80 + 0.34 * hash01(i * 3.17 + seed * 1.7 + vx * 5.1 + vz * 7.3);
+    pos.setXYZ(i, vx * n, vy * (vy < 0 ? 0.65 : n), vz * n);
+  }
+  geo.computeVertexNormals();
+  pushGeo(list, geo, cx, cy, cz, (hash01(seed) - 0.5) * 0.4, yaw, (hash01(seed + 7) - 0.5) * 0.4, rx, ry, rz);
+}
+
+// ============================================================================
+// ARCHITECTURAL SECTION BUILDERS
+// ============================================================================
+
+function buildPlatformsAndStairs(batches, walkableGeos, minLocalY) {
+  const { limestone, carved, moss } = batches;
+
+  const tier1Top = 0.66;
+  const tier2Top = 1.32;
+  const skirtBottom = Math.min(-0.95, minLocalY - 0.55);
+  const skirtH = 0.28 - skirtBottom;
+
+  // --- Tier 1: 23m x 23m Foundation Platform ---
+  const t1Size = 23.0;
+  const t1Half = t1Size * 0.5; // 11.5
+  const t1CoreH = tier1Top - skirtBottom;
+  pushBox(walkableGeos, t1Size, t1CoreH, t1Size, 0, skirtBottom + t1CoreH * 0.5, 0);
+
+  // Mossy foundation skirt wrapping Tier 1 lower edge
+  pushBox(moss, t1Size + 0.34, skirtH, t1Size + 0.34, 0, skirtBottom + skirtH * 0.5, 0);
+
+  // Tier 1 sculpted rim curbs along the 4 edges (open cleanly at [-2.35, +2.35] for stairs!)
+  const t1CurbW = 0.54;
+  const t1CurbH = 0.14;
+  const t1SegLen = t1Half - 2.35; // 9.15m per side wing
+  const t1SegCenter = 2.35 + t1SegLen * 0.5;
+  const t1CurbPos = t1Half - t1CurbW * 0.5;
+  for (const s of [-1, 1]) {
+    // North/South curb wings
+    pushBox(carved, t1SegLen, t1CurbH, t1CurbW, -t1SegCenter, tier1Top + t1CurbH * 0.45, s * t1CurbPos);
+    pushBox(carved, t1SegLen, t1CurbH, t1CurbW, +t1SegCenter, tier1Top + t1CurbH * 0.45, s * t1CurbPos);
+    // East/West curb wings
+    pushBox(carved, t1CurbW, t1CurbH, t1SegLen, s * t1CurbPos, tier1Top + t1CurbH * 0.45, -t1SegCenter);
+    pushBox(carved, t1CurbW, t1CurbH, t1SegLen, s * t1CurbPos, tier1Top + t1CurbH * 0.45, +t1SegCenter);
+  }
+
+  // Ashlar corner capstones on Tier 1
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      pushBox(moss, 0.85, 0.18, 0.85, sx * (t1Half - 0.42), tier1Top + 0.08, sz * (t1Half - 0.42));
+    }
+  }
+
+  // --- 4 Wide Outer Stairways (N, S, E, W) from terrain up to Tier 1 ---
+  // Stair width 4.40m, 3 steps (0.22m rise, 0.55m depth each), outer reach +-13.15m
+  const outerStairW = 4.40;
+  const outerStepD = 0.55;
+  const outerDirs = [
+    { dx: 0, dz: 1, rotY: 0 },               // South (+Z)
+    { dx: 0, dz: -1, rotY: Math.PI },        // North (-Z)
+    { dx: 1, dz: 0, rotY: Math.PI * 0.5 },   // East (+X)
+    { dx: -1, dz: 0, rotY: -Math.PI * 0.5 }, // West (-X)
+  ];
+
+  for (const dir of outerDirs) {
+    for (let st = 0; st < 3; st++) {
+      const stepTop = (st + 1) * 0.22; // 0.22, 0.44, 0.66
+      const distOut = t1Half + (2 - st) * outerStepD + outerStepD * 0.5;
+      const stepH = stepTop - skirtBottom;
+      const lx = dir.dx * distOut;
+      const lz = dir.dz * distOut;
+      pushGeo(
+        walkableGeos,
+        new THREE.BoxGeometry(outerStairW, stepH, outerStepD + 0.06),
+        lx,
+        skirtBottom + stepH * 0.5,
+        lz,
+        0,
+        dir.rotY,
+        0
+      );
+      // Subtle front nosing trim on step tread
+      pushGeo(
+        carved,
+        new THREE.BoxGeometry(outerStairW + 0.04, 0.06, 0.10),
+        dir.dx * (distOut + outerStepD * 0.48),
+        stepTop - 0.025,
+        dir.dz * (distOut + outerStepD * 0.48),
+        0,
+        dir.rotY,
+        0
+      );
+    }
+
+    // Stepped stair cheek walls flanking left & right of outer stair
+    for (const side of [-1, 1]) {
+      const cheekLocalX = side * (outerStairW * 0.5 + 0.26);
+      const cheekDist = t1Half + outerStepD * 1.5;
+      const wx = dir.dx * cheekDist + Math.cos(dir.rotY) * cheekLocalX;
+      const wz = dir.dz * cheekDist - Math.sin(dir.rotY) * cheekLocalX;
+      const cheekH = 0.92 - skirtBottom;
+      pushGeo(
+        carved,
+        new THREE.BoxGeometry(0.48, cheekH, outerStepD * 3 + 0.22),
+        wx,
+        skirtBottom + cheekH * 0.5,
+        wz,
+        0,
+        dir.rotY,
+        0
+      );
+      // End stone finial block on cheek wall
+      const endDist = t1Half + outerStepD * 2.95;
+      const ex = dir.dx * endDist + Math.cos(dir.rotY) * cheekLocalX;
+      const ez = dir.dz * endDist - Math.sin(dir.rotY) * cheekLocalX;
+      pushGeo(
+        moss,
+        new THREE.BoxGeometry(0.58, 0.22, 0.58),
+        ex,
+        0.54,
+        ez,
+        0,
+        dir.rotY,
+        0
+      );
+    }
+  }
+
+  // --- Tier 2: 14m x 14m Middle Terrace ---
+  const t2Size = 14.0;
+  const t2Half = t2Size * 0.5; // 7.0
+  const t2H = tier2Top - tier1Top; // 0.66
+  pushBox(walkableGeos, t2Size, t2H, t2Size, 0, tier1Top + t2H * 0.5 - 0.02, 0);
+  // Moss-stained molding skirt around Tier 2
+  pushBox(moss, t2Size + 0.24, 0.26, t2Size + 0.24, 0, tier1Top + 0.11, 0);
+
+  // Tier 2 carved stone curb framing the 12.6m mosaic courtyard (open at [-2.05, +2.05])
+  const t2CurbW = 0.68;
+  const t2CurbH = 0.14;
+  const t2SegLen = t2Half - 2.05; // 4.95m
+  const t2SegCenter = 2.05 + t2SegLen * 0.5;
+  const t2CurbPos = t2Half - t2CurbW * 0.5;
+  for (const s of [-1, 1]) {
+    pushBox(carved, t2SegLen, t2CurbH, t2CurbW, -t2SegCenter, tier2Top + t2CurbH * 0.35, s * t2CurbPos);
+    pushBox(carved, t2SegLen, t2CurbH, t2CurbW, +t2SegCenter, tier2Top + t2CurbH * 0.35, s * t2CurbPos);
+    pushBox(carved, t2CurbW, t2CurbH, t2SegLen, s * t2CurbPos, tier2Top + t2CurbH * 0.35, -t2SegCenter);
+    pushBox(carved, t2CurbW, t2CurbH, t2SegLen, s * t2CurbPos, tier2Top + t2CurbH * 0.35, +t2SegCenter);
+  }
+
+  // --- 4 Wide Inner Stairways (N, S, E, W) from Tier 1 up to Tier 2 ---
+  const innerStairW = 4.00;
+  const innerStepD = 0.50;
+  for (const dir of outerDirs) {
+    for (let st = 0; st < 3; st++) {
+      const stepTop = tier1Top + (st + 1) * 0.22; // 0.88, 1.10, 1.32
+      const distOut = t2Half + (2 - st) * innerStepD + innerStepD * 0.5;
+      const stepH = stepTop - tier1Top + 0.04;
+      pushGeo(
+        walkableGeos,
+        new THREE.BoxGeometry(innerStairW, stepH, innerStepD + 0.06),
+        dir.dx * distOut,
+        tier1Top - 0.04 + stepH * 0.5,
+        dir.dz * distOut,
+        0,
+        dir.rotY,
+        0
+      );
+      pushGeo(
+        carved,
+        new THREE.BoxGeometry(innerStairW + 0.04, 0.055, 0.09),
+        dir.dx * (distOut + innerStepD * 0.48),
+        stepTop - 0.02,
+        dir.dz * (distOut + innerStepD * 0.48),
+        0,
+        dir.rotY,
+        0
+      );
+    }
+
+    // Cheek curbs on inner stairs
+    for (const side of [-1, 1]) {
+      const cheekLocalX = side * (innerStairW * 0.5 + 0.24);
+      const cheekDist = t2Half + innerStepD * 1.5;
+      const wx = dir.dx * cheekDist + Math.cos(dir.rotY) * cheekLocalX;
+      const wz = dir.dz * cheekDist - Math.sin(dir.rotY) * cheekLocalX;
+      pushGeo(
+        carved,
+        new THREE.BoxGeometry(0.44, 0.86, innerStepD * 3 + 0.16),
+        wx,
+        tier1Top + 0.42,
+        wz,
+        0,
+        dir.rotY,
+        0
+      );
+    }
+  }
+
+  // Subtle decorative stone paver seams on Tier 1 walkway corners
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      pushBox(limestone, 2.2, 0.03, 2.2, sx * 7.8, tier1Top + 0.008, sz * 7.8);
+    }
+  }
+}
+
+function addClassicalPillarBaseAndLowerShaft(batches, x, z, baseY) {
+  const { moss, carved } = batches;
+  // Square base plinth
+  pushBox(moss, 1.44, 0.34, 1.44, x, baseY + 0.17, z);
+  pushBox(carved, 1.24, 0.16, 1.24, x, baseY + 0.42, z);
+  // Molded torus base rings
+  pushCyl(carved, 0.55, 0.60, 0.12, 16, x, baseY + 0.56, z);
+  pushCyl(carved, 0.49, 0.53, 0.10, 16, x, baseY + 0.67, z);
+  // Shaft starts at baseY + 0.72 (= 1.38m)
+  return baseY + 0.72;
+}
+
+function addIntactPillar(batches, x, z, baseY) {
+  const { limestone, carved } = batches;
+  const shaftStart = addClassicalPillarBaseAndLowerShaft(batches, x, z, baseY);
+  const shaftH = 4.24; // shaftTop = 1.38 + 4.24 = 5.62m
+
+  // Fluted cylindrical shaft
+  const shaft = buildFlutedColumnGeo(0.46, 0.39, shaftH, 12, 36, 6, null);
+  pushGeo(limestone, shaft, x, shaftStart, z);
+
+  // Carved ornamental stone rings inlaid along shaft ("bertatah cincin")
+  for (const t of [0.34, 0.68]) {
+    const ry = shaftStart + shaftH * t;
+    const rr = 0.46 + (0.39 - 0.46) * t + 0.045;
+    pushCyl(carved, rr, rr + 0.015, 0.11, 18, x, ry, z);
+  }
+
+  // Classical stone capital (necking collar, flaring echinus bell, 4 volute bolsters, square abacus)
+  const capBase = shaftStart + shaftH; // 5.62
+  pushCyl(carved, 0.43, 0.43, 0.09, 16, x, capBase + 0.045, z);
+  pushCyl(carved, 0.64, 0.40, 0.30, 14, x, capBase + 0.24, z);
+
+  // 4 corner volute scrolls
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      pushCyl(
+        carved,
+        0.14,
+        0.14,
+        0.26,
+        10,
+        x + sx * 0.47,
+        capBase + 0.36,
+        z + sz * 0.47,
+        sz === sx ? Math.PI * 0.5 : 0,
+        0,
+        sz !== sx ? Math.PI * 0.5 : 0
+      );
+    }
+  }
+
+  // Heavy square abacus cap (top = 5.62 + 0.60 = 6.22m)
+  pushBox(carved, 1.36, 0.22, 1.36, x, capBase + 0.49, z);
+  return capBase + 0.60; // 6.22m
+}
+
+function addFriezeBeamSegment(batches, cx, cz, spanLen, beamY, horizontalAlongX, includeDentils = true) {
+  const { limestone, carved, moss, dark, gold } = batches;
+  const rotY = horizontalAlongX ? 0 : Math.PI * 0.5;
+
+  // Lower stepped architrave beam
+  pushGeo(limestone, new THREE.BoxGeometry(spanLen, 0.42, 1.02), cx, beamY + 0.21, cz, 0, rotY, 0);
+  pushGeo(dark, new THREE.BoxGeometry(spanLen - 0.1, 0.08, 1.08), cx, beamY + 0.43, cz, 0, rotY, 0);
+
+  // Recessed frieze band with carved triglyphs & solar metopes
+  pushGeo(limestone, new THREE.BoxGeometry(spanLen - 0.04, 0.44, 0.90), cx, beamY + 0.69, cz, 0, rotY, 0);
+  const count = Math.max(2, Math.floor(spanLen / 1.15));
+  for (let i = 0; i < count; i++) {
+    const t = ((i + 0.5) / count - 0.5) * (spanLen - 0.65);
+    const px = cx + (horizontalAlongX ? t : 0);
+    const pz = cz + (horizontalAlongX ? 0 : t);
+    // Triglyph block
+    pushGeo(carved, new THREE.BoxGeometry(0.24, 0.42, 0.98), px, beamY + 0.69, pz, 0, rotY, 0);
+    // Carved solar disc relief between triglyphs
+    if (i < count - 1) {
+      const midT = ((i + 1.0) / count - 0.5) * (spanLen - 0.65);
+      const mx = cx + (horizontalAlongX ? midT : 0);
+      const mz = cz + (horizontalAlongX ? 0 : midT);
+      pushGeo(gold, new THREE.CylinderGeometry(0.12, 0.12, 0.96, 10), mx, beamY + 0.69, mz, Math.PI * 0.5, rotY, 0);
+    }
+  }
+
+  // Dentil teeth under cornice
+  if (includeDentils) {
+    const dCount = Math.max(4, Math.floor(spanLen / 0.36));
+    for (let d = 0; d < dCount; d++) {
+      const dt = ((d + 0.5) / dCount - 0.5) * (spanLen - 0.22);
+      const dx = cx + (horizontalAlongX ? dt : 0);
+      const dz = cz + (horizontalAlongX ? 0 : dt);
+      pushGeo(carved, new THREE.BoxGeometry(0.16, 0.11, 1.12), dx, beamY + 0.95, dz, 0, rotY, 0);
+    }
+  }
+
+  // Overhanging upper cornice + mossy top cap
+  pushGeo(carved, new THREE.BoxGeometry(spanLen + 0.08, 0.20, 1.24), cx, beamY + 1.10, cz, 0, rotY, 0);
+  pushGeo(moss, new THREE.BoxGeometry(spanLen * 0.85, 0.10, 1.06), cx, beamY + 1.24, cz, 0, rotY, 0);
+}
+
+function addPortalArchLintel(batches, cx, cz, beamY, alongX) {
+  const { limestone, carved, moss, gold, cyanRune } = batches;
+  const rotY = alongX ? 0 : Math.PI * 0.5;
+  const span = 6.50; // between -3.25 and +3.25
+
+  // Twin springer piers above the flanking gate capitals
+  for (const s of [-1, 1]) {
+    const sx = cx + (alongX ? s * 3.05 : 0);
+    const sz = cz + (alongX ? 0 : s * 3.05);
+    pushGeo(carved, new THREE.BoxGeometry(0.95, 0.42, 1.12), sx, beamY + 0.21, sz, 0, rotY, 0);
+  }
+
+  // Voussoir stone arch ring curving over the doorway
+  const archCenterY = beamY - 0.28; // 5.94m
+  const innerR = 2.30;
+  const outerR = 3.02;
+  const voussoirCount = 11;
+  const arcHalf = Math.PI * 0.44;
+  for (let i = 0; i < voussoirCount; i++) {
+    const frac = i / (voussoirCount - 1);
+    const ang = -arcHalf + frac * arcHalf * 2;
+    const isKeystone = i === Math.floor(voussoirCount / 2);
+    const vOuter = isKeystone ? outerR + 0.22 : outerR;
+    const vDepth = isKeystone ? 1.14 : 1.02;
+    const vGeo = buildVoussoirGeo(innerR, vOuter, vDepth, (arcHalf / voussoirCount) * 0.92);
+    vGeo.rotateZ(-ang);
+    pushGeo(isKeystone ? carved : limestone, vGeo, cx, archCenterY, cz, 0, rotY, 0);
+  }
+
+  // Carved solar emblem on keystone (front & back)
+  const keyY = archCenterY + (innerR + outerR) * 0.5 + 0.08;
+  pushGeo(gold, new THREE.CylinderGeometry(0.24, 0.24, 1.20, 12), cx, keyY, cz, Math.PI * 0.5, rotY, 0);
+  pushGeo(cyanRune, new THREE.CylinderGeometry(0.11, 0.11, 1.24, 8), cx, keyY, cz, Math.PI * 0.5, rotY, 0);
+
+  // Spandrel stone shoulders tying arch into horizontal cornice level (beamY + 2.45m)
+  for (const s of [-1, 1]) {
+    const sx = cx + (alongX ? s * 2.48 : 0);
+    const sz = cz + (alongX ? 0 : s * 2.48);
+    pushGeo(limestone, new THREE.BoxGeometry(1.55, 1.20, 0.94), sx, beamY + 1.02, sz, 0, rotY, 0);
+  }
+
+  // Upper horizontal carved frieze crown & stepped pediment above the arch
+  addFriezeBeamSegment(batches, cx, cz, span + 0.45, beamY + 1.48, alongX, true);
+  pushGeo(moss, new THREE.BoxGeometry(3.8, 0.26, 1.04), cx, beamY + 2.84, cz, 0, rotY, 0);
+}
+
+function buildColonnadeAndBrokenPillars(batches, registerCollider, baseY) {
+  const { limestone, carved, moss } = batches;
+  const L = 9.40;
+  const G = 3.25;
+  const tier1Top = 0.66;
+
+  // 8 Intact Pillars forming U-shape around North (-Z), West (-X), East (+X)
+  const intactCoords = [
+    [-L, -L], [-G, -L], [G, -L], [L, -L], // North side (4)
+    [-L, -G], [-L, G],                     // West side middle (2)
+    [L, -G],  [L, G],                      // East side middle (2)
+  ];
+
+  let lintelBaseY = 6.22;
+  for (const [px, pz] of intactCoords) {
+    lintelBaseY = addIntactPillar(batches, px, pz, tier1Top);
+    registerCollider('ruin_pillar', px, pz, 0.82, baseY + 7.6);
+  }
+
+  // North carved arch lintels & frieze (z = -L)
+  addFriezeBeamSegment(batches, -(L + G) * 0.5, -L, (L - G) + 1.20, lintelBaseY, true);
+  addPortalArchLintel(batches, 0, -L, lintelBaseY, true);
+  addFriezeBeamSegment(batches, (L + G) * 0.5, -L, (L - G) + 1.20, lintelBaseY, true);
+
+  // West carved arch lintels & frieze (x = -L)
+  addFriezeBeamSegment(batches, -L, -(L + G) * 0.5, (L - G) + 1.20, lintelBaseY, false);
+  addPortalArchLintel(batches, -L, 0, lintelBaseY, false);
+  // Broken cantilevered lintel end past West-South pillar (-L, +G)
+  addFriezeBeamSegment(batches, -L, G + 1.15, 1.65, lintelBaseY, false, false);
+
+  // East carved arch lintels & frieze (x = +L)
+  addFriezeBeamSegment(batches, L, -(L + G) * 0.5, (L - G) + 1.20, lintelBaseY, false);
+  addPortalArchLintel(batches, L, 0, lintelBaseY, false);
+  // Broken cantilevered lintel end past East-South pillar (+L, +G)
+  addFriezeBeamSegment(batches, L, G + 1.15, 1.65, lintelBaseY, false, false);
+
+  // Corner capstone blocks bridging N/W and N/E entablatures cleanly
+  for (const sx of [-1, 1]) {
+    pushBox(carved, 1.38, 1.32, 1.38, sx * L, lintelBaseY + 0.66, -L);
+  }
+
+  // --- 4 Broken Jagged Pillars on South Front (+Z) & Fallen Column Drums ---
+  const brokenSpecs = [
+    {
+      x: -L, z: L, h: 1.92, slantX: 0.26, slantZ: -0.18, seed: 101,
+      drum: { x: -7.15, z: 9.55, len: 2.35, yaw: 0.34, r: 0.42 },
+      cap:  { x: -10.25, z: 7.55, len: 1.15, yaw: -0.68, r: 0.44 },
+    },
+    {
+      x: -G, z: L, h: 2.74, slantX: -0.22, slantZ: 0.21, seed: 202,
+      drum: { x: -5.10, z: 8.15, len: 2.10, yaw: -0.52, r: 0.41 },
+      cap:  { x: -4.15, z: 10.65, len: 0.95, yaw: 0.85, r: 0.42 },
+    },
+    {
+      x: G, z: L, h: 2.32, slantX: 0.21, slantZ: 0.22, seed: 303,
+      drum: { x: 5.25, z: 8.20, len: 2.25, yaw: 0.56, r: 0.41 },
+      cap:  { x: 4.25, z: 10.60, len: 0.92, yaw: -0.92, r: 0.42 },
+    },
+    {
+      x: L, z: L, h: 1.54, slantX: -0.28, slantZ: -0.16, seed: 404,
+      drum: { x: 7.45, z: 9.05, len: 2.45, yaw: -0.28, r: 0.42 },
+      cap:  { x: 10.35, z: 7.35, len: 1.25, yaw: 0.78, r: 0.44 },
+    },
+  ];
+
+  for (const bp of brokenSpecs) {
+    const shaftStart = addClassicalPillarBaseAndLowerShaft(batches, bp.x, bp.z, tier1Top);
+    const brokenShaft = buildFlutedColumnGeo(0.46, 0.41, bp.h, 12, 36, 5, {
+      slantX: bp.slantX,
+      slantZ: bp.slantZ,
+      phase: bp.seed * 0.37,
+      seed: bp.seed,
+    });
+    pushGeo(limestone, brokenShaft, bp.x, shaftStart, bp.z);
+
+    // Lower carved ring if tall enough
+    if (bp.h > 1.75) {
+      pushCyl(carved, 0.47, 0.48, 0.11, 18, bp.x, shaftStart + 1.38, bp.z);
+    }
+
+    registerCollider('ruin_pillar', bp.x, bp.z, 0.82, baseY + shaftStart + bp.h + 0.3);
+
+    // Fallen fluted column cylinder resting horizontally on Tier 1 floor
+    const d = bp.drum;
+    const drumGeo = buildFlutedColumnGeo(d.r, d.r * 0.96, d.len, 12, 28, 4, {
+      slantX: 0.18,
+      slantZ: -0.14,
+      phase: bp.seed * 0.71,
+      seed: bp.seed + 17,
+    });
+    drumGeo.translate(0, -d.len * 0.5, 0);
+    drumGeo.rotateZ(Math.PI * 0.5);
+    pushGeo(limestone, drumGeo, d.x, tier1Top + d.r * 0.86, d.z, 0.04, d.yaw, 0.05);
+
+    // Ring collar on fallen cylinder
+    pushCyl(
+      carved,
+      d.r * 1.07,
+      d.r * 1.07,
+      0.11,
+      16,
+      d.x + Math.cos(d.yaw) * 0.18,
+      tier1Top + d.r * 0.86,
+      d.z - Math.sin(d.yaw) * 0.18,
+      0,
+      d.yaw,
+      Math.PI * 0.5
+    );
+
+    // Register two circle colliders along large fallen shaft so player/horse never clips through
+    const ux = Math.cos(d.yaw);
+    const uz = -Math.sin(d.yaw);
+    registerCollider('ruin_pillar', d.x - ux * (d.len * 0.25), d.z - uz * (d.len * 0.25), 0.56, baseY + tier1Top + d.r * 2.1);
+    registerCollider('ruin_pillar', d.x + ux * (d.len * 0.25), d.z + uz * (d.len * 0.25), 0.56, baseY + tier1Top + d.r * 2.1);
+
+    // Secondary broken column piece / crushed capital nearby
+    const c = bp.cap;
+    const capDrum = buildFlutedColumnGeo(c.r, c.r * 0.94, c.len, 12, 24, 3, {
+      slantX: -0.16,
+      slantZ: 0.14,
+      phase: bp.seed * 1.13,
+      seed: bp.seed + 53,
+    });
+    capDrum.translate(0, -c.len * 0.5, 0);
+    capDrum.rotateZ(Math.PI * 0.5);
+    pushGeo(moss, capDrum, c.x, tier1Top + c.r * 0.82, c.z, -0.04, c.yaw, 0.03);
+    registerCollider('ruin_pillar', c.x, c.z, 0.55, baseY + tier1Top + c.r * 2.0);
+  }
+}
+
+function buildAltarAndSunObelisk(batches, walkableGeos, crystalRefs, registerCollider, baseY, materials) {
+  const { limestone, carved, moss, dark, gold, cyanRune, goldRune } = batches;
+  const tier2Top = 1.32;
+
+  // --- Tier 3: Stepped Circular Sacred Altar Dais ---
+  // Step 1 (walkable circular dais r = 3.45m, +0.22m)
+  pushCyl(walkableGeos, 3.45, 3.55, 0.24, 16, 0, tier2Top + 0.11, 0);
+  pushCyl(carved, 3.48, 3.52, 0.06, 16, 0, tier2Top + 0.21, 0);
+
+  // Step 2 (walkable circular dais r = 2.55m, +0.22m)
+  pushCyl(walkableGeos, 2.55, 2.65, 0.24, 16, 0, tier2Top + 0.33, 0);
+  pushCyl(gold, 2.38, 2.42, 0.04, 16, 0, tier2Top + 0.45, 0);
+
+  // Central Altar Pedestal (non-walkable center monument)
+  const pedBaseY = tier2Top + 0.44; // 1.76
+  pushCyl(moss, 1.56, 1.66, 0.32, 8, 0, pedBaseY + 0.16, 0, 0, Math.PI / 8, 0);
+  pushBox(carved, 1.92, 0.54, 1.92, 0, pedBaseY + 0.59, 0);
+  // Glowing cyan rune collar around altar waist
+  pushBox(cyanRune, 1.98, 0.10, 1.98, 0, pedBaseY + 0.62, 0);
+  // Flared altar table cornice
+  pushBox(carved, 2.26, 0.22, 2.26, 0, pedBaseY + 0.97, 0);
+  pushBox(gold, 2.02, 0.07, 2.02, 0, pedBaseY + 1.11, 0);
+
+  // 4 carved corner scroll buttresses on altar pedestal
+  for (let i = 0; i < 4; i++) {
+    const ang = (i / 4) * Math.PI * 2 + Math.PI / 4;
+    const bx = Math.cos(ang) * 1.16;
+    const bz = Math.sin(ang) * 1.16;
+    pushBox(carved, 0.42, 0.68, 0.42, bx, pedBaseY + 0.54, bz, 0, -ang, 0);
+  }
+
+  // --- Central Sun Obelisk ---
+  const obBaseY = pedBaseY + 1.14; // 2.90m
+  const obH = 4.65;
+  const rBot = 0.88;
+  const rTop = 0.48;
+
+  // Square footing beneath obelisk shaft
+  pushBox(carved, 1.44, 0.22, 1.44, 0, obBaseY + 0.11, 0);
+
+  const shaftStart = obBaseY + 0.22; // 3.12m
+  // 4-sided tapered shaft rotated PI/4 so faces align cleanly to N/S/E/W
+  pushCyl(limestone, rTop, rBot, obH, 4, 0, shaftStart + obH * 0.5, 0, 0, Math.PI / 4, 0);
+
+  // Pyramidion apex (truncated at top with golden cradle prongs)
+  const pyrStart = shaftStart + obH; // 7.77m
+  const pyrH = 0.66;
+  pushCyl(carved, 0.10, rTop * 1.04, pyrH, 4, 0, pyrStart + pyrH * 0.5, 0, 0, Math.PI / 4, 0);
+
+  // Face geometry parameters for flush carved collars & glowing cyan/gold rune bands
+  const halfWBot = rBot / Math.SQRT2;
+  const halfWTop = rTop / Math.SQRT2;
+  const faceTilt = Math.atan2(halfWBot - halfWTop, obH);
+
+  // Horizontal bronze/stone collars around obelisk
+  for (const t of [0.16, 0.50, 0.86]) {
+    const cy = shaftStart + obH * t;
+    const hw = halfWBot + (halfWTop - halfWBot) * t;
+    pushBox(gold, hw * 2.08, 0.10, hw * 2.08, 0, cy, 0);
+    pushBox(cyanRune, hw * 2.11, 0.04, hw * 2.11, 0, cy, 0);
+  }
+
+  // Carved glowing cyan & gold rune inscriptions on all 4 obelisk faces
+  const faceDirs = [
+    { rotY: 0 },
+    { rotY: Math.PI * 0.5 },
+    { rotY: Math.PI },
+    { rotY: -Math.PI * 0.5 },
+  ];
+  const midT = 0.52;
+  const midY = shaftStart + obH * midT;
+  const midDist = halfWBot + (halfWTop - halfWBot) * midT + 0.018;
+
+  for (const fd of faceDirs) {
+    const sinY = Math.sin(fd.rotY);
+    const cosY = Math.cos(fd.rotY);
+
+    // Recessed stone panel framing runes
+    pushGeo(
+      dark,
+      new THREE.BoxGeometry(0.46, 3.05, 0.03),
+      sinY * (midDist - 0.01),
+      midY,
+      cosY * (midDist - 0.01),
+      -faceTilt,
+      fd.rotY,
+      0
+    );
+
+    // Vertical glowing cyan rune spine
+    pushGeo(
+      cyanRune,
+      new THREE.BoxGeometry(0.075, 2.75, 0.045),
+      sinY * midDist,
+      midY,
+      cosY * midDist,
+      -faceTilt,
+      fd.rotY,
+      0
+    );
+
+    // Horizontal cyan rune crossbars
+    for (const yOff of [-0.95, -0.35, 0.35, 0.95]) {
+      const distAt = midDist - yOff * Math.tan(faceTilt);
+      pushGeo(
+        cyanRune,
+        new THREE.BoxGeometry(0.32 - yOff * 0.05, 0.06, 0.045),
+        sinY * distAt,
+        midY + yOff,
+        cosY * distAt,
+        -faceTilt,
+        fd.rotY,
+        0
+      );
+    }
+
+    // Central glowing gold solar medallion inlay on each face
+    const sunY = shaftStart + obH * 0.68;
+    const sunDist = halfWBot + (halfWTop - halfWBot) * 0.68 + 0.025;
+    pushGeo(
+      goldRune,
+      new THREE.CylinderGeometry(0.16, 0.16, 0.05, 10),
+      sinY * sunDist,
+      sunY,
+      cosY * sunDist,
+      Math.PI * 0.5 - faceTilt,
+      fd.rotY,
+      0
+    );
+  }
+
+  // 4-prong golden finial cradle at pyramidion tip
+  const tipY = pyrStart + pyrH; // 8.43m
+  const cradleTiltM = new THREE.Matrix4();
+  const cradleYawM = new THREE.Matrix4();
+  for (let i = 0; i < 4; i++) {
+    const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
+    const prongGeo = new THREE.BoxGeometry(0.08, 0.36, 0.08);
+    cradleTiltM.makeRotationZ(-0.28);
+    cradleYawM.makeRotationY(-a);
+    prongGeo.applyMatrix4(cradleTiltM);
+    prongGeo.applyMatrix4(cradleYawM);
+    pushGeo(gold, prongGeo, Math.cos(a) * 0.24, tipY + 0.06, Math.sin(a) * 0.24);
+  }
+
+  // Register central monument circle collider (radius 1.68 leaves outer dais step rings walkable!)
+  registerCollider('ruin_pillar', 0, 0, 1.68, baseY + tipY + 1.4);
+
+  // --- Animated Floating Solar Crystal at Obelisk Apex ---
+  const crystalBaseY = tipY + 0.64; // ~9.07m
+  const crystalPivot = new THREE.Group();
+  crystalPivot.position.set(0, crystalBaseY, 0);
+
+  const outerCrystal = new THREE.Mesh(new THREE.OctahedronGeometry(0.56, 0), materials.crystalOuter);
+  outerCrystal.scale.set(0.84, 1.52, 0.84);
+  crystalPivot.add(outerCrystal);
+
+  const innerCrystal = new THREE.Mesh(new THREE.OctahedronGeometry(0.28, 0), materials.crystalCore);
+  innerCrystal.scale.set(0.84, 1.48, 0.84);
+  crystalPivot.add(innerCrystal);
+
+  const orbitalRingA = new THREE.Mesh(new THREE.TorusGeometry(0.84, 0.032, 6, 18), materials.goldRune);
+  orbitalRingA.rotation.x = 0.55;
+  crystalPivot.add(orbitalRingA);
+
+  const orbitalRingB = new THREE.Mesh(new THREE.TorusGeometry(1.02, 0.024, 6, 18), materials.cyanRune);
+  orbitalRingB.rotation.y = 0.75;
+  orbitalRingB.rotation.x = -0.45;
+  crystalPivot.add(orbitalRingB);
+
+  const crystalHalo = new THREE.Sprite(
+    new THREE.SpriteMaterial({
+      map: materials.glowTex,
+      color: 0x7df9ff,
+      transparent: true,
+      opacity: 0.55,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    })
+  );
+  crystalHalo.scale.set(2.8, 2.8, 1);
+  crystalPivot.add(crystalHalo);
+
+  crystalRefs.crystalPivot = crystalPivot;
+  crystalRefs.crystalBaseY = crystalBaseY;
+  crystalRefs.innerCrystal = innerCrystal;
+  crystalRefs.orbitalRingA = orbitalRingA;
+  crystalRefs.orbitalRingB = orbitalRingB;
+  crystalRefs.crystalHalo = crystalHalo;
+}
+
+function buildStoneBrazier(batches, brazierAnims, bx, bz, baseY, index, materials) {
+  const { carved, moss, dark, gold, ember } = batches;
+  const tier2Top = 1.32;
+
+  // Octagonal pedestal base
+  pushCyl(moss, 0.64, 0.70, 0.20, 8, bx, tier2Top + 0.10, bz);
+  pushCyl(carved, 0.44, 0.52, 0.14, 8, bx, tier2Top + 0.27, bz);
+
+  // Carved legged stone shaft
+  pushCyl(carved, 0.30, 0.34, 0.64, 8, bx, tier2Top + 0.66, bz);
+  for (let i = 0; i < 4; i++) {
+    const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
+    pushBox(
+      carved,
+      0.16,
+      0.72,
+      0.24,
+      bx + Math.cos(a) * 0.36,
+      tier2Top + 0.60,
+      bz + Math.sin(a) * 0.36,
+      0,
+      -a + Math.PI * 0.5,
+      0
+    );
+  }
+  pushCyl(gold, 0.38, 0.38, 0.08, 10, bx, tier2Top + 0.96, bz);
+
+  // Flared stone bowl & inner ash bed
+  const bowlY = tier2Top + 1.18;
+  pushCyl(carved, 0.72, 0.38, 0.36, 10, bx, bowlY, bz);
+  pushCyl(carved, 0.76, 0.72, 0.10, 10, bx, bowlY + 0.20, bz);
+  pushCyl(dark, 0.56, 0.34, 0.12, 10, bx, bowlY + 0.18, bz);
+
+  // Glowing coal bed
+  const coalGeo = new THREE.DodecahedronGeometry(0.42, 0);
+  coalGeo.scale(1.0, 0.42, 1.0);
+  pushGeo(ember, coalGeo, bx, bowlY + 0.24, bz, 0, index * 0.9, 0);
+
+  // Animated fire group at bowl center
+  const fireGroup = new THREE.Group();
+  fireGroup.position.set(bx, bowlY + 0.26, bz);
+
+  const tongues = [];
+  const tongueSpecs = [
+    { x: 0, z: 0, r: 0.24, h: 0.68, core: true },
+    { x: 0.13, z: 0.06, r: 0.16, h: 0.50, core: false },
+    { x: -0.12, z: 0.08, r: 0.15, h: 0.48, core: false },
+    { x: 0.04, z: -0.14, r: 0.17, h: 0.54, core: false },
+    { x: -0.07, z: -0.09, r: 0.14, h: 0.44, core: false },
+  ];
+
+  for (let i = 0; i < tongueSpecs.length; i++) {
+    const sp = tongueSpecs[i];
+    const coneGeo = new THREE.ConeGeometry(sp.r, sp.h, 5);
+    coneGeo.translate(0, sp.h * 0.5, 0);
+    const mesh = new THREE.Mesh(coneGeo, sp.core ? materials.flameCore : materials.flameOuter);
+    mesh.position.set(sp.x, 0, sp.z);
+    fireGroup.add(mesh);
+    tongues.push({
+      mesh,
+      phase: index * 1.57 + i * 1.13,
+      baseY: 0,
+      isCore: sp.core,
+    });
+  }
+
+  const halo = new THREE.Sprite(
+    new THREE.SpriteMaterial({
+      map: materials.glowTex,
+      color: 0xffaa44,
+      transparent: true,
+      opacity: 0.68,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    })
+  );
+  halo.position.set(0, 0.36, 0);
+  halo.scale.set(1.9, 1.9, 1);
+  fireGroup.add(halo);
+
+  brazierAnims.push({ fireGroup, tongues, halo, phase: index * 1.57 });
+}
+
+function buildGuardianStatue(batches, gx, gz, yaw, mirrorSign, baseY) {
+  const { carved, moss, dark, gold, cyanRune } = batches;
+  const yawMat = new THREE.Matrix4().makeRotationY(yaw);
+  const localMat = new THREE.Matrix4();
+  const lEu = new THREE.Euler();
+  const lQ = new THREE.Quaternion();
+  const lPos = new THREE.Vector3();
+  const lScale = new THREE.Vector3(1, 1, 1);
+
+  const pushLocal = (list, geo, lx, ly, lz, rx = 0, ry = 0, rz = 0) => {
+    lEu.set(rx, ry, rz);
+    lQ.setFromEuler(lEu);
+    lPos.set(lx, ly, lz);
+    localMat.compose(lPos, lQ, lScale);
+    geo.applyMatrix4(localMat);
+    geo.applyMatrix4(yawMat);
+    geo.translate(gx, 0, gz);
+    list.push(geo);
+  };
+
+  // Pedestal sitting cleanly on terrain/stair shoulder up to tier 1 height (0.66m) + plinth
+  pushLocal(moss, new THREE.BoxGeometry(1.56, 1.25, 1.56), 0, 0.15, 0);
+  pushLocal(carved, new THREE.BoxGeometry(1.36, 0.30, 1.36), 0, 0.92, 0);
+
+  const standY = 1.07; // Feet level on guardian plinth
+
+  // Heavy armored lower legs / sentinel robe base
+  pushLocal(carved, new THREE.BoxGeometry(1.06, 0.78, 0.94), 0, standY + 0.39, -0.04);
+  pushLocal(moss, new THREE.BoxGeometry(0.46, 0.84, 0.56), -0.30, standY + 0.42, 0.08);
+  pushLocal(carved, new THREE.BoxGeometry(0.46, 0.84, 0.56), 0.30, standY + 0.42, 0.08);
+
+  // Broad angular torso & stone breastplate
+  pushLocal(carved, new THREE.CylinderGeometry(0.62, 0.48, 0.96, 6), 0, standY + 1.24, -0.04, 0, Math.PI / 6, 0);
+  pushLocal(gold, new THREE.BoxGeometry(0.68, 0.14, 0.74), 0, standY + 0.82, 0);
+  // Solar chest crest
+  pushLocal(gold, new THREE.CylinderGeometry(0.20, 0.20, 0.08, 8), 0, standY + 1.34, 0.44, Math.PI * 0.5, 0, 0);
+  pushLocal(cyanRune, new THREE.CylinderGeometry(0.09, 0.09, 0.10, 6), 0, standY + 1.34, 0.45, Math.PI * 0.5, 0, 0);
+
+  // Broad sculpted shoulder pauldrons
+  for (const s of [-1, 1]) {
+    const pGeo = new THREE.DodecahedronGeometry(0.34, 0);
+    pGeo.scale(1.15, 0.88, 1.05);
+    pushLocal(s === mirrorSign ? moss : carved, pGeo, s * 0.68, standY + 1.56, -0.04, 0, s * 0.3, s * -0.25);
+
+    // Forearms reaching forward to grip ceremonial greatsword
+    pushLocal(carved, new THREE.BoxGeometry(0.28, 0.54, 0.30), s * 0.58, standY + 1.18, 0.12, -0.35, 0, s * 0.25);
+    pushLocal(carved, new THREE.BoxGeometry(0.26, 0.26, 0.50), s * 0.32, standY + 0.98, 0.42, 0.15, -s * 0.48, 0);
+  }
+
+  // Ceremonial stone greatsword planted vertically in front of guardian
+  pushLocal(dark, new THREE.BoxGeometry(0.20, 1.18, 0.08), 0, standY + 0.59, 0.62);
+  pushLocal(gold, new THREE.BoxGeometry(0.56, 0.10, 0.16), 0, standY + 1.18, 0.62);
+  pushLocal(carved, new THREE.BoxGeometry(0.11, 0.36, 0.11), 0, standY + 1.38, 0.62);
+
+  // Chiseled low-poly helmet head with horned sun-crest
+  const headY = standY + 1.98;
+  pushLocal(carved, new THREE.BoxGeometry(0.54, 0.56, 0.56), 0, headY, 0.02, 0.08 * mirrorSign, 0, 0);
+  // Angular visor brow & glowing cyan sentinel eyes
+  pushLocal(carved, new THREE.BoxGeometry(0.58, 0.14, 0.20), 0, headY + 0.12, 0.24);
+  pushLocal(cyanRune, new THREE.BoxGeometry(0.34, 0.06, 0.06), 0, headY + 0.04, 0.29);
+  // Twin stone crest horns / solar crown wings
+  for (const s of [-1, 1]) {
+    pushLocal(gold, new THREE.ConeGeometry(0.11, 0.44, 4), s * 0.26, headY + 0.40, 0.02, -0.18, 0, s * -0.34);
+  }
+  // Stone mane / cape down the back
+  pushLocal(moss, new THREE.BoxGeometry(0.74, 0.92, 0.26), 0, standY + 1.24, -0.44, 0.14, 0, 0);
+}
+
+function buildRubbleAndFoliage(batches, ctx, originX, originZ, cosY, sinY, baseY) {
+  const { limestone, moss, fern } = batches;
+  const rng = makeRng(8842);
+
+  const localToTerrainDelta = (lx, lz) => {
+    const wx = originX + lx * cosY + lz * sinY;
+    const wz = originZ - lx * sinY + lz * cosY;
+    return getTerrainY(ctx, wx, wz) - baseY;
+  };
+
+  // --- Interior corner rubble & moss cushions on Tier 1 & Tier 2 corners (well clear of stairs!) ---
+  const cornerSpots = [
+    // Tier 1 inner corners
+    { x: -10.35, z: -10.35, y: 0.66, s: 1.0 },
+    { x: 10.35,  z: -10.35, y: 0.66, s: 1.05 },
+    { x: -10.45, z: 10.35,  y: 0.66, s: 1.25 },
+    { x: 10.45,  z: 10.35,  y: 0.66, s: 1.20 },
+    // Broken South facade scattered masonry chunks (outside [-2.5, +2.5] stair corridor!)
+    { x: -6.10, z: 10.45, y: 0.66, s: 0.95 },
+    { x: 6.25,  z: 10.40, y: 0.66, s: 1.0 },
+    { x: -8.30, z: 7.45,  y: 0.66, s: 0.85 },
+    { x: 8.20,  z: 7.50,  y: 0.66, s: 0.90 },
+    // Tier 2 corners near braziers
+    { x: -6.20, z: -6.20, y: 1.32, s: 0.80 },
+    { x: 6.20,  z: -6.20, y: 1.32, s: 0.78 },
+    { x: -6.25, z: 6.20,  y: 1.32, s: 0.85 },
+    { x: 6.25,  z: 6.20,  y: 1.32, s: 0.82 },
+  ];
+
+  for (let i = 0; i < cornerSpots.length; i++) {
+    const sp = cornerSpots[i];
+    // Creeping moss pillow
+    const mossGeo = new THREE.DodecahedronGeometry(0.46 * sp.s, 1);
+    mossGeo.scale(1.35, 0.36, 1.2);
+    pushGeo(fern, mossGeo, sp.x, sp.y + 0.06, sp.z, 0, rng() * Math.PI, 0);
+
+    // 2-3 weathered stone rubble chunks
+    const chunkCount = 2 + (i % 2);
+    for (let c = 0; c < chunkCount; c++) {
+      const ang = rng() * Math.PI * 2;
+      const dist = 0.22 + rng() * 0.55;
+      const rx = (0.24 + rng() * 0.24) * sp.s;
+      const ry = (0.16 + rng() * 0.18) * sp.s;
+      const rz = (0.22 + rng() * 0.24) * sp.s;
+      pushRockChunk(
+        c % 2 === 0 ? moss : limestone,
+        sp.x + Math.cos(ang) * dist,
+        sp.y + ry * 0.65,
+        sp.z + Math.sin(ang) * dist,
+        rx,
+        ry,
+        rz,
+        rng() * Math.PI,
+        i * 31 + c * 13
+      );
+    }
+
+    // Lush fern rosette tucked at stone edge
+    buildFernCluster(
+      fern,
+      sp.x + (rng() - 0.5) * 0.55,
+      sp.y + 0.02,
+      sp.z + (rng() - 0.5) * 0.55,
+      0.85 * sp.s,
+      i * 47 + 9
+    );
+  }
+
+  // --- Outer Perimeter Boulders & Wild Fern Clusters adapted to terrain height ---
+  const perimeterSpots = [
+    [-12.3, -11.9], [-12.2, -5.2], [-12.2, 5.4], [-12.3, 12.1],
+    [12.3, -11.9],  [12.2, -5.4],  [12.2, 5.2],  [12.3, 12.1],
+    [-6.2, -12.3],  [6.2, -12.3],  [-6.8, 12.2], [6.8, 12.2],
+  ];
+
+  for (let i = 0; i < perimeterSpots.length; i++) {
+    const [px, pz] = perimeterSpots[i];
+    const gy = localToTerrainDelta(px, pz);
+
+    pushRockChunk(
+      i % 3 === 0 ? limestone : moss,
+      px,
+      gy + 0.26,
+      pz,
+      0.55 + rng() * 0.45,
+      0.38 + rng() * 0.28,
+      0.52 + rng() * 0.42,
+      rng() * Math.PI,
+      700 + i * 19
+    );
+
+    // Moss cushion + twin fern fronds hugging foundation wall
+    const bushGeo = new THREE.DodecahedronGeometry(0.45, 1);
+    bushGeo.scale(1.4, 0.48, 1.3);
+    pushGeo(fern, bushGeo, px + (px > 0 ? -0.35 : 0.35), gy + 0.14, pz, 0, rng() * Math.PI, 0);
+
+    buildFernCluster(
+      fern,
+      px + (rng() - 0.5) * 0.85,
+      gy + 0.04,
+      pz + (rng() - 0.5) * 0.85,
+      1.05 + rng() * 0.35,
+      900 + i * 23
+    );
+  }
+}
+
+// ============================================================================
+// MAIN PUBLIC BUILDER
+// ============================================================================
+
+function createAncientSunRuins(ctx = {}) {
+  const originX = ctx.x !== undefined ? ctx.x : 245;
+  const originZ = ctx.z !== undefined ? ctx.z : -365;
+  const rotY = ctx.rotationY !== undefined ? ctx.rotationY : 0.35;
+  const baseY = ctx.y !== undefined ? ctx.y : getTerrainY(ctx, originX, originZ);
+
+  const cosY = Math.cos(rotY);
+  const sinY = Math.sin(rotY);
+
+  function localToWorld(lx, lz) {
+    return {
+      wx: originX + lx * cosY + lz * sinY,
+      wz: originZ - lx * sinY + lz * cosY,
+    };
+  }
+
+  function registerCollider(kind, lx, lz, radius, maxY) {
+    if (ctx && typeof ctx.addCircleCollider === 'function') {
+      const { wx, wz } = localToWorld(lx, lz);
+      ctx.addCircleCollider(kind, wx, wz, radius, maxY, group);
+    }
+  }
+
+  // Sample perimeter terrain heights to make sure foundation skirt reaches down seamlessly
+  let minLocalY = 0;
+  for (const lx of [-12.5, 0, 12.5]) {
+    for (const lz of [-12.5, 0, 12.5]) {
+      const { wx, wz } = localToWorld(lx, lz);
+      const dy = getTerrainY(ctx, wx, wz) - baseY;
+      if (dy < minLocalY) minLocalY = dy;
+    }
+  }
+  minLocalY = Math.max(-2.4, minLocalY);
+
+  // Create procedural CanvasTextures (SRGBColorSpace)
+  const limestoneTex = createLimestoneTexture(4101);
+  const mossStoneTex = createMossStoneTexture(4202);
+  const mosaicFloorTex = createMosaicFloorTexture(4303);
+  const glowTex = (ctx && ctx.warmGlowTex) ? ctx.warmGlowTex : createWarmGlowTexture();
+
+  // Cel-shaded stone/moss/foliage materials
+  const limestoneMat = cel(ctx, new THREE.MeshStandardMaterial({
+    color: 0xf6eedb,
+    map: limestoneTex,
+    roughness: 0.88,
+    metalness: 0.03,
+  }), { rimStrength: 0.18, shadowLift: 0.56 });
+
+  const carvedStoneMat = cel(ctx, new THREE.MeshStandardMaterial({
+    color: 0xfcf5e6,
+    map: limestoneTex,
+    roughness: 0.84,
+    metalness: 0.04,
+  }), { rimStrength: 0.20, shadowLift: 0.58 });
+
+  const mossStoneMat = cel(ctx, new THREE.MeshStandardMaterial({
+    color: 0xdfe3d2,
+    map: mossStoneTex,
+    roughness: 0.92,
+    metalness: 0.02,
+  }), { rimStrength: 0.16, shadowLift: 0.50 });
+
+  const mosaicFloorMat = cel(ctx, new THREE.MeshStandardMaterial({
+    color: 0xfbf4e4,
+    map: mosaicFloorTex,
+    roughness: 0.85,
+    metalness: 0.04,
+  }), { rimStrength: 0.12, shadowLift: 0.58 });
+
+  const darkBasaltMat = cel(ctx, new THREE.MeshStandardMaterial({
+    color: 0x575248,
+    map: mossStoneTex,
+    roughness: 0.94,
+    metalness: 0.03,
+  }), { rimStrength: 0.12, shadowLift: 0.46 });
+
+  const goldTrimMat = cel(ctx, new THREE.MeshStandardMaterial({
+    color: 0xdca83f,
+    roughness: 0.42,
+    metalness: 0.42,
+  }), { rimStrength: 0.26, shadowLift: 0.62 });
+
+  const fernMossMat = cel(ctx, new THREE.MeshStandardMaterial({
+    color: 0x4b7d37,
+    roughness: 0.86,
+    side: THREE.DoubleSide,
+  }), { rimStrength: 0.24, shadowLift: 0.58 });
+
+  // Emissive rune & flame materials (MeshBasicMaterial)
+  const cyanRuneMat = new THREE.MeshBasicMaterial({ color: 0x5eead4 });
+  const goldRuneMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 });
+  const crystalOuterMat = new THREE.MeshBasicMaterial({
+    color: 0x7df9ff,
+    transparent: true,
+    opacity: 0.90,
+  });
+  const crystalCoreMat = new THREE.MeshBasicMaterial({ color: 0xfff8d6 });
+  const emberMat = new THREE.MeshBasicMaterial({ color: 0xff6218 });
+  const flameOuterMat = new THREE.MeshBasicMaterial({
+    color: 0xff8c24,
+    transparent: true,
+    opacity: 0.86,
+  });
+  const flameCoreMat = new THREE.MeshBasicMaterial({ color: 0xffe478 });
+
+  const group = new THREE.Group();
+  group.name = 'ancient_sun_ruins';
+  group.position.set(originX, baseY, originZ);
+  group.rotation.y = rotY;
+  group.userData = {
+    kind: 'sun_ruins',
+    nameEn: 'Sunken Sun Ruins',
+    nameId: 'Reruntuhan Kuil Kuno',
+  };
+
+  // Geometry batches
+  const batches = {
+    limestone: [],
+    carved: [],
+    moss: [],
+    dark: [],
+    gold: [],
+    fern: [],
+    cyanRune: [],
+    goldRune: [],
+    ember: [],
+  };
+  const walkableGeos = [];
+  const crystalRefs = {};
+  const brazierAnims = [];
+
+  // 1. 3-tier platforms & 4 wide cardinal stairs
+  buildPlatformsAndStairs(batches, walkableGeos, minLocalY);
+
+  // 2. 12 Classical fluted pillars (8 intact with carved arch frieze on 3 sides + 4 broken w/ fallen drums)
+  buildColonnadeAndBrokenPillars(batches, registerCollider, baseY);
+
+  // 3. Central stepped altar dais, Sun Obelisk w/ glowing runes & floating crystal
+  buildAltarAndSunObelisk(batches, walkableGeos, crystalRefs, registerCollider, baseY, {
+    crystalOuter: crystalOuterMat,
+    crystalCore: crystalCoreMat,
+    cyanRune: cyanRuneMat,
+    goldRune: goldRuneMat,
+    glowTex,
+  });
+
+  // 4. 4 Stone Braziers at Middle Terrace corners (+-5.45, +-5.45)
+  const brazierCoords = [
+    [-5.45, -5.45],
+    [5.45, -5.45],
+    [-5.45, 5.45],
+    [5.45, 5.45],
+  ];
+  for (let i = 0; i < brazierCoords.length; i++) {
+    const [bx, bz] = brazierCoords[i];
+    buildStoneBrazier(batches, brazierAnims, bx, bz, baseY, i, {
+      flameOuter: flameOuterMat,
+      flameCore: flameCoreMat,
+      glowTex,
+    });
+    registerCollider('ruin_pillar', bx, bz, 0.74, baseY + 2.85);
+  }
+
+  // 5. 2 Low-poly sculpted Guardian Statues flanking the South main staircase
+  buildGuardianStatue(batches, -3.85, 11.95, 0.24, -1, baseY);
+  registerCollider('ruin_pillar', -3.85, 11.95, 0.90, baseY + 3.95);
+
+  buildGuardianStatue(batches, 3.85, 11.95, -0.24, 1, baseY);
+  registerCollider('ruin_pillar', 3.85, 11.95, 0.90, baseY + 3.95);
+
+  // 6. Rubble chunks, creeping moss & ferns
+  buildRubbleAndFoliage(batches, ctx, originX, originZ, cosY, sinY, baseY);
+
+  // --- Finalize Merged Meshes ---
+  // Walkable floor & stairs mesh (separate so addRockMeshCollider never picks up high lintels!)
+  const walkableFloorMesh = new THREE.Mesh(mergeGeometries(walkableGeos), limestoneMat);
+  walkableFloorMesh.name = 'sun_ruins_walkable_floor';
+  setShadow(walkableFloorMesh, ctx, false, true);
+  group.add(walkableFloorMesh);
+
+  // Central 12.6m x 12.6m Sunburst Mosaic Floor
+  const mosaicMesh = new THREE.Mesh(new THREE.BoxGeometry(12.6, 0.04, 12.6), mosaicFloorMat);
+  mosaicMesh.position.set(0, 1.315, 0);
+  mosaicMesh.name = 'sun_ruins_mosaic_floor';
+  setShadow(mosaicMesh, ctx, false, true);
+  group.add(mosaicMesh);
+
+  const staticMeshSpecs = [
+    { key: 'limestone', mat: limestoneMat, cast: true, receive: true, name: 'sun_ruins_limestone' },
+    { key: 'carved',    mat: carvedStoneMat, cast: true, receive: true, name: 'sun_ruins_carved' },
+    { key: 'moss',      mat: mossStoneMat, cast: true, receive: true, name: 'sun_ruins_moss_stone' },
+    { key: 'dark',      mat: darkBasaltMat, cast: false, receive: true, name: 'sun_ruins_dark_recess' },
+    { key: 'gold',      mat: goldTrimMat, cast: true, receive: true, name: 'sun_ruins_gold_trim' },
+    { key: 'fern',      mat: fernMossMat, cast: false, receive: true, name: 'sun_ruins_ferns_moss' },
+    { key: 'cyanRune',  mat: cyanRuneMat, cast: false, receive: false, name: 'sun_ruins_cyan_runes' },
+    { key: 'goldRune',  mat: goldRuneMat, cast: false, receive: false, name: 'sun_ruins_gold_runes' },
+    { key: 'ember',     mat: emberMat, cast: false, receive: false, name: 'sun_ruins_embers' },
+  ];
+
+  for (const spec of staticMeshSpecs) {
+    const geos = batches[spec.key];
+    if (!geos.length) continue;
+    const mesh = new THREE.Mesh(mergeGeometries(geos), spec.mat);
+    mesh.name = spec.name;
+    setShadow(mesh, ctx, spec.cast, spec.receive);
+    group.add(mesh);
+  }
+
+  // Attach animated crystal & braziers
+  if (crystalRefs.crystalPivot) {
+    group.add(crystalRefs.crystalPivot);
+  }
+  for (const b of brazierAnims) {
+    group.add(b.fireGroup);
+  }
+
+  // Register walkable stair/floor meshes with rock-surface sampler if supported by world
+  group.updateMatrixWorld(true);
+  if (ctx && typeof ctx.addRockMeshCollider === 'function') {
+    ctx.addRockMeshCollider('ruin_floor', walkableFloorMesh);
+    ctx.addRockMeshCollider('ruin_floor', mosaicMesh);
+  }
+
+  // Animation loop helper
+  function update(elapsed) {
+    const t = Number.isFinite(elapsed) ? elapsed : 0;
+
+    // Rotate & levitate obelisk peak crystal + orbital rune rings
+    if (crystalRefs.crystalPivot) {
+      crystalRefs.crystalPivot.position.y = crystalRefs.crystalBaseY + Math.sin(t * 1.65) * 0.16;
+      crystalRefs.crystalPivot.rotation.y = t * 0.65;
+      crystalRefs.innerCrystal.rotation.y = -t * 1.15;
+      crystalRefs.innerCrystal.rotation.x = Math.sin(t * 0.95) * 0.18;
+      crystalRefs.orbitalRingA.rotation.z = t * 0.95;
+      crystalRefs.orbitalRingA.rotation.x = 0.55 + Math.sin(t * 0.72) * 0.16;
+      crystalRefs.orbitalRingB.rotation.z = -t * 0.75;
+      crystalRefs.orbitalRingB.rotation.y = t * 0.48;
+      const haloScale = 2.65 + Math.sin(t * 2.4) * 0.24;
+      crystalRefs.crystalHalo.scale.set(haloScale, haloScale, 1);
+    }
+
+    // Subtle breathing glow on cyan obelisk runes
+    const runePulse = 0.88 + 0.12 * Math.sin(t * 2.2);
+    cyanRuneMat.color.setRGB(0.37 * runePulse, 0.92 * runePulse, 0.83 * runePulse);
+
+    // Pulse & flicker all 4 brazier flames
+    for (let i = 0; i < brazierAnims.length; i++) {
+      const b = brazierAnims[i];
+      for (let j = 0; j < b.tongues.length; j++) {
+        const tg = b.tongues[j];
+        const sY = (tg.isCore ? 0.90 : 0.84) + 0.28 * Math.sin(t * 6.8 + tg.phase);
+        const sXZ = 0.92 + 0.14 * Math.cos(t * 5.3 + tg.phase);
+        tg.mesh.scale.set(sXZ, sY, sXZ);
+        tg.mesh.rotation.x = Math.sin(t * 4.4 + tg.phase) * 0.14;
+        tg.mesh.rotation.z = Math.cos(t * 4.9 + tg.phase) * 0.14;
+        tg.mesh.rotation.y = t * (tg.isCore ? -1.4 : 1.1) + tg.phase;
+      }
+      const hScale = 1.75 + Math.sin(t * 5.6 + b.phase) * 0.22;
+      b.halo.scale.set(hScale, hScale, 1);
+      b.halo.material.opacity = 0.58 + Math.sin(t * 7.2 + b.phase) * 0.12;
+    }
+  }
+
+  group.userData.animated = {
+    crystal: crystalRefs,
+    braziers: brazierAnims,
+    update,
+  };
+
+  return { group, update };
+}
+
+return { createAncientSunRuins };
+
+})();
+
+// --- js/models/crystal_cavern_model.js ---
+const __MOD_CRYSTAL_CAVERN = (() => {
+'use strict';
+const THREE = HC.THREE;
+
+// ============================================================================
+// DETERMINISTIC RNG & MATH HELPERS
+// ============================================================================
+
+function makeRng(seed = 415265) {
+  let s = (seed >>> 0) || 1;
+  return function next() {
+    s = (s + 0x6d2b79f5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function clamp(v, lo, hi) {
+  return v < lo ? lo : v > hi ? hi : v;
+}
+
+function hash3(x, y, z) {
+  const n = Math.sin(x * 127.1 + y * 311.7 + z * 74.7) * 43758.5453123;
+  return n - Math.floor(n);
+}
+
+function applyCel(ctx, mat, opts) {
+  if (ctx && typeof ctx.applyStylizedCelShading === 'function') {
+    ctx.applyStylizedCelShading(mat, opts);
+  }
+  return mat;
+}
+
+function makeCanvasTexture(size, drawFn, repeatX = 1, repeatY = 1, isColor = true) {
+  if (typeof document === 'undefined') return null;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const g = canvas.getContext('2d');
+  drawFn(g, size, size);
+  const tex = new THREE.CanvasTexture(canvas);
+  if (isColor) tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(repeatX, repeatY);
+  tex.needsUpdate = true;
+  return tex;
+}
+
+// ============================================================================
+// PROCEDURAL CANVAS TEXTURES (BotW / Truckful Painterly Style)
+// ============================================================================
+
+/**
+ * Dark blue-slate cave granite with fine quartz mineral veins and lower-edge dampness.
+ */
+function createCavernRockTexture(seed = 8101) {
+  return makeCanvasTexture(256, (g, w, h) => {
+    const rng = makeRng(seed);
+    g.fillStyle = '#364253';
+    g.fillRect(0, 0, w, h);
+
+    // Broad chiseled granite strata & mineral clouds (wrapped horizontally & vertically)
+    const tones = ['#2a3443', '#425064', '#4d5d73', '#2e3948', '#56677e', '#3a4759'];
+    for (let i = 0; i < 150; i++) {
+      const x = rng() * w;
+      const y = rng() * h;
+      const rx = 14 + rng() * 34;
+      const ry = 8 + rng() * 20;
+      const rot = (rng() - 0.5) * 0.55;
+      g.fillStyle = tones[Math.floor(rng() * tones.length)];
+      g.globalAlpha = 0.24 + rng() * 0.28;
+      for (const ox of [-w, 0, w]) {
+        for (const oy of [-h, 0, h]) {
+          g.beginPath();
+          g.ellipse(x + ox, y + oy, rx, ry, rot, 0, Math.PI * 2);
+          g.fill();
+        }
+      }
+    }
+
+    // Crisp horizontal & angled sedimentary rock fractures
+    g.globalAlpha = 0.42;
+    for (let c = 0; c < 30; c++) {
+      let cx = rng() * w;
+      let cy = rng() * h;
+      g.strokeStyle = c % 3 === 0 ? '#18202c' : '#232d3b';
+      g.lineWidth = 1.0 + rng() * 1.5;
+      for (const ox of [-w, 0, w]) {
+        g.beginPath();
+        g.moveTo(cx + ox, cy);
+        let px = cx;
+        let py = cy;
+        for (let s = 0; s < 4; s++) {
+          px += 12 + (rng() - 0.35) * 18;
+          py += (rng() - 0.5) * 10;
+          g.lineTo(px + ox, py);
+        }
+        g.stroke();
+      }
+    }
+
+    // Fine crystalline quartz mineral veins (icy cyan & subtle lavender threads)
+    for (let v = 0; v < 24; v++) {
+      let vx = rng() * w;
+      let vy = rng() * h;
+      const veinPts = [[vx, vy]];
+      for (let s = 0; s < 5; s++) {
+        vx += (rng() - 0.28) * 26;
+        vy += (rng() - 0.45) * 24;
+        veinPts.push([vx, vy]);
+      }
+      for (const ox of [-w, 0, w]) {
+        for (const oy of [-h, 0, h]) {
+          // Soft mineral glow halo
+          g.globalAlpha = 0.14;
+          g.strokeStyle = v % 3 === 0 ? '#c4b5fd' : '#67e8f9';
+          g.lineWidth = 3.2;
+          g.beginPath();
+          g.moveTo(veinPts[0][0] + ox, veinPts[0][1] + oy);
+          for (let p = 1; p < veinPts.length; p++) {
+            g.lineTo(veinPts[p][0] + ox, veinPts[p][1] + oy);
+          }
+          g.stroke();
+
+          // Sharp hairline quartz core
+          g.globalAlpha = 0.55;
+          g.strokeStyle = v % 3 === 0 ? '#ede9fe' : '#cffafe';
+          g.lineWidth = 1.0;
+          g.stroke();
+        }
+      }
+    }
+
+    // Subtle sunlit bevel streaks & crystalline mineral flecks
+    g.globalAlpha = 0.20;
+    for (let i = 0; i < 120; i++) {
+      g.fillStyle = rng() > 0.35 ? '#94b2d0' : '#bae6fd';
+      g.fillRect(rng() * w, rng() * h, 1.8, 1.8);
+    }
+
+    // Wet/damp lower mineral zone (canvas bottom => UV.v near 0)
+    g.globalAlpha = 1.0;
+    const dampGrad = g.createLinearGradient(0, h * 0.52, 0, h);
+    dampGrad.addColorStop(0.0, 'rgba(18, 28, 42, 0.0)');
+    dampGrad.addColorStop(0.45, 'rgba(16, 26, 40, 0.34)');
+    dampGrad.addColorStop(1.0, 'rgba(11, 20, 34, 0.62)');
+    g.fillStyle = dampGrad;
+    g.fillRect(0, h * 0.52, w, h * 0.48);
+
+    // Subtle damp mineral sheen streaks rising from base
+    for (let d = 0; d < 28; d++) {
+      const dx = rng() * w;
+      const dy = h * (0.64 + rng() * 0.32);
+      g.fillStyle = 'rgba(125, 211, 252, 0.14)';
+      g.fillRect(dx, dy, 1.5 + rng() * 2.5, h - dy);
+    }
+  }, 1, 1, true);
+}
+
+/**
+ * Coastal cliff stone overlaid with painterly emerald-olive moss for cavern exterior.
+ */
+function createCavernMossTexture(seed = 8202) {
+  return makeCanvasTexture(256, (g, w, h) => {
+    const rng = makeRng(seed);
+    g.fillStyle = '#53606a';
+    g.fillRect(0, 0, w, h);
+
+    const rockTones = ['#45515b', '#63717b', '#6d7c86', '#4a5762', '#5b6872'];
+    for (let i = 0; i < 110; i++) {
+      const x = rng() * w;
+      const y = rng() * h;
+      const r = 10 + rng() * 26;
+      g.fillStyle = rockTones[Math.floor(rng() * rockTones.length)];
+      g.globalAlpha = 0.28 + rng() * 0.25;
+      for (const ox of [-w, 0, w]) {
+        for (const oy of [-h, 0, h]) {
+          g.beginPath();
+          g.ellipse(x + ox, y + oy, r, r * 0.68, (rng() - 0.5) * 0.5, 0, Math.PI * 2);
+          g.fill();
+        }
+      }
+    }
+
+    // Coastal dark granite fissures
+    g.globalAlpha = 0.36;
+    g.strokeStyle = '#2b343c';
+    g.lineWidth = 1.4;
+    for (let c = 0; c < 18; c++) {
+      let cx = rng() * w;
+      let cy = rng() * h;
+      g.beginPath();
+      g.moveTo(cx, cy);
+      for (let s = 0; s < 4; s++) {
+        cx += (rng() - 0.4) * 24;
+        cy += (rng() - 0.4) * 18;
+        g.lineTo(cx, cy);
+      }
+      g.stroke();
+    }
+
+    // Rich coastal BotW moss patches & soft grass-green tufts (concentrated toward top/UV.v > 0.3)
+    const mossTones = ['#3d6e47', '#538651', '#6a9d59', '#35604b', '#7cb061'];
+    for (let m = 0; m < 135; m++) {
+      const x = rng() * w;
+      const y = Math.pow(rng(), 1.35) * h * 0.88;
+      const rx = 6 + rng() * 18;
+      const ry = 4 + rng() * 11;
+      g.fillStyle = mossTones[Math.floor(rng() * mossTones.length)];
+      g.globalAlpha = 0.34 + rng() * 0.32;
+      for (const ox of [-w, 0, w]) {
+        g.beginPath();
+        g.ellipse(x + ox, y, rx, ry, (rng() - 0.5) * 0.4, 0, Math.PI * 2);
+        g.fill();
+      }
+    }
+
+    // Pale sea-lichen & quartz flecks
+    g.globalAlpha = 0.28;
+    for (let k = 0; k < 90; k++) {
+      g.fillStyle = k % 2 === 0 ? '#a9cbb1' : '#d0e2cc';
+      g.beginPath();
+      g.arc(rng() * w, rng() * h * 0.85, 1.2 + rng() * 2.2, 0, Math.PI * 2);
+      g.fill();
+    }
+    g.globalAlpha = 1.0;
+  }, 1, 1, true);
+}
+
+/**
+ * Faceted hexagonal crystal internal-glow texture (neutral luminous cyan-white so any tint glows).
+ */
+function createCrystalTexture(seed = 8303) {
+  return makeCanvasTexture(256, (g, w, h) => {
+    const rng = makeRng(seed);
+
+    // Luminous internal radiance gradient (bright glowing heart + sparkling tip)
+    const baseGrad = g.createLinearGradient(0, 0, 0, h);
+    baseGrad.addColorStop(0.0, '#ffffff');
+    baseGrad.addColorStop(0.22, '#e4fcff');
+    baseGrad.addColorStop(0.60, '#b5effa');
+    baseGrad.addColorStop(0.88, '#8ad9ee');
+    baseGrad.addColorStop(1.0, '#6bb8d6');
+    g.fillStyle = baseGrad;
+    g.fillRect(0, 0, w, h);
+
+    // 6 crisp vertical prism facet strips matching hexagonal sides
+    const cols = 6;
+    const colW = w / cols;
+    const facetBrightness = [0.95, 0.72, 1.0, 0.65, 0.88, 0.76];
+    for (let i = 0; i < cols; i++) {
+      const fx = i * colW;
+      const b = facetBrightness[i];
+      const fGrad = g.createLinearGradient(fx, 0, fx + colW, 0);
+      fGrad.addColorStop(0.0, 'rgba(255, 255, 255, 0.42)');
+      fGrad.addColorStop(0.18, `rgba(210, 248, 255, ${0.28 * b})`);
+      fGrad.addColorStop(0.82, `rgba(92, 168, 205, ${0.32 * (1.15 - b)})`);
+      fGrad.addColorStop(1.0, 'rgba(55, 120, 165, 0.36)');
+      g.fillStyle = fGrad;
+      g.fillRect(fx, 0, colW, h);
+
+      // Sharp bright crystalline facet ridge line
+      g.strokeStyle = 'rgba(255, 255, 255, 0.68)';
+      g.lineWidth = 1.6;
+      g.beginPath();
+      g.moveTo(fx, 0);
+      g.lineTo(fx, h);
+      g.stroke();
+    }
+
+    // Internal diagonal refraction planes & chevron cleavage facets
+    for (let r = 0; r < 24; r++) {
+      const rx = rng() * w;
+      const ry = rng() * h;
+      const rw = 16 + rng() * 36;
+      const rh = 24 + rng() * 58;
+      g.fillStyle = r % 2 === 0 ? 'rgba(255, 255, 255, 0.22)' : 'rgba(110, 195, 230, 0.18)';
+      g.beginPath();
+      g.moveTo(rx, ry);
+      g.lineTo(rx + rw, ry + rh * 0.4);
+      g.lineTo(rx + rw * 0.35, ry + rh);
+      g.closePath();
+      g.fill();
+    }
+
+    // Fine white glowing internal core filaments & star glints
+    g.strokeStyle = 'rgba(255, 255, 255, 0.42)';
+    g.lineWidth = 1.2;
+    for (let s = 0; s < 18; s++) {
+      const sx = rng() * w;
+      const sy = rng() * h;
+      g.beginPath();
+      g.moveTo(sx, sy);
+      g.lineTo(sx + (rng() - 0.5) * 18, sy - 28 - rng() * 44);
+      g.stroke();
+    }
+
+    for (let d = 0; d < 65; d++) {
+      const dx = rng() * w;
+      const dy = rng() * h;
+      const dr = 1.0 + rng() * 2.4;
+      g.fillStyle = 'rgba(255, 255, 255, 0.72)';
+      g.beginPath();
+      g.arc(dx, dy, dr, 0, Math.PI * 2);
+      g.fill();
+    }
+  }, 1, 1, true);
+}
+
+/**
+ * Soft diamond-star glow sprite for floating crystal spores & aura shimmer.
+ */
+function createSporeGlowTexture() {
+  return makeCanvasTexture(64, (g, w, h) => {
+    const cx = w * 0.5;
+    const cy = h * 0.5;
+    const rad = g.createRadialGradient(cx, cy, 1, cx, cy, w * 0.48);
+    rad.addColorStop(0.0, 'rgba(255, 255, 255, 1.0)');
+    rad.addColorStop(0.24, 'rgba(220, 248, 255, 0.85)');
+    rad.addColorStop(0.55, 'rgba(130, 225, 255, 0.32)');
+    rad.addColorStop(1.0, 'rgba(80, 180, 255, 0.0)');
+    g.fillStyle = rad;
+    g.fillRect(0, 0, w, h);
+
+    // Subtle crisp four-point crystal sparkle cross
+    g.fillStyle = 'rgba(255, 255, 255, 0.75)';
+    g.beginPath();
+    g.moveTo(cx, 6);
+    g.lineTo(cx + 3.2, cy - 3.2);
+    g.lineTo(w - 6, cy);
+    g.lineTo(cx + 3.2, cy + 3.2);
+    g.lineTo(cx, h - 6);
+    g.lineTo(cx - 3.2, cy + 3.2);
+    g.lineTo(6, cy);
+    g.lineTo(cx - 3.2, cy - 3.2);
+    g.closePath();
+    g.fill();
+  }, 1, 1, true);
+}
+
+// ============================================================================
+// GEOMETRY BUILDERS & MERGER
+// ============================================================================
+
+function mergeGeometries(geos, includeColor = false) {
+  const prepared = [];
+  let totalVerts = 0;
+
+  for (let i = 0; i < geos.length; i++) {
+    const raw = geos[i];
+    if (!raw) continue;
+    const g = raw.index ? raw.toNonIndexed() : raw.clone();
+    const pos = g.getAttribute('position');
+    if (!pos || pos.count === 0) {
+      g.dispose();
+      continue;
+    }
+    if (!g.getAttribute('normal')) g.computeVertexNormals();
+    if (!g.getAttribute('uv')) {
+      g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(pos.count * 2), 2));
+    }
+    if (includeColor && !g.getAttribute('color')) {
+      const c = new Float32Array(pos.count * 3);
+      c.fill(1.0);
+      g.setAttribute('color', new THREE.BufferAttribute(c, 3));
+    }
+    prepared.push(g);
+    totalVerts += pos.count;
+  }
+
+  const merged = new THREE.BufferGeometry();
+  if (totalVerts === 0) return merged;
+
+  const positions = new Float32Array(totalVerts * 3);
+  const normals = new Float32Array(totalVerts * 3);
+  const uvs = new Float32Array(totalVerts * 2);
+  const colors = includeColor ? new Float32Array(totalVerts * 3) : null;
+
+  let offset = 0;
+  for (let i = 0; i < prepared.length; i++) {
+    const g = prepared[i];
+    const count = g.getAttribute('position').count;
+    positions.set(g.getAttribute('position').array, offset * 3);
+    normals.set(g.getAttribute('normal').array, offset * 3);
+    uvs.set(g.getAttribute('uv').array, offset * 2);
+    if (includeColor) colors.set(g.getAttribute('color').array, offset * 3);
+    offset += count;
+    g.dispose();
+  }
+
+  merged.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  merged.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
+  merged.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+  if (includeColor) merged.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  merged.computeBoundingSphere();
+  return merged;
+}
+
+/**
+ * Rebuilds clean triplanar-height UVs on non-indexed sculpted rock geometry so damp bases align at bottom.
+ */
+function applyRockTriplanarUVs(geo, uvScale = 0.14) {
+  const pos = geo.getAttribute('position');
+  const norm = geo.getAttribute('normal');
+  const uv = geo.getAttribute('uv');
+  if (!pos || !norm || !uv) return;
+
+  let minY = Infinity;
+  let maxY = -Infinity;
+  for (let i = 0; i < pos.count; i++) {
+    const y = pos.getY(i);
+    if (y < minY) minY = y;
+    if (y > maxY) maxY = y;
+  }
+  const spanY = Math.max(0.5, maxY - minY);
+
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const y = pos.getY(i);
+    const z = pos.getZ(i);
+    const nx = Math.abs(norm.getX(i));
+    const ny = Math.abs(norm.getY(i));
+    const nz = Math.abs(norm.getZ(i));
+
+    const hNorm = clamp((y - minY) / spanY, 0.02, 0.98);
+    if (ny >= nx && ny >= nz) {
+      // Top/underside surfaces stay in the dry rock/moss upper UV range
+      uv.setXY(i, x * uvScale, 0.48 + ((z * uvScale) % 0.48));
+    } else if (nx >= nz) {
+      uv.setXY(i, z * uvScale, hNorm);
+    } else {
+      uv.setXY(i, x * uvScale, hNorm);
+    }
+  }
+  uv.needsUpdate = true;
+}
+
+/**
+ * Creates a faceted, stratified cliff rock/boulder in local unit bounds transformed by matrix.
+ */
+function createSculptedRock(sx, sy, sz, px, py, pz, rx, ry, rz, seed, detail = 1, flatBottom = false) {
+  const base = new THREE.IcosahedronGeometry(1.0, detail);
+  const g = base.index ? base.toNonIndexed() : base.clone();
+  base.dispose();
+
+  const pos = g.getAttribute('position');
+  for (let i = 0; i < pos.count; i++) {
+    let vx = pos.getX(i);
+    let vy = pos.getY(i);
+    let vz = pos.getZ(i);
+
+    const n1 = Math.sin(vx * 3.1 + seed * 1.3) * Math.cos(vz * 2.9 + seed * 0.7);
+    const n2 = Math.sin(vy * 4.4 + vx * 2.2 - seed * 1.9);
+    const strata = Math.sin(vy * 7.5 + seed) * 0.06;
+    const radScale = 0.86 + n1 * 0.16 + n2 * 0.09 + strata;
+
+    vx *= radScale;
+    vz *= radScale;
+    vy *= 0.88 + n2 * 0.11;
+    if (flatBottom && vy < -0.25) {
+      vy = -0.25 + (vy + 0.25) * 0.35;
+    }
+    pos.setXYZ(i, vx, vy, vz);
+  }
+
+  const m4 = new THREE.Matrix4();
+  const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, rz));
+  m4.compose(new THREE.Vector3(px, py, pz), q, new THREE.Vector3(sx, sy, sz));
+  g.applyMatrix4(m4);
+  g.computeVertexNormals();
+  applyRockTriplanarUVs(g, 0.13);
+  return g;
+}
+
+/**
+ * Creates a tapered, fluted stalactite (pointing -Y) or stalagmite (pointing +Y).
+ */
+function createSpeleothem(radius, height, isStalactite, px, py, pz, tiltX, tiltZ, seed) {
+  const segs = 7;
+  const rings = 4;
+  const base = new THREE.CylinderGeometry(radius * 0.10, radius, height, segs, rings, false);
+  if (isStalactite) {
+    base.translate(0, height * 0.5, 0);
+    base.rotateX(Math.PI);
+  } else {
+    base.translate(0, height * 0.5, 0);
+  }
+  const g = base.index ? base.toNonIndexed() : base.clone();
+  base.dispose();
+
+  const pos = g.getAttribute('position');
+  for (let i = 0; i < pos.count; i++) {
+    let x = pos.getX(i);
+    let y = pos.getY(i);
+    let z = pos.getZ(i);
+    const ang = Math.atan2(z, x);
+    const rib = 1.0 + 0.16 * Math.sin(ang * 4.0 + seed) + 0.10 * Math.sin(y * 3.8 + seed * 2.1);
+    x *= rib;
+    z *= rib;
+    pos.setXYZ(i, x, y, z);
+  }
+
+  const m4 = new THREE.Matrix4();
+  const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(tiltX, seed, tiltZ));
+  m4.compose(new THREE.Vector3(px, py, pz), q, new THREE.Vector3(1, 1, 1));
+  g.applyMatrix4(m4);
+  g.computeVertexNormals();
+  applyRockTriplanarUVs(g, 0.22);
+  return g;
+}
+
+/**
+ * Builds a true 6-sided hexagonal prism with a sharp 6-sided pyramidal spire tip and baked facet shading.
+ */
+function createHexCrystalPrism(radius, height, tipFraction, matrix4, seed) {
+  const sides = 6;
+  const shaftH = height * (1.0 - tipFraction);
+  const baseR = radius;
+  const shoulderR = radius * 0.88;
+
+  const positions = [];
+  const uvs = [];
+  const colors = [];
+
+  const pushTri = (ax, ay, az, au, av, ac, bx, by, bz, bu, bv, bc, cx, cy, cz, cu, cv, cc) => {
+    positions.push(ax, ay, az, bx, by, bz, cx, cy, cz);
+    uvs.push(au, av, bu, bv, cu, cv);
+    colors.push(
+      ac, ac, ac,
+      bc, bc, bc,
+      cc, cc, cc
+    );
+  };
+
+  const facetShades = [1.0, 0.76, 0.94, 0.72, 0.90, 0.80];
+  const tipOffset = (hash3(seed, 1.7, 3.1) - 0.5) * radius * 0.18;
+  const tipZOffset = (hash3(seed, 4.3, 2.9) - 0.5) * radius * 0.18;
+
+  for (let i = 0; i < sides; i++) {
+    const a0 = (i / sides) * Math.PI * 2;
+    const a1 = ((i + 1) / sides) * Math.PI * 2;
+    const x0b = Math.cos(a0) * baseR;
+    const z0b = Math.sin(a0) * baseR;
+    const x1b = Math.cos(a1) * baseR;
+    const z1b = Math.sin(a1) * baseR;
+
+    const x0s = Math.cos(a0) * shoulderR;
+    const z0s = Math.sin(a0) * shoulderR;
+    const x1s = Math.cos(a1) * shoulderR;
+    const z1s = Math.sin(a1) * shoulderR;
+
+    const u0 = i / sides;
+    const u1 = (i + 1) / sides;
+    const shade = facetShades[i];
+    const baseCol = 0.66 * shade;
+    const midCol = 0.92 * shade;
+    const tipCol = 1.0;
+
+    // Prism side quad (2 triangles, CCW outward)
+    pushTri(
+      x0b, 0, z0b, u0, 0.0, baseCol,
+      x0s, shaftH, z0s, u0, 0.72, midCol,
+      x1s, shaftH, z1s, u1, 0.72, midCol
+    );
+    pushTri(
+      x0b, 0, z0b, u0, 0.0, baseCol,
+      x1s, shaftH, z1s, u1, 0.72, midCol,
+      x1b, 0, z1b, u1, 0.0, baseCol
+    );
+
+    // Pyramidal spire face converging to apex
+    pushTri(
+      x0s, shaftH, z0s, u0, 0.72, midCol * 1.05,
+      tipOffset, height, tipZOffset, (u0 + u1) * 0.5, 1.0, tipCol,
+      x1s, shaftH, z1s, u1, 0.72, midCol * 1.05
+    );
+  }
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  geo.applyMatrix4(matrix4);
+  geo.computeVertexNormals();
+  return geo;
+}
+
+// ============================================================================
+// MAIN BUILDER: CRYSTAL LUMINA CAVERN
+// ============================================================================
+
+function createCrystalCavern(ctx = {}) {
+  const rng = makeRng(4152659);
+  const isMobile = !!(ctx && ctx.isMobileDevice);
+
+  const cx = typeof ctx.x === 'number' ? ctx.x : 415;
+  const cz = typeof ctx.z === 'number' ? ctx.z : 265;
+  const rotY = typeof ctx.rotationY === 'number' ? ctx.rotationY : -2.35;
+  const cy = typeof ctx.y === 'number'
+    ? ctx.y
+    : (typeof ctx.getTerrainHeight === 'function' ? ctx.getTerrainHeight(cx, cz) : 0);
+
+  const group = new THREE.Group();
+  group.name = 'CrystalLuminaCavern';
+  group.position.set(cx, cy, cz);
+  group.rotation.y = rotY;
+
+  const cosR = Math.cos(rotY);
+  const sinR = Math.sin(rotY);
+  const toWorldXZ = (lx, lz) => [cx + lx * cosR + lz * sinR, cz - lx * sinR + lz * cosR];
+  const terrainDeltaY = (lx, lz) => {
+    if (!ctx || typeof ctx.getTerrainHeight !== 'function') return 0;
+    const [wx, wz] = toWorldXZ(lx, lz);
+    return ctx.getTerrainHeight(wx, wz) - cy;
+  };
+  const addCollider = (lx, lz, radius, localMaxY) => {
+    if (!ctx || typeof ctx.addCircleCollider !== 'function') return;
+    const [wx, wz] = toWorldXZ(lx, lz);
+    ctx.addCircleCollider('cavern_wall', wx, wz, radius, cy + localMaxY, group);
+  };
+
+  // ---- 1. Procedural Textures & Materials ----
+  const cavernRockTex = createCavernRockTexture(8101);
+  const cavernMossTex = createCavernMossTexture(8202);
+  const crystalTex = createCrystalTexture(8303);
+  const sporeGlowTex = createSporeGlowTexture();
+
+  const rockPrimaryMat = applyCel(ctx, new THREE.MeshStandardMaterial({
+    map: cavernRockTex,
+    color: 0xc2d1e5,
+    roughness: 0.88,
+    metalness: 0.06,
+  }), { rimStrength: 0.20, shadowLift: 0.48 });
+
+  const rockLightMat = applyCel(ctx, new THREE.MeshStandardMaterial({
+    map: cavernRockTex,
+    color: 0xe6effa,
+    roughness: 0.82,
+    metalness: 0.08,
+  }), { rimStrength: 0.22, shadowLift: 0.56 });
+
+  const rockWetMat = applyCel(ctx, new THREE.MeshStandardMaterial({
+    map: cavernRockTex,
+    color: 0x95adc9,
+    roughness: 0.52,
+    metalness: 0.14,
+  }), { rimStrength: 0.28, shadowLift: 0.46 });
+
+  const mossRockMat = applyCel(ctx, new THREE.MeshStandardMaterial({
+    map: cavernMossTex,
+    color: 0xd9e6de,
+    roughness: 0.90,
+    metalness: 0.04,
+  }), { rimStrength: 0.16, shadowLift: 0.54 });
+
+  const cavernFloorMat = applyCel(ctx, new THREE.MeshStandardMaterial({
+    map: cavernRockTex,
+    color: 0xaabbd1,
+    roughness: 0.84,
+    metalness: 0.08,
+  }), { rimStrength: 0.14, shadowLift: 0.52 });
+
+  // 3 crystal color variants x 2 pulse phase groups for gentle living shimmer
+  const crystalColors = [
+    { name: 'aquamarine', hex: 0x22d3ee, emissive: 0x16bcd8 },
+    { name: 'amethyst', hex: 0xc084fc, emissive: 0xa855f7 },
+    { name: 'diamond_ice', hex: 0x67e8f9, emissive: 0x38bdf8 },
+  ];
+  const crystalMats = [];
+  for (let p = 0; p < 2; p++) {
+    for (let c = 0; c < crystalColors.length; c++) {
+      const def = crystalColors[c];
+      const mat = new THREE.MeshStandardMaterial({
+        map: crystalTex,
+        emissiveMap: crystalTex,
+        color: def.hex,
+        emissive: def.emissive,
+        emissiveIntensity: 0.82,
+        roughness: 0.16,
+        metalness: 0.16,
+        vertexColors: true,
+      });
+      crystalMats.push({ mat, phase: p * 1.7 + c * 1.15, baseIntensity: 0.82 });
+    }
+  }
+
+  // Geometry collector buckets by material key
+  const rockPrimaryGeos = [];
+  const rockLightGeos = [];
+  const rockWetGeos = [];
+  const mossRockGeos = [];
+  const pebbleWetGeos = [];
+  const crystalGeoBuckets = crystalMats.map(() => []);
+
+  // ---- 2. Cavern Stone Floor Courtyard & Entrance Flagstone Threshold (Zero Colliders) ----
+  const chamberCenterZ = -1.0;
+  {
+    const floorGeo = new THREE.CylinderGeometry(11.8, 12.4, 0.18, 28, 1);
+    floorGeo.translate(0, -0.05, chamberCenterZ);
+    const fPos = floorGeo.getAttribute('position');
+    for (let i = 0; i < fPos.count; i++) {
+      const x = fPos.getX(i);
+      const y = fPos.getY(i);
+      const z = fPos.getZ(i);
+      if (y > 0) {
+        const dCenter = Math.hypot(x, z - chamberCenterZ);
+        const ripple = Math.sin(x * 0.42 + z * 0.38) * 0.022;
+        const poolDip = dCenter < 3.8 ? -0.08 * (1.0 - dCenter / 3.8) : 0;
+        fPos.setY(i, y + ripple + poolDip);
+      }
+    }
+    floorGeo.computeVertexNormals();
+    const floorMesh = new THREE.Mesh(floorGeo, cavernFloorMat);
+    floorMesh.receiveShadow = true;
+    group.add(floorMesh);
+
+    // Smooth low approach flagstones leading straight into +Z portal
+    const approachGeos = [];
+    for (let s = 0; s < 10; s++) {
+      const lx = ((s % 3) - 1) * 2.4 + (rng() - 0.5) * 0.7;
+      const lz = 7.8 + Math.floor(s / 3) * 1.85 + (rng() - 0.5) * 0.4;
+      const ty = terrainDeltaY(lx, lz);
+      approachGeos.push(
+        createSculptedRock(1.30 + rng() * 0.45, 0.10, 1.00 + rng() * 0.35, lx, ty - 0.02, lz, 0, rng() * Math.PI, 0, s + 20, 0, true)
+      );
+    }
+    const approachMesh = new THREE.Mesh(mergeGeometries(approachGeos), rockWetMat);
+    approachMesh.receiveShadow = true;
+    group.add(approachMesh);
+  }
+
+  // ---- 3. Central Crystal Mirror Pool & Mineral Edge Cobbles (Zero Colliders) ----
+  const poolCenterZ = chamberCenterZ;
+  let poolShimmerMesh = null;
+  {
+    // Illuminated mineral basin floor underneath mirror water
+    const bedGeo = new THREE.CircleGeometry(3.55, 24);
+    bedGeo.rotateX(-Math.PI * 0.5);
+    bedGeo.translate(0, 0.035, poolCenterZ);
+    const bedMat = new THREE.MeshStandardMaterial({
+      map: cavernRockTex,
+      color: 0x38bdf8,
+      emissive: 0x0ea5e9,
+      emissiveIntensity: 0.48,
+      roughness: 0.35,
+    });
+    const bedMesh = new THREE.Mesh(bedGeo, bedMat);
+    bedMesh.receiveShadow = true;
+    group.add(bedMesh);
+
+    // Reflective crystal mirror water surface
+    const poolGeo = new THREE.CircleGeometry(3.45, 28);
+    poolGeo.rotateX(-Math.PI * 0.5);
+    poolGeo.translate(0, 0.10, poolCenterZ);
+    const poolMat = new THREE.MeshStandardMaterial({
+      color: 0x67e8f9,
+      emissive: 0x0891b2,
+      emissiveIntensity: 0.52,
+      roughness: 0.07,
+      metalness: 0.62,
+      transparent: true,
+      opacity: 0.80,
+    });
+    const poolMesh = new THREE.Mesh(poolGeo, poolMat);
+    poolMesh.receiveShadow = true;
+    group.add(poolMesh);
+
+    // Animated caustic ripple ring inside pool
+    const shimmerGeo = new THREE.RingGeometry(1.0, 2.95, 28);
+    shimmerGeo.rotateX(-Math.PI * 0.5);
+    const shimmerMat = new THREE.MeshBasicMaterial({
+      map: sporeGlowTex,
+      color: 0xa5f3fc,
+      transparent: true,
+      opacity: 0.34,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    poolShimmerMesh = new THREE.Mesh(shimmerGeo, shimmerMat);
+    poolShimmerMesh.position.set(0, 0.118, poolCenterZ);
+    group.add(poolShimmerMesh);
+
+    // Thin glistening wet stones & tiny low crystal chips lining the shallow pool rim
+    for (let i = 0; i < 18; i++) {
+      const ang = (i / 18) * Math.PI * 2 + (rng() - 0.5) * 0.14;
+      const rad = 3.38 + (rng() - 0.5) * 0.34;
+      const px = Math.cos(ang) * rad;
+      const pz = poolCenterZ + Math.sin(ang) * rad;
+      pebbleWetGeos.push(
+        createSculptedRock(0.42 + rng() * 0.28, 0.12 + rng() * 0.05, 0.36 + rng() * 0.22, px, 0.06, pz, 0, ang, 0, i + 90, 0, true)
+      );
+      if (i % 4 === 0) {
+        const m4 = new THREE.Matrix4();
+        const q = new THREE.Quaternion().setFromEuler(new THREE.Euler((rng() - 0.5) * 0.45, ang, (rng() - 0.5) * 0.45));
+        m4.compose(new THREE.Vector3(px, 0.08, pz), q, new THREE.Vector3(1, 1, 1));
+        crystalGeoBuckets[i % crystalMats.length].push(
+          createHexCrystalPrism(0.11, 0.36 + rng() * 0.15, 0.32, m4, i + 400)
+        );
+      }
+    }
+  }
+
+  // ---- 4. Hollow Ring Cliff Walls (|angle| >= 0.56 rad from +Z entrance) ----
+  // Wide ~11m visual mouth & >= 9.6m collider clearance, ~34m x 32m exterior mountain skirt
+  const wallCount = 22;
+  for (let k = 0; k < wallCount; k++) {
+    const t = k / (wallCount - 1);
+    const ang = 0.70 + t * (Math.PI * 2 - 1.40);
+    const innerRad = 11.4 + (k % 3) * 0.45 + (rng() - 0.5) * 0.32;
+    const lx = Math.sin(ang) * innerRad;
+    const lz = chamberCenterZ + Math.cos(ang) * innerRad;
+    const signedAng = Math.atan2(lx, lz); // exact angle from local +Z entrance axis
+
+    const isPortalJamb = k === 0 || k === wallCount - 1 || k === 1 || k === wallCount - 2;
+    const h = isPortalJamb
+      ? 7.5 + (k === 1 || k === wallCount - 2 ? 1.2 : 0.2)
+      : 8.0 + Math.sin((ang - 0.70) * 0.5) * 2.6 + (k % 2) * 0.9;
+    const s = isPortalJamb ? 2.05 : 2.32 + (k % 3) * 0.28;
+
+    // Lower damp cliff wall buttress
+    const wallRock = createSculptedRock(
+      s * 1.10, h * 0.54, s * 1.06,
+      lx, h * 0.40, lz,
+      (rng() - 0.5) * 0.12, ang + rng() * 0.35, (rng() - 0.5) * 0.12,
+      k * 7 + 11, 1, true
+    );
+    (k % 2 === 0 ? rockPrimaryGeos : rockLightGeos).push(wallRock);
+
+    // Wet base ledge apron hugging inner wall toe (kept tightly to wall perimeter)
+    const baseLedge = createSculptedRock(
+      s * 0.62, 1.15 + rng() * 0.4, s * 0.62,
+      Math.sin(ang) * (innerRad - 0.85), 0.48, chamberCenterZ + Math.cos(ang) * (innerRad - 0.85),
+      0.06, ang + 0.5, 0.05,
+      k * 13 + 33, 1, true
+    );
+    rockWetGeos.push(baseLedge);
+
+    // Register 'cavern_wall' collider strictly where |angle| >= 0.56 rad
+    if (Math.abs(signedAng) >= 0.56) {
+      const colRadius = isPortalJamb ? 1.55 : s * 0.76;
+      addCollider(lx, lz, colRadius, h + 0.4);
+    }
+
+    // Outer mossy coastal cliff skirt (~34m x 32m exterior rock mountain silhouette)
+    const outerRad = innerRad + 2.05 + (k % 2) * 0.45;
+    const ox = Math.sin(ang) * outerRad;
+    const oz = chamberCenterZ + Math.cos(ang) * outerRad;
+    const oTerrainY = terrainDeltaY(ox, oz);
+    const outerH = 5.2 + Math.sin((ang - 0.70) * 0.5) * 2.4 + (k % 3) * 0.75;
+    mossRockGeos.push(
+      createSculptedRock(
+        s * 1.05, outerH * 0.52, s * 1.02,
+        ox, oTerrainY + outerH * 0.34, oz,
+        0.10, ang + 0.8, -0.08,
+        k * 19 + 51, 1, true
+      )
+    );
+
+    // Secondary outer wall seal collider so players cannot clip into cavern from outside
+    if (Math.abs(signedAng) >= 0.64 && k % 2 === 0) {
+      addCollider(ox * 0.94, oz * 0.94, 1.75, outerH);
+    }
+  }
+
+  // Flanking outer mossy coastal entry boulders framing the cave mouth (|ang| >= 0.60 rad)
+  for (const side of [-1, 1]) {
+    const flx = side * 8.1;
+    const flz = 11.4;
+    const fty = terrainDeltaY(flx, flz);
+    mossRockGeos.push(
+      createSculptedRock(2.1, 2.0, 2.0, flx, fty + 1.05, flz, 0.08, side * 0.5, 0.06, side + 300, 1, true)
+    );
+    addCollider(flx, flz, 1.65, fty + 2.6);
+
+    const flx2 = side * 10.6;
+    const flz2 = 9.4;
+    const fty2 = terrainDeltaY(flx2, flz2);
+    mossRockGeos.push(
+      createSculptedRock(2.2, 2.6, 2.1, flx2, fty2 + 1.35, flz2, 0.10, side * 0.9, 0.05, side + 312, 1, true)
+    );
+  }
+
+  // ---- 5. Layered Vaulted Roof Dome & Wide Portal Arch (Zero Colliders!) ----
+  // Center ceiling interior clearance ~10.5m, exterior mountain crown ~13.5m, portal clearance >= 6.8m
+  const domeRocks = [
+    // [bucket(0=primary,1=light,2=moss), lx, ly, lz, sx, sy, sz, rx, ry, rz]
+    // Mouth stone arch spanning +/-X above +Z entrance (soffit stays >= 6.9m in center!)
+    [0, -5.2, 8.6, 8.2, 3.2, 1.9, 3.0, 0.10, 0.32, -0.18],
+    [0,  5.2, 8.6, 8.2, 3.2, 1.9, 3.0, 0.10, -0.32, 0.18],
+    [1, -2.5, 9.6, 8.6, 3.1, 1.8, 2.8, 0.06, 0.18, -0.08],
+    [1,  2.5, 9.6, 8.6, 3.1, 1.8, 2.8, 0.06, -0.18, 0.08],
+    [2,  0.0, 10.2, 8.3, 5.2, 1.7, 3.1, 0.12, 0.0, 0.0], // mossy keystone brow
+    [2, -6.6, 7.6, 7.6, 2.8, 2.2, 2.8, 0.10, 0.5, -0.15],
+    [2,  6.6, 7.6, 7.6, 2.8, 2.2, 2.8, 0.10, -0.5, 0.15],
+
+    // Mid vaulted ceiling ribs & shoulders (clear height ~9.5..11.2m inside)
+    [0, -6.6, 10.0, 2.6, 4.5, 2.2, 4.6, 0.05, 0.6, -0.22],
+    [0,  6.6, 10.0, 2.6, 4.5, 2.2, 4.6, 0.05, -0.6, 0.22],
+    [1, -6.8, 10.2, -3.6, 4.8, 2.3, 5.0, -0.05, 1.1, -0.20],
+    [1,  6.8, 10.2, -3.6, 4.8, 2.3, 5.0, -0.05, -1.1, 0.20],
+    [0,  0.0, 11.0, -8.4, 6.6, 2.5, 4.4, -0.20, 0.15, 0.0],
+
+    // Upper vaulted crown & exterior mountain peak (~13.5m high!)
+    [2, -3.4, 11.7, 1.4, 4.8, 1.9, 4.8, 0.05, 0.3, -0.10],
+    [2,  3.4, 11.7, 1.4, 4.8, 1.9, 4.8, 0.05, -0.3, 0.10],
+    [2, -3.6, 11.8, -4.2, 5.0, 2.0, 4.8, -0.06, 0.8, -0.08],
+    [2,  3.6, 11.8, -4.2, 5.0, 2.0, 4.8, -0.06, -0.8, 0.08],
+    [1,  0.0, 12.1, -1.5, 5.8, 1.8, 5.6, 0.02, 0.45, 0.0],
+    [2,  0.0, 12.4, -1.8, 4.2, 1.4, 4.0, 0.03, 1.1, 0.0],
+  ];
+  for (let i = 0; i < domeRocks.length; i++) {
+    const [b, lx, ly, lz, sx, sy, sz, rx, ry, rz] = domeRocks[i];
+    const rock = createSculptedRock(sx, sy, sz, lx, ly, lz, rx, ry, rz, i * 11 + 201, 1, false);
+    if (b === 0) rockPrimaryGeos.push(rock);
+    else if (b === 1) rockLightGeos.push(rock);
+    else mossRockGeos.push(rock);
+  }
+
+  // ---- 6. Hanging Stalactites (Mouth Brow & Vault Ceiling) + Perimeter Stalagmites ----
+  // Stalactites along entrance mouth lip (tips stay >= 6.5m high so horse clears cleanly!)
+  for (let i = 0; i < 10; i++) {
+    const t = i / 9;
+    const lx = -4.6 + t * 9.2;
+    const archCurve = 1.0 - Math.pow(lx / 5.4, 2.0) * 0.32;
+    const topY = 7.9 + archCurve * 1.45;
+    const len = 1.05 + (i % 3) * 0.38;
+    const lz = 7.6 + Math.sin(t * Math.PI) * 0.9 + (rng() - 0.5) * 0.35;
+    const targetBucket = i % 2 === 0 ? rockLightGeos : rockPrimaryGeos;
+    targetBucket.push(
+      createSpeleothem(0.26 + (i % 2) * 0.09, len, true, lx, topY, lz, (rng() - 0.5) * 0.08, (rng() - 0.5) * 0.08, i + 501)
+    );
+  }
+
+  // Interior ceiling dome stalactites (stay high above y >= 7.8m)
+  for (let i = 0; i < 16; i++) {
+    const ang = (i / 16) * Math.PI * 2 + 0.2;
+    const rad = 2.6 + (i % 3) * 2.4;
+    const lx = Math.cos(ang) * rad;
+    const lz = chamberCenterZ + Math.sin(ang) * rad * 0.90;
+    const topY = 10.5 - (rad / 8.5) * 1.0;
+    const len = 1.35 + rng() * 1.55;
+    const targetBucket = i % 3 === 0 ? rockPrimaryGeos : rockLightGeos;
+    targetBucket.push(
+      createSpeleothem(0.25 + rng() * 0.14, len, true, lx, topY, lz, (rng() - 0.5) * 0.06, (rng() - 0.5) * 0.06, i + 530)
+    );
+  }
+
+  // Perimeter stalagmites strictly along wall toes (|angle| >= 0.72 rad, R >= 9.3m, keeping >= 8.5m path clear!)
+  for (let i = 0; i < 14; i++) {
+    const t = i / 13;
+    const ang = 0.75 + t * (Math.PI * 2 - 1.50);
+    const rad = 9.35 + (i % 3) * 0.45;
+    const lx = Math.sin(ang) * rad;
+    const lz = chamberCenterZ + Math.cos(ang) * rad;
+    const len = 1.35 + (i % 3) * 0.70 + rng() * 0.35;
+    const sr = 0.32 + (i % 2) * 0.13;
+    const targetBucket = i % 2 === 0 ? rockWetGeos : rockLightGeos;
+    targetBucket.push(
+      createSpeleothem(sr, len, false, lx, 0.02, lz, (rng() - 0.5) * 0.10, (rng() - 0.5) * 0.10, i + 570)
+    );
+  }
+
+  // ---- 7. Hexagonal Pyramid-Tipped Crystal Clusters (>= 24 clusters in 3 colors + pebble rings) ----
+  const glowHalos = [];
+  const tmpPos = new THREE.Vector3();
+  const tmpScale = new THREE.Vector3();
+  const tmpEuler = new THREE.Euler();
+  const tmpQuat = new THREE.Quaternion();
+  const tmpMat = new THREE.Matrix4();
+
+  function addCrystalCluster(lx, ly, lz, scale, colorIdx, options = {}) {
+    const {
+      inverted = false,
+      tiltSpread = 0.42,
+      shardCount = 5,
+      withPebbleRing = true,
+      registerWallCollider = false,
+      addFloorGlow = false,
+      seedOffset = 0,
+    } = options;
+
+    const basePhaseOffset = (seedOffset % 2) * crystalColors.length;
+    const cIdx = ((colorIdx % crystalColors.length) + crystalColors.length) % crystalColors.length;
+    const bucketIdx = basePhaseOffset + cIdx;
+    const colorDef = crystalColors[cIdx];
+
+    // Mineral pebble collar around cluster base
+    if (withPebbleRing && !inverted) {
+      const pCount = 6;
+      const ringR = 0.52 * scale;
+      for (let p = 0; p < pCount; p++) {
+        const pa = (p / pCount) * Math.PI * 2 + rng() * 0.4;
+        const px = lx + Math.cos(pa) * ringR * (0.85 + rng() * 0.3);
+        const pz = lz + Math.sin(pa) * ringR * (0.85 + rng() * 0.3);
+        const ps = (0.22 + rng() * 0.14) * Math.min(scale, 1.55);
+        pebbleWetGeos.push(
+          createSculptedRock(ps * 1.25, ps * 0.65, ps, px, ly + ps * 0.18, pz, 0, pa, 0, seedOffset * 13 + p, 0, true)
+        );
+      }
+    }
+
+    // Main central prism + radiating satellite hexagonal prisms
+    for (let j = 0; j < shardCount; j++) {
+      const isCore = j === 0;
+      const radialAng = isCore ? 0 : ((j - 1) / Math.max(1, shardCount - 1)) * Math.PI * 2 + rng() * 0.45;
+      const offsetDist = isCore ? 0 : (0.26 + rng() * 0.22) * scale;
+      const sx = lx + Math.cos(radialAng) * offsetDist;
+      const sz = lz + Math.sin(radialAng) * offsetDist;
+
+      const shardR = (isCore ? 0.40 : 0.22 + rng() * 0.12) * scale;
+      const shardH = (isCore ? 2.85 : 1.55 + rng() * 0.95) * scale;
+      const tipFrac = 0.26 + rng() * 0.08;
+
+      const lean = isCore ? 0.08 : 0.22 + rng() * tiltSpread;
+      const tiltX = Math.sin(radialAng) * lean + (rng() - 0.5) * 0.12;
+      const tiltZ = -Math.cos(radialAng) * lean + (rng() - 0.5) * 0.12;
+
+      tmpEuler.set(
+        inverted ? Math.PI + tiltX : tiltX,
+        radialAng + rng() * 0.6,
+        tiltZ
+      );
+      tmpQuat.setFromEuler(tmpEuler);
+      tmpPos.set(sx, ly, sz);
+      tmpScale.set(1, 1, 1);
+      tmpMat.compose(tmpPos, tmpQuat, tmpScale);
+
+      // Slight color variation on secondary shards within cluster for jewel depth
+      const targetBucket = isCore || j % 2 === 0
+        ? bucketIdx
+        : (basePhaseOffset + ((cIdx + 1) % crystalColors.length));
+
+      crystalGeoBuckets[targetBucket].push(
+        createHexCrystalPrism(shardR, shardH, tipFrac, tmpMat, seedOffset * 17 + j * 3)
+      );
+    }
+
+    // Subtle additive ground light pool under interior crystals (zero PointLight GPU cost)
+    if (addFloorGlow && !inverted) {
+      const glowGeo = new THREE.CircleGeometry(1.75 * scale, 16);
+      glowGeo.rotateX(-Math.PI * 0.5);
+      const glowMat = new THREE.MeshBasicMaterial({
+        map: sporeGlowTex,
+        color: colorDef.hex,
+        transparent: true,
+        opacity: 0.22,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      });
+      const glowMesh = new THREE.Mesh(glowGeo, glowMat);
+      glowMesh.position.set(lx, 0.06, lz);
+      group.add(glowMesh);
+      glowHalos.push({ mesh: glowMesh, baseOpacity: 0.22, phase: seedOffset * 0.7 });
+    }
+
+    if (registerWallCollider) {
+      addCollider(lx, lz, 0.85 * Math.min(scale, 1.35), ly + 3.0 * scale);
+    }
+  }
+
+  // A) 14 Interior Wall-Perimeter Crystal Clusters (|angle| >= 0.68 rad, R = 9.1..9.9m)
+  for (let i = 0; i < 14; i++) {
+    const t = i / 13;
+    const ang = 0.72 + t * (Math.PI * 2 - 1.44);
+    const rad = 9.15 + (i % 3) * 0.38;
+    const lx = Math.sin(ang) * rad;
+    const lz = chamberCenterZ + Math.cos(ang) * rad;
+    const sc = 0.95 + (i % 3) * 0.26;
+    addCrystalCluster(lx, 0.04, lz, sc, i, {
+      shardCount: 5,
+      tiltSpread: 0.44,
+      withPebbleRing: true,
+      registerWallCollider: true,
+      addFloorGlow: i % 2 === 0,
+      seedOffset: 10 + i,
+    });
+  }
+
+  // B) 2 Portal-Flanking Crystal Beacons (|angle| = 0.61 rad >= 0.56 rad, framing the entrance)
+  for (const side of [-1, 1]) {
+    const lx = side * 6.95;
+    const lz = 9.25;
+    const ty = terrainDeltaY(lx, lz);
+    addCrystalCluster(lx, ty + 0.06, lz, 1.28, side > 0 ? 0 : 1, {
+      shardCount: 5,
+      tiltSpread: 0.36,
+      withPebbleRing: true,
+      registerWallCollider: true,
+      addFloorGlow: true,
+      seedOffset: 40 + (side > 0 ? 1 : 2),
+    });
+  }
+
+  // C) 6 Inverted Ceiling-Dome & Arch-Lip Crystal Clusters (hanging downward, zero colliders!)
+  const ceilingClusterSpecs = [
+    [-2.4, 10.3,  0.8, 1.02, 0],
+    [ 2.6, 10.4, -1.0, 1.10, 1],
+    [-4.5,  9.6, -3.5, 1.00, 2],
+    [ 4.4,  9.7, -3.8, 1.06, 0],
+    [ 0.2, 10.7, -5.6, 1.18, 1],
+    [ 0.0,  9.6,  6.8, 0.88, 2], // glowing portal crown inverted crystal (tip stays >= 6.8m high!)
+  ];
+  for (let i = 0; i < ceilingClusterSpecs.length; i++) {
+    const [lx, ly, lz, sc, cIdx] = ceilingClusterSpecs[i];
+    addCrystalCluster(lx, ly, lz, sc, cIdx, {
+      inverted: true,
+      shardCount: 4,
+      tiltSpread: 0.34,
+      withPebbleRing: false,
+      registerWallCollider: false,
+      seedOffset: 60 + i,
+    });
+  }
+
+  // D) 6 Giant Dorsal & Crown Exterior Crystal Clusters (scale 2.0-2.8x piercing roof dome!)
+  // Highly visible from afar in 3D and on the 4096x4096 top-down World Map ortho snapshot
+  const roofGiantSpecs = [
+    [ 0.0, 11.4, -1.6, 2.70, 0], // towering central aquamarine spire crown
+    [-4.6, 10.5,  1.5, 2.20, 1], // amethyst left shoulder burst
+    [ 4.9, 10.4, -2.2, 2.30, 2], // diamond-ice right flank burst
+    [-2.5, 10.9, -6.2, 2.10, 2], // back-left ridge crystal cluster
+    [ 2.8, 10.6,  4.0, 2.02, 0], // front-right crest burst above arch
+    [ 0.8, 10.7, -8.3, 2.15, 1], // back spine amethyst spire
+  ];
+  for (let i = 0; i < roofGiantSpecs.length; i++) {
+    const [lx, ly, lz, sc, cIdx] = roofGiantSpecs[i];
+    addCrystalCluster(lx, ly, lz, sc, cIdx, {
+      inverted: false,
+      shardCount: 6,
+      tiltSpread: 0.42,
+      withPebbleRing: true,
+      registerWallCollider: false, // overhead roof feature — never block floor below!
+      seedOffset: 80 + i,
+    });
+  }
+
+  // ---- 8. Merge Static Rock & Crystal Meshes for Optimal Draw-Call Count ----
+  const meshGroups = [
+    { geos: rockPrimaryGeos, mat: rockPrimaryMat, cast: true, receive: true },
+    { geos: rockLightGeos, mat: rockLightMat, cast: true, receive: true },
+    { geos: rockWetGeos, mat: rockWetMat, cast: true, receive: true },
+    { geos: mossRockGeos, mat: mossRockMat, cast: true, receive: true },
+    { geos: pebbleWetGeos, mat: rockWetMat, cast: false, receive: true },
+  ];
+  for (const entry of meshGroups) {
+    if (entry.geos.length === 0) continue;
+    const merged = mergeGeometries(entry.geos, false);
+    const mesh = new THREE.Mesh(merged, entry.mat);
+    mesh.castShadow = entry.cast && !isMobile;
+    mesh.receiveShadow = entry.receive;
+    group.add(mesh);
+  }
+
+  for (let i = 0; i < crystalGeoBuckets.length; i++) {
+    const bucket = crystalGeoBuckets[i];
+    if (bucket.length === 0) continue;
+    const merged = mergeGeometries(bucket, true);
+    const mesh = new THREE.Mesh(merged, crystalMats[i].mat);
+    mesh.castShadow = !isMobile;
+    mesh.receiveShadow = false;
+    group.add(mesh);
+  }
+
+  // ---- 9. Floating Luminous Spores / Crystal Dust Motes (Points, 1 draw call) ----
+  const sporeCount = isMobile ? 54 : 88;
+  const sporePositions = new Float32Array(sporeCount * 3);
+  const sporeColors = new Float32Array(sporeCount * 3);
+  const sporeMeta = [];
+  const paletteRGB = [
+    new THREE.Color(0x22d3ee),
+    new THREE.Color(0xc084fc),
+    new THREE.Color(0x67e8f9),
+  ];
+
+  for (let i = 0; i < sporeCount; i++) {
+    const inEntrance = i < Math.floor(sporeCount * 0.28);
+    let sx, sy, sz;
+    if (inEntrance) {
+      sx = (rng() - 0.5) * 7.6;
+      sy = 0.8 + rng() * 5.2;
+      sz = 5.5 + rng() * 7.0;
+    } else {
+      const ang = rng() * Math.PI * 2;
+      const rad = Math.sqrt(rng()) * 8.2;
+      sx = Math.cos(ang) * rad;
+      sz = -0.8 + Math.sin(ang) * rad;
+      sy = 0.7 + rng() * 7.4;
+    }
+    sporePositions[i * 3] = sx;
+    sporePositions[i * 3 + 1] = sy;
+    sporePositions[i * 3 + 2] = sz;
+
+    const col = paletteRGB[i % paletteRGB.length];
+    sporeColors[i * 3] = col.r;
+    sporeColors[i * 3 + 1] = col.g;
+    sporeColors[i * 3 + 2] = col.b;
+
+    sporeMeta.push({
+      bx: sx,
+      by: sy,
+      bz: sz,
+      ampY: 0.24 + rng() * 0.42,
+      ampXZ: 0.16 + rng() * 0.30,
+      speed: 0.65 + rng() * 0.85,
+      phase: rng() * Math.PI * 2,
+    });
+  }
+
+  const sporeGeo = new THREE.BufferGeometry();
+  const sporePosAttr = new THREE.BufferAttribute(sporePositions, 3);
+  sporeGeo.setAttribute('position', sporePosAttr);
+  sporeGeo.setAttribute('color', new THREE.BufferAttribute(sporeColors, 3));
+  const sporeMat = new THREE.PointsMaterial({
+    size: 0.44,
+    map: sporeGlowTex,
+    vertexColors: true,
+    transparent: true,
+    opacity: 0.88,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    sizeAttenuation: true,
+  });
+  const sporePoints = new THREE.Points(sporeGeo, sporeMat);
+  group.add(sporePoints);
+
+  // ---- 10. Frame Animation Hook: Crystal Shimmer, Pool Ripple & Floating Spores ----
+  function update(elapsed = 0) {
+    // Soft luminous crystal breathing across the 6 color/phase material buckets
+    for (let i = 0; i < crystalMats.length; i++) {
+      const cm = crystalMats[i];
+      cm.mat.emissiveIntensity = cm.baseIntensity + Math.sin(elapsed * 1.45 + cm.phase) * 0.18;
+    }
+
+    // Gentle floor glow pulse
+    for (let i = 0; i < glowHalos.length; i++) {
+      const gh = glowHalos[i];
+      gh.mesh.material.opacity = gh.baseOpacity + Math.sin(elapsed * 1.6 + gh.phase) * 0.06;
+    }
+
+    // Mirror pool shimmer ring
+    if (poolShimmerMesh) {
+      const pulse = 1.0 + Math.sin(elapsed * 1.25) * 0.045;
+      poolShimmerMesh.scale.set(pulse, 1.0, pulse);
+      poolShimmerMesh.rotation.y = elapsed * 0.12;
+      poolShimmerMesh.material.opacity = 0.28 + Math.sin(elapsed * 1.8) * 0.08;
+    }
+
+    // Drifting floating crystal spores / dust motes
+    const arr = sporePosAttr.array;
+    for (let i = 0; i < sporeMeta.length; i++) {
+      const m = sporeMeta[i];
+      const t = elapsed * m.speed + m.phase;
+      arr[i * 3] = m.bx + Math.sin(t * 0.72) * m.ampXZ;
+      arr[i * 3 + 1] = m.by + Math.sin(t) * m.ampY;
+      arr[i * 3 + 2] = m.bz + Math.cos(t * 0.65) * m.ampXZ;
+    }
+    sporePosAttr.needsUpdate = true;
+  }
+
+  return { group, update };
+}
+
+return { createCrystalCavern };
+
+})();
+
+// --- js/models/bandit_camp_model.js ---
+const __MOD_BANDIT_CAMP = (() => {
+'use strict';
+const THREE = HC.THREE;
+
+// ============================================================================
+// DETERMINISTIC RNG & GEOMETRY MERGE HELPERS
+// ============================================================================
+
+function makeRng(seed = 7711) {
+  let s = (seed >>> 0) || 1;
+  return function next() {
+    s = (s + 0x6d2b79f5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function cel(ctx, mat, opts = { rimStrength: 0.16, shadowLift: 0.54 }) {
+  if (ctx && typeof ctx.applyStylizedCelShading === 'function') {
+    ctx.applyStylizedCelShading(mat, opts);
+  }
+  return mat;
+}
+
+function setShadow(mesh, isMobile, cast = true, receive = true) {
+  mesh.castShadow = cast && !isMobile;
+  mesh.receiveShadow = receive;
+  return mesh;
+}
+
+function transformAndPush(list, geo, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0, sx = 1, sy = 1, sz = 1) {
+  const g = geo.index ? geo.toNonIndexed() : geo.clone();
+  const m = new THREE.Matrix4();
+  const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, rz));
+  m.compose(new THREE.Vector3(x, y, z), q, new THREE.Vector3(sx, sy, sz));
+  g.applyMatrix4(m);
+  list.push(g);
+  return g;
+}
+
+function mergeGeometries(rawGeos) {
+  const prepared = [];
+  let totalVerts = 0;
+
+  for (let i = 0; i < rawGeos.length; i++) {
+    const src = rawGeos[i];
+    if (!src) continue;
+    const g = src.index ? src.toNonIndexed() : src;
+    const pos = g.getAttribute('position');
+    if (!pos || pos.count === 0) {
+      if (g !== src) g.dispose();
+      continue;
+    }
+    if (!g.getAttribute('normal')) g.computeVertexNormals();
+    if (!g.getAttribute('uv')) {
+      g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(pos.count * 2), 2));
+    }
+    prepared.push(g);
+    totalVerts += pos.count;
+  }
+
+  const merged = new THREE.BufferGeometry();
+  if (totalVerts === 0) return merged;
+
+  const positions = new Float32Array(totalVerts * 3);
+  const normals = new Float32Array(totalVerts * 3);
+  const uvs = new Float32Array(totalVerts * 2);
+
+  let offset = 0;
+  for (let i = 0; i < prepared.length; i++) {
+    const g = prepared[i];
+    const pos = g.getAttribute('position');
+    const norm = g.getAttribute('normal');
+    const uv = g.getAttribute('uv');
+    const count = pos.count;
+
+    positions.set(pos.array, offset * 3);
+    normals.set(norm.array, offset * 3);
+    uvs.set(uv.array, offset * 2);
+    offset += count;
+    g.dispose();
+  }
+
+  merged.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  merged.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
+  merged.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+  merged.computeBoundingSphere();
+  return merged;
+}
+
+function makeTransformedMesh(geo, mat, parent, isMobile, cast = true, receive = true) {
+  const m = new THREE.Mesh(geo, mat);
+  setShadow(m, isMobile, cast, receive);
+  if (parent) parent.add(m);
+  return m;
+}
+
+// ============================================================================
+// PROCEDURAL CANVAS TEXTURES (THREE.SRGBColorSpace)
+// ============================================================================
+
+function makeCanvasTex(w, h, drawFn, repeatX = 1, repeatY = 1, wrapClamp = false) {
+  if (typeof document === 'undefined') return null;
+  const c = document.createElement('canvas');
+  c.width = w;
+  c.height = h;
+  const g = c.getContext('2d');
+  drawFn(g, w, h);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = wrapClamp ? THREE.ClampToEdgeWrapping : THREE.RepeatWrapping;
+  tex.wrapT = wrapClamp ? THREE.ClampToEdgeWrapping : THREE.RepeatWrapping;
+  tex.repeat.set(repeatX, repeatY);
+  tex.needsUpdate = true;
+  return tex;
+}
+
+function createPalisadeWoodTex(seed = 101) {
+  return makeCanvasTex(128, 128, (g, w, h) => {
+    const rng = makeRng(seed);
+    g.fillStyle = '#4c3220';
+    g.fillRect(0, 0, w, h);
+
+    // Coarse rough-bark vertical ridges
+    const strips = 18;
+    const sw = w / strips;
+    for (let i = 0; i < strips; i++) {
+      const x = i * sw;
+      const pick = rng();
+      g.fillStyle = pick < 0.35 ? '#3a2416' : (pick < 0.72 ? '#593b26' : '#66452d');
+      g.fillRect(x, 0, sw + 0.6, h);
+
+      // Bark cleft shadow
+      g.fillStyle = 'rgba(20, 11, 6, 0.45)';
+      g.fillRect(x, 0, 1.6, h);
+    }
+
+    // Gnarled fibrous grooves & fissures
+    for (let i = 0; i < 65; i++) {
+      const gx = rng() * w;
+      const gy = rng() * h;
+      const len = 18 + rng() * 44;
+      g.strokeStyle = rng() > 0.35 ? 'rgba(24, 14, 8, 0.50)' : 'rgba(132, 95, 62, 0.28)';
+      g.lineWidth = 1.0 + rng() * 1.6;
+      g.beginPath();
+      g.moveTo(gx, gy);
+      g.bezierCurveTo(
+        gx + (rng() - 0.5) * 5,
+        gy + len * 0.35,
+        gx + (rng() - 0.5) * 5,
+        gy + len * 0.7,
+        gx + (rng() - 0.5) * 3,
+        gy + len
+      );
+      g.stroke();
+    }
+
+    // Knots and earthy moss/soot mottling near base
+    for (let k = 0; k < 6; k++) {
+      const kx = 8 + rng() * (w - 16);
+      const ky = 12 + rng() * (h - 24);
+      g.fillStyle = 'rgba(26, 15, 8, 0.52)';
+      g.beginPath();
+      g.ellipse(kx, ky, 3.2, 6.4, (rng() - 0.5) * 0.25, 0, Math.PI * 2);
+      g.fill();
+      g.strokeStyle = 'rgba(116, 82, 54, 0.34)';
+      g.lineWidth = 1.1;
+      g.stroke();
+    }
+
+    // Weathered muddy bottom tint
+    const grad = g.createLinearGradient(0, h * 0.72, 0, h);
+    grad.addColorStop(0, 'rgba(32, 22, 14, 0.0)');
+    grad.addColorStop(1, 'rgba(28, 22, 16, 0.48)');
+    g.fillStyle = grad;
+    g.fillRect(0, h * 0.72, w, h * 0.28);
+  }, 1.0, 1.0);
+}
+
+function createCrimsonTentTex(seed = 202, brightVariant = false) {
+  return makeCanvasTex(128, 128, (g, w, h) => {
+    const rng = makeRng(seed);
+    g.fillStyle = brightVariant ? '#a62024' : '#7f181c';
+    g.fillRect(0, 0, w, h);
+
+    // Patchwork stitched canvas blocks
+    const patches = [
+      { x: 0, y: 0, pw: 64, ph: 62, c: brightVariant ? '#b8282b' : '#8d1e22' },
+      { x: 64, y: 0, pw: 64, ph: 62, c: brightVariant ? '#961a1d' : '#6c1317' },
+      { x: 0, y: 62, pw: 52, ph: 66, c: brightVariant ? '#8d191d' : '#651215' },
+      { x: 52, y: 62, pw: 76, ph: 66, c: brightVariant ? '#ad2428' : '#841b1f' },
+    ];
+    for (const p of patches) {
+      g.fillStyle = p.c;
+      g.fillRect(p.x + 1, p.y + 1, p.pw - 2, p.ph - 2);
+    }
+
+    // Painterly fabric creases & sun-bleached folds
+    for (let i = 0; i < 42; i++) {
+      const fx = rng() * w;
+      const fy = rng() * h;
+      g.strokeStyle = rng() > 0.5 ? 'rgba(235, 118, 98, 0.16)' : 'rgba(38, 6, 8, 0.22)';
+      g.lineWidth = 1.2 + rng() * 1.8;
+      g.beginPath();
+      g.moveTo(fx, fy);
+      g.lineTo(fx + (rng() - 0.5) * 28, fy + 16 + rng() * 24);
+      g.stroke();
+    }
+
+    // Coarse linen weave
+    g.globalAlpha = 0.09;
+    for (let y = 0; y < h; y += 3) {
+      g.fillStyle = y % 6 === 0 ? '#ffd0c4' : '#2a080a';
+      g.fillRect(0, y, w, 1);
+    }
+    for (let x = 0; x < w; x += 4) {
+      g.fillStyle = '#360b0d';
+      g.fillRect(x, 0, 1, h);
+    }
+    g.globalAlpha = 1.0;
+
+    // Cross-stitching along patchwork seams
+    const drawStitchLine = (x1, y1, x2, y2) => {
+      const steps = Math.floor(Math.hypot(x2 - x1, y2 - y1) / 6);
+      g.strokeStyle = '#d6b68a';
+      g.lineWidth = 1.3;
+      for (let i = 0; i < steps; i++) {
+        const t = i / steps;
+        const sx = x1 + (x2 - x1) * t;
+        const sy = y1 + (y2 - y1) * t;
+        g.beginPath();
+        g.moveTo(sx - 2.2, sy - 2.2);
+        g.lineTo(sx + 2.2, sy + 2.2);
+        g.stroke();
+      }
+    };
+    drawStitchLine(64, 0, 64, 62);
+    drawStitchLine(52, 62, 52, 128);
+    drawStitchLine(0, 62, 128, 62);
+
+    // Aged dirt & soot along lower edge hem
+    const hemGrad = g.createLinearGradient(0, h * 0.74, 0, h);
+    hemGrad.addColorStop(0, 'rgba(34, 18, 12, 0.0)');
+    hemGrad.addColorStop(1, 'rgba(34, 18, 12, 0.55)');
+    g.fillStyle = hemGrad;
+    g.fillRect(0, h * 0.74, w, h * 0.26);
+
+    // Subtle worn dark trim stripe near hem
+    g.fillStyle = 'rgba(42, 10, 12, 0.45)';
+    g.fillRect(0, h - 10, w, 4);
+  }, 1.2, 1.0);
+}
+
+function createLeatherTentTex(seed = 303) {
+  return makeCanvasTex(128, 128, (g, w, h) => {
+    const rng = makeRng(seed);
+    g.fillStyle = '#73482b';
+    g.fillRect(0, 0, w, h);
+
+    // Stitched hide patches
+    const hides = [
+      { x: 2, y: 2, pw: 60, ph: 58, c: '#815233' },
+      { x: 64, y: 2, pw: 62, ph: 66, c: '#653d22' },
+      { x: 2, y: 62, pw: 62, ph: 64, c: '#5c361e' },
+      { x: 66, y: 70, pw: 60, ph: 56, c: '#7a4d2f' },
+    ];
+    for (const p of hides) {
+      g.fillStyle = p.c;
+      g.fillRect(p.x, p.y, p.pw, p.ph);
+    }
+
+    // Worn tanned blotches & leather creases
+    for (let i = 0; i < 65; i++) {
+      g.fillStyle = rng() > 0.48 ? 'rgba(164, 114, 72, 0.16)' : 'rgba(42, 24, 12, 0.18)';
+      g.beginPath();
+      g.ellipse(rng() * w, rng() * h, 4 + rng() * 11, 3 + rng() * 8, rng() * Math.PI, 0, Math.PI * 2);
+      g.fill();
+    }
+
+    // Rawhide thong lacing along seams
+    g.strokeStyle = '#c8a678';
+    g.lineWidth = 1.4;
+    for (let y = 4; y < h; y += 7) {
+      g.beginPath();
+      g.moveTo(60, y);
+      g.lineTo(67, y + 3.5);
+      g.stroke();
+    }
+    for (let x = 4; x < w; x += 7) {
+      g.beginPath();
+      g.moveTo(x, 60);
+      g.lineTo(x + 3.5, 67);
+      g.stroke();
+    }
+
+    // Weathered muddy bottom fringe
+    const hemGrad = g.createLinearGradient(0, h * 0.75, 0, h);
+    hemGrad.addColorStop(0, 'rgba(32, 20, 12, 0.0)');
+    hemGrad.addColorStop(1, 'rgba(28, 18, 10, 0.52)');
+    g.fillStyle = hemGrad;
+    g.fillRect(0, h * 0.75, w, h * 0.25);
+  }, 1.1, 1.0);
+}
+
+function createPlankTex(seed = 404, dark = false) {
+  return makeCanvasTex(128, 128, (g, w, h) => {
+    const rng = makeRng(seed);
+    const cols = dark
+      ? ['#573923', '#4b311e', '#614129', '#452c1a']
+      : ['#835634', '#744b2c', '#8e603b', '#6d4528'];
+
+    const planks = 4;
+    const pw = w / planks;
+    for (let p = 0; p < planks; p++) {
+      const px = p * pw;
+      g.fillStyle = cols[p % cols.length];
+      g.fillRect(px, 0, pw, h);
+
+      // Grain streaks
+      for (let i = 0; i < 14; i++) {
+        const gx = px + 2 + rng() * (pw - 4);
+        g.strokeStyle = rng() > 0.45 ? 'rgba(34, 18, 8, 0.28)' : 'rgba(185, 138, 92, 0.20)';
+        g.lineWidth = 0.9 + rng() * 1.1;
+        g.beginPath();
+        g.moveTo(gx, 0);
+        const wob = (rng() - 0.5) * 4;
+        g.bezierCurveTo(gx + wob, h * 0.35, gx - wob, h * 0.7, gx, h);
+        g.stroke();
+      }
+
+      // Seam groove & nail heads
+      g.fillStyle = 'rgba(20, 11, 5, 0.62)';
+      g.fillRect(px, 0, 2.0, h);
+      g.fillStyle = 'rgba(190, 145, 98, 0.16)';
+      g.fillRect(px + 2.2, 0, 1.1, h);
+
+      for (const ny of [16, h - 18]) {
+        g.fillStyle = '#25262a';
+        g.beginPath();
+        g.arc(px + 6, ny + (rng() - 0.5) * 3, 1.6, 0, Math.PI * 2);
+        g.arc(px + pw - 5, ny + (rng() - 0.5) * 3, 1.6, 0, Math.PI * 2);
+        g.fill();
+      }
+    }
+  }, 1.0, 1.0);
+}
+
+function createDarkShingleTex(seed = 505) {
+  return makeCanvasTex(128, 128, (g, w, h) => {
+    const rng = makeRng(seed);
+    g.fillStyle = '#261e1c';
+    g.fillRect(0, 0, w, h);
+
+    const rows = 6;
+    const cols = 6;
+    const rh = h / rows;
+    const cw = w / cols;
+    const tones = ['#3d312d', '#493a34', '#332926', '#543f35', '#42362e'];
+
+    for (let r = 0; r < rows; r++) {
+      const y = r * rh;
+      const off = (r % 2) * cw * 0.5;
+      for (let c = -1; c <= cols + 1; c++) {
+        const x = c * cw + off;
+        const tw = cw - 2;
+        const th = rh - 1.5;
+        g.fillStyle = tones[Math.floor(rng() * tones.length)];
+        g.beginPath();
+        g.moveTo(x + 1, y);
+        g.lineTo(x + 1 + tw, y);
+        g.lineTo(x + 1 + tw, y + th * 0.78);
+        g.lineTo(x + 1 + tw * 0.5, y + th + 1.5);
+        g.lineTo(x + 1, y + th * 0.78);
+        g.closePath();
+        g.fill();
+
+        g.fillStyle = 'rgba(210, 185, 160, 0.12)';
+        g.fillRect(x + 2, y + 1.5, tw - 3, 2);
+        g.strokeStyle = 'rgba(14, 10, 8, 0.45)';
+        g.lineWidth = 1.2;
+        g.stroke();
+      }
+    }
+  }, 2.2, 2.0);
+}
+
+function createCrimsonBannerTex() {
+  return makeCanvasTex(128, 256, (g, w, h) => {
+    // Rich maroon cloth body
+    g.fillStyle = '#8b171b';
+    g.fillRect(0, 0, w, h);
+
+    // Subtle central brighter crimson band
+    g.fillStyle = '#a82226';
+    g.fillRect(14, 10, w - 28, h - 34);
+
+    // Tattered gold border trim
+    g.strokeStyle = '#d9a441';
+    g.lineWidth = 5;
+    g.strokeRect(10, 8, w - 20, h - 32);
+
+    // Crimson Fang Emblem: bold bone-white crescent fangs & crossed blade
+    g.save();
+    g.translate(w * 0.5, h * 0.44);
+
+    // Dark shield medallion behind emblem
+    g.fillStyle = '#3c0b0e';
+    g.beginPath();
+    g.arc(0, 0, 34, 0, Math.PI * 2);
+    g.fill();
+    g.strokeStyle = '#e0ae4b';
+    g.lineWidth = 3;
+    g.stroke();
+
+    // Crossed stylized daggers
+    g.strokeStyle = '#d8dee4';
+    g.lineWidth = 5;
+    g.lineCap = 'round';
+    g.beginPath();
+    g.moveTo(-22, 20);
+    g.lineTo(22, -22);
+    g.moveTo(22, 20);
+    g.lineTo(-22, -22);
+    g.stroke();
+
+    // Twin jagged crimson/ivory fangs
+    g.fillStyle = '#f3ead8';
+    for (const s of [-1, 1]) {
+      g.beginPath();
+      g.moveTo(s * 18, -14);
+      g.lineTo(s * 5, -14);
+      g.lineTo(s * 10, 22);
+      g.closePath();
+      g.fill();
+    }
+    g.restore();
+
+    // Lower hem weathered soot
+    const hem = g.createLinearGradient(0, h * 0.75, 0, h);
+    hem.addColorStop(0, 'rgba(20, 8, 8, 0.0)');
+    hem.addColorStop(1, 'rgba(20, 8, 8, 0.5)');
+    g.fillStyle = hem;
+    g.fillRect(0, h * 0.75, w, h * 0.25);
+  }, 1, 1, true);
+}
+
+function createStrategyMapTex() {
+  return makeCanvasTex(128, 128, (g, w, h) => {
+    g.fillStyle = '#dfcca1';
+    g.fillRect(0, 0, w, h);
+
+    // Aged parchment edges
+    const edge = g.createRadialGradient(w * 0.5, h * 0.5, 22, w * 0.5, h * 0.5, 76);
+    edge.addColorStop(0, 'rgba(223, 204, 161, 0.0)');
+    edge.addColorStop(1, 'rgba(130, 92, 48, 0.45)');
+    g.fillStyle = edge;
+    g.fillRect(0, 0, w, h);
+
+    // Inked border
+    g.strokeStyle = '#5a3d24';
+    g.lineWidth = 3;
+    g.strokeRect(7, 7, w - 14, h - 14);
+
+    // River winding blue ink curve
+    g.strokeStyle = '#4e7c94';
+    g.lineWidth = 6;
+    g.beginPath();
+    g.moveTo(14, 112);
+    g.bezierCurveTo(42, 74, 86, 68, 112, 18);
+    g.stroke();
+
+    // Dirt road dotted line
+    g.strokeStyle = '#7b5532';
+    g.lineWidth = 2.5;
+    g.setLineDash([5, 4]);
+    g.beginPath();
+    g.moveTo(18, 32);
+    g.quadraticCurveTo(62, 54, 108, 96);
+    g.stroke();
+    g.setLineDash([]);
+
+    // Raid target red X marks & arrows
+    g.strokeStyle = '#b42222';
+    g.lineWidth = 3;
+    for (const [tx, ty] of [[42, 42], [88, 78]]) {
+      g.beginPath();
+      g.moveTo(tx - 6, ty - 6);
+      g.lineTo(tx + 6, ty + 6);
+      g.moveTo(tx + 6, ty - 6);
+      g.lineTo(tx - 6, ty + 6);
+      g.stroke();
+    }
+
+    // Compass rose in corner
+    g.strokeStyle = '#442b16';
+    g.lineWidth = 1.6;
+    g.beginPath();
+    g.arc(24, 98, 8, 0, Math.PI * 2);
+    g.moveTo(24, 87);
+    g.lineTo(24, 109);
+    g.moveTo(13, 98);
+    g.lineTo(35, 98);
+    g.stroke();
+  }, 1, 1, true);
+}
+
+function createArcheryTargetTex() {
+  return makeCanvasTex(128, 128, (g, w, h) => {
+    const cx = w * 0.5;
+    const cy = h * 0.5;
+    const rings = [
+      { r: 62, c: '#c8a656' }, // outer straw rim
+      { r: 53, c: '#f2e8cf' }, // cream outer ring
+      { r: 41, c: '#a61f24' }, // red ring
+      { r: 29, c: '#f2e8cf' }, // cream inner ring
+      { r: 17, c: '#b81d22' }, // bullseye red
+      { r: 6,  c: '#e6b83c' }, // gold center
+    ];
+    g.fillStyle = '#b79144';
+    g.fillRect(0, 0, w, h);
+
+    for (const rg of rings) {
+      g.fillStyle = rg.c;
+      g.beginPath();
+      g.arc(cx, cy, rg.r, 0, Math.PI * 2);
+      g.fill();
+      g.strokeStyle = 'rgba(40, 26, 14, 0.35)';
+      g.lineWidth = 1.4;
+      g.stroke();
+    }
+
+    // Woven straw texture hairlines
+    const rng = makeRng(606);
+    g.strokeStyle = 'rgba(110, 78, 28, 0.22)';
+    g.lineWidth = 1;
+    for (let i = 0; i < 48; i++) {
+      const a = rng() * Math.PI * 2;
+      const r0 = 10 + rng() * 44;
+      g.beginPath();
+      g.arc(cx, cy, r0, a, a + 0.35);
+      g.stroke();
+    }
+  }, 1, 1, true);
+}
+
+function createCampDirtTex(seed = 707) {
+  return makeCanvasTex(128, 128, (g, w, h) => {
+    const rng = makeRng(seed);
+    g.fillStyle = '#6b4c32';
+    g.fillRect(0, 0, w, h);
+
+    for (let i = 0; i < 95; i++) {
+      const tone = rng();
+      g.fillStyle = tone < 0.35
+        ? 'rgba(72, 48, 28, 0.32)'
+        : (tone < 0.7 ? 'rgba(128, 92, 58, 0.24)' : 'rgba(54, 46, 40, 0.26)');
+      g.beginPath();
+      g.ellipse(rng() * w, rng() * h, 4 + rng() * 14, 3 + rng() * 10, rng() * Math.PI, 0, Math.PI * 2);
+      g.fill();
+    }
+    for (let i = 0; i < 90; i++) {
+      g.fillStyle = rng() > 0.5 ? '#483424' : '#96704c';
+      g.fillRect(rng() * w, rng() * h, 2, 2);
+    }
+  }, 2.4, 2.4);
+}
+
+function createWarmGlowTex() {
+  return makeCanvasTex(64, 64, (g, w, h) => {
+    const grad = g.createRadialGradient(w * 0.5, h * 0.5, 2, w * 0.5, h * 0.5, 31);
+    grad.addColorStop(0.0, 'rgba(255, 250, 210, 1.0)');
+    grad.addColorStop(0.32, 'rgba(255, 190, 88, 0.72)');
+    grad.addColorStop(0.68, 'rgba(255, 118, 32, 0.24)');
+    grad.addColorStop(1.0, 'rgba(255, 96, 24, 0.0)');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, w, h);
+  }, 1, 1, true);
+}
+
+function createSmokePuffTex() {
+  return makeCanvasTex(64, 64, (g, w, h) => {
+    const grad = g.createRadialGradient(w * 0.5, h * 0.5, 4, w * 0.5, h * 0.5, 30);
+    grad.addColorStop(0.0, 'rgba(218, 212, 206, 0.85)');
+    grad.addColorStop(0.45, 'rgba(182, 174, 168, 0.45)');
+    grad.addColorStop(1.0, 'rgba(140, 134, 130, 0.0)');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, w, h);
+  }, 1, 1, true);
+}
+
+// ============================================================================
+// MAIN BUILDER: CRIMSON FANG BANDIT SETTLEMENT (~36m diameter)
+// ============================================================================
+
+function createBanditSettlement(ctx = {}) {
+  const x = Number.isFinite(ctx.x) ? ctx.x : -420;
+  const z = Number.isFinite(ctx.z) ? ctx.z : 125;
+  const rotationY = Number.isFinite(ctx.rotationY) ? ctx.rotationY : 0.25;
+  const isMobile = !!(ctx && ctx.isMobileDevice);
+  const rng = makeRng(91337);
+
+  const getTerrainY = (wx, wz) => (
+    ctx && typeof ctx.getTerrainHeight === 'function' ? ctx.getTerrainHeight(wx, wz) : 0
+  );
+  const baseY = getTerrainY(x, z);
+
+  const cosY = Math.cos(rotationY);
+  const sinY = Math.sin(rotationY);
+  const toWorldXZ = (lx, lz) => [
+    x + lx * cosY + lz * sinY,
+    z - lx * sinY + lz * cosY,
+  ];
+  const localGroundY = (lx, lz) => {
+    const [wx, wz] = toWorldXZ(lx, lz);
+    return getTerrainY(wx, wz) - baseY;
+  };
+  const addCollider = (kind, lx, lz, radius, localTopY) => {
+    if (!ctx || typeof ctx.addCircleCollider !== 'function') return;
+    const [wx, wz] = toWorldXZ(lx, lz);
+    const gy = getTerrainY(wx, wz);
+    ctx.addCircleCollider(kind, wx, wz, radius, gy + localTopY, group);
+  };
+
+  const group = new THREE.Group();
+  group.name = 'crimson_fang_settlement';
+  group.position.set(x, baseY, z);
+  group.rotation.y = rotationY;
+
+  // --------------------------------------------------------------------------
+  // 1. PROCEDURAL TEXTURES & CEL-SHADED MATERIALS
+  // --------------------------------------------------------------------------
+  const palisadeWoodTex = createPalisadeWoodTex(101);
+  const crimsonTentTex = createCrimsonTentTex(202, false);
+  const brightCrimsonTex = createCrimsonTentTex(219, true);
+  const leatherTentTex = createLeatherTentTex(303);
+  const plankTex = createPlankTex(404, false);
+  const darkPlankTex = createPlankTex(419, true);
+  const darkShingleTex = createDarkShingleTex(505);
+  const bannerTex = createCrimsonBannerTex();
+  const mapTex = createStrategyMapTex();
+  const targetTex = createArcheryTargetTex();
+  const campDirtTex = createCampDirtTex(707);
+  const warmGlowTex = createWarmGlowTex();
+  const smokePuffTex = createSmokePuffTex();
+
+  const palisadeWoodMat = cel(ctx, new THREE.MeshStandardMaterial({
+    map: palisadeWoodTex,
+    color: 0xffffff,
+    roughness: 0.92,
+  }), { rimStrength: 0.14, shadowLift: 0.48 });
+
+  const hewnTipMat = cel(ctx, new THREE.MeshStandardMaterial({
+    color: 0xa87d52,
+    roughness: 0.88,
+  }), { rimStrength: 0.14, shadowLift: 0.54 });
+
+  const plankMat = cel(ctx, new THREE.MeshStandardMaterial({
+    map: plankTex,
+    color: 0xffffff,
+    roughness: 0.86,
+  }), { rimStrength: 0.15, shadowLift: 0.52 });
+
+  const darkWoodMat = cel(ctx, new THREE.MeshStandardMaterial({
+    map: darkPlankTex,
+    color: 0xffffff,
+    roughness: 0.90,
+  }), { rimStrength: 0.14, shadowLift: 0.48 });
+
+  const crimsonTentMat = cel(ctx, new THREE.MeshStandardMaterial({
+    map: crimsonTentTex,
+    color: 0xffffff,
+    roughness: 0.86,
+    side: THREE.DoubleSide,
+  }), { rimStrength: 0.16, shadowLift: 0.54 });
+
+  const brightCrimsonMat = cel(ctx, new THREE.MeshStandardMaterial({
+    map: brightCrimsonTex,
+    color: 0xffffff,
+    roughness: 0.84,
+    side: THREE.DoubleSide,
+  }), { rimStrength: 0.18, shadowLift: 0.58 });
+
+  const leatherTentMat = cel(ctx, new THREE.MeshStandardMaterial({
+    map: leatherTentTex,
+    color: 0xffffff,
+    roughness: 0.88,
+    side: THREE.DoubleSide,
+  }), { rimStrength: 0.15, shadowLift: 0.52 });
+
+  const shingleMat = cel(ctx, new THREE.MeshStandardMaterial({
+    map: darkShingleTex,
+    color: 0xffffff,
+    roughness: 0.90,
+  }), { rimStrength: 0.16, shadowLift: 0.48 });
+
+  const bannerMat = cel(ctx, new THREE.MeshStandardMaterial({
+    map: bannerTex,
+    color: 0xffffff,
+    roughness: 0.82,
+    side: THREE.DoubleSide,
+  }), { rimStrength: 0.18, shadowLift: 0.58 });
+
+  const ropeMat = cel(ctx, new THREE.MeshStandardMaterial({
+    color: 0xc2a16b,
+    roughness: 0.92,
+  }), { rimStrength: 0.12, shadowLift: 0.52 });
+
+  const ironMat = cel(ctx, new THREE.MeshStandardMaterial({
+    color: 0x3b4048,
+    roughness: 0.58,
+    metalness: 0.35,
+  }), { rimStrength: 0.22, shadowLift: 0.50 });
+
+  const steelBladeMat = cel(ctx, new THREE.MeshStandardMaterial({
+    color: 0xb4c2d0,
+    roughness: 0.42,
+    metalness: 0.55,
+  }), { rimStrength: 0.26, shadowLift: 0.58 });
+
+  const goldMat = cel(ctx, new THREE.MeshStandardMaterial({
+    color: 0xf4c442,
+    roughness: 0.36,
+    metalness: 0.55,
+  }), { rimStrength: 0.28, shadowLift: 0.62 });
+
+  const stoneMat = cel(ctx, new THREE.MeshStandardMaterial({
+    color: 0x6f6960,
+    roughness: 0.94,
+  }), { rimStrength: 0.14, shadowLift: 0.50 });
+
+  const dirtMat = cel(ctx, new THREE.MeshStandardMaterial({
+    map: campDirtTex,
+    color: 0xffffff,
+    roughness: 0.96,
+  }), { rimStrength: 0.10, shadowLift: 0.52 });
+
+  const strawMat = cel(ctx, new THREE.MeshStandardMaterial({
+    color: 0xc8a452,
+    roughness: 0.92,
+  }), { rimStrength: 0.14, shadowLift: 0.56 });
+
+  const targetFaceMat = cel(ctx, new THREE.MeshStandardMaterial({
+    map: targetTex,
+    color: 0xffffff,
+    roughness: 0.85,
+  }), { rimStrength: 0.14, shadowLift: 0.58 });
+
+  const mapMat = cel(ctx, new THREE.MeshStandardMaterial({
+    map: mapTex,
+    color: 0xffffff,
+    roughness: 0.85,
+    side: THREE.DoubleSide,
+  }), { rimStrength: 0.12, shadowLift: 0.60 });
+
+  const featherRedMat = cel(ctx, new THREE.MeshStandardMaterial({
+    color: 0xc62828,
+    roughness: 0.80,
+  }), { rimStrength: 0.16, shadowLift: 0.58 });
+
+  const boneMat = cel(ctx, new THREE.MeshStandardMaterial({
+    color: 0xe8ddc6,
+    roughness: 0.82,
+  }), { rimStrength: 0.16, shadowLift: 0.58 });
+
+  const stewMat = cel(ctx, new THREE.MeshStandardMaterial({
+    color: 0xc85224,
+    roughness: 0.45,
+  }), { rimStrength: 0.18, shadowLift: 0.60 });
+
+  const emberMat = new THREE.MeshBasicMaterial({ color: 0xff5a0a });
+  const flameOuterMat = new THREE.MeshBasicMaterial({ color: 0xff7b1a });
+  const flameInnerMat = new THREE.MeshBasicMaterial({ color: 0xffe46b });
+
+  // Merge buckets for static batched draw calls
+  const palisadeWoodGeos = [];
+  const hewnTipGeos = [];
+  const plankGeos = [];
+  const darkWoodGeos = [];
+  const ropeGeos = [];
+  const ironGeos = [];
+  const steelGeos = [];
+  const stoneGeos = [];
+  const dirtGeos = [];
+  const strawGeos = [];
+
+  const animatedFlames = [];
+  const animatedGlows = [];
+  const animatedSmokes = [];
+  const animatedBanners = [];
+  let cauldronPivot = null;
+  let stewBubbleGroup = null;
+
+  // Helper to attach flickering flame + warm glow + optional smoke puffs
+  function addFireEffect(parent, fx, fy, fz, scale = 1.0, withSmoke = true) {
+    const fireGroup = new THREE.Group();
+    fireGroup.position.set(fx, fy, fz);
+    parent.add(fireGroup);
+
+    const outerConeGeo = new THREE.ConeGeometry(0.24 * scale, 0.68 * scale, 5);
+    const innerConeGeo = new THREE.ConeGeometry(0.14 * scale, 0.46 * scale, 5);
+    const tongueCount = scale > 0.7 ? 4 : 2;
+    for (let i = 0; i < tongueCount; i++) {
+      const ang = (i / tongueCount) * Math.PI * 2;
+      const rad = tongueCount > 2 ? 0.11 * scale : 0.03 * scale;
+      const fOuter = new THREE.Mesh(outerConeGeo, flameOuterMat);
+      fOuter.position.set(Math.cos(ang) * rad, 0.28 * scale, Math.sin(ang) * rad);
+      fOuter.rotation.y = ang;
+      fireGroup.add(fOuter);
+
+      const fInner = new THREE.Mesh(innerConeGeo, flameInnerMat);
+      fInner.position.set(Math.cos(ang) * rad * 0.6, 0.22 * scale, Math.sin(ang) * rad * 0.6);
+      fireGroup.add(fInner);
+
+      animatedFlames.push({
+        mesh: fOuter,
+        baseX: fOuter.position.x,
+        baseY: fOuter.position.y,
+        baseZ: fOuter.position.z,
+        phase: i * 1.7 + fx * 0.5 + fz * 0.3,
+        speed: 7.5 + i * 1.4,
+      });
+      animatedFlames.push({
+        mesh: fInner,
+        baseX: fInner.position.x,
+        baseY: fInner.position.y,
+        baseZ: fInner.position.z,
+        phase: i * 2.3 + 1.1,
+        speed: 9.2 + i * 1.1,
+      });
+    }
+
+    if (warmGlowTex) {
+      const glowMat = new THREE.SpriteMaterial({
+        map: warmGlowTex,
+        color: 0xffb347,
+        transparent: true,
+        opacity: 0.72,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      });
+      const glow = new THREE.Sprite(glowMat);
+      glow.position.set(0, 0.34 * scale, 0);
+      const gs = 1.95 * scale;
+      glow.scale.set(gs, gs, 1);
+      fireGroup.add(glow);
+      animatedGlows.push({
+        sprite: glow,
+        baseScale: gs,
+        phase: fx * 0.4 + fz * 0.7,
+      });
+    }
+
+    if (withSmoke && smokePuffTex) {
+      const puffCount = scale > 0.7 ? 5 : 2;
+      for (let i = 0; i < puffCount; i++) {
+        const sMat = new THREE.SpriteMaterial({
+          map: smokePuffTex,
+          color: 0xd4ccc4,
+          transparent: true,
+          opacity: 0.35,
+          depthWrite: false,
+        });
+        const sp = new THREE.Sprite(sMat);
+        const bs = (0.42 + (i % 2) * 0.14) * scale;
+        sp.scale.set(bs, bs, 1);
+        fireGroup.add(sp);
+        animatedSmokes.push({
+          sprite: sp,
+          baseX: (rng() - 0.5) * 0.16 * scale,
+          baseY: 0.65 * scale,
+          baseZ: (rng() - 0.5) * 0.16 * scale,
+          baseScale: bs,
+          maxRise: (scale > 0.7 ? 3.2 : 1.55),
+          phase: i / puffCount + rng() * 0.12,
+          speed: scale > 0.7 ? 0.24 : 0.34,
+        });
+      }
+    }
+  }
+
+  // --------------------------------------------------------------------------
+  // 2. BEATEN EARTH CENTRAL HEARTH PAD & PATH ACCENTS
+  // --------------------------------------------------------------------------
+  {
+    const hearthPad = new THREE.CylinderGeometry(3.4, 3.85, 0.08, 18);
+    transformAndPush(dirtGeos, hearthPad, 0, localGroundY(0, 0) + 0.01, 0);
+    hearthPad.dispose();
+
+    // Subtle stepping/trampled earthen mounds inside the +X gate entrance
+    for (let i = 0; i < 4; i++) {
+      const px = 4.5 + i * 3.1;
+      const pz = (rng() - 0.5) * 1.4;
+      const pad = new THREE.CylinderGeometry(1.35, 1.75, 0.06, 10);
+      transformAndPush(dirtGeos, pad, px, localGroundY(px, pz) + 0.005, pz);
+      pad.dispose();
+    }
+  }
+
+  // --------------------------------------------------------------------------
+  // 3. SPIKED LOG PALISADE PERIMETER (R ~ 16.5m, OPEN ~7m GATE AT +X)
+  // --------------------------------------------------------------------------
+  {
+    const PALISADE_R = 16.5;
+    const GATE_HALF_ANG = 0.245; // 2 * 16.5 * sin(0.245) ~= 8.0m center-to-center -> ~7.1m clear gate!
+    const POST_COUNT = 52;
+
+    const unitLogGeo = new THREE.CylinderGeometry(0.26, 0.31, 1.0, 7);
+    const unitTipGeo = new THREE.ConeGeometry(0.26, 1.0, 7);
+    const unitRailGeo = new THREE.BoxGeometry(1.0, 0.14, 0.12);
+    const unitRopeRingGeo = new THREE.TorusGeometry(0.29, 0.038, 5, 8);
+    const unitMoundGeo = new THREE.CylinderGeometry(0.36, 0.56, 0.24, 7);
+    const unitBraceGeo = new THREE.CylinderGeometry(0.09, 0.12, 1.0, 6);
+
+    const postCoords = [];
+    for (let i = 0; i < POST_COUNT; i++) {
+      const t = i / (POST_COUNT - 1);
+      const ang = GATE_HALF_ANG + t * (Math.PI * 2 - GATE_HALF_ANG * 2);
+      const rad = PALISADE_R + (rng() - 0.5) * 0.26;
+      const px = Math.cos(ang) * rad;
+      const pz = Math.sin(ang) * rad;
+      const gy = localGroundY(px, pz);
+
+      const postH = 2.8 + rng() * 1.2; // 2.8m to 4.0m
+      const tipH = 0.62 + rng() * 0.28;
+      const shaftH = postH - tipH;
+      const thick = 0.88 + rng() * 0.26;
+      const leanX = (rng() - 0.5) * 0.07;
+      const leanZ = (rng() - 0.5) * 0.07;
+      const yaw = rng() * Math.PI * 2;
+
+      // Vertical log shaft
+      transformAndPush(
+        palisadeWoodGeos,
+        unitLogGeo,
+        px, gy + shaftH * 0.5 - 0.08, pz,
+        leanX, yaw, leanZ,
+        thick, shaftH, thick
+      );
+
+      // Sharpened pale hewn point
+      transformAndPush(
+        hewnTipGeos,
+        unitTipGeo,
+        px - Math.sin(leanZ) * (shaftH * 0.5),
+        gy + shaftH + tipH * 0.45 - 0.08,
+        pz + Math.sin(leanX) * (shaftH * 0.5),
+        leanX, yaw, leanZ,
+        thick * 0.96, tipH, thick * 0.96
+      );
+
+      // Soil berm around base
+      transformAndPush(dirtGeos, unitMoundGeo, px, gy + 0.08, pz, 0, yaw, 0, thick, 1, thick);
+
+      // Rope lashings at upper and lower horizontal rail heights
+      for (const ryOff of [0.95, 2.05]) {
+        transformAndPush(
+          ropeGeos,
+          unitRopeRingGeo,
+          px, gy + ryOff, pz,
+          Math.PI * 0.5 + leanX, 0, leanZ,
+          thick, thick, 1.0
+        );
+      }
+
+      // Interior diagonal brace strut every 4th post
+      if (i % 4 === 2) {
+        const inward = ang + Math.PI;
+        const bx = px + Math.cos(inward) * 0.72;
+        const bz = pz + Math.sin(inward) * 0.72;
+        const bgy = localGroundY(bx, bz);
+        transformAndPush(
+          darkWoodGeos,
+          unitBraceGeo,
+          bx, bgy + 0.88, bz,
+          0, -ang, 0.58,
+          1.0, 2.05, 1.0
+        );
+      }
+
+      postCoords.push({ px, pz, gy, postH });
+
+      // Register world circle collider for every palisade post so wall is impenetrable
+      addCollider('bandit_wall', px, pz, 0.96, postH + 0.2);
+    }
+
+    // Horizontal cross-rails connecting adjacent palisade logs
+    for (let i = 0; i < postCoords.length - 1; i++) {
+      const a = postCoords[i];
+      const b = postCoords[i + 1];
+      const dx = b.px - a.px;
+      const dz = b.pz - a.pz;
+      const segLen = Math.hypot(dx, dz) + 0.14;
+      const mx = (a.px + b.px) * 0.5;
+      const mz = (a.pz + b.pz) * 0.5;
+      const mgy = (a.gy + b.gy) * 0.5;
+      const segYaw = -Math.atan2(dz, dx);
+
+      for (const railY of [0.95, 2.05]) {
+        transformAndPush(
+          darkWoodGeos,
+          unitRailGeo,
+          mx, mgy + railY, mz,
+          0, segYaw, 0,
+          segLen, 1.0, 1.0
+        );
+      }
+    }
+
+    unitLogGeo.dispose();
+    unitTipGeo.dispose();
+    unitRailGeo.dispose();
+    unitRopeRingGeo.dispose();
+    unitMoundGeo.dispose();
+    unitBraceGeo.dispose();
+  }
+
+  // --------------------------------------------------------------------------
+  // 4. WIDE OPEN GATE (+X SIDE) WITH 2 TALL POSTS, 2 TORCHES & 2 WAVING BANNERS
+  // --------------------------------------------------------------------------
+  {
+    const gateX = 16.05;
+    const gateZAbs = 3.72; // Clear inner span ~6.9m
+
+    const gatePostGeo = new THREE.CylinderGeometry(0.24, 0.34, 5.65, 8);
+    const gateCapGeo = new THREE.ConeGeometry(0.28, 0.65, 8);
+    const armGeo = new THREE.CylinderGeometry(0.07, 0.09, 1.45, 6);
+    const torchStickGeo = new THREE.CylinderGeometry(0.055, 0.04, 0.85, 6);
+    const torchCupGeo = new THREE.CylinderGeometry(0.14, 0.08, 0.24, 7);
+    const sconceGeo = new THREE.BoxGeometry(0.36, 0.06, 0.06);
+    const ironBandGeo = new THREE.CylinderGeometry(0.29, 0.29, 0.12, 8);
+    const gateDoorPlankGeo = new THREE.BoxGeometry(0.12, 2.55, 2.45);
+    const gateDoorBraceGeo = new THREE.BoxGeometry(0.18, 0.16, 2.5);
+    const gateDoorDiagGeo = new THREE.BoxGeometry(0.16, 0.14, 2.85);
+    const hornGeo = new THREE.ConeGeometry(0.07, 0.42, 5);
+
+    for (const side of [-1, 1]) {
+      const gz = side * gateZAbs;
+      const gy = localGroundY(gateX, gz);
+
+      // Tall heavy gate pillar
+      transformAndPush(palisadeWoodGeos, gatePostGeo, gateX, gy + 2.75, gz);
+      transformAndPush(hewnTipGeos, gateCapGeo, gateX, gy + 5.88, gz);
+
+      // Decorative iron rings & rope wraps
+      for (const iy of [1.4, 3.2, 4.7]) {
+        transformAndPush(ironGeos, ironBandGeo, gateX, gy + iy, gz);
+      }
+
+      // Base stone cairn reinforcing gate pillar
+      for (let s = 0; s < 5; s++) {
+        const sa = (s / 5) * Math.PI * 2;
+        const stoneG = new THREE.DodecahedronGeometry(0.28, 0);
+        transformAndPush(
+          stoneGeos,
+          stoneG,
+          gateX + Math.cos(sa) * 0.34,
+          gy + 0.18,
+          gz + Math.sin(sa) * 0.34,
+          s * 0.4, sa, 0.2
+        );
+        stoneG.dispose();
+      }
+
+      // Mounted trophy horns/spikes jutting forward from top of gate post
+      transformAndPush(hewnTipGeos, hornGeo, gateX + 0.25, gy + 4.95, gz + side * 0.12, 0.4 * side, 0, -0.75);
+
+      // Horizontal banner cross-arm pointing outward along Z
+      const armZ = gz + side * 0.68;
+      transformAndPush(darkWoodGeos, armGeo, gateX, gy + 4.82, armZ, Math.PI * 0.5, 0, 0);
+
+      // Swung-wide-open heavy wooden gate wing (flared outward along +X so 7m opening stays clear)
+      const wingYaw = side * 1.08;
+      const wingDirX = 0.88;
+      const wingDirZ = side * 0.47;
+      const wingCenterX = gateX + 0.12 + wingDirX * 1.24;
+      const wingCenterZ = gz + wingDirZ * 1.24;
+      const wingMat = new THREE.Matrix4();
+      const wingQuat = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, wingYaw, 0));
+      const diagQuat = wingQuat.clone().multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(0.68 * side, 0, 0)));
+      const pushWingPart = (bucket, geo, yOff, qUse) => {
+        const g = geo.index ? geo.toNonIndexed() : geo.clone();
+        wingMat.compose(new THREE.Vector3(wingCenterX, gy + yOff, wingCenterZ), qUse, new THREE.Vector3(1, 1, 1));
+        g.applyMatrix4(wingMat);
+        bucket.push(g);
+      };
+      pushWingPart(plankGeos, gateDoorPlankGeo, 1.32, wingQuat);
+      pushWingPart(ironGeos, gateDoorBraceGeo, 0.72, wingQuat);
+      pushWingPart(ironGeos, gateDoorBraceGeo, 1.92, wingQuat);
+      pushWingPart(darkWoodGeos, gateDoorDiagGeo, 1.32, diagQuat);
+
+      // Gate torch sconce facing slightly inward/forward (+X)
+      const tx = gateX + 0.34;
+      const ty = gy + 3.05;
+      const tz = gz - side * 0.22;
+      transformAndPush(ironGeos, sconceGeo, gateX + 0.18, ty - 0.22, tz, 0, side * 0.4, 0);
+      transformAndPush(darkWoodGeos, torchStickGeo, tx, ty, tz, 0, 0, -0.25);
+      transformAndPush(ironGeos, torchCupGeo, tx + 0.1, ty + 0.38, tz, 0, 0, -0.25);
+      addFireEffect(group, tx + 0.12, ty + 0.46, tz, 0.62, false);
+
+      // Waving Crimson Fang maroon banner (subdivided plane for vertex wave in update)
+      const bw = 1.05;
+      const bh = 2.15;
+      const bGeo = new THREE.PlaneGeometry(bw, bh, 6, 8);
+      // Taper bottom into swallowtail silhouette
+      const posAttr = bGeo.getAttribute('position');
+      for (let vi = 0; vi < posAttr.count; vi++) {
+        const vx = posAttr.getX(vi);
+        const vy = posAttr.getY(vi);
+        const vNorm = (vy + bh * 0.5) / bh; // 0 bottom, 1 top
+        if (vNorm < 0.18) {
+          const centerDip = 1.0 - Math.abs(vx) / (bw * 0.5);
+          posAttr.setY(vi, vy + centerDip * 0.32 * (1.0 - vNorm / 0.18));
+        }
+      }
+      bGeo.computeVertexNormals();
+      const restPos = new Float32Array(posAttr.array);
+
+      const bannerPivot = new THREE.Group();
+      bannerPivot.position.set(gateX + 0.04, gy + 4.78, gz + side * 0.80);
+      bannerPivot.rotation.y = Math.PI * 0.5; // face outward along +X
+      const bannerMesh = new THREE.Mesh(bGeo, bannerMat);
+      bannerMesh.position.set(0, -bh * 0.5, 0);
+      setShadow(bannerMesh, isMobile, true, true);
+      bannerPivot.add(bannerMesh);
+      group.add(bannerPivot);
+
+      animatedBanners.push({
+        pivot: bannerPivot,
+        mesh: bannerMesh,
+        geo: bGeo,
+        restPos,
+        height: bh,
+        phase: side > 0 ? 0.4 : 2.1,
+      });
+
+      addCollider('bandit_gate_post', gateX, gz, 0.58, 5.8);
+    }
+
+    gatePostGeo.dispose();
+    gateCapGeo.dispose();
+    armGeo.dispose();
+    torchStickGeo.dispose();
+    torchCupGeo.dispose();
+    sconceGeo.dispose();
+    ironBandGeo.dispose();
+    gateDoorPlankGeo.dispose();
+    gateDoorBraceGeo.dispose();
+    gateDoorDiagGeo.dispose();
+    hornGeo.dispose();
+  }
+
+  // --------------------------------------------------------------------------
+  // 5. COMMANDER'S PAVILION (TENDA KOMANDAN UTAMA MARUN BESAR)
+  //    Open canopy + crossed timber poles + strategy map table + gold chest
+  // --------------------------------------------------------------------------
+  {
+    const cx = -6.6;
+    const cz = -6.2;
+    const cy = localGroundY(cx, cz);
+    const yaw = 0.80;
+
+    const pav = new THREE.Group();
+    pav.position.set(cx, cy, cz);
+    pav.rotation.y = yaw;
+    group.add(pav);
+
+    const W = 5.4;
+    const D = 4.6;
+    const wallH = 2.05;
+    const lowerRoofPeak = 3.55;
+    const upperCapY = 4.42;
+
+    // Ground wooden/dirt terrace plinth + woven crimson camp rug inside
+    const plinthMesh = makeTransformedMesh(new THREE.BoxGeometry(W + 0.6, 0.14, D + 0.8), darkWoodMat, pav, isMobile, false, true);
+    plinthMesh.position.set(0, 0.05, 0.2);
+
+    const rugMesh = makeTransformedMesh(new THREE.BoxGeometry(3.4, 0.04, 2.7), crimsonTentMat, pav, isMobile, false, true);
+    rugMesh.position.set(0, 0.13, 0.1);
+
+    // 4 Corner heavy timber posts + 2 Crossed Entrance Poles (+Z is open front canopy)
+    const cornerPostGeo = new THREE.CylinderGeometry(0.11, 0.14, wallH + 0.3, 6);
+    for (const [px, pz] of [[-W * 0.48, -D * 0.48], [W * 0.48, -D * 0.48], [-W * 0.48, D * 0.48], [W * 0.48, D * 0.48]]) {
+      const p = makeTransformedMesh(cornerPostGeo, darkWoodMat, pav, isMobile);
+      p.position.set(px, (wallH + 0.3) * 0.5, pz);
+    }
+
+    // Crossed timber poles flanking open front canopy (+Z side)
+    const crossPoleGeo = new THREE.CylinderGeometry(0.085, 0.105, 3.05, 6);
+    for (const sx of [-1, 1]) {
+      const basePos = sx * 2.15;
+      const pA = makeTransformedMesh(crossPoleGeo, darkWoodMat, pav, isMobile);
+      pA.position.set(basePos, 1.38, D * 0.52);
+      pA.rotation.z = 0.24 * sx;
+      pA.rotation.x = 0.12;
+
+      const pB = makeTransformedMesh(crossPoleGeo, darkWoodMat, pav, isMobile);
+      pB.position.set(basePos - 0.34 * sx, 1.38, D * 0.52);
+      pB.rotation.z = -0.24 * sx;
+      pB.rotation.x = 0.12;
+
+      // Rope lashing at pole intersection
+      const knot = makeTransformedMesh(new THREE.TorusGeometry(0.13, 0.04, 5, 8), ropeMat, pav, isMobile, false, true);
+      knot.position.set(basePos - 0.17 * sx, 2.15, D * 0.52 + 0.06);
+      knot.rotation.y = Math.PI * 0.5;
+    }
+
+    // Back & Side Canvas Walls (open at front +Z canopy)
+    const backWall = makeTransformedMesh(new THREE.BoxGeometry(W * 0.96, wallH, 0.08), crimsonTentMat, pav, isMobile);
+    backWall.position.set(0, wallH * 0.5 + 0.12, -D * 0.48);
+
+    for (const sx of [-1, 1]) {
+      const sideWall = makeTransformedMesh(new THREE.BoxGeometry(0.08, wallH, D * 0.96), crimsonTentMat, pav, isMobile);
+      sideWall.position.set(sx * W * 0.48, wallH * 0.5 + 0.12, 0);
+
+      // Rolled tied-back front canopy curtains
+      const curtain = makeTransformedMesh(new THREE.CylinderGeometry(0.20, 0.23, wallH * 0.92, 7), brightCrimsonMat, pav, isMobile);
+      curtain.position.set(sx * (W * 0.36), wallH * 0.5 + 0.12, D * 0.48);
+    }
+
+    // 2-TIER VIBRANT MAROON ROOF (high visibility from top-down map!)
+    // Tier 1: Wide flaring pitched lower skirt (4-sided pyramidal hip roof)
+    const lowerRoofGeo = new THREE.ConeGeometry(4.35, 1.85, 4);
+    lowerRoofGeo.rotateY(Math.PI * 0.25);
+    lowerRoofGeo.scale(1.12, 1.0, 0.95);
+    const lowerRoof = makeTransformedMesh(lowerRoofGeo, brightCrimsonMat, pav, isMobile);
+    lowerRoof.position.set(0, wallH + 0.72, 0);
+
+    // Tier 2: Raised wooden clerestory lantern collar + upper bright maroon cap
+    const clerestory = makeTransformedMesh(new THREE.BoxGeometry(2.35, 0.55, 1.95), darkWoodMat, pav, isMobile);
+    clerestory.position.set(0, lowerRoofPeak - 0.1, 0);
+
+    const upperRoofGeo = new THREE.ConeGeometry(2.15, 1.15, 4);
+    upperRoofGeo.rotateY(Math.PI * 0.25);
+    upperRoofGeo.scale(1.14, 1.0, 0.96);
+    const upperRoof = makeTransformedMesh(upperRoofGeo, brightCrimsonMat, pav, isMobile);
+    upperRoof.position.set(0, upperCapY - 0.45, 0);
+
+    // Extended forward open awning canopy (+Z)
+    const awningGeo = new THREE.BoxGeometry(4.2, 0.08, 1.55);
+    const awning = makeTransformedMesh(awningGeo, brightCrimsonMat, pav, isMobile);
+    awning.position.set(0, 2.38, D * 0.5 + 0.45);
+    awning.rotation.x = 0.26;
+
+    // Gold/wooden finial spire & Crimson Fang pennant atop pavilion
+    const finialPole = makeTransformedMesh(new THREE.CylinderGeometry(0.05, 0.07, 0.92, 6), darkWoodMat, pav, isMobile);
+    finialPole.position.set(0, upperCapY + 0.30, 0);
+    const finialOrb = makeTransformedMesh(new THREE.OctahedronGeometry(0.16, 0), goldMat, pav, isMobile);
+    finialOrb.position.set(0, upperCapY + 0.72, 0);
+    const roofPennantGeo = new THREE.ConeGeometry(0.22, 0.72, 3);
+    roofPennantGeo.rotateZ(-Math.PI * 0.5);
+    roofPennantGeo.scale(1.0, 1.0, 0.18);
+    const roofPennant = makeTransformedMesh(roofPennantGeo, brightCrimsonMat, pav, isMobile);
+    roofPennant.position.set(0.36, upperCapY + 0.52, 0);
+
+    // Staked guy-ropes anchoring pavilion corners
+    const stakeGeo = new THREE.CylinderGeometry(0.04, 0.03, 0.42, 5);
+    const upVec = new THREE.Vector3(0, 1, 0);
+    for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+      const rx0 = sx * W * 0.52;
+      const rz0 = sz * D * 0.52;
+      const rx1 = sx * (W * 0.52 + 1.05);
+      const rz1 = sz * (D * 0.52 + 1.05);
+      const st = makeTransformedMesh(stakeGeo, darkWoodMat, pav, isMobile, false, true);
+      st.position.set(rx1, 0.16, rz1);
+      st.rotation.z = -0.35 * sx;
+      st.rotation.x = 0.35 * sz;
+
+      const rLen = Math.hypot(rx1 - rx0, rz1 - rz0, 1.93);
+      const rope = makeTransformedMesh(new THREE.CylinderGeometry(0.018, 0.018, rLen, 4), ropeMat, pav, isMobile, false, false);
+      rope.position.set((rx0 + rx1) * 0.5, 1.18, (rz0 + rz1) * 0.5);
+      const dir = new THREE.Vector3(rx1 - rx0, 0.22 - 2.15, rz1 - rz0).normalize();
+      rope.quaternion.setFromUnitVectors(upVec, dir);
+    }
+
+    // --- INTERIOR: Strategy Map Table, Commander Chair & Open Treasure Chest with Gold Bars ---
+    // 1) Wooden Strategy Table (centered slightly forward)
+    const tableGroup = new THREE.Group();
+    tableGroup.position.set(-0.35, 0.14, 0.35);
+    pav.add(tableGroup);
+
+    const tableTop = makeTransformedMesh(new THREE.BoxGeometry(1.85, 0.10, 1.08), plankMat, tableGroup, isMobile);
+    tableTop.position.set(0, 0.78, 0);
+    for (const [lx, lz] of [[-0.78, -0.42], [0.78, -0.42], [-0.78, 0.42], [0.78, 0.42]]) {
+      const leg = makeTransformedMesh(new THREE.BoxGeometry(0.11, 0.78, 0.11), darkWoodMat, tableGroup, isMobile);
+      leg.position.set(lx, 0.39, lz);
+    }
+    const tableStretcher = makeTransformedMesh(new THREE.BoxGeometry(1.55, 0.08, 0.10), darkWoodMat, tableGroup, isMobile);
+    tableStretcher.position.set(0, 0.25, 0);
+
+    // Parchment Raid Map unrolled on tabletop + curled scroll ends + red tokens + dagger
+    const mapSheet = makeTransformedMesh(new THREE.PlaneGeometry(1.38, 0.84), mapMat, tableGroup, isMobile, false, true);
+    mapSheet.rotation.x = -Math.PI * 0.5;
+    mapSheet.position.set(0, 0.838, 0);
+
+    for (const sx of [-0.70, 0.70]) {
+      const roll = makeTransformedMesh(new THREE.CylinderGeometry(0.045, 0.045, 0.86, 7), boneMat, tableGroup, isMobile);
+      roll.rotation.x = Math.PI * 0.5;
+      roll.position.set(sx, 0.855, 0);
+    }
+    for (const [tx, tz, mat] of [[-0.22, -0.14, brightCrimsonMat], [0.18, 0.12, brightCrimsonMat], [0.28, -0.18, goldMat]]) {
+      const tok = makeTransformedMesh(new THREE.ConeGeometry(0.055, 0.14, 5), mat, tableGroup, isMobile, false, true);
+      tok.position.set(tx, 0.90, tz);
+    }
+    const mapDagger = makeTransformedMesh(new THREE.BoxGeometry(0.05, 0.03, 0.34), steelBladeMat, tableGroup, isMobile, false, true);
+    mapDagger.position.set(-0.42, 0.85, 0.22);
+    mapDagger.rotation.y = 0.55;
+
+    // 2) Commander's Wooden Chair behind table
+    const chairGroup = new THREE.Group();
+    chairGroup.position.set(-0.35, 0.14, -0.58);
+    chairGroup.rotation.y = 0.12;
+    pav.add(chairGroup);
+    const seat = makeTransformedMesh(new THREE.BoxGeometry(0.62, 0.08, 0.58), leatherTentMat, chairGroup, isMobile);
+    seat.position.set(0, 0.46, 0);
+    const chairBack = makeTransformedMesh(new THREE.BoxGeometry(0.62, 0.68, 0.08), darkWoodMat, chairGroup, isMobile);
+    chairBack.position.set(0, 0.82, -0.25);
+    for (const [clx, clz] of [[-0.25, -0.23], [0.25, -0.23], [-0.25, 0.23], [0.25, 0.23]]) {
+      const cleg = makeTransformedMesh(new THREE.BoxGeometry(0.07, 0.46, 0.07), darkWoodMat, chairGroup, isMobile);
+      cleg.position.set(clx, 0.23, clz);
+    }
+
+    // 3) Open Treasure Chest brimming with Gold Bars beside table
+    const chestGroup = new THREE.Group();
+    chestGroup.position.set(1.38, 0.14, 0.08);
+    chestGroup.rotation.y = -0.42;
+    pav.add(chestGroup);
+
+    const chestBox = makeTransformedMesh(new THREE.BoxGeometry(1.02, 0.52, 0.64), darkWoodMat, chestGroup, isMobile);
+    chestBox.position.set(0, 0.26, 0);
+    for (const sx of [-0.36, 0.36]) {
+      const strap = makeTransformedMesh(new THREE.BoxGeometry(0.07, 0.54, 0.68), ironMat, chestGroup, isMobile);
+      strap.position.set(sx, 0.26, 0);
+    }
+    // Propped-open hinged arched lid
+    const lidPivot = new THREE.Group();
+    lidPivot.position.set(0, 0.52, -0.32);
+    lidPivot.rotation.x = -1.78;
+    chestGroup.add(lidPivot);
+    const lidBase = makeTransformedMesh(new THREE.BoxGeometry(1.04, 0.12, 0.64), darkWoodMat, lidPivot, isMobile);
+    lidBase.position.set(0, 0.06, 0.32);
+    const lidArch = makeTransformedMesh(new THREE.CylinderGeometry(0.30, 0.30, 1.02, 7, 1, false, 0, Math.PI), darkWoodMat, lidPivot, isMobile);
+    lidArch.rotation.z = Math.PI * 0.5;
+    lidArch.position.set(0, 0.10, 0.32);
+    for (const sx of [-0.36, 0.36]) {
+      const lStrap = makeTransformedMesh(new THREE.CylinderGeometry(0.315, 0.315, 0.07, 7, 1, false, 0, Math.PI), ironMat, lidPivot, isMobile);
+      lStrap.rotation.z = Math.PI * 0.5;
+      lStrap.position.set(sx, 0.10, 0.32);
+    }
+
+    // Stacked Gold Ingots inside open chest!
+    const ingotGeo = new THREE.CylinderGeometry(0.055, 0.075, 0.24, 4);
+    ingotGeo.rotateZ(Math.PI * 0.5);
+    ingotGeo.rotateX(Math.PI * 0.25);
+    for (let layer = 0; layer < 2; layer++) {
+      for (let ix = -2; ix <= 2; ix++) {
+        for (let iz = -1; iz <= 1; iz++) {
+          if (layer === 1 && Math.abs(ix) === 2) continue;
+          const bar = makeTransformedMesh(ingotGeo, goldMat, chestGroup, isMobile, false, true);
+          bar.position.set(ix * 0.16, 0.50 + layer * 0.085, iz * 0.13);
+          bar.rotation.y = (ix + iz) * 0.12;
+        }
+      }
+    }
+    ingotGeo.dispose();
+
+    // Small glowing lantern on pavilion table corner
+    const pavLantern = makeTransformedMesh(new THREE.CylinderGeometry(0.08, 0.09, 0.20, 6), flameInnerMat, tableGroup, isMobile, false, false);
+    pavLantern.position.set(0.68, 0.93, -0.28);
+    const pavLanternCap = makeTransformedMesh(new THREE.ConeGeometry(0.12, 0.10, 6), ironMat, tableGroup, isMobile, false, false);
+    pavLanternCap.position.set(0.68, 1.06, -0.28);
+
+    addCollider('bandit_tent', cx, cz, 3.15, 4.5);
+  }
+
+  // --------------------------------------------------------------------------
+  // 6. 2-TIER WOODEN BANDIT WATCHTOWER (~8.5m TALL) AT BACK CORNER
+  // --------------------------------------------------------------------------
+  {
+    const tx = -10.3;
+    const tz = 1.8;
+    const ty = localGroundY(tx, tz);
+    const towerYaw = 0.17;
+
+    const tower = new THREE.Group();
+    tower.position.set(tx, ty, tz);
+    tower.rotation.y = towerYaw;
+    group.add(tower);
+
+    const baseHalf = 1.55;
+    const topHalf = 1.38;
+    const deck1Y = 2.85;
+    const deck2Y = 5.25;
+    const roofBaseY = 6.75;
+    const roofPeakY = 8.48;
+
+    // 4 Corner Support Posts (battered slightly inward from base to deck2)
+    const legPts = [];
+    for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+      const p0 = new THREE.Vector3(sx * baseHalf, -0.1, sz * baseHalf);
+      const p1 = new THREE.Vector3(sx * topHalf, deck2Y + 1.58, sz * topHalf);
+      legPts.push({ sx, sz, p0, p1 });
+
+      const vec = new THREE.Vector3().subVectors(p1, p0);
+      const len = vec.length();
+      const post = makeTransformedMesh(new THREE.CylinderGeometry(0.12, 0.18, len, 7), palisadeWoodMat, tower, isMobile);
+      post.position.copy(p0).addScaledVector(vec, 0.5);
+      post.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), vec.clone().normalize());
+
+      // Stone foundation pad under each leg
+      const pad = makeTransformedMesh(new THREE.CylinderGeometry(0.32, 0.40, 0.28, 7), stoneMat, tower, isMobile, false, true);
+      pad.position.set(p0.x, 0.12, p0.z);
+    }
+
+    // Helper for X-braces between two vertical corner profiles
+    const addXBrace = (aBot, aTop, bBot, bTop, thick = 0.075) => {
+      for (const [pStart, pEnd] of [[aBot, bTop], [bBot, aTop]]) {
+        const vec = new THREE.Vector3().subVectors(pEnd, pStart);
+        const len = vec.length();
+        const beam = makeTransformedMesh(new THREE.BoxGeometry(thick, len, thick), darkWoodMat, tower, isMobile);
+        beam.position.copy(pStart).addScaledVector(vec, 0.5);
+        beam.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), vec.clone().normalize());
+      }
+    };
+
+    const lerpLeg = (leg, hVal) => {
+      const t = THREE.MathUtils.clamp((hVal - leg.p0.y) / (leg.p1.y - leg.p0.y), 0, 1);
+      return new THREE.Vector3().lerpVectors(leg.p0, leg.p1, t);
+    };
+
+    // 4 Sides X-Bracing across Lower Bay (0.3 -> deck1Y) and Upper Bay (deck1Y -> deck2Y)
+    const sidePairs = [[0, 1], [2, 3], [0, 2], [1, 3]]; // N, S, W, E faces
+    for (let sIdx = 0; sIdx < sidePairs.length; sIdx++) {
+      const [ia, ib] = sidePairs[sIdx];
+      const la = legPts[ia];
+      const lb = legPts[ib];
+      // Lower bay (leave east +X face clear near ground for ladder entrance, brace above or keep high)
+      if (sIdx !== 3) {
+        addXBrace(lerpLeg(la, 0.35), lerpLeg(la, deck1Y - 0.15), lerpLeg(lb, 0.35), lerpLeg(lb, deck1Y - 0.15), 0.085);
+      }
+      // Upper bay
+      addXBrace(lerpLeg(la, deck1Y + 0.15), lerpLeg(la, deck2Y - 0.12), lerpLeg(lb, deck1Y + 0.15), lerpLeg(lb, deck2Y - 0.12), 0.08);
+    }
+
+    // Tier 1 Mid-Landing Deck
+    const midDeck = makeTransformedMesh(new THREE.BoxGeometry(3.05, 0.20, 3.05), plankMat, tower, isMobile);
+    midDeck.position.set(0, deck1Y, 0);
+
+    // Tier 2 Main Lookout Deck (y = 5.25m)
+    const topDeck = makeTransformedMesh(new THREE.BoxGeometry(3.22, 0.24, 3.22), plankMat, tower, isMobile);
+    topDeck.position.set(0, deck2Y, 0);
+
+    // Fenced Parapet Railings around Tier 2 Deck
+    const railH = 0.92;
+    const railPostGeo = new THREE.BoxGeometry(0.11, railH, 0.11);
+    const railSpanGeo = new THREE.BoxGeometry(2.96, 0.10, 0.09);
+    for (const sz of [-1.42, 1.42]) {
+      const topR = makeTransformedMesh(railSpanGeo, darkWoodMat, tower, isMobile);
+      topR.position.set(0, deck2Y + railH, sz);
+      const midR = makeTransformedMesh(railSpanGeo, darkWoodMat, tower, isMobile);
+      midR.position.set(0, deck2Y + railH * 0.52, sz);
+      const mp = makeTransformedMesh(railPostGeo, darkWoodMat, tower, isMobile);
+      mp.position.set(0, deck2Y + railH * 0.5, sz);
+    }
+    for (const sx of [-1.42, 1.42]) {
+      const lenZ = sx > 0 ? 1.85 : 2.96; // leave gap on +X side for ladder climb-through
+      const zOff = sx > 0 ? -0.52 : 0;
+      const sideR = makeTransformedMesh(new THREE.BoxGeometry(0.09, 0.10, lenZ), darkWoodMat, tower, isMobile);
+      sideR.position.set(sx, deck2Y + railH, zOff);
+      const sideR2 = makeTransformedMesh(new THREE.BoxGeometry(0.09, 0.10, lenZ), darkWoodMat, tower, isMobile);
+      sideR2.position.set(sx, deck2Y + railH * 0.52, zOff);
+      const mp = makeTransformedMesh(railPostGeo, darkWoodMat, tower, isMobile);
+      mp.position.set(sx, deck2Y + railH * 0.5, 0.35);
+    }
+
+    // Crimson cloth guard skirt draped along front (+X) parapet
+    const parapetCloth = makeTransformedMesh(new THREE.BoxGeometry(0.06, 0.72, 1.75), crimsonTentMat, tower, isMobile);
+    parapetCloth.position.set(1.48, deck2Y + 0.48, -0.45);
+
+    // Slanted Wooden Ladders (Ground -> Deck 1, and Deck 1 -> Deck 2)
+    const buildLadder = (x0, y0, z0, x1, y1, z1, width = 0.68) => {
+      const v = new THREE.Vector3(x1 - x0, y1 - y0, z1 - z0);
+      const len = v.length();
+      const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), v.clone().normalize());
+      const ladderG = new THREE.Group();
+      ladderG.position.set((x0 + x1) * 0.5, (y0 + y1) * 0.5, (z0 + z1) * 0.5);
+      ladderG.quaternion.copy(q);
+      tower.add(ladderG);
+
+      const railG = new THREE.BoxGeometry(0.08, len, 0.10);
+      for (const sz of [-width * 0.5, width * 0.5]) {
+        const s = makeTransformedMesh(railG, darkWoodMat, ladderG, isMobile);
+        s.position.set(0, 0, sz);
+      }
+      const rungCount = Math.max(4, Math.floor(len / 0.38));
+      const rungG = new THREE.CylinderGeometry(0.032, 0.032, width + 0.04, 5);
+      rungG.rotateX(Math.PI * 0.5);
+      for (let r = 0; r < rungCount; r++) {
+        const ry = -len * 0.45 + (r / Math.max(1, rungCount - 1)) * (len * 0.90);
+        const rg = makeTransformedMesh(rungG, plankMat, ladderG, isMobile);
+        rg.position.set(0, ry, 0);
+      }
+      railG.dispose();
+      rungG.dispose();
+    };
+
+    // Lower ladder from camp ground (+X) up to Mid-Landing
+    buildLadder(2.45, 0.0, 0.78, 1.48, deck1Y + 0.08, 0.78, 0.72);
+    // Upper ladder from Mid-Landing up through opening in Deck 2
+    buildLadder(1.88, deck1Y + 0.08, 0.78, 1.38, deck2Y + 0.12, 0.78, 0.66);
+
+    // Dark Shingled Pyramid Roof (~1.75m tall, peaking at ~8.48m)
+    const roofH = roofPeakY - roofBaseY;
+    const roofGeo = new THREE.ConeGeometry(2.55, roofH, 4);
+    roofGeo.rotateY(Math.PI * 0.25);
+    const towerRoof = makeTransformedMesh(roofGeo, shingleMat, tower, isMobile);
+    towerRoof.position.set(0, roofBaseY + roofH * 0.5, 0);
+
+    // Roof wooden rim fascia & pointed finial spike
+    const fascia = makeTransformedMesh(new THREE.BoxGeometry(3.45, 0.14, 3.45), darkWoodMat, tower, isMobile);
+    fascia.position.set(0, roofBaseY + 0.04, 0);
+    const spire = makeTransformedMesh(new THREE.CylinderGeometry(0.04, 0.07, 0.72, 6), darkWoodMat, tower, isMobile);
+    spire.position.set(0, roofPeakY + 0.20, 0);
+
+    // Signal Torch Brazier on front-right corner of Watchtower Deck!
+    const sigX = 1.45;
+    const sigZ = -1.42;
+    const sigPost = makeTransformedMesh(new THREE.CylinderGeometry(0.06, 0.08, 1.35, 6), darkWoodMat, tower, isMobile);
+    sigPost.position.set(sigX, deck2Y + 0.68, sigZ);
+    const sigBasket = makeTransformedMesh(new THREE.CylinderGeometry(0.24, 0.13, 0.30, 7), ironMat, tower, isMobile);
+    sigBasket.position.set(sigX, deck2Y + 1.42, sigZ);
+    const sigCoal = makeTransformedMesh(new THREE.DodecahedronGeometry(0.14, 0), emberMat, tower, isMobile, false, false);
+    sigCoal.position.set(sigX, deck2Y + 1.54, sigZ);
+    addFireEffect(tower, sigX, deck2Y + 1.52, sigZ, 0.68, true);
+
+    addCollider('bandit_tower', tx, tz, 2.15, 8.5);
+  }
+
+  // --------------------------------------------------------------------------
+  // 7. 4 CREW TENTS (2 A-FRAME + 2 CONICAL) WITH STAKES, SLEEPING ROLLS & BLANKETS
+  // --------------------------------------------------------------------------
+  {
+    const crewTents = [
+      { lx: 5.8,  lz: -8.8,  type: 'aframe',  mat: leatherTentMat,   trim: crimsonTentMat, sc: 1.05 },
+      { lx: 5.6,  lz:  8.8,  type: 'aframe',  mat: crimsonTentMat,   trim: leatherTentMat, sc: 1.08 },
+      { lx: -4.8, lz: 10.2,  type: 'conical', mat: leatherTentMat,   trim: crimsonTentMat, sc: 1.12 },
+      { lx: 0.6,  lz: -11.4, type: 'conical', mat: brightCrimsonMat, trim: leatherTentMat, sc: 1.02 },
+    ];
+
+    const upVecTent = new THREE.Vector3(0, 1, 0);
+    for (const ct of crewTents) {
+      const gy = localGroundY(ct.lx, ct.lz);
+      const tg = new THREE.Group();
+      tg.position.set(ct.lx, gy, ct.lz);
+      tg.rotation.y = Math.atan2(-ct.lx, -ct.lz); // open doorway faces inward toward campfire plaza
+      tg.scale.setScalar(ct.sc);
+      group.add(tg);
+
+      if (ct.type === 'aframe') {
+        // Triangular prism A-frame tent (open at +Z front)
+        const tw = 2.65;
+        const th = 2.05;
+        const td = 3.10;
+        const slopeLen = Math.hypot(tw * 0.5, th);
+        const slopeAng = Math.atan2(th, tw * 0.5);
+
+        for (const sx of [-1, 1]) {
+          const panel = makeTransformedMesh(new THREE.BoxGeometry(slopeLen + 0.12, 0.06, td), ct.mat, tg, isMobile);
+          panel.position.set(sx * tw * 0.25, th * 0.5, 0);
+          panel.rotation.z = -sx * slopeAng;
+        }
+        // Back triangular canvas flap (-Z)
+        const backCone = new THREE.ConeGeometry(tw * 0.54, th, 4);
+        backCone.rotateY(Math.PI * 0.25);
+        backCone.scale(1.0, 1.0, 0.14);
+        const backFlap = makeTransformedMesh(backCone, ct.trim, tg, isMobile);
+        backFlap.position.set(0, th * 0.5, -td * 0.46);
+
+        // Ridge pole + front & rear upright poles
+        const ridge = makeTransformedMesh(new THREE.CylinderGeometry(0.055, 0.055, td + 0.5, 6), darkWoodMat, tg, isMobile);
+        ridge.rotation.x = Math.PI * 0.5;
+        ridge.position.set(0, th + 0.04, 0);
+
+        for (const pz of [-td * 0.48, td * 0.48]) {
+          const upright = makeTransformedMesh(new THREE.CylinderGeometry(0.05, 0.07, th + 0.25, 6), darkWoodMat, tg, isMobile);
+          upright.position.set(0, (th + 0.25) * 0.5, pz);
+        }
+
+        // Staked guy-ropes at 4 lower eaves
+        for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+          const peg = makeTransformedMesh(new THREE.CylinderGeometry(0.03, 0.02, 0.34, 5), darkWoodMat, tg, isMobile, false, true);
+          peg.position.set(sx * (tw * 0.5 + 0.45), 0.12, sz * (td * 0.42));
+          peg.rotation.z = -0.38 * sx;
+
+          const rope = makeTransformedMesh(new THREE.CylinderGeometry(0.015, 0.015, 0.55, 4), ropeMat, tg, isMobile, false, false);
+          rope.position.set(sx * (tw * 0.5 + 0.22), 0.25, sz * (td * 0.42));
+          rope.rotation.z = 0.95 * sx;
+        }
+      } else {
+        // Conical flared bell tent with open front entrance wedge (+Z)
+        const radius = 1.85;
+        const height = 2.65;
+        const coneGeo = new THREE.ConeGeometry(radius, height, 8, 1, true, 0.42, Math.PI * 2 - 0.84);
+        const body = makeTransformedMesh(coneGeo, ct.mat, tg, isMobile);
+        body.position.set(0, height * 0.5, 0);
+
+        // Upper cap collar + center pole jutting out apex
+        const cap = makeTransformedMesh(new THREE.ConeGeometry(0.55, 0.65, 8), ct.trim, tg, isMobile);
+        cap.position.set(0, height - 0.18, 0);
+        const pole = makeTransformedMesh(new THREE.CylinderGeometry(0.05, 0.075, height + 0.48, 6), darkWoodMat, tg, isMobile);
+        pole.position.set(0, (height + 0.48) * 0.5, 0);
+
+        // Flared rolled entrance flaps
+        for (const sx of [-1, 1]) {
+          const flap = makeTransformedMesh(new THREE.CylinderGeometry(0.11, 0.16, 1.25, 6), ct.trim, tg, isMobile);
+          flap.position.set(sx * 0.62, 0.60, radius * 0.72);
+          flap.rotation.z = -sx * 0.36;
+          flap.rotation.x = 0.25;
+        }
+
+        // 5 ground stakes & taut guy-ropes around skirt
+        for (let s = 0; s < 5; s++) {
+          const ang = 0.55 + (s / 4) * (Math.PI * 2 - 1.1);
+          const sx0 = Math.sin(ang) * (radius * 0.86);
+          const sz0 = Math.cos(ang) * (radius * 0.86);
+          const px = Math.sin(ang) * (radius + 0.42);
+          const pz = Math.cos(ang) * (radius + 0.42);
+
+          const peg = makeTransformedMesh(new THREE.CylinderGeometry(0.03, 0.02, 0.34, 5), darkWoodMat, tg, isMobile, false, true);
+          peg.position.set(px, 0.12, pz);
+          const pegDir = new THREE.Vector3(-Math.sin(ang) * 0.45, 0.90, -Math.cos(ang) * 0.45).normalize();
+          peg.quaternion.setFromUnitVectors(upVecTent, pegDir);
+
+          const ropeVec = new THREE.Vector3(px - sx0, 0.14 - 0.55, pz - sz0);
+          const rope = makeTransformedMesh(new THREE.CylinderGeometry(0.014, 0.014, ropeVec.length(), 4), ropeMat, tg, isMobile, false, false);
+          rope.position.set((sx0 + px) * 0.5, (0.55 + 0.14) * 0.5, (sz0 + pz) * 0.5);
+          rope.quaternion.setFromUnitVectors(upVecTent, ropeVec.normalize());
+        }
+      }
+
+      // Inside crew tent: Rolled Sleeping Bag + Folded Brown/Maroon Blanket + Small Crate
+      const bedMat = ct.mat === leatherTentMat ? crimsonTentMat : leatherTentMat;
+      const bedPad = makeTransformedMesh(new THREE.BoxGeometry(0.76, 0.09, 1.52), bedMat, tg, isMobile, false, true);
+      bedPad.position.set(-0.36, 0.05, -0.10);
+      bedPad.rotation.y = 0.08;
+
+      const pillowRoll = makeTransformedMesh(new THREE.CylinderGeometry(0.14, 0.14, 0.68, 7), boneMat, tg, isMobile, false, true);
+      pillowRoll.rotation.z = Math.PI * 0.5;
+      pillowRoll.position.set(-0.36, 0.14, -0.72);
+
+      // Extra rolled sleeping bag tied with rope straps near entrance
+      const bedRoll = makeTransformedMesh(new THREE.CylinderGeometry(0.15, 0.15, 0.76, 7), ct.trim, tg, isMobile);
+      bedRoll.rotation.z = Math.PI * 0.5;
+      bedRoll.rotation.y = -0.32;
+      bedRoll.position.set(0.45, 0.15, 0.35);
+      for (const off of [-0.22, 0.22]) {
+        const tie = makeTransformedMesh(new THREE.TorusGeometry(0.155, 0.022, 4, 8), ropeMat, tg, isMobile, false, false);
+        tie.position.set(0.45 + Math.cos(-0.32) * off, 0.15, 0.35 - Math.sin(-0.32) * off);
+        tie.rotation.y = Math.PI * 0.5 - 0.32;
+      }
+
+      addCollider('bandit_tent', ct.lx, ct.lz, 2.05 * ct.sc, 2.9 * ct.sc);
+    }
+  }
+
+  // --------------------------------------------------------------------------
+  // 8. CENTRAL CAMPFIRE HEARTH, TRIPOD CAULDRON, ANIMATED FLAME & 4 LOG SEATS
+  // --------------------------------------------------------------------------
+  {
+    const cy = localGroundY(0, 0);
+    const fireBase = new THREE.Group();
+    fireBase.position.set(0, cy, 0);
+    group.add(fireBase);
+
+    // 11 River Stones in Hearth Ring
+    for (let i = 0; i < 11; i++) {
+      const a = (i / 11) * Math.PI * 2 + (rng() - 0.5) * 0.12;
+      const r = 0.96 + (rng() - 0.5) * 0.10;
+      const sg = new THREE.DodecahedronGeometry(0.24 + rng() * 0.08, 0);
+      sg.scale(1.2, 0.72, 1.0);
+      transformAndPush(stoneGeos, sg, Math.cos(a) * r, cy + 0.12, Math.sin(a) * r, rng() * 0.4, a, rng() * 0.4);
+      sg.dispose();
+    }
+
+    // Glowing ember bed + charred firewood logs
+    const embers = makeTransformedMesh(new THREE.CylinderGeometry(0.68, 0.78, 0.14, 9), emberMat, fireBase, isMobile, false, false);
+    embers.position.set(0, 0.08, 0);
+
+    const logGeo = new THREE.CylinderGeometry(0.11, 0.13, 1.45, 6);
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * Math.PI + 0.2;
+      const log = makeTransformedMesh(logGeo, darkWoodMat, fireBase, isMobile);
+      log.position.set(Math.cos(a) * 0.12, 0.18 + (i % 2) * 0.06, Math.sin(a) * 0.12);
+      log.rotation.z = Math.PI * 0.44;
+      log.rotation.y = a;
+    }
+    logGeo.dispose();
+
+    // Wooden Tripod Frame (3 angled poles lashed at y = 2.38m)
+    const apexY = 2.38;
+    const legSpreadR = 1.28;
+    for (let i = 0; i < 3; i++) {
+      const ang = i * ((Math.PI * 2) / 3) + 0.35;
+      const p0 = new THREE.Vector3(Math.cos(ang) * legSpreadR, -0.05, Math.sin(ang) * legSpreadR);
+      const p1 = new THREE.Vector3(Math.cos(ang) * -0.14, apexY + 0.25, Math.sin(ang) * -0.14);
+      const vec = new THREE.Vector3().subVectors(p1, p0);
+      const pole = makeTransformedMesh(new THREE.CylinderGeometry(0.055, 0.085, vec.length(), 6), palisadeWoodMat, fireBase, isMobile);
+      pole.position.copy(p0).addScaledVector(vec, 0.5);
+      pole.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), vec.clone().normalize());
+    }
+    const apexTie = makeTransformedMesh(new THREE.TorusGeometry(0.14, 0.05, 5, 8), ropeMat, fireBase, isMobile);
+    apexTie.position.set(0, apexY, 0);
+    apexTie.rotation.x = Math.PI * 0.5;
+
+    // Hanging Chain + Cast-Iron Stew Cauldron
+    cauldronPivot = new THREE.Group();
+    cauldronPivot.position.set(0, apexY, 0);
+    fireBase.add(cauldronPivot);
+
+    const chainSegGeo = new THREE.TorusGeometry(0.045, 0.015, 4, 6);
+    for (let c = 0; c < 6; c++) {
+      const link = makeTransformedMesh(chainSegGeo, ironMat, cauldronPivot, isMobile, false, true);
+      link.position.set(0, -0.10 - c * 0.11, 0);
+      link.rotation.y = (c % 2) * Math.PI * 0.5;
+    }
+    chainSegGeo.dispose();
+
+    const cauldronGroup = new THREE.Group();
+    cauldronGroup.position.set(0, -1.06, 0);
+    cauldronPivot.add(cauldronGroup);
+
+    const potBody = makeTransformedMesh(new THREE.SphereGeometry(0.46, 10, 8, 0, Math.PI * 2, 0.42, Math.PI - 0.42), ironMat, cauldronGroup, isMobile);
+    potBody.scale.set(1.0, 0.92, 1.0);
+    const potRim = makeTransformedMesh(new THREE.TorusGeometry(0.39, 0.05, 6, 12), ironMat, cauldronGroup, isMobile);
+    potRim.rotation.x = Math.PI * 0.5;
+    potRim.position.set(0, 0.36, 0);
+
+    // Bail handle arch connecting rim to hanging chain
+    const bail = makeTransformedMesh(new THREE.TorusGeometry(0.39, 0.025, 5, 10, Math.PI), ironMat, cauldronGroup, isMobile);
+    bail.position.set(0, 0.36, 0);
+
+    // Bubbling hearty stew inside cauldron + wooden ladle
+    const stewSurf = makeTransformedMesh(new THREE.CircleGeometry(0.36, 10), stewMat, cauldronGroup, isMobile, false, true);
+    stewSurf.rotation.x = -Math.PI * 0.5;
+    stewSurf.position.set(0, 0.30, 0);
+
+    stewBubbleGroup = new THREE.Group();
+    stewBubbleGroup.position.set(0, 0.31, 0);
+    cauldronGroup.add(stewBubbleGroup);
+    for (let b = 0; b < 4; b++) {
+      const ba = b * 1.55;
+      const bub = makeTransformedMesh(new THREE.SphereGeometry(0.045, 5, 4), flameInnerMat, stewBubbleGroup, isMobile, false, false);
+      bub.position.set(Math.cos(ba) * 0.15, 0, Math.sin(ba) * 0.15);
+    }
+
+    const ladleStick = makeTransformedMesh(new THREE.CylinderGeometry(0.022, 0.028, 0.68, 5), plankMat, cauldronGroup, isMobile);
+    ladleStick.position.set(0.16, 0.46, 0.12);
+    ladleStick.rotation.z = -0.45;
+    ladleStick.rotation.x = 0.25;
+
+    // Campfire flickering flames, warm glow & rising smoke wisps
+    addFireEffect(fireBase, 0, 0.18, 0, 1.12, true);
+
+    // 4 Seated Bark Log Benches arranged around campfire
+    const seatLogGeo = new THREE.CylinderGeometry(0.24, 0.26, 1.95, 7);
+    const chockGeo = new THREE.BoxGeometry(0.26, 0.18, 0.42);
+    const seatAngles = [0.46, 1.92, 3.62, 5.14];
+    for (let i = 0; i < seatAngles.length; i++) {
+      const sa = seatAngles[i];
+      const sr = 2.75;
+      const sx = Math.cos(sa) * sr;
+      const sz = Math.sin(sa) * sr;
+      const sgy = localGroundY(sx, sz);
+
+      transformAndPush(palisadeWoodGeos, seatLogGeo, sx, sgy + 0.28, sz, Math.PI * 0.5, sa, 0);
+      for (const endOff of [-0.62, 0.62]) {
+        const cxOff = -Math.sin(sa) * endOff;
+        const czOff = Math.cos(sa) * endOff;
+        transformAndPush(darkWoodGeos, chockGeo, sx + cxOff, sgy + 0.09, sz + czOff, 0, sa, 0);
+      }
+      // Small wooden tankard sitting on log #0 and #2
+      if (i % 2 === 0) {
+        const mug = makeTransformedMesh(new THREE.CylinderGeometry(0.075, 0.085, 0.18, 6), plankMat, group, isMobile, false, true);
+        mug.position.set(sx + 0.12, sgy + 0.56, sz - 0.08);
+      }
+    }
+    seatLogGeo.dispose();
+    chockGeo.dispose();
+
+    addCollider('bandit_campfire', 0, 0, 1.45, 2.5);
+  }
+
+  // --------------------------------------------------------------------------
+  // 9. 2 WOODEN WEAPON & SHIELD RACKS
+  // --------------------------------------------------------------------------
+  {
+    const racks = [
+      { lx: 7.4, lz: -3.8, yaw: -0.35 },
+      { lx: 7.4, lz:  4.0, yaw:  0.38 },
+    ];
+
+    const postGeo = new THREE.BoxGeometry(0.11, 1.55, 0.11);
+    const footGeo = new THREE.BoxGeometry(0.14, 0.10, 0.72);
+    const barGeo = new THREE.BoxGeometry(2.10, 0.10, 0.10);
+    const spearShaftGeo = new THREE.CylinderGeometry(0.025, 0.03, 2.05, 5);
+    const spearHeadGeo = new THREE.ConeGeometry(0.065, 0.28, 4);
+    const swordBladeGeo = new THREE.BoxGeometry(0.075, 0.92, 0.025);
+    const hiltGeo = new THREE.BoxGeometry(0.28, 0.04, 0.06);
+    const shieldDiscGeo = new THREE.CylinderGeometry(0.42, 0.42, 0.06, 10);
+    const shieldRimGeo = new THREE.TorusGeometry(0.42, 0.032, 5, 10);
+    const shieldBossGeo = new THREE.SphereGeometry(0.10, 6, 5);
+
+    for (const rk of racks) {
+      const rgy = localGroundY(rk.lx, rk.lz);
+      const rg = new THREE.Group();
+      rg.position.set(rk.lx, rgy, rk.lz);
+      rg.rotation.y = rk.yaw;
+      group.add(rg);
+
+      // Frame uprights + sled feet + top/mid crossbars
+      for (const sx of [-0.88, 0.88]) {
+        const up = makeTransformedMesh(postGeo, darkWoodMat, rg, isMobile);
+        up.position.set(sx, 0.78, 0);
+        const ft = makeTransformedMesh(footGeo, darkWoodMat, rg, isMobile);
+        ft.position.set(sx, 0.05, 0);
+      }
+      const topBar = makeTransformedMesh(barGeo, plankMat, rg, isMobile);
+      topBar.position.set(0, 1.38, 0);
+      const lowBar = makeTransformedMesh(barGeo, plankMat, rg, isMobile);
+      lowBar.position.set(0, 0.42, 0);
+
+      // Leaning Spears & Halberd
+      for (let s = 0; s < 3; s++) {
+        const sx = -0.58 + s * 0.28;
+        const spearG = new THREE.Group();
+        spearG.position.set(sx, 1.05, 0.09);
+        spearG.rotation.x = -0.18;
+        spearG.rotation.z = (s - 1) * 0.06;
+        rg.add(spearG);
+
+        makeTransformedMesh(spearShaftGeo, darkWoodMat, spearG, isMobile);
+        const head = makeTransformedMesh(spearHeadGeo, steelBladeMat, spearG, isMobile);
+        head.position.set(0, 1.12, 0);
+      }
+
+      // Bandit Broadsword & Battleaxe leaning beside spears
+      for (let w = 0; w < 2; w++) {
+        const wx = 0.25 + w * 0.34;
+        const swordG = new THREE.Group();
+        swordG.position.set(wx, 0.62, -0.09);
+        swordG.rotation.x = 0.20;
+        swordG.rotation.z = (w === 0 ? 0.08 : -0.1);
+        rg.add(swordG);
+
+        const bl = makeTransformedMesh(swordBladeGeo, steelBladeMat, swordG, isMobile);
+        bl.position.set(0, 0.12, 0);
+        const hl = makeTransformedMesh(hiltGeo, ironMat, swordG, isMobile);
+        hl.position.set(0, 0.58, 0);
+        const grip = makeTransformedMesh(new THREE.CylinderGeometry(0.025, 0.028, 0.22, 5), leatherTentMat, swordG, isMobile);
+        grip.position.set(0, 0.70, 0);
+      }
+
+      // 2 Round Iron-Banded Wooden Shields hung/leaning on front of rack
+      for (let sh = 0; sh < 2; sh++) {
+        const shx = sh === 0 ? -0.45 : 0.45;
+        const shMat = sh === 0 ? crimsonTentMat : plankMat;
+        const sg = new THREE.Group();
+        sg.position.set(shx, 0.65, 0.24);
+        sg.rotation.x = -0.26;
+        sg.rotation.y = sh === 0 ? 0.16 : -0.16;
+        rg.add(sg);
+
+        const disc = makeTransformedMesh(shieldDiscGeo, shMat, sg, isMobile);
+        disc.rotation.x = Math.PI * 0.5;
+        const rim = makeTransformedMesh(shieldRimGeo, ironMat, sg, isMobile);
+        const boss = makeTransformedMesh(shieldBossGeo, steelBladeMat, sg, isMobile);
+        boss.position.set(0, 0, 0.04);
+      }
+
+      addCollider('bandit_rack', rk.lx, rk.lz, 1.12, 1.75);
+    }
+
+    postGeo.dispose();
+    footGeo.dispose();
+    barGeo.dispose();
+    spearShaftGeo.dispose();
+    spearHeadGeo.dispose();
+    swordBladeGeo.dispose();
+    hiltGeo.dispose();
+    shieldDiscGeo.dispose();
+    shieldRimGeo.dispose();
+    shieldBossGeo.dispose();
+  }
+
+  // --------------------------------------------------------------------------
+  // 10. 2 STRAW ARCHERY TARGETS WITH RED-WHITE BULLSEYE & EMBEDDED ARROWS
+  // --------------------------------------------------------------------------
+  {
+    const targets = [
+      { lx: 10.8, lz: -7.0 },
+      { lx: 11.6, lz: -4.9 },
+    ];
+
+    const legGeo = new THREE.CylinderGeometry(0.045, 0.055, 1.72, 5);
+    const arrowShaftGeo = new THREE.CylinderGeometry(0.015, 0.015, 0.74, 4);
+    const fletchGeo = new THREE.BoxGeometry(0.08, 0.14, 0.012);
+
+    for (const tgCfg of targets) {
+      const tgy = localGroundY(tgCfg.lx, tgCfg.lz);
+      const tg = new THREE.Group();
+      tg.position.set(tgCfg.lx, tgy, tgCfg.lz);
+      tg.rotation.y = Math.atan2(3.0 - tgCfg.lx, -4.0 - tgCfg.lz); // bullseye faces firing line in camp plaza
+      group.add(tg);
+
+      // 3-Leg Wooden Easel Stand
+      for (const [lx, lz, rx, rz] of [[-0.44, 0.16, 0.16, -0.22], [0.44, 0.16, 0.16, 0.22], [0, -0.52, -0.34, 0]]) {
+        const leg = makeTransformedMesh(legGeo, darkWoodMat, tg, isMobile);
+        leg.position.set(lx * 0.55, 0.80, lz * 0.55);
+        leg.rotation.set(rx, 0, rz);
+      }
+
+      // Straw Disc Drum + Red-White Bullseye Target Face
+      const strawHead = new THREE.Group();
+      strawHead.position.set(0, 1.18, 0.06);
+      strawHead.rotation.x = -0.14;
+      tg.add(strawHead);
+
+      const drum = makeTransformedMesh(new THREE.CylinderGeometry(0.58, 0.58, 0.24, 14), strawMat, strawHead, isMobile);
+      drum.rotation.x = Math.PI * 0.5;
+      const faceFront = makeTransformedMesh(new THREE.CircleGeometry(0.56, 14), targetFaceMat, strawHead, isMobile, false, true);
+      faceFront.position.set(0, 0, 0.125);
+      const faceBack = makeTransformedMesh(new THREE.CircleGeometry(0.56, 14), strawMat, strawHead, isMobile, false, true);
+      faceBack.rotation.y = Math.PI;
+      faceBack.position.set(0, 0, -0.125);
+
+      // 4 Stuck Arrows with Red Fletching embedded in target!
+      const arrowOffsets = [
+        { ax:  0.04, ay:  0.03, rx: 0.12, rz: -0.08 },
+        { ax: -0.18, ay:  0.14, rx: 0.06, rz:  0.18 },
+        { ax:  0.22, ay: -0.11, rx: -0.08, rz: -0.15 },
+        { ax: -0.06, ay: -0.26, rx: 0.18, rz:  0.06 },
+      ];
+      for (const ar of arrowOffsets) {
+        const ag = new THREE.Group();
+        ag.position.set(ar.ax, ar.ay, 0.14);
+        ag.rotation.set(Math.PI * 0.5 + ar.rx, 0, ar.rz);
+        strawHead.add(ag);
+
+        const shaft = makeTransformedMesh(arrowShaftGeo, plankMat, ag, isMobile, false, false);
+        shaft.position.set(0, 0.24, 0);
+        const f1 = makeTransformedMesh(fletchGeo, featherRedMat, ag, isMobile, false, false);
+        f1.position.set(0, 0.54, 0);
+        const f2 = makeTransformedMesh(fletchGeo, boneMat, ag, isMobile, false, false);
+        f2.position.set(0, 0.54, 0);
+        f2.rotation.y = Math.PI * 0.5;
+      }
+
+      addCollider('bandit_target', tgCfg.lx, tgCfg.lz, 0.78, 1.75);
+    }
+
+    legGeo.dispose();
+    arrowShaftGeo.dispose();
+    fletchGeo.dispose();
+  }
+
+  // --------------------------------------------------------------------------
+  // 11. LOOT CRATES, IRON-BANDED BARRELS & SACKS CLUSTERS
+  // --------------------------------------------------------------------------
+  {
+    const addCrate = (parent, lx, ly, lz, size = 0.85, yaw = 0) => {
+      const cg = new THREE.Group();
+      cg.position.set(lx, ly + size * 0.5, lz);
+      cg.rotation.y = yaw;
+      parent.add(cg);
+
+      makeTransformedMesh(new THREE.BoxGeometry(size, size, size), plankMat, cg, isMobile);
+      // Framed wood edge strips & diagonal slat
+      const frame = makeTransformedMesh(new THREE.BoxGeometry(size * 1.03, size * 0.12, size * 1.03), darkWoodMat, cg, isMobile);
+      frame.position.y = size * 0.44;
+      const frameBot = makeTransformedMesh(new THREE.BoxGeometry(size * 1.03, size * 0.12, size * 1.03), darkWoodMat, cg, isMobile);
+      frameBot.position.y = -size * 0.44;
+      for (const [fx, fz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+        const corner = makeTransformedMesh(new THREE.BoxGeometry(size * 0.10, size * 1.01, size * 0.10), ironMat, cg, isMobile);
+        corner.position.set(fx * size * 0.47, 0, fz * size * 0.47);
+      }
+    };
+
+    const addBarrel = (parent, lx, ly, lz, sc = 1.0, tipped = false, yaw = 0) => {
+      const bg = new THREE.Group();
+      bg.position.set(lx, ly + (tipped ? 0.34 * sc : 0.48 * sc), lz);
+      bg.rotation.y = yaw;
+      if (tipped) bg.rotation.z = Math.PI * 0.5;
+      bg.scale.setScalar(sc);
+      parent.add(bg);
+
+      // Bulging barrel stave profile using 3 stacked cylinders
+      makeTransformedMesh(new THREE.CylinderGeometry(0.36, 0.31, 0.32, 10), plankMat, bg, isMobile).position.y = -0.32;
+      makeTransformedMesh(new THREE.CylinderGeometry(0.36, 0.36, 0.32, 10), plankMat, bg, isMobile).position.y = 0;
+      makeTransformedMesh(new THREE.CylinderGeometry(0.31, 0.36, 0.32, 10), plankMat, bg, isMobile).position.y = 0.32;
+
+      // Iron barrel hoops
+      for (const hy of [-0.34, 0, 0.34]) {
+        const hr = hy === 0 ? 0.37 : 0.345;
+        makeTransformedMesh(new THREE.CylinderGeometry(hr, hr, 0.055, 10), ironMat, bg, isMobile).position.y = hy;
+      }
+    };
+
+    const addLootSack = (parent, lx, ly, lz, yaw = 0) => {
+      const sk = new THREE.Group();
+      sk.position.set(lx, ly + 0.25, lz);
+      sk.rotation.y = yaw;
+      parent.add(sk);
+      const body = makeTransformedMesh(new THREE.SphereGeometry(0.28, 7, 6), leatherTentMat, sk, isMobile);
+      body.scale.set(1.0, 0.92, 0.85);
+      const neck = makeTransformedMesh(new THREE.ConeGeometry(0.16, 0.22, 6), leatherTentMat, sk, isMobile);
+      neck.position.y = 0.24;
+      neck.rotation.x = Math.PI;
+      const tie = makeTransformedMesh(new THREE.TorusGeometry(0.09, 0.02, 4, 7), ropeMat, sk, isMobile);
+      tie.rotation.x = Math.PI * 0.5;
+      tie.position.y = 0.21;
+    };
+
+    // Cluster A: Commander Supply Pile (-2.5, -8.8)
+    {
+      const cx = -2.5, cz = -8.8;
+      const cy = localGroundY(cx, cz);
+      const cl = new THREE.Group();
+      cl.position.set(cx, cy, cz);
+      group.add(cl);
+      addCrate(cl, -0.45, 0, -0.15, 0.92, 0.18);
+      addCrate(cl, -0.42, 0.92, -0.12, 0.64, -0.28);
+      addBarrel(cl, 0.55, 0, 0.22, 0.98, false, 0.4);
+      addBarrel(cl, 0.45, 0, -0.65, 0.92, false, -0.2);
+      addLootSack(cl, -0.18, 0, 0.58, 0.5);
+      addCollider('bandit_crates', cx, cz, 1.32, 1.65);
+    }
+
+    // Cluster B: South Provisions Pile (1.8, 7.0)
+    {
+      const cx = 1.8, cz = 7.0;
+      const cy = localGroundY(cx, cz);
+      const cl = new THREE.Group();
+      cl.position.set(cx, cy, cz);
+      group.add(cl);
+      addCrate(cl, -0.42, 0, 0.25, 0.88, -0.32);
+      addBarrel(cl, 0.52, 0, 0.15, 1.0, false, 0.1);
+      addBarrel(cl, 0.05, 0, -0.58, 0.92, true, 0.72);
+      addLootSack(cl, -0.58, 0, -0.45, -0.4);
+      addCollider('bandit_crates', cx, cz, 1.25, 1.35);
+    }
+
+    // Cluster C: Watchtower Base Ammo/Supply (-7.6, -1.6)
+    {
+      const cx = -7.6, cz = -1.6;
+      const cy = localGroundY(cx, cz);
+      const cl = new THREE.Group();
+      cl.position.set(cx, cy, cz);
+      group.add(cl);
+      addCrate(cl, 0.0, 0, 0.24, 0.84, 0.12);
+      addCrate(cl, 0.06, 0.84, 0.22, 0.58, 0.45);
+      addBarrel(cl, -0.68, 0, -0.38, 0.96, false, 0.2);
+      addCollider('bandit_crates', cx, cz, 1.15, 1.55);
+    }
+  }
+
+  // --------------------------------------------------------------------------
+  // 12. BROKEN WOODEN CART FRAME AT PALISADE EDGE
+  // --------------------------------------------------------------------------
+  {
+    const wx = 1.8;
+    const wz = 13.0;
+    const wy = localGroundY(wx, wz);
+    const cartYaw = 0.48;
+
+    const wreck = new THREE.Group();
+    wreck.position.set(wx, wy, wz);
+    wreck.rotation.y = cartYaw;
+    group.add(wreck);
+
+    // Listing broken wagon chassis tilted down on the missing-wheel (-X) side
+    const bedGroup = new THREE.Group();
+    bedGroup.position.set(0, 0.44, 0);
+    bedGroup.rotation.z = 0.34; // leans down toward missing left wheel
+    bedGroup.rotation.x = 0.12;
+    wreck.add(bedGroup);
+
+    // Plank floor bed + missing/splintered slats
+    for (let p = -2; p <= 2; p++) {
+      const pLen = p === -1 ? 1.85 : 2.35; // one plank snapped short!
+      const slat = makeTransformedMesh(new THREE.BoxGeometry(0.26, 0.08, pLen), plankMat, bedGroup, isMobile);
+      slat.position.set(p * 0.28, 0, p === -1 ? 0.2 : 0);
+    }
+
+    // Side rails (left side broken/splintered, right side mostly intact)
+    makeTransformedMesh(new THREE.BoxGeometry(0.08, 0.45, 2.35), darkWoodMat, bedGroup, isMobile).position.set(0.70, 0.24, 0);
+    makeTransformedMesh(new THREE.BoxGeometry(0.08, 0.38, 1.45), darkWoodMat, bedGroup, isMobile).position.set(-0.70, 0.20, 0.35);
+    // Angled broken rail post sticking out
+    const brokenRail = makeTransformedMesh(new THREE.BoxGeometry(0.08, 0.12, 0.95), darkWoodMat, bedGroup, isMobile);
+    brokenRail.position.set(-0.68, 0.26, -0.68);
+    brokenRail.rotation.set(0.28, 0.25, 0);
+
+    // Back tailgate & axle beam
+    makeTransformedMesh(new THREE.BoxGeometry(1.42, 0.42, 0.08), plankMat, bedGroup, isMobile).position.set(0, 0.22, -1.16);
+    makeTransformedMesh(new THREE.CylinderGeometry(0.065, 0.065, 1.88, 6), ironMat, bedGroup, isMobile).rotation.z = Math.PI * 0.5;
+
+    // Front cracked draft shafts resting down into dirt
+    for (const sx of [-0.46, 0.46]) {
+      const shaft = makeTransformedMesh(new THREE.BoxGeometry(0.08, 0.08, 1.45), darkWoodMat, bedGroup, isMobile);
+      shaft.position.set(sx, -0.10, 1.72);
+      shaft.rotation.x = 0.24;
+      if (sx < 0) shaft.rotation.y = -0.18;
+    }
+
+    // Helper to build spoked wooden wagon wheel
+    const buildWheel = (parent, intact = true) => {
+      const wg = new THREE.Group();
+      parent.add(wg);
+      const rimArc = intact ? Math.PI * 2 : Math.PI * 1.42;
+      const rim = makeTransformedMesh(new THREE.TorusGeometry(0.54, 0.055, 6, 12, rimArc), darkWoodMat, wg, isMobile);
+      rim.rotation.y = Math.PI * 0.5;
+      const ironTire = makeTransformedMesh(new THREE.TorusGeometry(0.585, 0.022, 5, 12, rimArc), ironMat, wg, isMobile);
+      ironTire.rotation.y = Math.PI * 0.5;
+      const hub = makeTransformedMesh(new THREE.CylinderGeometry(0.11, 0.11, 0.20, 7), ironMat, wg, isMobile);
+      hub.rotation.z = Math.PI * 0.5;
+
+      const spokeCount = intact ? 8 : 5;
+      const spGeo = new THREE.CylinderGeometry(0.025, 0.032, 1.02, 5);
+      for (let i = 0; i < spokeCount; i++) {
+        if (!intact && i === 2) continue;
+        const a = (i / 8) * Math.PI * 2;
+        const sp = makeTransformedMesh(spGeo, plankMat, wg, isMobile);
+        sp.rotation.x = a;
+      }
+      spGeo.dispose();
+      return wg;
+    };
+
+    // Intact wheel still mounted on right (+X) axle end
+    const rightWheel = buildWheel(bedGroup, true);
+    rightWheel.position.set(0.88, -0.02, 0);
+
+    // Detached broken wheel lying flat in dirt beside cart
+    const fallenWheel = buildWheel(wreck, false);
+    fallenWheel.position.set(-1.32, 0.08, 0.42);
+    fallenWheel.rotation.z = Math.PI * 0.5 - 0.12;
+    fallenWheel.rotation.y = 0.65;
+
+    // Scattered splintered plank & coil of rope near wreck
+    const loosePlank = makeTransformedMesh(new THREE.BoxGeometry(0.24, 0.06, 1.25), plankMat, wreck, isMobile);
+    loosePlank.position.set(-0.95, 0.05, -0.92);
+    loosePlank.rotation.y = 0.82;
+
+    addCollider('bandit_wreck', wx, wz, 1.75, 1.45);
+  }
+
+  // --------------------------------------------------------------------------
+  // 13. FINALIZE STATIC MERGED GEOMETRY BATCHES
+  // --------------------------------------------------------------------------
+  const addMergedBatch = (geos, mat, cast = true, receive = true) => {
+    if (!geos.length) return null;
+    const merged = mergeGeometries(geos);
+    return makeTransformedMesh(merged, mat, group, isMobile, cast, receive);
+  };
+
+  addMergedBatch(palisadeWoodGeos, palisadeWoodMat, true, true);
+  addMergedBatch(hewnTipGeos, hewnTipMat, true, true);
+  addMergedBatch(plankGeos, plankMat, true, true);
+  addMergedBatch(darkWoodGeos, darkWoodMat, true, true);
+  addMergedBatch(ropeGeos, ropeMat, false, true);
+  addMergedBatch(ironGeos, ironMat, true, true);
+  addMergedBatch(steelGeos, steelBladeMat, true, true);
+  addMergedBatch(stoneGeos, stoneMat, true, true);
+  addMergedBatch(dirtGeos, dirtMat, false, true);
+  addMergedBatch(strawGeos, strawMat, true, true);
+
+  // --------------------------------------------------------------------------
+  // 14. FRAME UPDATE ANIMATION: FLAMES, SMOKE, CAULDRON & WAVING GATE BANNERS
+  // --------------------------------------------------------------------------
+  function update(elapsed = 0) {
+    const t = Number.isFinite(elapsed) ? elapsed : 0;
+
+    // Flickering flames (campfire + gate torches + watchtower signal torch)
+    for (let i = 0; i < animatedFlames.length; i++) {
+      const f = animatedFlames[i];
+      const wave1 = Math.sin(t * f.speed + f.phase);
+      const wave2 = Math.cos(t * (f.speed * 1.45) + f.phase * 1.3);
+      const sy = 0.85 + 0.24 * wave1 + 0.12 * wave2;
+      const sxz = 0.90 + 0.14 * wave2;
+      f.mesh.scale.set(sxz, sy, sxz);
+      f.mesh.position.set(
+        f.baseX + wave2 * 0.025,
+        f.baseY + (sy - 1.0) * 0.14,
+        f.baseZ + wave1 * 0.025
+      );
+      f.mesh.rotation.z = wave1 * 0.14;
+      f.mesh.rotation.x = wave2 * 0.10;
+    }
+
+    // Pulsing warm radial fire/torch glow sprites
+    for (let i = 0; i < animatedGlows.length; i++) {
+      const g = animatedGlows[i];
+      const pulse = 0.90 + 0.14 * Math.sin(t * 7.2 + g.phase) + 0.07 * Math.cos(t * 13.5 + g.phase);
+      const s = g.baseScale * pulse;
+      g.sprite.scale.set(s, s, 1);
+      if (g.sprite.material) {
+        g.sprite.material.opacity = Math.min(0.92, 0.68 * pulse);
+      }
+    }
+
+    // Thin rising smoke wisps from campfire & watchtower signal
+    for (let i = 0; i < animatedSmokes.length; i++) {
+      const sm = animatedSmokes[i];
+      const cycle = (t * sm.speed + sm.phase) % 1.0;
+      sm.sprite.position.set(
+        sm.baseX + Math.sin(t * 1.1 + sm.phase * 6.2) * 0.22 * cycle + cycle * 0.42,
+        sm.baseY + cycle * sm.maxRise,
+        sm.baseZ + Math.cos(t * 0.95 + sm.phase * 4.8) * 0.18 * cycle
+      );
+      const sc = sm.baseScale * (0.65 + cycle * 1.45);
+      sm.sprite.scale.set(sc, sc, 1);
+      if (sm.sprite.material) {
+        sm.sprite.material.opacity = Math.sin(cycle * Math.PI) * 0.36;
+      }
+    }
+
+    // Gentle cauldron sway & simmering stew bubbles
+    if (cauldronPivot) {
+      cauldronPivot.rotation.z = Math.sin(t * 1.35) * 0.024;
+      cauldronPivot.rotation.x = Math.cos(t * 1.05) * 0.016;
+    }
+    if (stewBubbleGroup) {
+      for (let i = 0; i < stewBubbleGroup.children.length; i++) {
+        const b = stewBubbleGroup.children[i];
+        const bCycle = (t * 1.8 + i * 0.37) % 1.0;
+        const bs = 0.4 + Math.sin(bCycle * Math.PI) * 0.85;
+        b.scale.setScalar(bs);
+        b.position.y = Math.sin(bCycle * Math.PI) * 0.03;
+      }
+    }
+
+    // Soft wind billowing on the 2 Crimson Fang gate banners
+    for (let i = 0; i < animatedBanners.length; i++) {
+      const bn = animatedBanners[i];
+      bn.pivot.rotation.x = 0.06 + Math.sin(t * 2.1 + bn.phase) * 0.065;
+
+      const pos = bn.geo.getAttribute('position');
+      const rest = bn.restPos;
+      const h = bn.height;
+      for (let vi = 0; vi < pos.count; vi++) {
+        const rx = rest[vi * 3];
+        const ry = rest[vi * 3 + 1];
+        const rz = rest[vi * 3 + 2];
+        const distFromTop = THREE.MathUtils.clamp((h * 0.5 - ry) / h, 0, 1);
+        const ripple =
+          Math.sin(t * 4.4 - distFromTop * 5.2 + rx * 2.4 + bn.phase) * 0.13 * distFromTop +
+          Math.cos(t * 2.9 - distFromTop * 3.1 + bn.phase) * 0.05 * distFromTop;
+        pos.setZ(vi, rz + ripple);
+      }
+      pos.needsUpdate = true;
+      bn.geo.computeVertexNormals();
+    }
+  }
+
+  // Initialize first frame state cleanly
+  update(0);
+
+  group.userData = {
+    kind: 'bandit_camp',
+    name: 'Crimson Fang Settlement',
+    update,
+  };
+
+  return { group, update };
+}
+
+return { createBanditSettlement };
+
+})();
+
 // --- js/world.js ---
 (() => {
 'use strict';
@@ -11243,6 +16673,9 @@ const {
   createBotWRiverSurface,
   createNaturalRiverbanks,
 } = __MOD_RIVER_ASSETS;
+const { createAncientSunRuins } = __MOD_SUN_RUINS;
+const { createCrystalCavern } = __MOD_CRYSTAL_CAVERN;
+const { createBanditSettlement } = __MOD_BANDIT_CAMP;
 const THREE = HC.THREE, P = HC.PAL;
 
 class World {
@@ -11525,7 +16958,7 @@ class World {
             uSceneBrightness: { value: activeAtmosphere.sceneBrightness },
             uCampfirePos: { value: new THREE.Vector3(0, 0.85, 0) },
             uCampfireColor: { value: new THREE.Color(0xff9238) },
-            uCampfireStrength: { value: 1.0 }
+            uCampfireStrength: { value: 0.0 }
         };
 
         function applyStylizedCelShading(material, options = {}) {
@@ -11935,14 +17368,177 @@ class World {
                     [getRoadCenterX(360), 360],
                 ],
             },
+            {
+                id: 'rocky_falls_road',
+                surface: 'rocky',
+                ctrl: [
+                    [82, 48], [106, 95], [130, 145], [148, 185], [155, 206],
+                ],
+            },
+            {
+                id: 'cliff_boulder_pass',
+                surface: 'cliff',
+                ctrl: [
+                    [225, -42], [220, -88], [212, -138], [208, -182], [202, -210],
+                ],
+            },
         ];
 
         for (const br of BRANCH_ROAD_DEFS) {
             const sampled = sampleCatmullPolyline(br.ctrl, 3.2);
-            allRoadPolylines.push({ id: br.id, pts: sampled });
+            allRoadPolylines.push({ id: br.id, surface: br.surface || 'dirt', pts: sampled });
             for (let i = 0; i < sampled.length - 1; i++) {
                 insertRoadSegment(sampled[i][0], sampled[i][1], sampled[i + 1][0], sampled[i + 1][1], br.id);
             }
+        }
+
+        // ---- Lokasi Khusus / Landmark Story (untuk eksplorasi & kebutuhan cerita) ----
+        const ANCIENT_ELDER_TREE = {
+            id: 'ancient_elder_tree',
+            nameEn: 'Ancient Elder Tree',
+            nameId: 'Pohon Agung Purba',
+            x: -365,
+            z: -275,
+            radius: 22,
+        };
+
+        const STORY_LANDMARKS = [
+            { id: 'cragstone_hill', nameEn: 'Cragstone Hill', nameId: 'Bukit Bebatuan', kind: 'hill', icon: '⛰️', x: -135, z: -135, radius: 34, color: '#a8a29e' },
+            { id: 'silvermist_falls', nameEn: 'Silvermist Falls', nameId: 'Air Terjun Kabut', kind: 'waterfall', icon: '🌊', x: 155, z: 225, radius: 30, color: '#38bdf8' },
+            { id: 'shadowrift_gorge', nameEn: 'Shadowrift Gorge', nameId: 'Jurang Bayangan', kind: 'gorge', icon: '🪨', x: 175, z: -145, radius: 38, color: '#64748b' },
+            { id: 'deepwood_thicket', nameEn: 'Deepwood Thicket', nameId: 'Hutan Rimba Purba', kind: 'forest', icon: '🌲', x: -195, z: 215, radius: 76, color: '#22c55e' },
+            { id: 'boulder_trail', nameEn: 'Boulder Trail', nameId: 'Jalan Bebatuan', kind: 'rocky_road', icon: '🪨', x: 124, z: 132, radius: 18, color: '#d6d3d1' },
+            { id: 'cliffside_pass', nameEn: 'Cliffside Boulder Pass', nameId: 'Jalan Tebing Bebatuan', kind: 'cliff_road', icon: '🧗', x: 212, z: -142, radius: 18, color: '#f59e0b' },
+            { id: 'ancient_elder_tree', nameEn: 'Ancient Elder Tree', nameId: 'Pohon Agung Purba', kind: 'ancient_tree', icon: '🌳', x: ANCIENT_ELDER_TREE.x, z: ANCIENT_ELDER_TREE.z, radius: 22, color: '#eab308' },
+            { id: 'sun_ruins', nameEn: 'Sunken Sun Ruins', nameId: 'Reruntuhan Kuil Kuno', kind: 'ruins', icon: '🏛️', x: 245, z: -365, radius: 22, color: '#e7d3a8' },
+            { id: 'crystal_cavern', nameEn: 'Crystal Cavern', nameId: 'Goa Kristal', kind: 'cavern', icon: '💎', x: 415, z: 265, radius: 24, color: '#38bdf8' },
+            { id: 'bandit_settlement', nameEn: 'Bandit Camp', nameId: 'Pemukiman Bandit', kind: 'bandit_camp', icon: '⛺', x: -420, z: 125, radius: 24, color: '#ef4444' },
+        ];
+        const RUINS_SITE = { x: 245, z: -365, radius: 22 };
+        const CAVERN_SITE = { x: 415, z: 265, radius: 24 };
+        const BANDIT_SITE = { x: -420, z: 125, radius: 25 };
+
+        function getBaseRollingTerrainY(x, z) {
+            let h = Math.sin(x * 0.075) * Math.cos(z * 0.075) * 1.45
+                  + Math.sin(x * 0.14 + z * 0.11) * 0.45
+                  + Math.cos(x * 0.04 - z * 0.06) * 0.72;
+            const distOrigin = Math.hypot(x, z);
+            h += smoothstepJS(16.0, 42.0, distOrigin) * 2.2;
+            h += smoothstepJS(40.0, 120.0, distOrigin) * 3.8;
+            if (distOrigin > 60.0) {
+                const outer = smoothstepJS(60.0, 140.0, distOrigin);
+                h += outer * (Math.sin(x * 0.022 + z * 0.019) * 2.8 + Math.cos(z * 0.025 - x * 0.017) * 2.1);
+            }
+            return h;
+        }
+
+        // ---- Genangan Air / Sungai Besar di Sektor Luar Peta ----
+        const GRAND_WATER_BASIN_DEFS = [
+            {
+                id: 'elderbrook_basin',
+                nameEn: 'Elderbrook River',
+                nameId: 'Sungai Hulu Agung',
+                halfW: 18.0,
+                bank: 9.0,
+                ctrl: [[-625, -210], [-545, -320], [-485, -445], [-365, -545], [-220, -605]],
+            },
+            {
+                id: 'emerald_oxbow',
+                nameEn: 'Northeast Oxbow',
+                nameId: 'Sungai Timur Laut',
+                halfW: 19.5,
+                bank: 9.0,
+                ctrl: [[235, -595], [370, -495], [485, -370], [575, -230], [635, -95]],
+            },
+            {
+                id: 'misty_crescent',
+                nameEn: 'Misty Crescent River',
+                nameId: 'Sungai Sabit Kabut',
+                halfW: 20.0,
+                bank: 9.0,
+                ctrl: [[-615, 200], [-515, 330], [-430, 450], [-315, 550], [-190, 615]],
+            },
+            {
+                id: 'grand_marsh_stream',
+                nameEn: 'Emerald Marsh River',
+                nameId: 'Muara Rawa Zamrud',
+                halfW: 18.5,
+                bank: 9.0,
+                ctrl: [[620, 125], [530, 255], [475, 400], [395, 530], [270, 605]],
+            },
+        ];
+
+        const GRAND_WATER_BASINS = GRAND_WATER_BASIN_DEFS.map((def, idx) => {
+            const pts = sampleCatmullPolyline(def.ctrl, 16.0);
+            const segs = [];
+            let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+            let hSum = 0;
+            for (let i = 0; i < pts.length; i++) {
+                const px = pts[i][0], pz = pts[i][1];
+                if (px < minX) minX = px;
+                if (px > maxX) maxX = px;
+                if (pz < minZ) minZ = pz;
+                if (pz > maxZ) maxZ = pz;
+                hSum += getBaseRollingTerrainY(px, pz);
+                if (i < pts.length - 1) {
+                    const ax = px, az = pz;
+                    const bx = pts[i + 1][0], bz = pts[i + 1][1];
+                    const dx = bx - ax, dz = bz - az;
+                    const len2 = dx * dx + dz * dz;
+                    if (len2 > 0.0001) segs.push({ ax, az, dx, dz, len2, u: i / Math.max(1, pts.length - 1) });
+                }
+            }
+            const pad = def.halfW + def.bank + 26.0;
+            const avgH = hSum / Math.max(1, pts.length);
+            return {
+                id: def.id,
+                seed: idx * 3.1 + 1.4,
+                nameEn: def.nameEn,
+                nameId: def.nameId,
+                pts,
+                segs,
+                halfW: def.halfW,
+                bank: def.bank,
+                waterY: avgH - 0.15,
+                minX: minX - pad,
+                maxX: maxX + pad,
+                minZ: minZ - pad,
+                maxZ: maxZ + pad,
+            };
+        });
+
+        function sampleGrandBasinAt(x, z) {
+            let best = null;
+            let bestD = Infinity;
+            for (let bIdx = 0; bIdx < GRAND_WATER_BASINS.length; bIdx++) {
+                const b = GRAND_WATER_BASINS[bIdx];
+                if (x < b.minX || x > b.maxX || z < b.minZ || z > b.maxZ) continue;
+                let minD2 = Infinity;
+                let bestU = 0.5;
+                for (let i = 0; i < b.segs.length; i++) {
+                    const s = b.segs[i];
+                    let t = ((x - s.ax) * s.dx + (z - s.az) * s.dz) / s.len2;
+                    if (t < 0.0) t = 0.0;
+                    else if (t > 1.0) t = 1.0;
+                    const px = s.ax + s.dx * t - x;
+                    const pz = s.az + s.dz * t - z;
+                    const d2 = px * px + pz * pz;
+                    if (d2 < minD2) {
+                        minD2 = d2;
+                        bestU = s.u;
+                    }
+                }
+                const rawD = Math.sqrt(minD2);
+                const endTaper = Math.min(1.0, Math.sin(Math.min(0.99, Math.max(0.01, bestU)) * Math.PI) * 1.18 + 0.32);
+                const jit = Math.sin(x * 0.072 + b.seed) * 2.5 + Math.cos(z * 0.068 - b.seed * 1.7) * 2.1;
+                const effHalf = b.halfW * endTaper + jit;
+                const edgeDist = rawD - effHalf;
+                if (edgeDist < b.bank + 22.0 && edgeDist < bestD) {
+                    bestD = edgeDist;
+                    best = { basin: b, rawD, effHalf, edgeDist };
+                }
+            }
+            return best;
         }
 
         function getInnerTrunkDistance(x, z) {
@@ -12072,21 +17668,26 @@ class World {
         const ROOF_VARIANTS = ['terracotta', 'slate', 'shake'];
 
         function generateRandomizedVillageLots(v, vIdx) {
-            // Acak jumlah bangunan (5..8 bangunan per desa) & pastikan tiap desa bervariasi
-            const countChoices = [5, 6, 7, 8, 6];
-            const jitterCount = Math.floor(Math.random() * 2) * (Math.random() < 0.5 ? -1 : 1);
+            // PRNG deterministik per desa agar tata letak bangunan tetap konsisten saat save/load
+            let vSeed = (104729 + vIdx * 7919) >>> 0;
+            const vRand = () => {
+                vSeed = (vSeed * 1664525 + 1013904223) >>> 0;
+                return vSeed / 4294967296;
+            };
+            // Jumlah bangunan bervariasi (5..8 bangunan per desa)
+            const countChoices = [6, 6, 7, 8, 6];
+            const jitterCount = Math.floor(vRand() * 2) * (vRand() < 0.5 ? -1 : 1);
             const targetCount = Math.max(5, Math.min(8, countChoices[vIdx % countChoices.length] + jitterCount));
 
             // Wajib ada blacksmith (Bengkel Gerobak), stall (penjual), barn (petani), tavern & cottage
             const kinds = ['blacksmith', 'stall', 'barn', 'tavern', 'cottage'];
             const extraPool = ['cottage', 'stall', 'barn', 'cottage', 'blacksmith'];
             while (kinds.length < targetCount) {
-                const pick = extraPool[Math.floor(Math.random() * extraPool.length)];
+                const pick = extraPool[Math.floor(vRand() * extraPool.length)];
                 kinds.push(pick);
             }
-            // Acak urutan jenis bangunan
             for (let i = kinds.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
+                const j = Math.floor(vRand() * (i + 1));
                 const tmp = kinds[i]; kinds[i] = kinds[j]; kinds[j] = tmp;
             }
 
@@ -12102,7 +17703,7 @@ class World {
                 { side:  1, alongBase:  18.5 },
             ];
             for (let i = candidateSlots.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
+                const j = Math.floor(vRand() * (i + 1));
                 const tmp = candidateSlots[i]; candidateSlots[i] = candidateSlots[j]; candidateSlots[j] = tmp;
             }
 
@@ -12115,11 +17716,11 @@ class World {
                 const kind = kinds[i];
                 const slot = chosenSlots[i];
                 const spec = BLDG_SPECS[kind] || BLDG_SPECS.cottage;
-                const along = slot.alongBase + (Math.random() - 0.5) * 2.4;
+                const along = slot.alongBase + (vRand() - 0.5) * 2.4;
                 const side = slot.side;
-                const off = spec.offMin + Math.random() * (spec.offMax - spec.offMin);
-                const rot = (Math.random() - 0.5) * 0.36;
-                const seed = 10 + vIdx * 37 + i * 13 + Math.floor(Math.random() * 29);
+                const off = spec.offMin + vRand() * (spec.offMax - spec.offMin);
+                const rot = (vRand() - 0.5) * 0.24;
+                const seed = 10 + vIdx * 37 + i * 13 + Math.floor(vRand() * 29);
 
                 let baseId = kind;
                 if (kind === 'stall') {
@@ -12157,26 +17758,189 @@ class World {
         }
         const VILLAGE_LOTS = VILLAGES[0].lots;
 
+        // ---- Genangan Air Minum Kuda Tersebar di Seluruh Peta (spatial grid O(1)) ----
+        const PUDDLE_CELL = 24.0;
+        const puddleGrid = new Map();
+        const insertPuddleGrid = (pd) => {
+            const gx = Math.floor(pd.x / PUDDLE_CELL);
+            const gz = Math.floor(pd.z / PUDDLE_CELL);
+            for (let dx = -1; dx <= 1; dx++) {
+                for (let dz = -1; dz <= 1; dz++) {
+                    const k = `${gx + dx},${gz + dz}`;
+                    let arr = puddleGrid.get(k);
+                    if (!arr) { arr = []; puddleGrid.set(k, arr); }
+                    arr.push(pd);
+                }
+            }
+        };
+        for (const pd of PUDDLES) insertPuddleGrid(pd);
+
+        function hasNearbyPuddle(x, z, extraMargin = 0.0) {
+            const arr = puddleGrid.get(`${Math.floor(x / PUDDLE_CELL)},${Math.floor(z / PUDDLE_CELL)}`);
+            if (!arr) return false;
+            for (let i = 0; i < arr.length; i++) {
+                const pd = arr[i];
+                const lim = pd.r + extraMargin;
+                const dx = x - pd.x, dz = z - pd.z;
+                if (dx * dx + dz * dz < lim * lim) return true;
+            }
+            return false;
+        }
+
+        function nearestPuddleSample(x, z) {
+            const arr = puddleGrid.get(`${Math.floor(x / PUDDLE_CELL)},${Math.floor(z / PUDDLE_CELL)}`);
+            if (!arr) return null;
+            let bestPd = null;
+            let bestD = Infinity;
+            for (let i = 0; i < arr.length; i++) {
+                const pd = arr[i];
+                const d = Math.hypot(x - pd.x, z - pd.z);
+                if (d < pd.r * 1.45 && d < bestD) {
+                    bestD = d;
+                    bestPd = pd;
+                }
+            }
+            return bestPd ? { pd: bestPd, dist: bestD } : null;
+        }
+
+        (function scatterDrinkingPuddles() {
+            let pSeed = 52917;
+            const pRand = () => { pSeed = (pSeed * 1664525 + 1013904223) >>> 0; return pSeed / 4294967296; };
+
+            const canPlacePuddle = (px, pz, r) => {
+                if (Math.abs(px) > 685 || Math.abs(pz) > 685) return false;
+                if (Math.hypot(px, pz) < 12.0 + r) return false;
+                if (Math.hypot(px - POND_CENTER.x, pz - POND_CENTER.z) < POND_CENTER.radius + r + 5.0) return false;
+                if (Math.abs(pz - riverCenterZ(px)) < riverHalfWidthAt(px) + RIVER.bank + r + 4.5) return false;
+                const gb = sampleGrandBasinAt(px, pz);
+                if (gb && gb.edgeDist < gb.basin.bank + r + 4.5) return false;
+                if (getRoadDistance(px, pz) < r + 2.8) return false;
+                for (let vi = 0; vi < VILLAGES.length; vi++) {
+                    const v = VILLAGES[vi];
+                    if (Math.hypot(px - v.cx, pz - v.cz) < v.radius * 2.25 + r) return false;
+                }
+                if (Math.hypot(px + 135, pz + 135) < 34.0) return false;
+                if (Math.hypot(px - 155, pz - 224) < 28.0) return false;
+                if (Math.abs(px - 175) < 26.0 && pz > -210 && pz < -80) return false;
+                if (Math.hypot(px - ANCIENT_ELDER_TREE.x, pz - ANCIENT_ELDER_TREE.z) < 18.0 + r) return false;
+                if (Math.hypot(px - RUINS_SITE.x, pz - RUINS_SITE.z) < 26.0 + r) return false;
+                if (Math.hypot(px - CAVERN_SITE.x, pz - CAVERN_SITE.z) < 28.0 + r) return false;
+                if (Math.hypot(px - BANDIT_SITE.x, pz - BANDIT_SITE.z) < 28.0 + r) return false;
+                if (hasNearbyPuddle(px, pz, 24.0 + r)) return false;
+                return true;
+            };
+
+            // 1) Sebaran genangan minum di sepanjang jalur jalan cabang & jalan utama luar (7..14.5m dari tepi jalan, r=3.1..4.5m)
+            for (let pIdx = 0; pIdx < allRoadPolylines.length; pIdx++) {
+                const poly = allRoadPolylines[pIdx];
+                if (poly.surface === 'cliff') continue;
+                const pts = poly.pts;
+                const stepIdx = poly.id === 'main_trunk' ? 28 : 16;
+                for (let i = 10; i < pts.length - 10; i += stepIdx) {
+                    const pt = pts[i];
+                    const nxt = pts[Math.min(pts.length - 1, i + 1)];
+                    const tx = nxt[0] - pt[0], tz = nxt[1] - pt[1];
+                    const tLen = Math.hypot(tx, tz) || 1;
+                    const nx = -tz / tLen, nz = tx / tLen;
+                    const side = pRand() < 0.5 ? 1 : -1;
+                    const off = 7.2 + pRand() * 7.6;
+                    const px = pt[0] + nx * side * off;
+                    const pz = pt[1] + nz * side * off;
+                    const r = 3.1 + pRand() * 1.45;
+                    if (canPlacePuddle(px, pz, r)) {
+                        const np = { x: px, z: pz, r, seed: (PUDDLES.length * 1.9 + pRand()) * 2.3 };
+                        PUDDLES.push(np);
+                        insertPuddleGrid(np);
+                    }
+                }
+            }
+
+            // 2) Kisi genangan air alami merata di seluruh padang liar & tepi hutan 1500x1500m (r=3.3..5.1m agar tampak jelas di peta)
+            for (let gz = -4; gz <= 4; gz++) {
+                for (let gx = -4; gx <= 4; gx++) {
+                    if (gx === 0 && gz === 0) continue;
+                    const baseX = gx * 145.0;
+                    const baseZ = gz * 145.0;
+                    const px = baseX + (pRand() - 0.5) * 95.0;
+                    const pz = baseZ + (pRand() - 0.5) * 95.0;
+                    const r = 3.3 + pRand() * 1.80;
+                    if (canPlacePuddle(px, pz, r)) {
+                        const np = { x: px, z: pz, r, seed: (PUDDLES.length * 2.1 + pRand()) * 1.7 };
+                        PUDDLES.push(np);
+                        insertPuddleGrid(np);
+                    }
+                }
+            }
+        })();
+
         function getTerrainHeight(x, z) {
             // Rolling cozy storybook meadow hills
-            let h = Math.sin(x * 0.075) * Math.cos(z * 0.075) * 1.45
-                  + Math.sin(x * 0.14 + z * 0.11) * 0.45
-                  + Math.cos(x * 0.04 - z * 0.06) * 0.72;
-
-            // Gentle valley amphitheater rise toward the outer edges
+            let h = getBaseRollingTerrainY(x, z);
             const distOrigin = Math.hypot(x, z);
-            h += smoothstepJS(16.0, 42.0, distOrigin) * 2.2;
-
-            // Bukit bergelombang lembut di peta 5x (1500x1500m) tanpa tebing curam di bahu jalan
-            h += smoothstepJS(40.0, 120.0, distOrigin) * 3.8;
-            if (distOrigin > 60.0) {
-                const outer = smoothstepJS(60.0, 140.0, distOrigin);
-                h += outer * (Math.sin(x * 0.022 + z * 0.019) * 2.8 + Math.cos(z * 0.025 - x * 0.017) * 2.1);
-            }
 
             // Flatten central campfire clearing smoothly
             const clearingFlatten = 1.0 - smoothstepJS(2.2, 6.2, distOrigin);
             h = THREE.MathUtils.lerp(h, 0.18, clearingFlatten * 0.85);
+
+            // Landasan bukit landai bagi Pohon Agung Purba & 3 destinasi dataran luar baru (Reruntuhan, Goa Kristal, Bandit)
+            {
+                const dTree = Math.hypot(x - ANCIENT_ELDER_TREE.x, z - ANCIENT_ELDER_TREE.z);
+                if (dTree < 26.0) {
+                    const m = 1.0 - smoothstepJS(6.5, 25.0, dTree);
+                    const anchorH = getBaseRollingTerrainY(ANCIENT_ELDER_TREE.x, ANCIENT_ELDER_TREE.z) + 1.1;
+                    h = THREE.MathUtils.lerp(h, anchorH, m * 0.86);
+                }
+                for (const site of [RUINS_SITE, CAVERN_SITE, BANDIT_SITE]) {
+                    const ds = Math.hypot(x - site.x, z - site.z);
+                    if (ds < site.radius + 9.0) {
+                        const sm = 1.0 - smoothstepJS(site.radius * 0.55, site.radius + 8.5, ds);
+                        const sh = getBaseRollingTerrainY(site.x, site.z);
+                        h = THREE.MathUtils.lerp(h, sh, sm * 0.92);
+                    }
+                }
+            }
+
+            // ---- Kontur Landmark Story: Bukit Bebatuan, Tebing Air Terjun, Jurang & Tebing Jalan ----
+            // 1) Bukit Bebatuan (Cragstone Hill) di (-135, -135)
+            {
+                const dHill = Math.hypot(x + 135, z + 135);
+                if (dHill < 48.0) {
+                    const hillM = 1.0 - smoothstepJS(10.0, 46.0, dHill);
+                    h += hillM * hillM * 9.5;
+                }
+            }
+            // 2) Air Terjun Kabut (Silvermist Falls): tebing tinggi di (155, 240) + kolam terjun di (155, 220)
+            {
+                const dxCliff = (x - 155) / 28.0;
+                const dzCliff = (z - 242) / 16.0;
+                const dCliff = Math.hypot(dxCliff, dzCliff);
+                if (dCliff < 1.35) {
+                    const cliffM = 1.0 - smoothstepJS(0.28, 1.32, dCliff);
+                    h += cliffM * 12.8;
+                }
+                const dPool = Math.hypot(x - 155, z - 220);
+                if (dPool < 16.0) {
+                    const poolM = 1.0 - smoothstepJS(5.0, 15.5, dPool);
+                    h = THREE.MathUtils.lerp(h, -1.25, poolM);
+                }
+            }
+            // 3) Jurang Bayangan (Shadowrift Gorge) di (175, -145) + Tebing Tinggi di Timur Jalan Tebing (x ~ 238)
+            {
+                const gDx = (x - 175) / 20.0;
+                const gDz = (z + 145) / 56.0;
+                const dGorge = Math.hypot(gDx, gDz);
+                if (dGorge < 1.25) {
+                    const gorgeM = 1.0 - smoothstepJS(0.32, 1.22, dGorge);
+                    h -= gorgeM * 9.2;
+                }
+                const cDx = (x - 240) / 22.0;
+                const cDz = (z + 142) / 68.0;
+                const dRidge = Math.hypot(cDx, cDz);
+                if (dRidge < 1.3) {
+                    const ridgeM = 1.0 - smoothstepJS(0.30, 1.28, dRidge);
+                    h += ridgeM * 11.2;
+                }
+            }
 
             // Smoothly grade the entire road network (Main Trunk + Unique Branch Trails) & carve wheel ruts
             const roadDist = getRoadDistance(x, z);
@@ -12227,6 +17991,35 @@ class World {
                 const shallowEdge = THREE.MathUtils.lerp(RIVER.waterY - 0.18, RIVER.bedFord, ford * 0.7);
                 const targetBed = THREE.MathUtils.lerp(shallowEdge, centerBed, innerTrough);
                 h = THREE.MathUtils.lerp(h, targetBed, riverBank);
+            }
+
+            // Carve 4 genangan sungai besar luar peta dengan tebing pantai melandai mulus (tidak pernah membanjiri luar alur)
+            const gBasin = sampleGrandBasinAt(x, z);
+            if (gBasin) {
+                const b = gBasin.basin;
+                const d = gBasin.edgeDist;
+                const outerApron = 1.0 - smoothstepJS(b.bank, b.bank + 22.0, d);
+                if (outerApron > 0.001 && d > 0.0) {
+                    const bankMinH = b.waterY + 0.85 + smoothstepJS(0.0, b.bank, d) * 0.85;
+                    if (h < bankMinH) {
+                        h = THREE.MathUtils.lerp(h, bankMinH, outerApron * 0.92);
+                    }
+                }
+                const inBasin = 1.0 - smoothstepJS(-0.6, b.bank * 0.82, d);
+                if (inBasin > 0.001) {
+                    const centerDeep = 1.0 - smoothstepJS(-b.halfW * 0.78, 0.35, d);
+                    const targetH = d > 0.0
+                        ? Math.max(h, b.waterY + 0.12 + smoothstepJS(0.0, b.bank * 0.82, d) * 0.75)
+                        : THREE.MathUtils.lerp(b.waterY - 0.16, b.waterY - 1.65, centerDeep);
+                    h = THREE.MathUtils.lerp(h, targetH, inBasin);
+                }
+            }
+
+            // Cekungan dangkal alami (~0.10m) di titik genangan air minum kuda
+            const pSamp = nearestPuddleSample(x, z);
+            if (pSamp) {
+                const m = 1.0 - smoothstepJS(pSamp.pd.r * 0.25, pSamp.pd.r * 1.38, pSamp.dist);
+                h -= m * 0.11;
             }
 
             return h;
@@ -12386,6 +18179,7 @@ class World {
                 'uniform vec3 uAlbedo1;',
                 'uniform vec3 uAlbedo2;',
                 'uniform vec3 uAlbedo3;',
+                'uniform vec3 uAccentAlbedo2;',
                 'uniform sampler2D uAlbedo2Noise;',
                 'uniform sampler2D uAlbedo3Noise;',
                 'uniform float uAlbedo2Scale;',
@@ -12408,6 +18202,36 @@ class World {
                 'varying float vMeadowMask;',
                 'varying vec3 vTerrainWorldPos;',
                 'varying vec3 vTerrainWorldNormal;',
+                "float dylearnHash21(vec2 p) {",
+                "    p = fract(p * vec2(123.34, 456.21));",
+                "    p += dot(p, p + 45.32);",
+                "    return fract(p.x * p.y);",
+                "}",
+                "float dylearnValueNoise(vec2 p) {",
+                "    vec2 i = floor(p);",
+                "    vec2 f = fract(p);",
+                "    vec2 u = f * f * (3.0 - 2.0 * f);",
+                "    float a = dylearnHash21(i);",
+                "    float b = dylearnHash21(i + vec2(1.0, 0.0));",
+                "    float c = dylearnHash21(i + vec2(0.0, 1.0));",
+                "    float d = dylearnHash21(i + vec2(1.0, 1.0));",
+                "    return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);",
+                "}",
+                "float dylearnOrganicFbm(vec2 wp) {",
+                "    mat2 rot = mat2(0.80, -0.60, 0.60, 0.80);",
+                "    vec2 warp = vec2(",
+                "        dylearnValueNoise(wp * 0.017 + vec2(11.3, 4.7)),",
+                "        dylearnValueNoise(wp * 0.019 + vec2(-6.1, 17.9))",
+                "    ) * 16.0;",
+                "    vec2 p = wp + warp;",
+                "    float n = 0.0;",
+                "    n += 0.50 * dylearnValueNoise(p * 0.018);",
+                "    p = rot * p;",
+                "    n += 0.30 * dylearnValueNoise(p * 0.044 + vec2(31.7, -19.2));",
+                "    p = rot * p;",
+                "    n += 0.20 * dylearnValueNoise(p * 0.107 + vec2(-43.1, 27.4));",
+                "    return n;",
+                "}",
                 "vec2 dylearnRotateVec2(vec2 v, float angleDeg) {",
                 "    float a = radians(angleDeg);",
                 "    float c = cos(a);",
@@ -12433,11 +18257,12 @@ class World {
                 '#include <color_fragment>',
                 [
                     '#include <color_fragment>',
-                    'float flNoise2 = texture2D(uAlbedo2Noise, vTerrainWorldPos.xz * uAlbedo2Scale).r;',
-                    'float flNoise3 = texture2D(uAlbedo3Noise, vTerrainWorldPos.xz * uAlbedo3Scale).r;',
-                    'vec3 flPatchCol = uAlbedo1;',
-                    'if (flNoise2 > uAlbedo2Threshold) flPatchCol = uAlbedo2;',
-                    'if (flNoise3 > uAlbedo3Threshold) flPatchCol = uAlbedo3;',
+                    'float flMacro = dylearnOrganicFbm(vTerrainWorldPos.xz * 0.62);',
+                    'float flDetail = dylearnOrganicFbm(vTerrainWorldPos.xz * 1.45 + vec2(73.4, -28.9));',
+                    'float flFine = dylearnValueNoise(vTerrainWorldPos.xz * 0.28 + vec2(-19.5, 41.2));',
+                    'vec3 flPatchCol = mix(uAlbedo1, uAlbedo2, smoothstep(0.35, 0.68, flMacro));',
+                    'flPatchCol = mix(flPatchCol, uAlbedo3, smoothstep(0.40, 0.72, flDetail) * 0.68);',
+                    'flPatchCol = mix(flPatchCol, uAccentAlbedo2, smoothstep(0.56, 0.88, 1.0 - flMacro) * 0.30 + smoothstep(0.60, 0.90, flFine) * 0.14);',
                     'diffuseColor.rgb = mix(diffuseColor.rgb, flPatchCol * uGrassMoodTint, clamp(vMeadowMask, 0.0, 1.0));'
                 ].join('\n')
             );
@@ -12502,6 +18327,15 @@ class World {
             if (getRoadDistance(cx, cz) < CHUNK_SIZE * 0.75 + 10.0) return true;
             if (getRoadDistance(cx - hS, cz - hS) < 16.0 || getRoadDistance(cx + hS, cz - hS) < 16.0) return true;
             if (getRoadDistance(cx - hS, cz + hS) < 16.0 || getRoadDistance(cx + hS, cz + hS) < 16.0) return true;
+            for (let bIdx = 0; bIdx < GRAND_WATER_BASINS.length; bIdx++) {
+                const b = GRAND_WATER_BASINS[bIdx];
+                if (cx + CHUNK_SIZE * 0.6 >= b.minX && cx - CHUNK_SIZE * 0.6 <= b.maxX
+                 && cz + CHUNK_SIZE * 0.6 >= b.minZ && cz - CHUNK_SIZE * 0.6 <= b.maxZ) return true;
+            }
+            if (Math.hypot(cx - ANCIENT_ELDER_TREE.x, cz - ANCIENT_ELDER_TREE.z) < 48.0) return true;
+            if (Math.hypot(cx - RUINS_SITE.x, cz - RUINS_SITE.z) < 48.0) return true;
+            if (Math.hypot(cx - CAVERN_SITE.x, cz - CAVERN_SITE.z) < 48.0) return true;
+            if (Math.hypot(cx - BANDIT_SITE.x, cz - BANDIT_SITE.z) < 48.0) return true;
             return false;
         }
 
@@ -12577,6 +18411,22 @@ class World {
                         riverGrassClear = Math.max(smoothstepJS(-0.72, -0.05, rDepth) * 0.98, rShoreOuter * 0.94);
                     }
 
+                    // Tepian pasir & dasar sungai besar sektor luar peta
+                    let grandBasinGrassClear = 0.0;
+                    const gBasinSample = sampleGrandBasinAt(vx, vz);
+                    if (gBasinSample && gBasinSample.edgeDist < gBasinSample.basin.bank * 1.15) {
+                        const b = gBasinSample.basin;
+                        const bDepth = b.waterY - vy;
+                        const bOuter = 1.0 - smoothstepJS(0.0, b.bank * 1.15, gBasinSample.edgeDist);
+                        const sandMix = Math.max(bOuter * 0.90, smoothstepJS(-0.9, -0.05, bDepth) * bOuter);
+                        tempCol.lerp(colRiverSand, sandMix * 0.90);
+                        const wetLip = smoothstepJS(-0.34, 0.06, bDepth) * (1.0 - smoothstepJS(0.16, 0.52, bDepth));
+                        tempCol.lerp(colRiverWetBank, wetLip * bOuter * 0.62);
+                        const deepMix = smoothstepJS(0.08, 0.78, bDepth);
+                        tempCol.lerp(colRiverBed, deepMix * 0.92);
+                        grandBasinGrassClear = Math.max(smoothstepJS(-0.7, -0.04, bDepth) * 0.98, bOuter * 0.92);
+                    }
+
                     // Packed warm earth in the central village square of all 5 villages
                     let villagePlazaFactor = 0.0;
                     for (let vi = 0; vi < VILLAGES.length; vi++) {
@@ -12592,12 +18442,35 @@ class World {
                         tempCol.lerp(colVillagePlaza, villagePlazaFactor * 0.68);
                     }
 
+                    // Pewarnaan lantai pelataran Reruntuhan Kuno, Goa Kristal, dan Pemukiman Bandit
+                    let storyPadClear = 0.0;
+                    const dRuins = Math.hypot(vx - RUINS_SITE.x, vz - RUINS_SITE.z);
+                    if (dRuins < 21.0) {
+                        const rf = 1.0 - smoothstepJS(11.0, 20.5, dRuins);
+                        tempCol.lerp(new THREE.Color(0xa9a08d), rf * 0.85);
+                        storyPadClear = Math.max(storyPadClear, rf * 0.96);
+                    }
+                    const dCavern = Math.hypot(vx - CAVERN_SITE.x, vz - CAVERN_SITE.z);
+                    if (dCavern < 22.0) {
+                        const cf = 1.0 - smoothstepJS(11.0, 21.5, dCavern);
+                        tempCol.lerp(new THREE.Color(0x526173), cf * 0.88);
+                        storyPadClear = Math.max(storyPadClear, cf * 0.96);
+                    }
+                    const dBandit = Math.hypot(vx - BANDIT_SITE.x, vz - BANDIT_SITE.z);
+                    if (dBandit < 24.0) {
+                        const bf = 1.0 - smoothstepJS(12.0, 23.0, dBandit);
+                        tempCol.lerp(new THREE.Color(0x8c6340), bf * 0.88);
+                        storyPadClear = Math.max(storyPadClear, bf * 0.94);
+                    }
+
                     let meadowMask = 1.0;
                     meadowMask *= (1.0 - campFactor * 0.92);
                     meadowMask *= (1.0 - roadFactor * 0.98);
                     meadowMask *= (1.0 - shoreFactor * 0.96);
                     meadowMask *= (1.0 - riverGrassClear * 0.96);
+                    meadowMask *= (1.0 - grandBasinGrassClear * 0.96);
                     meadowMask *= (1.0 - villagePlazaFactor * 0.78);
+                    meadowMask *= (1.0 - storyPadClear);
                     meadowMasks[i] = Math.max(0.0, Math.min(1.0, meadowMask));
 
                     colors[i * 3] = tempCol.r;
@@ -12663,7 +18536,17 @@ class World {
             grassMapCtx.fillRect(0, 0, GRASS_MAP_SIZE, GRASS_MAP_SIZE);
             paintGrassVisibilityCircle(0, 0, 2.8, 0.0);
             paintGrassVisibilityCircle(POND_CENTER.x, POND_CENTER.z, POND_CENTER.radius + 0.75, 0.0);
-            for (const p of PUDDLES) paintGrassVisibilityCircle(p.x, p.z, p.r * 1.3 + 0.7, 0.0);
+            paintGrassVisibilityCircle(ANCIENT_ELDER_TREE.x, ANCIENT_ELDER_TREE.z, 5.2, 0.0);
+            paintGrassVisibilityCircle(RUINS_SITE.x, RUINS_SITE.z, 17.5, 0.0);
+            paintGrassVisibilityCircle(CAVERN_SITE.x, CAVERN_SITE.z, 19.0, 0.0);
+            paintGrassVisibilityCircle(BANDIT_SITE.x, BANDIT_SITE.z, 20.5, 0.0);
+            for (let bIdx = 0; bIdx < GRAND_WATER_BASINS.length; bIdx++) {
+                const b = GRAND_WATER_BASINS[bIdx];
+                for (let pIdx = 0; pIdx < b.pts.length; pIdx++) {
+                    paintGrassVisibilityCircle(b.pts[pIdx][0], b.pts[pIdx][1], b.halfW + 3.0, 0.0);
+                }
+            }
+            for (const p of PUDDLES) paintGrassVisibilityCircle(p.x, p.z, p.r * 1.2 + 0.65, 0.0);
 
             // Clear lush grass cleanly along Main Road and all Unique Branch Roads
             for (const poly of allRoadPolylines) {
@@ -13054,6 +18937,36 @@ class World {
                 'varying float vDispFakePersp;',
                 'varying vec3 vRootWorldPos;',
                 'varying vec3 vRootNormal;',
+                "float dylearnHash21(vec2 p) {",
+                "    p = fract(p * vec2(123.34, 456.21));",
+                "    p += dot(p, p + 45.32);",
+                "    return fract(p.x * p.y);",
+                "}",
+                "float dylearnValueNoise(vec2 p) {",
+                "    vec2 i = floor(p);",
+                "    vec2 f = fract(p);",
+                "    vec2 u = f * f * (3.0 - 2.0 * f);",
+                "    float a = dylearnHash21(i);",
+                "    float b = dylearnHash21(i + vec2(1.0, 0.0));",
+                "    float c = dylearnHash21(i + vec2(0.0, 1.0));",
+                "    float d = dylearnHash21(i + vec2(1.0, 1.0));",
+                "    return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);",
+                "}",
+                "float dylearnOrganicFbm(vec2 wp) {",
+                "    mat2 rot = mat2(0.80, -0.60, 0.60, 0.80);",
+                "    vec2 warp = vec2(",
+                "        dylearnValueNoise(wp * 0.017 + vec2(11.3, 4.7)),",
+                "        dylearnValueNoise(wp * 0.019 + vec2(-6.1, 17.9))",
+                "    ) * 16.0;",
+                "    vec2 p = wp + warp;",
+                "    float n = 0.0;",
+                "    n += 0.50 * dylearnValueNoise(p * 0.018);",
+                "    p = rot * p;",
+                "    n += 0.30 * dylearnValueNoise(p * 0.044 + vec2(31.7, -19.2));",
+                "    p = rot * p;",
+                "    n += 0.20 * dylearnValueNoise(p * 0.107 + vec2(-43.1, 27.4));",
+                "    return n;",
+                "}",
                 "vec2 dylearnRotateVec2(vec2 v, float angleDeg) {",
                 "    float a = radians(angleDeg);",
                 "    float c = cos(a);",
@@ -13086,11 +18999,10 @@ class World {
                     'gUv.x *= 1.0 - gUv.y * vDispFakePersp * 0.35;',
                     'gUv.x = clamp(gUv.x + 0.5, 0.0, 1.0);',
                     'vec4 gTex = texture2D(uGrassTex, gUv);',
-                    'float grN2 = texture2D(uAlbedo2Noise, vRootWorldPos.xz * uAlbedo2Scale).r;',
-                    'float grN3 = texture2D(uAlbedo3Noise, vRootWorldPos.xz * uAlbedo3Scale).r;',
-                    'vec3 grassCol = uAlbedo1;',
-                    'if (grN2 > uAlbedo2Threshold) grassCol = uAlbedo2;',
-                    'if (grN3 > uAlbedo3Threshold) grassCol = uAlbedo3;',
+                    'float grMacro = dylearnOrganicFbm(vRootWorldPos.xz * 0.62);',
+                    'float grDetail = dylearnOrganicFbm(vRootWorldPos.xz * 1.45 + vec2(73.4, -28.9));',
+                    'vec3 grassCol = mix(uAlbedo1, uAlbedo2, smoothstep(0.35, 0.68, grMacro));',
+                    'grassCol = mix(grassCol, uAlbedo3, smoothstep(0.40, 0.72, grDetail) * 0.68);',
                     'if (vIdSeed1 < uAccentFreq1) {',
                     '    gTex = texture2D(uAccentTex1, gUv);',
                     '    grassCol = uAccentAlbedo1;',
@@ -15182,6 +21094,17 @@ class World {
             if (Math.abs(x + 5.4) < 8.5 && z < -32 && z > -58) return false;
             if (Math.hypot(x - POND_CENTER.x, z - POND_CENTER.z) < POND_CENTER.radius + 3.0) return false;
             if (Math.abs(z - riverCenterZ(x)) < riverHalfWidthAt(x) + RIVER.bank + 2.4) return false;
+            const gBasin = sampleGrandBasinAt(x, z);
+            if (gBasin && gBasin.edgeDist < gBasin.basin.bank * 0.6 + 2.5) return false;
+            if (hasNearbyPuddle(x, z, 2.2)) return false;
+            if (Math.hypot(x - ANCIENT_ELDER_TREE.x, z - ANCIENT_ELDER_TREE.z) < ANCIENT_ELDER_TREE.radius) return false;
+            if (Math.hypot(x - RUINS_SITE.x, z - RUINS_SITE.z) < RUINS_SITE.radius + 3.0) return false;
+            if (Math.hypot(x - CAVERN_SITE.x, z - CAVERN_SITE.z) < CAVERN_SITE.radius + 4.0) return false;
+            if (Math.hypot(x - BANDIT_SITE.x, z - BANDIT_SITE.z) < BANDIT_SITE.radius + 4.0) return false;
+            // Jaga landmark puncak bukit batu, kolam air terjun, dan dasar jurang tetap terbuka
+            if (Math.hypot(x + 135, z + 135) < 18.0) return false;
+            if (Math.hypot(x - 155, z - 224) < 22.0) return false;
+            if (Math.abs(x - 175) < 22.0 && z > -205 && z < -85) return false;
             for (let vi = 0; vi < VILLAGES.length; vi++) {
                 const v = VILLAGES[vi];
                 if (Math.hypot(x - v.cx, z - v.cz) < v.radius * 2.15) return false;
@@ -15284,21 +21207,171 @@ class World {
             }
         }
 
-        // 4) Sebaran Hutan Belantara Luas di Peta 5x (1500 x 1500 m) + Horizon Ring
-        for (let i = 0; i < 620; i++) {
-            const angle = (i / 620) * Math.PI * 2 + (Math.random() - 0.5) * 0.22;
-            const radius = 65.0 + Math.sqrt(Math.random()) * (TERRAIN_SIZE * 0.44);
-            const x = Math.cos(angle) * radius;
-            const z = Math.sin(angle) * radius;
-            placeForestTreeAt(x, z, 3.8, 0.08);
+        // 4) Perluasan Hutan Rimba Sabuk Luar Bergugus Rimbun (Outer Woodland Belt) + Horizon Ring
+        {
+            let obSeed = 88173;
+            const obRand = () => { obSeed = (obSeed * 1664525 + 1013904223) >>> 0; return obSeed / 4294967296; };
+
+            // 18 gugusan hutan lebat yang memeluk ke-4 sudut, pantai sungai luar & bingkai lembah
+            const outerGroves = [
+                { x: -335, z: -385, rad: 78, count: 165 }, // Rimba Barat-Laut belakang Pohon Agung Purba
+                { x: -460, z: -185, rad: 76, count: 150 }, // Barat di bawah Sungai Hulu Agung
+                { x: -575, z: -55,  rad: 82, count: 160 }, // Perbatasan Barat tengah
+                { x: -165, z: -485, rad: 82, count: 165 }, // Utara-Barat pinggir jalan utama
+                { x: -240, z: -635, rad: 78, count: 150 }, // Perbatasan Utara-Barat luar
+                { x: 145,  z: -480, rad: 80, count: 160 }, // Utara-Timur
+                { x: 245,  z: -625, rad: 78, count: 150 }, // Perbatasan Utara-Timur luar
+                { x: 435,  z: -195, rad: 78, count: 160 }, // Timur-Utara dekat Oxbow
+                { x: 565,  z: -35,  rad: 80, count: 155 }, // Sisi Timur luar
+                { x: 485,  z: 105,  rad: 75, count: 145 }, // Timur di atas Muara Rawa
+                { x: 565,  z: 495,  rad: 84, count: 165 }, // Sudut Tenggara balik Muara Rawa
+                { x: 215,  z: 505,  rad: 82, count: 165 }, // Selatan-Timur
+                { x: -145, z: 515,  rad: 82, count: 165 }, // Selatan-Barat
+                { x: -555, z: 515,  rad: 84, count: 165 }, // Sudut Barat-Daya balik Sungai Sabit Kabut
+                { x: -555, z: 95,   rad: 76, count: 150 }, // Barat tengah-selatan
+                { x: 380,  z: -325, rad: 72, count: 140 }, // Tepi selatan Emerald Oxbow
+                { x: -395, z: 265,  rad: 74, count: 145 }, // Tepi timur Misty Crescent
+                { x: 355,  z: 350,  rad: 74, count: 145 }, // Tepi barat Emerald Marsh
+            ];
+
+            for (const g of outerGroves) {
+                for (let i = 0; i < g.count; i++) {
+                    const ang = obRand() * Math.PI * 2;
+                    const dist = Math.pow(obRand(), 0.56) * g.rad;
+                    const tx = g.x + Math.cos(ang) * dist + (obRand() - 0.5) * 9.0;
+                    const tz = g.z + Math.sin(ang) * dist + (obRand() - 0.5) * 9.0;
+                    const spacing = dist < g.rad * 0.65 ? 2.55 : 3.25;
+                    placeForestTreeAt(tx, tz, spacing, 0.05);
+                }
+            }
+
+            // Sabuk rimba penutup sepanjang perbatasan peta (radius 545..725m)
+            for (let i = 0; i < 640; i++) {
+                const ang = (i / 640) * Math.PI * 2 + (obRand() - 0.5) * 0.10;
+                const rad = 535.0 + obRand() * 190.0;
+                const tx = Math.cos(ang) * rad;
+                const tz = Math.sin(ang) * rad;
+                placeForestTreeAt(tx, tz, 3.15, 0.06);
+            }
         }
 
-        for (let i = 0; i < 120; i++) {
-            const angle = (i / 120) * Math.PI * 2 + (Math.sin(i * 4.7) * 0.05);
-            const radius = TERRAIN_SIZE * 0.45 + (i % 4) * 3.5;
-            const x = Math.cos(angle) * radius;
-            const z = Math.sin(angle) * radius;
-            placeForestTreeAt(x, z, 4.0, 0.04);
+        // 5) Hutan Rimba Purba (Deepwood Thicket) — zona khusus full pohon super rapat di (-195, 215)
+        {
+            let dwSeed = 44219;
+            const dwRand = () => { dwSeed = (dwSeed * 1664525 + 1013904223) >>> 0; return dwSeed / 4294967296; };
+            for (let i = 0; i < 320; i++) {
+                const ang = dwRand() * Math.PI * 2;
+                const rad = Math.sqrt(dwRand()) * 74.0;
+                const x = -195.0 + Math.cos(ang) * rad;
+                const z = 215.0 + Math.sin(ang) * rad;
+                placeForestTreeAt(x, z, 2.45, 0.05);
+            }
+        }
+
+        // 6) Pohon Agung Purba (1 Pohon Tua Raksasa Ikonik di Barat-Laut)
+        const ancientTreeGroup = new THREE.Group();
+        {
+            const ax = ANCIENT_ELDER_TREE.x;
+            const az = ANCIENT_ELDER_TREE.z;
+            const ay = getTerrainHeight(ax, az);
+            ancientTreeGroup.position.set(ax, ay - 0.16, az);
+
+            // Batang utama berkerak tua besar
+            const { mesh: giantTrunk, getSpineOffset: giantSpine } = createSculptedTrunkMesh(
+                13.5, 2.25, 0.92, 0.85, -0.58, trunkMat
+            );
+            giantTrunk.castShadow = false;
+            giantTrunk.receiveShadow = true;
+            ancientTreeGroup.add(giantTrunk);
+
+            // 8 Akar jangkang besar (buttress roots) menjalar luas ke tanah
+            for (let r = 0; r < 8; r++) {
+                const rAng = (r / 8) * Math.PI * 2 + (r % 2) * 0.22;
+                const rLen = 5.6 + (r % 3) * 1.1;
+                const rGeo = new THREE.CylinderGeometry(0.24, 0.88, rLen, 7);
+                rGeo.translate(0, rLen * 0.5, 0);
+                const rootMesh = new THREE.Mesh(rGeo, trunkMat);
+                rootMesh.position.set(Math.cos(rAng) * 1.15, 2.7, Math.sin(rAng) * 1.15);
+                rootMesh.rotation.set(0, -rAng, -1.16);
+                rootMesh.receiveShadow = true;
+                ancientTreeGroup.add(rootMesh);
+                if (r % 2 === 0) {
+                    const colR = 3.2;
+                    addCircleCollider('ancient_root', ax + Math.cos(rAng) * colR, az + Math.sin(rAng) * colR, 0.85, ay + 2.5, ancientTreeGroup);
+                }
+            }
+
+            // 13 Kubah Kanopi Raksasa (diameter total ~34m, menjulang 25m!) agar tampak agung baik di 3D maupun di World Map
+            const topCenter = giantSpine(0.84);
+            const domeSlots = [
+                { dx: 0.0,   dy: 13.8, dz: 0.0,   sc: 5.2, col: 'olive' },
+                { dx: 7.4,   dy: 11.4, dz: 3.1,   sc: 4.3, col: 'emerald' },
+                { dx: -7.2,  dy: 11.6, dz: 3.6,   sc: 4.4, col: 'emerald' },
+                { dx: 3.5,   dy: 11.0, dz: -7.3,  sc: 4.2, col: 'teal' },
+                { dx: -4.2,  dy: 11.2, dz: -7.0,  sc: 4.3, col: 'olive' },
+                { dx: 8.6,   dy: 9.8,  dz: -3.5,  sc: 3.8, col: 'olive' },
+                { dx: -8.4,  dy: 10.2, dz: -2.4,  sc: 3.9, col: 'emerald' },
+                { dx: 0.8,   dy: 10.5, dz: 8.2,   sc: 4.1, col: 'teal' },
+                { dx: -6.8,  dy: 8.8,  dz: 7.4,   sc: 3.5, col: 'olive' },
+                { dx: 6.8,   dy: 8.8,  dz: 7.2,   sc: 3.5, col: 'emerald' },
+                { dx: -7.5,  dy: 8.6,  dz: -6.4,  sc: 3.4, col: 'emerald' },
+                { dx: 7.5,   dy: 8.6,  dz: -6.4,  sc: 3.4, col: 'teal' },
+            ];
+            for (let bi = 0; bi < domeSlots.length; bi++) {
+                const ds = domeSlots[bi];
+                if (bi > 0 && bi <= 7) {
+                    const bVec = new THREE.Vector3(ds.dx, ds.dy - 9.0, ds.dz);
+                    const bLen = bVec.length();
+                    const bGeo = new THREE.CylinderGeometry(0.28, 0.66, bLen, 7);
+                    bGeo.translate(0, bLen * 0.5, 0);
+                    const bough = new THREE.Mesh(bGeo, trunkMat);
+                    bough.position.set(topCenter.x, 9.2, topCenter.z);
+                    bough.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), bVec.clone().normalize());
+                    ancientTreeGroup.add(bough);
+                }
+                const crownMesh = new THREE.Mesh(
+                    BASE_DECIDUOUS_CANOPY_GEO,
+                    deciduousMaterials[ds.col] || deciduousMaterials.emerald
+                );
+                const cyScale = ds.sc * 0.85;
+                crownMesh.position.set(ds.dx * 0.88, ds.dy - 4.3 * cyScale, ds.dz * 0.88);
+                crownMesh.scale.set(ds.sc, cyScale, ds.sc);
+                crownMesh.rotation.y = bi * 1.1;
+                crownMesh.frustumCulled = false;
+                ancientTreeGroup.add(crownMesh);
+            }
+
+            // Lingkaran batu berlumut & lentera akar hangat di kaki Pohon Agung Purba
+            const aStoneMat = new THREE.MeshStandardMaterial({ color: 0x6b7b72, roughness: 0.90 });
+            applyStylizedCelShading(aStoneMat);
+            for (let si = 0; si < 12; si++) {
+                const sAng = (si / 12) * Math.PI * 2 + 0.3;
+                const sDist = 9.2 + (si % 3) * 1.8;
+                const sWorldY = getTerrainHeight(ax + Math.cos(sAng) * sDist, az + Math.sin(sAng) * sDist) - (ay - 0.16);
+                const rRad = 0.88 + (si % 3) * 0.38;
+                const st = new THREE.Mesh(new THREE.DodecahedronGeometry(rRad, 0), aStoneMat);
+                st.position.set(Math.cos(sAng) * sDist, sWorldY + rRad * 0.38, Math.sin(sAng) * sDist);
+                st.scale.set(1.25, 0.76, 1.05);
+                st.rotation.set(si * 0.3, sAng, 0.2);
+                ancientTreeGroup.add(st);
+            }
+            const lanternGlowMat = new THREE.MeshBasicMaterial({ color: 0xffd166 });
+            for (const [lx, ly, lz] of [[4.4, 6.2, 2.2], [-4.1, 6.5, 2.6]]) {
+                const cord = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.6, 5), trunkMat);
+                cord.position.set(lx, ly + 0.8, lz);
+                ancientTreeGroup.add(cord);
+                const orb = new THREE.Mesh(new THREE.SphereGeometry(0.32, 8, 6), lanternGlowMat);
+                orb.position.set(lx, ly, lz);
+                ancientTreeGroup.add(orb);
+            }
+
+            ancientTreeGroup.userData = {
+                type: 'ancient_tree',
+                name: ANCIENT_ELDER_TREE.nameId,
+                boundingSphere: new THREE.Sphere(new THREE.Vector3(ax, ay + 12.0, az), 28.0),
+            };
+            scene.add(ancientTreeGroup);
+            addCircleCollider('ancient_tree', ax, az, 2.45, ay + 25.0, ancientTreeGroup);
         }
 
         // ============================================================================
@@ -15359,28 +21432,68 @@ class World {
         scene.add(seat1);
         addTraversableLog(seat1, 0.25, 1.9);
 
+        // Bara arang berpijar di dasar kayu bakar
+        const emberBed = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.32, 0.40, 0.11, 8),
+            new THREE.MeshBasicMaterial({ color: 0xff5a12 })
+        );
+        emberBed.position.set(0, 0.10, 0);
+        campfireGroup.add(emberBed);
+
+        // Lidah api unggun berlapis (tetap menempel di bara, bernapas & bergoyang mulus tanpa teleport)
         const flames = [];
-        const flameColors = [0xff5400, 0xff9e00, 0xffea00];
-        for (let i = 0; i < 6; i++) {
+        const flameSpecs = [
+            { r: 0.28, h: 0.78, color: 0xff4500, opacity: 0.86, ox: 0.0, oz: 0.0, phase: 0.0, speed: 7.2 },
+            { r: 0.21, h: 0.64, color: 0xff8c00, opacity: 0.90, ox: 0.05, oz: -0.04, phase: 1.4, speed: 8.6 },
+            { r: 0.17, h: 0.54, color: 0xffb700, opacity: 0.92, ox: -0.05, oz: 0.04, phase: 2.7, speed: 9.8 },
+            { r: 0.12, h: 0.42, color: 0xfff18a, opacity: 0.96, ox: 0.0, oz: 0.0, phase: 4.1, speed: 11.2 },
+        ];
+        for (let i = 0; i < flameSpecs.length; i++) {
+            const fs = flameSpecs[i];
+            const fGeo = new THREE.ConeGeometry(fs.r, fs.h, 6);
+            fGeo.translate(0, fs.h * 0.5, 0);
             const fMat = new THREE.MeshBasicMaterial({
-                color: flameColors[i % flameColors.length],
+                color: fs.color,
                 transparent: true,
-                opacity: 0.88
+                opacity: fs.opacity,
+                depthWrite: false,
             });
-            const fMesh = new THREE.Mesh(new THREE.OctahedronGeometry(0.26 - i * 0.02, 0), fMat);
-            const ang = (i / 6) * Math.PI * 2;
+            const fMesh = new THREE.Mesh(fGeo, fMat);
+            fMesh.position.set(fs.ox, 0.14, fs.oz);
             fMesh.userData = {
-                baseX: Math.cos(ang) * 0.14,
-                baseZ: Math.sin(ang) * 0.14,
-                speed: 1.4 + (i % 3) * 0.45,
-                offset: i * 0.37
+                baseX: fs.ox,
+                baseZ: fs.oz,
+                phase: fs.phase,
+                speed: fs.speed,
             };
             campfireGroup.add(fMesh);
             flames.push(fMesh);
         }
 
-        // PointLight WITHOUT shadow map (avoids 6x cubemap shadow pass on Mali-G57!)
-        const campfireLight = new THREE.PointLight(0xff8c2b, 2.5 * Math.PI, 15, 0);
+        // Percikan bara kecil naik lembut dengan fade in/out halus (tanpa ngebug/popping)
+        const campfireSparks = [];
+        const sparkGeo = new THREE.BoxGeometry(0.045, 0.045, 0.045);
+        for (let i = 0; i < 6; i++) {
+            const sMat = new THREE.MeshBasicMaterial({
+                color: i % 2 === 0 ? 0xffd166 : 0xff7b00,
+                transparent: true,
+                opacity: 0.0,
+                depthWrite: false,
+            });
+            const sp = new THREE.Mesh(sparkGeo, sMat);
+            const ang = (i / 6) * Math.PI * 2;
+            sp.userData = {
+                baseX: Math.cos(ang) * 0.14,
+                baseZ: Math.sin(ang) * 0.14,
+                speed: 0.55 + (i % 3) * 0.18,
+                offset: i / 6,
+            };
+            campfireGroup.add(sp);
+            campfireSparks.push(sp);
+        }
+
+        // Lampu titik awal spawn dinonaktifkan sesuai permintaan (hanya visual api unggun bersih)
+        const campfireLight = new THREE.PointLight(0xff8c2b, 0, 12, 1);
         campfireLight.position.set(0, 0.85, 0);
         campfireLight.castShadow = false;
         campfireGroup.add(campfireLight);
@@ -15814,6 +21927,70 @@ class World {
         pondMesh.userData = { type: 'pond' };
         pondGroup.add(pondMesh);
 
+        // ---- 4 Genangan Sungai Besar Sektor Luar Peta (pakai shader air emerald-turquoise yang sama) ----
+        const grandWaterMeshes = [];
+        for (let bIdx = 0; bIdx < GRAND_WATER_BASINS.length; bIdx++) {
+            const basin = GRAND_WATER_BASINS[bIdx];
+            const bw = basin.maxX - basin.minX;
+            const bd = basin.maxZ - basin.minZ;
+            const bCx = (basin.minX + basin.maxX) * 0.5;
+            const bCz = (basin.minZ + basin.maxZ) * 0.5;
+            const segX = Math.max(64, Math.min(128, Math.round(bw / 3.2)));
+            const segZ = Math.max(64, Math.min(128, Math.round(bd / 3.2)));
+
+            const lakeGeo = new THREE.PlaneGeometry(bw, bd, segX, segZ);
+            lakeGeo.rotateX(-Math.PI / 2);
+            lakeGeo.translate(bCx, basin.waterY, bCz);
+
+            const lPos = lakeGeo.attributes.position;
+            const lDepth = new Float32Array(lPos.count);
+            const lObs = new Float32Array(lPos.count);
+            for (let i = 0; i < lPos.count; i++) {
+                const wx = lPos.getX(i);
+                const wz = lPos.getZ(i);
+                const gbs = sampleGrandBasinAt(wx, wz);
+                if (gbs && gbs.basin.id === basin.id && gbs.edgeDist < 0.75) {
+                    const edgeFade = Math.max(-0.5, (0.55 - gbs.edgeDist) * 1.15);
+                    lDepth[i] = Math.min(basin.waterY - getTerrainHeight(wx, wz), edgeFade);
+                } else {
+                    lDepth[i] = -3.0;
+                }
+                lObs[i] = 99.0;
+            }
+            lakeGeo.setAttribute('aBedDepth', new THREE.BufferAttribute(lDepth, 1));
+            lakeGeo.setAttribute('aObstacleDist', new THREE.BufferAttribute(lObs, 1));
+            lakeGeo.computeBoundingBox();
+            lakeGeo.computeBoundingSphere();
+
+            const lakeMesh = new THREE.Mesh(lakeGeo, pondMat);
+            lakeMesh.frustumCulled = true;
+            lakeMesh.userData = { type: 'grand_water_basin', basinId: basin.id };
+            scene.add(lakeMesh);
+            grandWaterMeshes.push(lakeMesh);
+
+            // Bebatuan alami di sepanjang garis pantai sungai besar luar
+            for (let pIdx = 1; pIdx < basin.pts.length - 1; pIdx += 2) {
+                const pt = basin.pts[pIdx];
+                const nextPt = basin.pts[pIdx + 1];
+                const tx = nextPt[0] - pt[0], tz = nextPt[1] - pt[1];
+                const tLen = Math.hypot(tx, tz) || 1;
+                const nx = -tz / tLen, nz = tx / tLen;
+                for (const side of [-1, 1]) {
+                    const edgeOff = basin.halfW * (0.72 + ((pIdx + bIdx) % 3) * 0.14);
+                    const rx = pt[0] + nx * side * edgeOff + ((pIdx * 7) % 5 - 2);
+                    const rz = pt[1] + nz * side * edgeOff + ((bIdx * 11) % 5 - 2);
+                    const ry = getTerrainHeight(rx, rz);
+                    const rr = 1.05 + ((pIdx + bIdx) % 3) * 0.45;
+                    const sRock = new THREE.Mesh(new THREE.DodecahedronGeometry(rr, 0), wetRockMat);
+                    sRock.position.set(rx, ry + rr * 0.35, rz);
+                    sRock.scale.set(1.3, 0.72, 1.08);
+                    sRock.rotation.set(rx * 0.17, rz * 0.23, 0.15);
+                    scene.add(sRock);
+                    addRockMeshCollider('river_rock', sRock);
+                }
+            }
+        }
+
         // ============================================================================
         // 7B-2. GENANGAN AIR HUJAN DI PADANG LIAR (murah: satu shader, 9 quad)
         // ============================================================================
@@ -15862,8 +22039,8 @@ class World {
                     float rim = length(vUv - vec2(0.5)) * 2.0;
                     if (rim > 1.0) discard;
 
-                    // Tepi genangan memudar, jadi bentuknya tidak kelihatan seperti koin.
-                    float edge = 1.0 - smoothstep(0.70, 1.0, rim);
+                    // Tepi genangan memudar halus di bibir terluar agar menyatu alami tapi berinti air turquoise jelas di peta & 3D
+                    float edge = 1.0 - smoothstep(0.78, 1.0, rim);
 
                     vec3 V = normalize(cameraPosition - vWorldPos);
                     vec2 p = vWorldPos.xz;
@@ -15879,56 +22056,86 @@ class World {
                     vec3 N = normalize(vec3(nx, 1.0, nz));
 
                     float NoV = clamp(dot(N, V), 0.0, 1.0);
-                    float fresnel = 0.10 + 0.90 * pow(1.0 - NoV, 3.0);
+                    float fresnel = 0.08 + 0.88 * pow(1.0 - NoV, 3.0);
 
-                    vec3 refl = mix(uSkyBottom, uSkyTop, clamp(reflect(-V, N).y * 0.8 + 0.2, 0.0, 1.0)) * 0.78;
-                    vec3 wetGround = mix(vec3(0.045, 0.085, 0.075), vec3(0.080, 0.145, 0.150), edge);
-                    wetGround *= 0.30 + uBrightness * 1.15;
+                    vec3 refl = mix(uSkyBottom, uSkyTop, clamp(reflect(-V, N).y * 0.8 + 0.2, 0.0, 1.0)) * 0.92;
+                    vec3 deepWater = pow(vec3(0.08, 0.56, 0.78), vec3(2.2));
+                    vec3 shallowWater = pow(vec3(0.24, 0.82, 0.90), vec3(2.2));
+                    vec3 wetGround = mix(shallowWater, deepWater, clamp(rim * 0.45 + 0.35, 0.0, 1.0));
+                    wetGround *= 0.45 + uBrightness * 0.85;
 
-                    vec3 col = mix(wetGround, refl, clamp(0.34 + fresnel * 0.46, 0.0, 0.86));
+                    vec3 col = mix(wetGround, refl, clamp(0.18 + fresnel * 0.52, 0.0, 0.84));
 
                     vec3 H = normalize(normalize(uSunDir) + V);
                     float spec = pow(max(dot(N, H), 0.0), 70.0);
                     col += uSunColor * spec * 0.45;
 
-                    float alpha = edge * (0.50 + 0.32 * fresnel);
+                    float alpha = edge * (0.86 + 0.10 * fresnel);
                     gl_FragColor = vec4(col, alpha);
                     #include <colorspace_fragment>
                 }
             `
         });
 
-        const PUDDLE_Y_OFF = 0.025;
-        for (const pd of PUDDLES) {
-            const SEG = 30;
-            const pos = new Float32Array((SEG + 2) * 3);
-            const uvArr = new Float32Array((SEG + 2) * 2);
+        // Gabungkan seluruh genangan air minum kuda menjadi 1 mesh tunggal (1 draw call)
+        const PUDDLE_Y_OFF = 0.04;
+        {
+            const SEG = 24;
+            const vertsPerPuddle = 1 + (SEG + 1) * 2;
+            const totalVerts = PUDDLES.length * vertsPerPuddle;
+            const pos = new Float32Array(totalVerts * 3);
+            const uvArr = new Float32Array(totalVerts * 2);
             const idx = [];
-            const cy = getTerrainHeight(pd.x, pd.z) + PUDDLE_Y_OFF;
-            pos[0] = pd.x; pos[1] = cy; pos[2] = pd.z;
-            uvArr[0] = 0.5; uvArr[1] = 0.5;
-            for (let k = 0; k <= SEG; k++) {
-                const ang = (k / SEG) * Math.PI * 2;
-                const wob = 1.0 + 0.16 * Math.sin(ang * 3.0 + pd.seed) + 0.09 * Math.cos(ang * 5.0 - pd.seed * 1.7);
-                const rx = pd.r * wob * 1.12;
-                const rz = pd.r * wob * 0.78;
-                const wx = pd.x + Math.cos(ang) * rx;
-                const wz = pd.z + Math.sin(ang) * rz;
-                const o = (k + 1) * 3;
-                pos[o] = wx;
-                pos[o + 1] = getTerrainHeight(wx, wz) + PUDDLE_Y_OFF;
-                pos[o + 2] = wz;
-                uvArr[(k + 1) * 2] = 0.5 + Math.cos(ang) * 0.5;
-                uvArr[(k + 1) * 2 + 1] = 0.5 + Math.sin(ang) * 0.5;
-                if (k > 0) idx.push(0, k + 1, k);
+            let vCursor = 0;
+
+            for (const pd of PUDDLES) {
+                const baseV = vCursor;
+                const cy = getTerrainHeight(pd.x, pd.z) + PUDDLE_Y_OFF;
+                pos[vCursor * 3] = pd.x;
+                pos[vCursor * 3 + 1] = cy;
+                pos[vCursor * 3 + 2] = pd.z;
+                uvArr[vCursor * 2] = 0.5;
+                uvArr[vCursor * 2 + 1] = 0.5;
+                vCursor++;
+
+                // Cincin tengah (radius 55%) & cincin tepi (radius 100%) mengikuti kontur tanah mulus
+                for (let ring = 0; ring < 2; ring++) {
+                    const rf = ring === 0 ? 0.55 : 1.0;
+                    for (let k = 0; k <= SEG; k++) {
+                        const ang = (k / SEG) * Math.PI * 2;
+                        const wob = 1.0 + 0.16 * Math.sin(ang * 3.0 + pd.seed) + 0.09 * Math.cos(ang * 5.0 - pd.seed * 1.7);
+                        const rx = pd.r * wob * 1.10 * rf;
+                        const rz = pd.r * wob * 0.84 * rf;
+                        const wx = pd.x + Math.cos(ang) * rx;
+                        const wz = pd.z + Math.sin(ang) * rz;
+                        pos[vCursor * 3] = wx;
+                        pos[vCursor * 3 + 1] = getTerrainHeight(wx, wz) + PUDDLE_Y_OFF;
+                        pos[vCursor * 3 + 2] = wz;
+                        uvArr[vCursor * 2] = 0.5 + Math.cos(ang) * 0.5 * rf;
+                        uvArr[vCursor * 2 + 1] = 0.5 + Math.sin(ang) * 0.5 * rf;
+                        vCursor++;
+                    }
+                }
+
+                const ring1Start = baseV + 1;
+                const ring2Start = baseV + 1 + (SEG + 1);
+                for (let k = 0; k < SEG; k++) {
+                    idx.push(baseV, ring1Start + k + 1, ring1Start + k);
+                    const a = ring1Start + k, b = ring1Start + k + 1;
+                    const c = ring2Start + k, d = ring2Start + k + 1;
+                    idx.push(a, b, d, a, d, c);
+                }
             }
+
             const geo = new THREE.BufferGeometry();
             geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
             geo.setAttribute('uv', new THREE.BufferAttribute(uvArr, 2));
             geo.setIndex(idx);
-            const puddle = new THREE.Mesh(geo, puddleMat);
-            puddle.userData = { type: 'puddle' };
-            puddleGroup.add(puddle);
+            geo.computeBoundingSphere();
+            const puddlesMesh = new THREE.Mesh(geo, puddleMat);
+            puddlesMesh.frustumCulled = false;
+            puddlesMesh.userData = { type: 'puddle' };
+            puddleGroup.add(puddlesMesh);
         }
 
         // ============================================================================
@@ -16175,14 +22382,8 @@ class World {
         });
 
         const sunbeamShafts = [];
-        const beamSpots = [
-            { x: -4.8, z: 6.5, w: 3.4, h: 16.0 },
-            { x: -1.5, z: 1.5, w: 3.8, h: 17.5 },
-            { x: 6.8, z: 5.5, w: 4.0, h: 16.5 },
-            { x: -8.5, z: -2.0, w: 3.6, h: 18.0 },
-            { x: 3.5, z: -6.5, w: 3.5, h: 17.0 },
-            { x: -5.5, z: 13.5, w: 3.4, h: 16.5 }
-        ];
+        // Sorotan cahaya (light shafts) di area spawn awal dihapus agar visual awal bersih
+        const beamSpots = [];
         beamSpots.forEach((bs, idx) => {
             const by = getTerrainHeight(bs.x, bs.z);
             const shaftGroup = new THREE.Group();
@@ -16313,6 +22514,10 @@ class World {
                 if (getRoadDistance(x, z) < minClear) return false;
                 if (Math.hypot(x - POND_CENTER.x, z - POND_CENTER.z) < POND_CENTER.radius + 4.2) return false;
                 if (Math.abs(z - riverCenterZ(x)) < riverHalfWidthAt(x) + RIVER.bank + 3.8) return false;
+                const gb = sampleGrandBasinAt(x, z);
+                if (gb && gb.edgeDist < gb.basin.bank + 3.5) return false;
+                if (hasNearbyPuddle(x, z, 2.6)) return false;
+                if (Math.hypot(x - ANCIENT_ELDER_TREE.x, z - ANCIENT_ELDER_TREE.z) < 16.0) return false;
                 for (let vi = 0; vi < VILLAGES.length; vi++) {
                     const v = VILLAGES[vi];
                     if (Math.hypot(x - v.cx, z - v.cz) < v.radius * 2.25) return false;
@@ -16470,6 +22675,352 @@ class World {
             }
         })();
 
+        // ---- Landmark Story Khusus (Bukit Bebatuan, Air Terjun, Jurang, Hutan Rimba) + Jalan Bebatuan & Jalan Tebing ----
+        let waterfallTex = null;
+        const waterfallMist = [];
+        const waterfallSplash = [];
+        const gorgeMist = [];
+
+        (function buildStoryLandmarksAndRockyRoads() {
+            let lSeed = 773121;
+            const lRand = () => { lSeed = (lSeed * 1664525 + 1013904223) >>> 0; return lSeed / 4294967296; };
+
+            const darkCragMat = new THREE.MeshStandardMaterial({ color: 0x5d646b, roughness: 0.92 });
+            applyStylizedCelShading(darkCragMat, { rimStrength: 0.16, shadowLift: 0.46 });
+            const paleStoneMat = new THREE.MeshStandardMaterial({ color: 0x8f969a, roughness: 0.88 });
+            applyStylizedCelShading(paleStoneMat, { rimStrength: 0.18, shadowLift: 0.54 });
+            const mossCragMat = new THREE.MeshStandardMaterial({ color: 0x5c7362, roughness: 0.90 });
+            applyStylizedCelShading(mossCragMat, { rimStrength: 0.16, shadowLift: 0.50 });
+            const runeGlowMat = new THREE.MeshBasicMaterial({ color: 0x7dd3fc });
+            const roadSlabMat = new THREE.MeshStandardMaterial({ color: 0x7d7a74, roughness: 0.92 });
+            applyStylizedCelShading(roadSlabMat, { rimStrength: 0.14, shadowLift: 0.52 });
+            const woodDeckMat = new THREE.MeshStandardMaterial({ color: 0x7a5432, roughness: 0.90 });
+            applyStylizedCelShading(woodDeckMat, { rimStrength: 0.12, shadowLift: 0.48 });
+
+            const cragGeo = new THREE.DodecahedronGeometry(1.0, 1);
+            const cPos = cragGeo.attributes.position;
+            for (let i = 0; i < cPos.count; i++) {
+                const vx = cPos.getX(i), vy = cPos.getY(i), vz = cPos.getZ(i);
+                const n = 0.84 + 0.26 * Math.sin(vx * 3.1 + vy * 2.5 + vz * 3.9);
+                cPos.setXYZ(i, vx * n, vy * (vy < 0 ? 0.68 : n * 0.95), vz * n);
+            }
+            cragGeo.computeVertexNormals();
+
+            const slabGeo = new THREE.DodecahedronGeometry(1.0, 0);
+
+            // 1) BUKIT BEBATUAN (Cragstone Hill) di (-135, -135) — Lingkaran Batu Kuno + Obelisk Puncak
+            {
+                const hx = -135, hz = -135;
+                const topY = getTerrainHeight(hx, hz);
+                // Obelisk batu kuno di puncak bukit
+                const obGroup = new THREE.Group();
+                obGroup.position.set(hx, topY - 0.15, hz);
+                const obBase = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 2.0, 0.7, 7), darkCragMat);
+                obBase.position.y = 0.35;
+                obGroup.add(obBase);
+                const obPillar = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.95, 5.8, 6), paleStoneMat);
+                obPillar.position.y = 3.4;
+                obPillar.castShadow = !isMobileDevice;
+                obPillar.receiveShadow = true;
+                obGroup.add(obPillar);
+                const runeBand = new THREE.Mesh(new THREE.CylinderGeometry(0.68, 0.72, 0.24, 6), runeGlowMat);
+                runeBand.position.y = 3.8;
+                obGroup.add(runeBand);
+                scene.add(obGroup);
+                addCircleCollider('landmark_stone', hx, hz, 1.85, topY + 6.2, obGroup);
+
+                // 6 batu berdiri melingkar (megalit) di sekitar puncak
+                for (let i = 0; i < 6; i++) {
+                    const ang = (i / 6) * Math.PI * 2 + 0.25;
+                    const sx = hx + Math.cos(ang) * 9.5;
+                    const sz = hz + Math.sin(ang) * 9.5;
+                    const sy = getTerrainHeight(sx, sz);
+                    const stH = 2.6 + (i % 3) * 0.85;
+                    const monolith = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.78, stH, 5), i % 2 === 0 ? paleStoneMat : darkCragMat);
+                    monolith.position.set(sx, sy + stH * 0.44, sz);
+                    monolith.rotation.set((lRand() - 0.5) * 0.18, ang, (lRand() - 0.5) * 0.18);
+                    monolith.receiveShadow = true;
+                    scene.add(monolith);
+                    addCircleCollider('landmark_stone', sx, sz, 0.85, sy + stH, monolith);
+                }
+
+                // Tumpukan bongkahan batu besar di lereng Bukit Bebatuan
+                for (let i = 0; i < 34; i++) {
+                    const ang = (i / 34) * Math.PI * 2 + (lRand() - 0.5) * 0.25;
+                    const rad = 11.0 + lRand() * 26.0;
+                    const rx = hx + Math.cos(ang) * rad;
+                    const rz = hz + Math.sin(ang) * rad;
+                    if (getRoadDistance(rx, rz) < 4.5) continue;
+                    const ry = getTerrainHeight(rx, rz);
+                    const s = 1.1 + lRand() * 2.2;
+                    const b = new THREE.Mesh(cragGeo, i % 3 === 0 ? mossCragMat : darkCragMat);
+                    b.position.set(rx, ry + s * 0.32, rz);
+                    b.scale.set(s * 1.2, s * 0.85, s * 1.1);
+                    b.rotation.set(lRand() * 0.4, lRand() * Math.PI * 2, lRand() * 0.4);
+                    b.receiveShadow = true;
+                    scene.add(b);
+                    addRockMeshCollider('hill_rock', b);
+                }
+            }
+
+            // 2) AIR TERJUN KABUT (Silvermist Falls) di (155, 225) — Tebing Batu, Air Terjun Animasi & Kolam
+            {
+                const fx = 155, fz = 225;
+                // Tekstur pita air terjun mengalir
+                const wfCanvas = document.createElement('canvas');
+                wfCanvas.width = 128;
+                wfCanvas.height = 256;
+                const wctx = wfCanvas.getContext('2d');
+                const grad = wctx.createLinearGradient(0, 0, 128, 0);
+                grad.addColorStop(0.0, 'rgba(186, 230, 253, 0.35)');
+                grad.addColorStop(0.25, 'rgba(56, 189, 248, 0.85)');
+                grad.addColorStop(0.5, 'rgba(224, 242, 254, 0.95)');
+                grad.addColorStop(0.75, 'rgba(56, 189, 248, 0.85)');
+                grad.addColorStop(1.0, 'rgba(186, 230, 253, 0.35)');
+                wctx.fillStyle = grad;
+                wctx.fillRect(0, 0, 128, 256);
+                for (let s = 0; s < 36; s++) {
+                    wctx.fillStyle = s % 2 === 0 ? 'rgba(255,255,255,0.62)' : 'rgba(14,165,233,0.45)';
+                    wctx.fillRect((s * 19) % 116, (s * 37) % 240, 4 + (s % 4) * 2, 28 + (s % 5) * 14);
+                }
+                waterfallTex = new THREE.CanvasTexture(wfCanvas);
+                waterfallTex.wrapS = THREE.RepeatWrapping;
+                waterfallTex.wrapT = THREE.RepeatWrapping;
+
+                const wfMat = new THREE.MeshBasicMaterial({
+                    map: waterfallTex,
+                    transparent: true,
+                    opacity: 0.88,
+                    side: THREE.DoubleSide,
+                });
+
+                const poolY = -0.25;
+                const cliffTopY = getTerrainHeight(fx, fz + 15);
+                const fallH = Math.max(8.5, cliffTopY - poolY + 0.8);
+
+                // 3 pita air terjun bertingkat menghadap selatan (-Z)
+                const ribbons = [
+                    { ox: 0.0, w: 5.4, oz: 9.8, h: fallH },
+                    { ox: -3.2, w: 2.2, oz: 10.4, h: fallH * 0.92 },
+                    { ox: 3.1, w: 2.0, oz: 10.3, h: fallH * 0.94 },
+                ];
+                for (const rb of ribbons) {
+                    const wfMesh = new THREE.Mesh(new THREE.PlaneGeometry(rb.w, rb.h), wfMat);
+                    wfMesh.position.set(fx + rb.ox, poolY + rb.h * 0.5 - 0.3, fz + rb.oz);
+                    wfMesh.rotation.x = 0.14;
+                    scene.add(wfMesh);
+                }
+
+                // Permukaan kolam air terjun biru jernih
+                const poolMat = new THREE.MeshStandardMaterial({
+                    color: 0x22a6c7,
+                    roughness: 0.18,
+                    metalness: 0.05,
+                    transparent: true,
+                    opacity: 0.84,
+                });
+                const poolMesh = new THREE.Mesh(new THREE.CircleGeometry(11.8, 24), poolMat);
+                poolMesh.rotation.x = -Math.PI * 0.5;
+                poolMesh.position.set(fx, poolY, fz - 4.5);
+                scene.add(poolMesh);
+
+                // Cincin busa percikan di dasar air terjun
+                const foamMat = new THREE.MeshBasicMaterial({ color: 0xe0f7ff, transparent: true, opacity: 0.72, side: THREE.DoubleSide, depthWrite: false });
+                for (let k = 0; k < 3; k++) {
+                    const ring = new THREE.Mesh(new THREE.RingGeometry(1.2 + k * 1.1, 2.2 + k * 1.2, 18), foamMat.clone());
+                    ring.rotation.x = -Math.PI * 0.5;
+                    ring.position.set(fx + (k - 1) * 1.8, poolY + 0.05, fz + 8.6);
+                    ring.userData = { phase: k * 2.1, baseScale: 1.0 };
+                    scene.add(ring);
+                    waterfallSplash.push(ring);
+                }
+
+                // Kabut putih lembut naik di kaki air terjun
+                const mistMat = new THREE.MeshBasicMaterial({ color: 0xf0f9ff, transparent: true, opacity: 0.32, depthWrite: false });
+                for (let k = 0; k < 8; k++) {
+                    const puff = new THREE.Mesh(new THREE.DodecahedronGeometry(1.2 + (k % 3) * 0.45, 1), mistMat.clone());
+                    puff.position.set(fx + (k - 3.5) * 1.35, poolY + 0.9, fz + 7.6 + (k % 2) * 1.1);
+                    puff.userData = {
+                        baseX: puff.position.x,
+                        baseY: poolY + 0.7,
+                        baseZ: puff.position.z,
+                        speed: 0.35 + (k % 4) * 0.1,
+                        offset: k / 8,
+                    };
+                    scene.add(puff);
+                    waterfallMist.push(puff);
+                }
+
+                // Tebing batu besar mengapit kiri-kanan-belakang air terjun + batu berlumut di tepi kolam
+                const cliffRocks = [
+                    [-8.5, 12.5, 4.6], [8.5, 12.5, 4.8], [-12.0, 6.5, 3.8], [12.0, 6.5, 3.9],
+                    [-5.2, 15.5, 5.2], [5.2, 15.5, 5.0], [0.0, 17.0, 5.8],
+                    [-10.2, -1.5, 2.4], [10.4, -1.2, 2.5], [-7.5, -10.5, 1.8], [8.0, -9.8, 1.9],
+                ];
+                for (const [ox, oz, s] of cliffRocks) {
+                    const rx = fx + ox, rz = fz + oz;
+                    const ry = getTerrainHeight(rx, rz);
+                    const rMesh = new THREE.Mesh(cragGeo, Math.abs(oz) < 6 ? mossCragMat : darkCragMat);
+                    rMesh.position.set(rx, ry + s * 0.42, rz);
+                    rMesh.scale.set(s * 1.15, s * 1.05, s * 1.05);
+                    rMesh.rotation.set(0.15, ox * 0.4, 0.1);
+                    rMesh.receiveShadow = true;
+                    scene.add(rMesh);
+                    addRockMeshCollider('waterfall_rock', rMesh);
+                }
+            }
+
+            // 3) JURANG BAYANGAN (Shadowrift Gorge) di (175, -145) — Dinding Jurang, Gardu Pandang Kayu & Kabut Dasar
+            {
+                const gx = 175, gz = -145;
+                // Bongkahan dinding tebing terjal mengapit sisi barat & timur jurang
+                for (let i = 0; i < 24; i++) {
+                    const side = i % 2 === 0 ? -1 : 1;
+                    const t = (Math.floor(i / 2) / 11) - 0.5;
+                    const rx = gx + side * (16.5 + (i % 3) * 2.2);
+                    const rz = gz + t * 92.0;
+                    if (getRoadDistance(rx, rz) < 4.8) continue;
+                    const ry = getTerrainHeight(rx, rz);
+                    const s = 2.6 + (i % 4) * 0.95;
+                    const wall = new THREE.Mesh(cragGeo, darkCragMat);
+                    wall.position.set(rx, ry + s * 0.35, rz);
+                    wall.scale.set(s * 1.05, s * 1.45, s * 1.25);
+                    wall.rotation.set(0.1, i * 0.7, 0.12);
+                    wall.receiveShadow = true;
+                    scene.add(wall);
+                    addRockMeshCollider('gorge_rock', wall);
+                }
+                // Kabut dalam jurang
+                const gMistMat = new THREE.MeshBasicMaterial({ color: 0x94a3b8, transparent: true, opacity: 0.22, depthWrite: false });
+                for (let k = 0; k < 7; k++) {
+                    const mPlane = new THREE.Mesh(new THREE.CircleGeometry(11.0 + (k % 3) * 3.0, 14), gMistMat);
+                    mPlane.rotation.x = -Math.PI * 0.5;
+                    const mz = gz - 36 + k * 12;
+                    mPlane.position.set(gx, getTerrainHeight(gx, mz) + 2.2, mz);
+                    mPlane.userData = { baseX: gx, phase: k * 1.1 };
+                    scene.add(mPlane);
+                    gorgeMist.push(mPlane);
+                }
+                // Gardu pandang kayu di tepi barat laut jurang (bisa jadi spot story!)
+                const ox = gx + 23.5, oz = gz + 5.0;
+                const oy = getTerrainHeight(ox, oz);
+                const deck = new THREE.Group();
+                deck.position.set(ox, oy, oz);
+                deck.rotation.y = -Math.PI * 0.5;
+                const plat = new THREE.Mesh(new THREE.BoxGeometry(3.8, 0.22, 2.4), woodDeckMat);
+                plat.position.y = 0.22;
+                deck.add(plat);
+                for (const sx of [-1.7, 0, 1.7]) {
+                    const post = new THREE.Mesh(new THREE.BoxGeometry(0.18, 1.15, 0.18), woodDeckMat);
+                    post.position.set(sx, 0.65, -1.08);
+                    deck.add(post);
+                }
+                const rail = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.14, 0.14), woodDeckMat);
+                rail.position.set(0, 1.12, -1.08);
+                deck.add(rail);
+                scene.add(deck);
+            }
+
+            // 4) JALAN BEBATUAN (rocky_falls_road) & JALAN TEBING BEBATUAN (cliff_boulder_pass)
+            // Penuh bebatuan di permukaan & bahu tebing, tapi tetap lebar ~5.4m agar bisa dilewati pelan & hati-hati
+            for (const poly of allRoadPolylines) {
+                if (poly.surface !== 'rocky' && poly.surface !== 'cliff') continue;
+                const isCliff = poly.surface === 'cliff';
+                const pts = poly.pts;
+                for (let i = 1; i < pts.length - 1; i++) {
+                    const pt = pts[i];
+                    const prev = pts[i - 1];
+                    const next = pts[i + 1];
+                    const tx = next[0] - prev[0], tz = next[1] - prev[1];
+                    const tLen = Math.hypot(tx, tz) || 1.0;
+                    const nx = -tz / tLen, nz = tx / tLen;
+
+                    // Batu pipih / kerikil kasar di badan jalan (tinggi 0.06..0.13m: terasa berguncang tapi aman dilalui pelan)
+                    const stonesPerStep = isCliff ? 3 : 2;
+                    for (let k = 0; k < stonesPerStep; k++) {
+                        const lat = (lRand() - 0.5) * 3.8;
+                        const along = (lRand() - 0.5) * 2.4;
+                        const sx = pt[0] + nx * lat + (tx / tLen) * along;
+                        const sz = pt[1] + nz * lat + (tz / tLen) * along;
+                        const sy = getTerrainHeight(sx, sz);
+                        const rw = 0.36 + lRand() * 0.42;
+                        const rh = isCliff ? (0.07 + lRand() * 0.06) : (0.06 + lRand() * 0.05);
+                        const slab = new THREE.Mesh(slabGeo, k % 2 === 0 ? roadSlabMat : paleStoneMat);
+                        slab.position.set(sx, sy + rh * 0.18, sz);
+                        slab.scale.set(rw, rh, rw * (0.75 + lRand() * 0.45));
+                        slab.rotation.set(0, lRand() * Math.PI * 2, 0);
+                        slab.receiveShadow = true;
+                        scene.add(slab);
+                        addRockMeshCollider('road_rock', slab);
+                    }
+
+                    // Bongkahan batu besar di kedua bahu jalan (menjaga lorong tengah ~5.4m tetap bisa lewat)
+                    for (const side of [-1, 1]) {
+                        if (!isCliff && i % 2 === 1 && side === 1) continue;
+                        const off = (isCliff ? 3.55 : 3.85) + lRand() * 1.85;
+                        const bx = pt[0] + nx * side * off;
+                        const bz = pt[1] + nz * side * off;
+                        const by = getTerrainHeight(bx, bz);
+                        // Sisi timur jalan tebing (+X) punya dinding batu tebing lebih tinggi
+                        const isCliffWallSide = isCliff && (nx * side > 0.25);
+                        const bs = isCliffWallSide ? (1.8 + lRand() * 2.1) : (0.75 + lRand() * 0.85);
+                        const boulder = new THREE.Mesh(cragGeo, isCliffWallSide ? darkCragMat : (i % 3 === 0 ? mossCragMat : rockMat));
+                        boulder.position.set(bx, by + bs * 0.34, bz);
+                        boulder.scale.set(bs * 1.15, bs * (isCliffWallSide ? 1.25 : 0.78), bs);
+                        boulder.rotation.set(lRand() * 0.3, lRand() * Math.PI * 2, lRand() * 0.3);
+                        boulder.receiveShadow = true;
+                        scene.add(boulder);
+                        addRockMeshCollider('cliff_shoulder_rock', boulder);
+                    }
+                }
+            }
+
+            // 5) Dekorasi Hutan Rimba Purba (Deepwood Thicket, -195, 215): batu berlumut & jamur bercahaya
+            {
+                const mushroomCapMat = new THREE.MeshBasicMaterial({ color: 0x5eead4 });
+                const stemMat = new THREE.MeshLambertMaterial({ color: 0xd6d3d1 });
+                for (let i = 0; i < 26; i++) {
+                    const ang = lRand() * Math.PI * 2;
+                    const rad = 8.0 + Math.sqrt(lRand()) * 62.0;
+                    const mx = -195.0 + Math.cos(ang) * rad;
+                    const mz = 215.0 + Math.sin(ang) * rad;
+                    if (getRoadDistance(mx, mz) < 4.5) continue;
+                    const my = getTerrainHeight(mx, mz);
+                    const mg = new THREE.Group();
+                    mg.position.set(mx, my, mz);
+                    const st = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.12, 0.45, 6), stemMat);
+                    st.position.y = 0.22;
+                    mg.add(st);
+                    const cap = new THREE.Mesh(new THREE.ConeGeometry(0.34, 0.24, 7), mushroomCapMat);
+                    cap.position.y = 0.48;
+                    mg.add(cap);
+                    scene.add(mg);
+                }
+            }
+        })();
+
+        // 6-8) Model 3D Spesialis (Reruntuhan Kuil Kuno, Goa Kristal, Pemukiman Bandit)
+        const storySiteAnimators = [];
+        {
+            const siteCtxBase = {
+                getTerrainHeight,
+                applyStylizedCelShading,
+                isMobileDevice,
+                addCircleCollider,
+                addRockMeshCollider,
+            };
+            const builtSites = [
+                createAncientSunRuins({ ...siteCtxBase, x: RUINS_SITE.x, z: RUINS_SITE.z, rotationY: 0.35 }),
+                createCrystalCavern({ ...siteCtxBase, x: CAVERN_SITE.x, z: CAVERN_SITE.z, rotationY: -2.35 }),
+                createBanditSettlement({ ...siteCtxBase, x: BANDIT_SITE.x, z: BANDIT_SITE.z, rotationY: 0.25 }),
+            ];
+            for (const built of builtSites) {
+                if (!built || !built.group) continue;
+                scene.add(built.group);
+                if (typeof built.update === 'function') storySiteAnimators.push(built);
+            }
+        }
+
         // ---- 5 Desa Terhubung Jaringan Jalan (posisi & jumlah bangunan diacak dari modul model) ----
         const villageAnimated = {
             smokePuffs: [],
@@ -16603,6 +23154,7 @@ class World {
                 villageGroup.add(gateArch);
                 registerModelMeta(gateArch, gateP.x, gateY, gateP.z, gateP.yaw, 'gate_post', gateScale);
                 vRec.gateSign = { x: gateP.x, y: gateY + 4.65 * gateScale, z: gateP.z, yaw: gateP.yaw, groundY: gateY };
+                v.gateSign = vRec.gateSign;
 
                 const gSouthP = streetPt(-22.5, -2.4);
                 const gSouthFace = streetPt(-28.0, 0);
@@ -16684,6 +23236,7 @@ class World {
 
                     if (lot.kind === 'blacksmith' && !vRec.stations.forge) {
                         vRec.blacksmithLot = { x: hx, z: hz, yaw, sc, w: lot.w, d: lot.d };
+                        v.blacksmithLot = vRec.blacksmithLot;
                         const forgeStand = localToWorldXZ(hx, hz, yaw, sc, 1.45, -2.55);
                         vRec.stations.forge = { x: forgeStand.x, z: forgeStand.z, faceX: hx, faceZ: hz };
                         // Zona Bengkel Gerobak tepat di depan bangunan pandai besi menghadap jalan & rumput sekitar
@@ -17097,6 +23650,12 @@ class World {
                     [streetPt(15.0, 18.5),  streetPt(24.5, 18.5),   streetPt(25.5, 5.5)],
                 ];
                 fenceDefs.forEach((pts, idx) => {
+                    // Di desa Radnar (vIdx === 0), biarkan halaman belakang rumah penempa terbuka luas untuk parkir gerobak pahlawan
+                    if (vIdx === 0 && vRec.blacksmithLot && pts.length >= 2) {
+                        const bs = vRec.blacksmithLot;
+                        const mid = pts[Math.floor(pts.length / 2)];
+                        if (Math.hypot(mid.x - bs.x, mid.z - bs.z) < 15.5) return;
+                    }
                     const fRun = createVillageFenceRun(villageCtx, { points: pts, low: true, seed: 80 + vIdx * 10 + idx });
                     villageGroup.add(fRun);
                     const segs = (fRun.userData && fRun.userData.fenceSegments) || [];
@@ -17252,7 +23811,22 @@ class World {
     this.campfireGroup = campfireGroup;
     this.campfireLight = campfireLight;
     this.flames = flames;
+    this._campfireSparks = campfireSparks;
     this.isCampfireLit = isCampfireLit;
+    this.LANDMARKS = STORY_LANDMARKS;
+    this.GRAND_WATER_BASINS = GRAND_WATER_BASINS;
+    this._sampleGrandBasinAt = sampleGrandBasinAt;
+    this.PUDDLES = PUDDLES;
+    this._puddleGrid = puddleGrid;
+    this._puddleCell = PUDDLE_CELL;
+    this.ANCIENT_ELDER_TREE = ANCIENT_ELDER_TREE;
+    this.ancientTreeGroup = ancientTreeGroup;
+    this.grandWaterMeshes = grandWaterMeshes;
+    this._waterfallTex = waterfallTex;
+    this._waterfallMist = waterfallMist;
+    this._waterfallSplash = waterfallSplash;
+    this._gorgeMist = gorgeMist;
+    this._storySiteAnimators = storySiteAnimators;
     this.cfY = cfY;
     this.pondMesh = pondMesh;
     this.pondUniforms = pondUniforms;
@@ -17268,6 +23842,7 @@ class World {
     this.mushroomCapMaterials = mushroomCapMaterials;
     this.particleGeo = particleGeo;
     this.particleMat = particleMat;
+    this.particleSystem = particleSystem;
     this.pPhases = pPhases;
     this.PARTICLE_COUNT = PARTICLE_COUNT;
     this.PERF_PROFILES = PERF_PROFILES;
@@ -18000,33 +24575,42 @@ class World {
   }
 
   getOldCartSpot() {
-    const rad = (this.VILLAGES || []).find((v) => v.id === 'radnar') || (this.VILLAGES && this.VILLAGES[0]);
+    const vList = (this.villageData && Array.isArray(this.villageData.villages) && this.villageData.villages.length)
+      ? this.villageData.villages
+      : (this.VILLAGES || []);
+    const rad = vList.find((v) => v.id === 'radnar') || vList[0];
     const bs = rad && rad.blacksmithLot;
     if (bs) {
-      const cosY = Math.cos(bs.yaw);
-      const sinY = Math.sin(bs.yaw);
-      const toWorld = (lx, lz) => {
-        const sx = lx * bs.sc;
-        const sz = lz * bs.sc;
-        return [bs.x + sx * cosY + sz * sinY, bs.z - sx * sinY + sz * cosY];
-      };
-      const baseZOff = bs.d * 0.5 + 3.6;
-      const candidates = [
-        toWorld(0, baseZOff),
-        toWorld(1.8, baseZOff + 0.5),
-        toWorld(-1.8, baseZOff + 0.5),
-        toWorld(0, baseZOff + 1.8),
-        toWorld(3.2, baseZOff + 1.2),
-        toWorld(-3.2, baseZOff + 1.2),
+      // Sumbu belakang bangunan (+Z lokal) dalam koordinat dunia: (sin(yaw), cos(yaw))
+      // Sumbu samping bangunan (+X lokal) dalam koordinat dunia: (cos(yaw), -sin(yaw))
+      const backX = Math.sin(bs.yaw);
+      const backZ = Math.cos(bs.yaw);
+      const sideX = Math.cos(bs.yaw);
+      const sideZ = -Math.sin(bs.yaw);
+      const halfBackM = (bs.d || 4.2) * 0.5 * (bs.sc || 1.72);
+      const atBack = (backClearM, latM = 0) => [
+        bs.x + backX * (halfBackM + backClearM) + sideX * latM,
+        bs.z + backZ * (halfBackM + backClearM) + sideZ * latM,
       ];
+      // Tepat di belakang dinding belakang rumah penempa di rumput terbuka (~4.5..6.8 m di belakang dinding)
+      const candidates = [
+        atBack(4.6, 0),
+        atBack(5.6, 0),
+        atBack(6.8, 0),
+        atBack(8.2, 0),
+        atBack(5.2, 1.2),
+        atBack(5.2, -1.2),
+      ];
+      // Hadapkan gerobak sejajar dinding belakang rumah penempa agar lega & mudah diklaim
+      const cartYaw = bs.yaw;
       for (const [cx, cz] of candidates) {
-        const col = this.resolveCircleCollision ? this.resolveCircleCollision(cx, cz, 2.35) : { hit: false };
+        const col = this.resolveCircleCollision ? this.resolveCircleCollision(cx, cz, 2.6) : { hit: false };
         if (!col.hit) {
-          return { x: cx, z: cz, yaw: bs.yaw, villageId: 'radnar' };
+          return { x: cx, z: cz, yaw: cartYaw, villageId: 'radnar' };
         }
       }
       const [fx, fz] = candidates[0];
-      return { x: fx, z: fz, yaw: bs.yaw, villageId: 'radnar' };
+      return { x: fx, z: fz, yaw: cartYaw, villageId: 'radnar' };
     }
     const baseZ = (rad ? rad.cz : 76.0) + 23.5;
     const roadX = this._getRoadCenterX ? this._getRoadCenterX(baseZ) : 0;
@@ -18425,6 +25009,20 @@ class World {
       const pEdge = Math.hypot(x - this.POND_CENTER.x, z - this.POND_CENTER.z) - this.POND_CENTER.radius;
       if (pEdge < best) best = pEdge;
     }
+    if (this._sampleGrandBasinAt) {
+      const gb = this._sampleGrandBasinAt(x, z);
+      if (gb && gb.edgeDist < best) best = gb.edgeDist;
+    }
+    if (this._puddleGrid && this._puddleCell) {
+      const arr = this._puddleGrid.get(`${Math.floor(x / this._puddleCell)},${Math.floor(z / this._puddleCell)}`);
+      if (arr) {
+        for (let i = 0; i < arr.length; i++) {
+          const pd = arr[i];
+          const pEdge = Math.hypot(x - pd.x, z - pd.z) - pd.r * 1.12;
+          if (pEdge < best) best = pEdge;
+        }
+      }
+    }
     return best;
   }
 
@@ -18532,6 +25130,13 @@ class World {
     if (pd < this.POND_CENTER.radius + 0.8) {
       const pDepth = this.POND_WATER_Y - gy;
       if (pDepth > maxD) maxD = pDepth;
+    }
+    if (this._sampleGrandBasinAt) {
+      const gb = this._sampleGrandBasinAt(x, z);
+      if (gb && gb.edgeDist < 0.6) {
+        const bd = gb.basin.waterY - gy;
+        if (bd > maxD) maxD = bd;
+      }
     }
     return maxD;
   }
@@ -19049,6 +25654,207 @@ class World {
     }
   }
 
+  captureOrthoMapCanvas(requestedRes = 4096, hideRoots = []) {
+    const renderer = this.renderer;
+    const scene = this.scene;
+    if (!renderer || !scene || typeof document === 'undefined') return null;
+
+    if (!this._impGroups) this._buildTreeLod();
+
+    const maxTex = (renderer.capabilities && renderer.capabilities.maxTextureSize) || 1024;
+    const tiles = requestedRes > 2048 ? 2 : 1;
+    const tileRes = Math.max(512, Math.min(Math.round(requestedRes / tiles), maxTex, 2048));
+    const res = tileRes * tiles;
+    const half = (this.TERRAIN_SIZE || 1500) * 0.5;
+    const subHalf = half / tiles;
+    this._orthoCaptureError = null;
+
+    const orthoCam = new THREE.OrthographicCamera(-subHalf, subHalf, subHalf, -subHalf, 1, 500);
+    orthoCam.up.set(0, 0, -1); // -Z = Atas (Utara), +X = Kanan (Timur)
+
+    // Simpan semua state render untuk dipulihkan persis setelah capture
+    const prevTarget = renderer.getRenderTarget();
+    const prevScissor = typeof renderer.getScissorTest === 'function' ? renderer.getScissorTest() : false;
+    const prevBg = scene.background ? scene.background.clone() : null;
+    const prevFog = scene.fog || null;
+    const prevShadows = renderer.shadowMap.enabled;
+    const prevAutoClear = renderer.autoClear;
+    const prevSkyVis = this.skyDome ? this.skyDome.visible : false;
+    const prevCelVis = this.celestialOrb ? this.celestialOrb.visible : false;
+    const prevSunVis = this.sunbeamsGroup ? this.sunbeamsGroup.visible : false;
+    const prevPartVis = this.particleSystem ? this.particleSystem.visible : false;
+    const prevDirInt = this.dirLight ? this.dirLight.intensity : 1;
+    const prevHemiInt = this.hemiLight ? this.hemiLight.intensity : 1;
+    const prevBright = this.celShaderUniforms && this.celShaderUniforms.uSceneBrightness
+      ? this.celShaderUniforms.uSceneBrightness.value : 1;
+    const prevSunDir = this.celShaderUniforms && this.celShaderUniforms.uSunDir
+      ? this.celShaderUniforms.uSunDir.value.clone() : null;
+    const prevCloudMin = this.dylearnSharedUniforms && this.dylearnSharedUniforms.uCloudShadowMin
+      ? this.dylearnSharedUniforms.uCloudShadowMin.value : 0.28;
+    const prevGrassTint = this.dylearnSharedUniforms && this.dylearnSharedUniforms.uGrassMoodTint
+      ? this.dylearnSharedUniforms.uGrassMoodTint.value.clone() : null;
+
+    const savedTerrainVis = this.terrainChunks.map((c) => c.visible);
+    const savedGrassVis = this.grassChunks.map((g) => g.visible);
+    const savedTreeVis = this.interactiveTrees.map((t) => t.visible);
+    const savedBushVis = this.interactiveBushes.map((b) => b.visible);
+    const savedHideRoots = [];
+    for (const r of (hideRoots || [])) {
+      if (r && typeof r.visible === 'boolean') savedHideRoots.push([r, r.visible]);
+    }
+    const savedImpCounts = (this._impGroups || []).map((grp) => ({
+      wc: grp.woodMesh ? grp.woodMesh.count : 0,
+      lc: grp.leafMesh ? grp.leafMesh.count : 0,
+      wf: grp.woodMesh ? grp.woodMesh.frustumCulled : false,
+      lf: grp.leafMesh ? grp.leafMesh.frustumCulled : false,
+    }));
+
+    let rt = null;
+    try {
+      scene.background = new THREE.Color(0x285432);
+      scene.fog = null;
+      renderer.shadowMap.enabled = false;
+      renderer.autoClear = true;
+      if (typeof renderer.setScissorTest === 'function') renderer.setScissorTest(false);
+      if (this.skyDome) this.skyDome.visible = false;
+      if (this.celestialOrb) this.celestialOrb.visible = false;
+      if (this.sunbeamsGroup) this.sunbeamsGroup.visible = false;
+      if (this.particleSystem) this.particleSystem.visible = false;
+
+      if (this.dylearnSharedUniforms && this.dylearnSharedUniforms.uCloudShadowMin) {
+        this.dylearnSharedUniforms.uCloudShadowMin.value = 1.0;
+      }
+      if (this.dylearnSharedUniforms && this.dylearnSharedUniforms.uGrassMoodTint) {
+        this.dylearnSharedUniforms.uGrassMoodTint.value.set(1.0, 1.0, 1.0);
+      }
+      if (this.celShaderUniforms && this.celShaderUniforms.uSceneBrightness) {
+        this.celShaderUniforms.uSceneBrightness.value = 0.80;
+      }
+      if (this.celShaderUniforms && this.celShaderUniforms.uSunDir) {
+        this.celShaderUniforms.uSunDir.value.set(0.32, 0.90, 0.28).normalize();
+      }
+      if (this.dirLight) this.dirLight.intensity = 0.88 * Math.PI;
+      if (this.hemiLight) this.hemiLight.intensity = 0.68 * Math.PI;
+
+      // Tampilkan SELURUH terrain chunk & seluruh pohon asli (deciduous + pinus) agar atap rumah & pohon terfoto 1:1
+      for (let i = 0; i < this.terrainChunks.length; i++) this.terrainChunks[i].visible = true;
+      for (let i = 0; i < this.grassChunks.length; i++) this.grassChunks[i].visible = false;
+      for (let i = 0; i < this.interactiveTrees.length; i++) {
+        const t = this.interactiveTrees[i];
+        t.visible = !(t.userData && t.userData.isCut);
+      }
+      for (let i = 0; i < this.interactiveBushes.length; i++) {
+        const b = this.interactiveBushes[i];
+        b.visible = !(b.userData && b.userData.isCut);
+      }
+      for (const [r] of savedHideRoots) r.visible = false;
+
+      // Matikan instanced LOD far-tree karena shader daun deciduous memerlukan model aslinya saat ortho
+      for (let g = 0; g < (this._impGroups || []).length; g++) {
+        const grp = this._impGroups[g];
+        if (grp.woodMesh) grp.woodMesh.count = 0;
+        if (grp.leafMesh) grp.leafMesh.count = 0;
+      }
+
+      rt = new THREE.WebGLRenderTarget(tileRes, tileRes, {
+        minFilter: THREE.LinearFilter,
+        magFilter: THREE.LinearFilter,
+        depthBuffer: true,
+      });
+
+      const outCanvas = document.createElement('canvas');
+      outCanvas.width = res;
+      outCanvas.height = res;
+      const ctx = outCanvas.getContext('2d');
+      const pxBuf = new Uint8Array(tileRes * tileRes * 4);
+      const tileImgData = ctx.createImageData(tileRes, tileRes);
+      const dst = tileImgData.data;
+
+      // ACES Filmic + Linear->sRGB LUT agar warna peta ortografik serasi & kontras dengan viewport game
+      const linToSrgb = new Uint8Array(256);
+      for (let i = 0; i < 256; i++) {
+        const x = (i / 255) * 0.95;
+        const aces = Math.min(1, Math.max(0, (x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14)));
+        linToSrgb[i] = Math.min(255, Math.round(Math.pow(aces, 1 / 2.2) * 255));
+      }
+
+      const tileSpanWorld = (this.TERRAIN_SIZE || 1500) / tiles;
+      for (let tz = 0; tz < tiles; tz++) {
+        for (let tx = 0; tx < tiles; tx++) {
+          const cx = -half + (tx + 0.5) * tileSpanWorld;
+          const cz = -half + (tz + 0.5) * tileSpanWorld;
+          orthoCam.position.set(cx, 220, cz);
+          orthoCam.lookAt(cx, 0, cz);
+          orthoCam.updateMatrixWorld(true);
+          orthoCam.updateProjectionMatrix();
+
+          renderer.setRenderTarget(rt);
+          renderer.clear();
+          renderer.render(scene, orthoCam);
+          renderer.readRenderTargetPixels(rt, 0, 0, tileRes, tileRes, pxBuf);
+
+          for (let y = 0; y < tileRes; y++) {
+            const srcRow = (tileRes - 1 - y) * tileRes * 4;
+            const dstRow = y * tileRes * 4;
+            for (let x = 0; x < tileRes; x++) {
+              const si = srcRow + x * 4;
+              const di = dstRow + x * 4;
+              dst[di]     = linToSrgb[pxBuf[si]];
+              dst[di + 1] = linToSrgb[pxBuf[si + 1]];
+              dst[di + 2] = linToSrgb[pxBuf[si + 2]];
+              dst[di + 3] = 255;
+            }
+          }
+          ctx.putImageData(tileImgData, tx * tileRes, tz * tileRes);
+        }
+      }
+      return outCanvas;
+    } catch (err) {
+      this._orthoCaptureError = (err && err.stack) ? err.stack : String(err);
+      console.error('[SHOD] captureOrthoMapCanvas failed:', err);
+      return null;
+    } finally {
+      if (rt) rt.dispose();
+      renderer.setRenderTarget(prevTarget);
+      if (typeof renderer.setScissorTest === 'function') renderer.setScissorTest(prevScissor);
+      renderer.shadowMap.enabled = prevShadows;
+      renderer.autoClear = prevAutoClear;
+      if (prevBg && scene.background) scene.background.copy(prevBg);
+      scene.fog = prevFog;
+      if (this.skyDome) this.skyDome.visible = prevSkyVis;
+      if (this.celestialOrb) this.celestialOrb.visible = prevCelVis;
+      if (this.sunbeamsGroup) this.sunbeamsGroup.visible = prevSunVis;
+      if (this.particleSystem) this.particleSystem.visible = prevPartVis;
+      if (this.dylearnSharedUniforms && this.dylearnSharedUniforms.uCloudShadowMin) {
+        this.dylearnSharedUniforms.uCloudShadowMin.value = prevCloudMin;
+      }
+      if (prevGrassTint && this.dylearnSharedUniforms && this.dylearnSharedUniforms.uGrassMoodTint) {
+        this.dylearnSharedUniforms.uGrassMoodTint.value.copy(prevGrassTint);
+      }
+      if (this.celShaderUniforms && this.celShaderUniforms.uSceneBrightness) {
+        this.celShaderUniforms.uSceneBrightness.value = prevBright;
+      }
+      if (prevSunDir && this.celShaderUniforms && this.celShaderUniforms.uSunDir) {
+        this.celShaderUniforms.uSunDir.value.copy(prevSunDir);
+      }
+      if (this.dirLight) this.dirLight.intensity = prevDirInt;
+      if (this.hemiLight) this.hemiLight.intensity = prevHemiInt;
+
+      for (let i = 0; i < this.terrainChunks.length; i++) this.terrainChunks[i].visible = savedTerrainVis[i];
+      for (let i = 0; i < this.grassChunks.length; i++) this.grassChunks[i].visible = savedGrassVis[i];
+      for (let i = 0; i < this.interactiveTrees.length; i++) this.interactiveTrees[i].visible = savedTreeVis[i];
+      for (let i = 0; i < this.interactiveBushes.length; i++) this.interactiveBushes[i].visible = savedBushVis[i];
+      for (const [r, vis] of savedHideRoots) r.visible = vis;
+      for (let g = 0; g < (this._impGroups || []).length; g++) {
+        const grp = this._impGroups[g];
+        const sv = savedImpCounts[g];
+        if (!sv) continue;
+        if (grp.woodMesh) { grp.woodMesh.count = sv.wc; grp.woodMesh.frustumCulled = sv.wf; }
+        if (grp.leafMesh) { grp.leafMesh.count = sv.lc; grp.leafMesh.frustumCulled = sv.lf; }
+      }
+    }
+  }
+
   updateCameraFrustumCulling(camera) {
     if (!camera) return;
     camera.updateMatrixWorld();
@@ -19220,11 +26026,7 @@ class World {
     this.celShaderUniforms.uSunDir.value.copy(activeAtmosphere.sunPos).normalize();
     this.celShaderUniforms.uSceneBrightness.value = activeAtmosphere.sceneBrightness;
     this.skyUniforms.uCloudCoverage.value = activeAtmosphere.cloudCoverage;
-    this.celShaderUniforms.uCampfireStrength.value = THREE.MathUtils.lerp(
-      this.celShaderUniforms.uCampfireStrength.value,
-      this.isCampfireLit ? (1.0 + Math.sin(elapsed * 12) * 0.12) : 0.0,
-      0.15
-    );
+    this.celShaderUniforms.uCampfireStrength.value = 0.0;
 
     if (this.scene.background && this.scene.background.isColor) {
       this.scene.background.copy(activeAtmosphere.bgBottom);
@@ -19312,23 +26114,76 @@ class World {
       });
     }
 
-    // Lidah api unggun
+    // Lidah api unggun mulus (bernapas & bergoyang di atas bara, tanpa lampu terang di spawn)
+    this.campfireLight.intensity = 0;
     if (this.isCampfireLit) {
-      const flicker = Math.sin(elapsed * 14) * 0.22 + Math.cos(elapsed * 23) * 0.15;
-      this.campfireLight.intensity = THREE.MathUtils.lerp(this.campfireLight.intensity, (2.5 + flicker + boost * 1.8) * Math.PI, 0.2);
       this.flames.forEach((f, idx) => {
         f.visible = true;
-        const t = (elapsed * f.userData.speed + f.userData.offset) % 1.0;
-        f.position.y = 0.25 + t * (1.15 + boost * 0.65);
-        f.position.x = f.userData.baseX * (1 - t * 0.5) + Math.sin(elapsed * 8 + idx) * 0.06;
-        f.position.z = f.userData.baseZ * (1 - t * 0.5) + Math.cos(elapsed * 7 + idx) * 0.06;
-        const scale = (1.0 - t * 0.75) * (1 + boost * 0.35);
-        f.scale.set(scale, scale * 1.4, scale);
-        f.rotation.y += delta * 3;
+        const ph = elapsed * f.userData.speed + f.userData.phase;
+        const swayX = Math.sin(ph * 0.7 + idx) * 0.04;
+        const swayZ = Math.cos(ph * 0.6 + idx * 1.3) * 0.04;
+        const stretchY = 0.90 + Math.sin(ph) * 0.14 + Math.cos(ph * 1.7) * 0.06 + boost * 0.35;
+        const stretchXZ = 0.94 + Math.cos(ph * 0.9) * 0.08 + boost * 0.12;
+        f.position.set(f.userData.baseX + swayX, 0.14, f.userData.baseZ + swayZ);
+        f.scale.set(stretchXZ, stretchY, stretchXZ);
+        f.rotation.z = -swayX * 2.2;
+        f.rotation.x = swayZ * 2.2;
       });
+      if (this._campfireSparks) {
+        this._campfireSparks.forEach((sp, idx) => {
+          sp.visible = true;
+          const t = (elapsed * sp.userData.speed + sp.userData.offset) % 1.0;
+          sp.position.set(
+            sp.userData.baseX * (1 - t * 0.35) + Math.sin(elapsed * 4.5 + idx * 1.7) * 0.10,
+            0.22 + t * (1.25 + boost * 0.45),
+            sp.userData.baseZ * (1 - t * 0.35) + Math.cos(elapsed * 3.8 + idx * 1.9) * 0.10
+          );
+          const fade = Math.sin(t * Math.PI);
+          sp.material.opacity = fade * 0.85;
+          sp.scale.setScalar(0.55 + fade * 0.55);
+        });
+      }
     } else {
-      this.campfireLight.intensity = THREE.MathUtils.lerp(this.campfireLight.intensity, 0, 0.15);
       this.flames.forEach((f) => { f.visible = false; });
+      if (this._campfireSparks) this._campfireSparks.forEach((sp) => { sp.visible = false; });
+    }
+
+    // Animasi Air Terjun Kabut & Kabut Jurang
+    if (this._waterfallTex) {
+      this._waterfallTex.offset.y = (elapsed * 0.95) % 1.0;
+    }
+    if (this._waterfallSplash && this._waterfallSplash.length) {
+      for (let i = 0; i < this._waterfallSplash.length; i++) {
+        const rg = this._waterfallSplash[i];
+        const p = (elapsed * 0.85 + rg.userData.phase) % 1.0;
+        rg.scale.setScalar(0.65 + p * 0.75);
+        rg.material.opacity = (1.0 - p) * 0.65;
+      }
+    }
+    if (this._waterfallMist && this._waterfallMist.length) {
+      for (let i = 0; i < this._waterfallMist.length; i++) {
+        const pf = this._waterfallMist[i];
+        const t = (elapsed * pf.userData.speed + pf.userData.offset) % 1.0;
+        pf.position.set(
+          pf.userData.baseX + Math.sin(elapsed * 0.9 + i) * 0.65,
+          pf.userData.baseY + t * 3.2,
+          pf.userData.baseZ - t * 1.8
+        );
+        const fade = Math.sin(t * Math.PI);
+        pf.scale.setScalar(0.75 + t * 0.85);
+        pf.material.opacity = fade * 0.34;
+      }
+    }
+    if (this._gorgeMist && this._gorgeMist.length) {
+      for (let i = 0; i < this._gorgeMist.length; i++) {
+        const gm = this._gorgeMist[i];
+        gm.position.x = gm.userData.baseX + Math.sin(elapsed * 0.35 + gm.userData.phase) * 2.2;
+      }
+    }
+    if (this._storySiteAnimators && this._storySiteAnimators.length) {
+      for (let i = 0; i < this._storySiteAnimators.length; i++) {
+        this._storySiteAnimators[i].update(elapsed);
+      }
     }
 
     // Kunang-kunang / serbuk sari melayang
@@ -21353,48 +28208,138 @@ function computeCargoSupports(items, boxesByItem, maxGap = 0.035, maxPenetration
     updateCargo(dt, cartAccX = 0, susKickY = 0) {
       const g = 9.81;
       const items = this.cart.cargoItems;
+      if (!items || !items.length) return;
+      const stepDt = Math.min(0.033, Math.max(0.004, dt));
+      const invDt = 1 / stepDt;
 
-      // 1) In-bed dynamic rigid body physics (jostle on pebbles, slide on tilt, collide with rails & each other)
       const capSpec = (this.cart.specs && this.cart.specs.capSpec) || { bedHalfL: 22, railTopVox: 16.5 };
-      // Kargo ada di kompartemen DEPAN (mulai tepat di depan sekat x=1, sampai ujung depan bak).
-      // Kabin penumpang sekarang di BURITAN, jadi jangan pakai bedMinX negatif lagi.
       const bedMinX = 1.6 * S, bedMaxX = ((capSpec.bedFrontX ?? 24) - 2.0) * S;
       const halfW = Math.max(6, (capSpec.bedHalfW ?? 15) - 1);
-      const bedMinZ = -halfW * S,  bedMaxZ = halfW * S;
+      const bedMinZ = -halfW * S, bedMaxZ = halfW * S;
+      const plankY = 6.0 * S;
       const railTopY = (capSpec.railTopVox ?? 16.5) * S;
       const frontRailTopY = Math.min(railTopY, 13.5 * S);
       const divRailTopY = Math.max(railTopY, 18.0 * S);
 
-      // Contact sheets come from each mesh's merged voxel boxes. Calculate them
-      // before integration so a falling item lands on the actual shape below it.
-      const supportBoxes = items.map((item) => worldCargoBoxes(item));
-      const supports = computeCargoSupports(items, supportBoxes);
-      for (let i = 0; i < items.length; i++) {
-        items[i]._supportY = supports[i].y;
-        items[i]._supportBy = supports[i].by;
-      }
-
-      // Wheel pebble shock impulse (rate of compression only, so standing compression never levitates cargo)
+      // Wheel shock (only positive compression rate)
       let wheelShock = 0;
       for (const w of this.wheels) {
         const dComp = Math.max(0, w.comp - (w.prevComp || 0));
         w.prevComp = w.comp;
-        w.cornerJolt = dComp / Math.max(0.008, dt);
+        w.cornerJolt = dComp / Math.max(0.008, stepDt);
         wheelShock += w.cornerJolt;
       }
 
+      // Apakah gerobak sedang aktif bergerak / miring berubah / terguncang?
+      const cartSpeed = Math.hypot(this.vel.x, this.vel.z);
+      const dRoll = Math.abs(this.roll - (this._prevCargoRoll ?? this.roll)) * invDt;
+      const dPitch = Math.abs(this.pitch - (this._prevCargoPitch ?? this.pitch)) * invDt;
+      this._prevCargoRoll = this.roll;
+      this._prevCargoPitch = this.pitch;
+      const cartAgitated = this.flipped
+        || cartSpeed > 0.14
+        || Math.abs(this.rollV) > 0.08
+        || Math.abs(this.pitchV) > 0.08
+        || dRoll > 0.08
+        || dPitch > 0.08
+        || Math.abs(cartAccX) > 0.45
+        || wheelShock > 0.08;
+
+      const tmpV = this._cargoTmpV || (this._cargoTmpV = new THREE.Vector3());
+      const rotAxis = this._cargoRollAxis || (this._cargoRollAxis = new THREE.Vector3());
+      const rotDq = this._cargoRollDq || (this._cargoRollDq = new THREE.Quaternion());
+
+      // Helper: siapkan data geometri pusat (c0) & ukuran tiap barang supaya berputar murni di titik tengahnya
+      const ensureItemGeom = (it) => {
+        if (!it.localQuat) {
+          it.localQuat = new THREE.Quaternion().setFromEuler(
+            it.homeRot || new THREE.Euler(it.localAng.x, it.localAng.y, it.localAng.z)
+          );
+        }
+        if (!it._c0) {
+          const vc = it.localCenter || new THREE.Vector3();
+          const q0 = new THREE.Quaternion().setFromEuler(it.homeRot || new THREE.Euler());
+          it._c0 = new THREE.Vector3(vc.x, vc.y, vc.z).applyQuaternion(q0);
+        }
+        const vh = it.localHalf || (it.half ? new THREE.Vector3(it.half.x / 0.9, it.half.y / 0.9, it.half.z / 0.9) : new THREE.Vector3(0.14, 0.14, 0.14));
+        it._vh = vh;
+        // Radius horizontal seragam (tidak berubah saat barang berputar -> nol getaran AABB!)
+        it._colR = Math.max(0.08, (vh.x + vh.z) * 0.44);
+        const q = it.localQuat;
+        const r10 = 2 * (q.x * q.y + q.w * q.z);
+        const r11 = 1 - 2 * (q.x * q.x + q.z * q.z);
+        const r12 = 2 * (q.y * q.z - q.w * q.x);
+        it._rotHalfY = Math.abs(r10) * vh.x + Math.abs(r11) * vh.y + Math.abs(r12) * vh.z;
+      };
+
       for (let i = 0; i < items.length; i++) {
         const it = items[i];
-        if (it.spilled || it.hiddenForQuest) continue;
+        if (!it || it.spilled || it.hiddenForQuest) continue;
+        ensureItemGeom(it);
+        if (cartAgitated) it._sleepTimer = 0;
+      }
 
-        // Barang bisa diam di alas bak ATAU di permukaan barang lain. Support
-        // diambil dari collider voxel, jadi hanya bagian mesh yang benar-benar
-        // bertumpuk yang menahan barang di atasnya.
-        const hasSupport = it._supportBy && it._supportY > it.floorY + 0.02;
-        const restY = hasSupport ? it._supportY - it._colBottom : it.floorY;
-        const onFloor = it.localPos.y <= restY + 0.012;
+      // Hitung tumpukan antar-barang dari posisi pusat visual sebenarnya (center = localPos + _c0)
+      for (let i = 0; i < items.length; i++) {
+        const a = items[i];
+        if (!a || a.spilled || a.hiddenForQuest) continue;
+        let bestSurfY = plankY;
+        let bestBy = null;
+        const ax = a.localPos.x + a._c0.x;
+        const az = a.localPos.z + a._c0.z;
+        const aBot = (a.localPos.y + a._c0.y) - a._rotHalfY;
+        for (let j = 0; j < items.length; j++) {
+          if (i === j) continue;
+          const b = items[j];
+          if (!b || b.spilled || b.hiddenForQuest) continue;
+          if (b._supportBy === a) continue;
+          const bx = b.localPos.x + b._c0.x;
+          const bz = b.localPos.z + b._c0.z;
+          const bTop = (b.localPos.y + b._c0.y) + b._rotHalfY;
+          const hDist = Math.hypot(ax - bx, az - bz);
+          // Pusat barang atas harus berada di atas bidang barang bawah; lewat tepi -> langsung jatuh ke lantai
+          if (hDist <= b._colR * 0.92 && aBot >= bTop - 0.09 && aBot <= bTop + 0.05) {
+            if (bTop > bestSurfY) {
+              bestSurfY = bTop;
+              bestBy = b;
+            }
+          }
+        }
+        a._supportSurfY = bestSurfY;
+        a._supportBy = bestBy;
+        // Jika pendukungnya hilang atau bergerak, bangunkan barang di atasnya
+        if (bestBy && (bestBy._sleepTimer || 0) < 0.22) a._sleepTimer = 0;
+        if (!bestBy && a.localPos.y + a._c0.y - a._rotHalfY > plankY + 0.018) a._sleepTimer = 0;
+      }
 
-        // Corner-localized wheel jolt transmitted through the wooden planks ONLY when resting on the plank
+      const accClamped = Math.max(-8, Math.min(8, cartAccX));
+      const centClamped = Math.max(-7, Math.min(7, this.centrifugal || 0));
+      const gx = -Math.sin(this.pitch) * g * 1.35 - accClamped * 0.65;
+      const gz =  Math.sin(this.roll)  * g * 1.45 - centClamped * 0.55 - this.rollV * 1.4;
+      const gy = -Math.cos(this.roll) * Math.cos(this.pitch) * g;
+
+      // Pass 1: Integrasi gaya untuk barang yang belum tidur (asleep)
+      for (let i = 0; i < items.length; i++) {
+        const it = items[i];
+        if (!it || it.spilled || it.hiddenForQuest) continue;
+        it._prevRollX = it.localPos.x;
+        it._prevRollZ = it.localPos.z;
+
+        const hasSupport = !!it._supportBy;
+        const surfY = it._supportSurfY ?? plankY;
+        const restY = surfY + it._rotHalfY - it._c0.y;
+        it._restYNow = restY;
+        const onFloor = it.localPos.y <= restY + 0.015;
+        it._onFloorNow = onFloor;
+
+        // Jika gerobak diam (termasuk di lereng miring!) dan barang sudah tenang menapak -> kunci 100% stabil tanpa getar/putar!
+        if (!this.flipped && (it._sleepTimer || 0) >= 0.22 && onFloor) {
+          it.localPos.y = restY;
+          it.localVel.set(0, 0, 0);
+          it.localAngVel.set(0, 0, 0);
+          continue;
+        }
+
         let localBumpKick = 0;
         if (onFloor) {
           for (const w of this.wheels) {
@@ -21405,251 +28350,178 @@ function computeCargoSupports(items, boxesByItem, maxGap = 0.035, maxPenetration
           }
         }
 
-        // Gravity projected into tilted bed frame + centrifugal & inertial slosh forces
-        const accClamped = Math.max(-8, Math.min(8, cartAccX));
-        const centClamped = Math.max(-7, Math.min(7, this.centrifugal || 0));
-        const gx = -Math.sin(this.pitch) * g * 1.35 - accClamped * 0.65;
-        const gz =  Math.sin(this.roll)  * g * 1.45 - centClamped * 0.55 - this.rollV * 1.4;
-        const gy = -Math.cos(this.roll) * Math.cos(this.pitch) * g;
+        it.localVel.x += gx * stepDt;
+        it.localVel.z += gz * stepDt;
+        it.localVel.y += gy * stepDt;
 
-        // Collision footprint and visual centre in the cart's local frame.
-        const cyaw = Math.cos(it.localAng.y), syaw = Math.sin(it.localAng.y);
-        const hx = Math.abs(cyaw) * it.half.x + Math.abs(syaw) * it.half.z;
-        const hz = Math.abs(syaw) * it.half.x + Math.abs(cyaw) * it.half.z;
-        const vCenter = it.localCenter || { x: 0, z: 0 };
-        const vHalf = it.localHalf || { x: hx / 0.9, z: hz / 0.9 };
-        const bed = { xMin: bedMinX, xMax: bedMaxX, zMin: bedMinZ, zMax: bedMaxZ };
-        const limits = cargoBedLimits(vCenter, vHalf, it.localAng.y, bed);
-        const { minX: inMinX, maxX: inMaxX, minZ: inMinZ, maxZ: inMaxZ } = limits;
-        it._wallMinX = inMinX; it._wallMaxX = inMaxX;
-        it._wallMinZ = inMinZ; it._wallMaxZ = inMaxZ;
-        it._touchPrev = false;
-
-        // Barang bebas bergeser/terombang-ambing di dalam bak seperti benda lepas di dalam mangkuk
-        it.localVel.x += gx * dt;
-        it.localVel.z += gz * dt;
-        it.localVel.y += gy * dt;
-
-        // Direct impulse kick when sitting on the plank/stack and a wheel hits a bump
-        if (onFloor && localBumpKick > 0.35) {
-          const hop = Math.min(0.95, 0.22 + (localBumpKick - 0.35) * (0.32 + (i % 3) * 0.08));
+        if (onFloor && localBumpKick > 0.40) {
+          const hop = Math.min(0.90, 0.20 + (localBumpKick - 0.40) * (0.30 + (i % 3) * 0.07));
           it.localVel.y = Math.max(it.localVel.y, hop);
-          it.localVel.x += (Math.random() - 0.5) * hop * 0.55;
-          it.localVel.z += (Math.random() - 0.5) * hop * 0.65;
-          it.localAngVel.x += (Math.random() - 0.5) * hop * 5.0;
-          it.localAngVel.y += (Math.random() - 0.5) * hop * 2.5;
-          it.localAngVel.z += (Math.random() - 0.5) * hop * 5.0;
+          it.localVel.x += (((i * 7) % 5) - 2) * 0.08 * hop;
+          it.localVel.z += (((i * 11) % 5) - 2) * 0.09 * hop;
+          it._sleepTimer = 0;
         }
 
-        // Light air damping so cargo sloshes freely
-        it.localVel.multiplyScalar(Math.exp(-0.85 * dt));
-        if (it.localVel.lengthSq() > 10.24) it.localVel.setLength(3.2);
-        it.localPos.addScaledVector(it.localVel, dt);
+        it.localVel.multiplyScalar(Math.exp(-1.1 * stepDt));
+        if (it.localVel.lengthSq() > 9.0) it.localVel.setLength(3.0);
+        it.localPos.addScaledVector(it.localVel, stepDt);
 
-        // Batas atas dinamis: barang boleh terpantul bebas di dalam bak saat kena guncangan.
         const ceilY = Math.max(railTopY, restY) + 0.45;
         if (it.localPos.y > ceilY) {
           it.localPos.y = ceilY;
           if (it.localVel.y > 0) it.localVel.y = 0;
         }
 
-        // Floor / stack contact + sliding friction (lebih licin di atas barang lain supaya meluncur jatuh saat miring)
         if (it.localPos.y < restY) {
           const impact = -it.localVel.y;
           it.localPos.y = restY;
-          if (impact > 0.20) {
-            it.localVel.y = impact * Math.max(0.22, it.bounciness);
-            it.localAngVel.x += (Math.random() - 0.5) * impact * 3.8;
-            it.localAngVel.z += (Math.random() - 0.5) * impact * 3.8;
+          if (impact > 0.32) {
+            it.localVel.y = impact * Math.min(0.32, it.bounciness);
           } else {
             it.localVel.y = 0;
           }
-          const floorFriction = hasSupport ? Math.exp(-1.8 * dt) : Math.exp(-3.4 * dt);
+          const floorFriction = hasSupport ? Math.exp(-2.2 * stepDt) : Math.exp(-4.2 * stepDt);
           it.localVel.x *= floorFriction;
           it.localVel.z *= floorFriction;
+          it._onFloorNow = true;
         }
 
-        // Penahan Pagar Kayu Bak: barang HANYA jatuh jika gerobak terbalik ATAU barang
-        // benar-benar terlempar melompati pagar dan keluar melewati batas luar gerobak.
-        const wallKick = (v) => (Math.abs(v) > 0.35 ? Math.min(0.9, Math.abs(v) * 1.5) : 0);
-        const itemBottomY = it.localPos.y - (it.half ? it.half.y * 0.85 : 0.12);
+        // Cek keluar batas mangkuk HANYA jika bagian bawah barang benar-benar melampaui tinggi pagar atau gerobak terbalik
+        const cx = it.localPos.x + it._c0.x;
+        const cz = it.localPos.z + it._c0.z;
         const outOfBed = (
-          it.localPos.z < bedMinZ - 0.12 ||
-          it.localPos.z > bedMaxZ + 0.12 ||
-          it.localPos.x < bedMinX - 0.14 ||
-          it.localPos.x > bedMaxX + 0.14
+          cz < bedMinZ - 0.14 ||
+          cz > bedMaxZ + 0.14 ||
+          cx < bedMinX - 0.16 ||
+          cx > bedMaxX + 0.16
         );
         if (this.flipped || outOfBed) {
           this.ejectItemToWorld(it, 0.75);
-          continue;
         }
-        if (it.localPos.z < inMinZ && itemBottomY <= railTopY + 0.04) {
-          const v = it.localVel.z;
-          it.localPos.z = inMinZ;
-          it.localVel.z = Math.abs(v) > 0.35 ? Math.abs(v) * 0.32 : 0;
-          it.localAngVel.x += wallKick(v);
-          if (Math.abs(v) > 0.35) it._restT = 0;
-          it._touchPrev = true;
-        } else if (it.localPos.z > inMaxZ && itemBottomY <= railTopY + 0.04) {
-          const v = it.localVel.z;
-          it.localPos.z = inMaxZ;
-          it.localVel.z = Math.abs(v) > 0.35 ? -Math.abs(v) * 0.32 : 0;
-          it.localAngVel.x -= wallKick(v);
-          if (Math.abs(v) > 0.35) it._restT = 0;
-          it._touchPrev = true;
-        }
-
-        if (it.localPos.x < inMinX && itemBottomY <= divRailTopY + 0.04) {
-          const v = it.localVel.x;
-          it.localPos.x = inMinX;
-          it.localVel.x = Math.abs(v) > 0.35 ? Math.abs(v) * 0.32 : 0;
-          it.localAngVel.z -= wallKick(v);
-          if (Math.abs(v) > 0.35) it._restT = 0;
-          it._touchPrev = true;
-        } else if (it.localPos.x > inMaxX && itemBottomY <= frontRailTopY + 0.04) {
-          const v = it.localVel.x;
-          it.localPos.x = inMaxX;
-          it.localVel.x = Math.abs(v) > 0.35 ? -Math.abs(v) * 0.32 : 0;
-          it.localAngVel.z += wallKick(v);
-          if (Math.abs(v) > 0.35) it._restT = 0;
-          it._touchPrev = true;
-        }
-
-        // Gerak menggelinding bebas 360° mengikuti kecepatan di alas bak/tumpukan (tidak tergantung bentuk barang)
-        if (!it.localQuat) {
-          it.localQuat = new THREE.Quaternion().setFromEuler(
-            new THREE.Euler(it.localAng.x, it.localAng.y, it.localAng.z)
-          );
-        }
-        if (onFloor) {
-          const rollR = Math.max(0.11, it.radius || 0.16);
-          const targetWx = it.localVel.z / rollR;
-          const targetWz = -it.localVel.x / rollR;
-          const blend = Math.min(1, dt * 14);
-          it.localAngVel.x += (targetWx - it.localAngVel.x) * blend;
-          it.localAngVel.z += (targetWz - it.localAngVel.z) * blend;
-          it.localAngVel.y *= Math.exp(-3.0 * dt);
-        } else {
-          it.localAngVel.multiplyScalar(Math.exp(-1.2 * dt));
-        }
-
-        const wMag = it.localAngVel.length();
-        if (wMag > 14) it.localAngVel.setLength(14);
-        const wStep = Math.min(wMag, 14);
-        if (wStep > 1e-4) {
-          const ax = this._cargoRollAxis || (this._cargoRollAxis = new THREE.Vector3());
-          const dq = this._cargoRollDq || (this._cargoRollDq = new THREE.Quaternion());
-          ax.copy(it.localAngVel).divideScalar(wMag);
-          dq.setFromAxisAngle(ax, wStep * dt);
-          it.localQuat.premultiply(dq).normalize();
-        }
-        it.localAng.y += it.localAngVel.y * dt;
-
-        // Hanya tenang total kalau bak datar, barang di lantai papan, dan kecepatan nyaris nol
-        const cartFlat = Math.abs(this.roll) < 0.06 && Math.abs(this.pitch) < 0.06;
-        const still = cartFlat && !hasSupport && it.localVel.lengthSq() < 0.015 && it.localAngVel.lengthSq() < 0.06;
-        it._restT = still ? (it._restT || 0) + dt : 0;
-        if (it._restT > 0.25 && onFloor) {
-          it.localVel.x *= Math.exp(-16 * dt);
-          it.localVel.z *= Math.exp(-16 * dt);
-          if (Math.abs(it.localVel.x) < 0.01) it.localVel.x = 0;
-          if (Math.abs(it.localVel.z) < 0.01) it.localVel.z = 0;
-          it.localAngVel.multiplyScalar(Math.exp(-20 * dt));
-          if (it.localAngVel.length() < 0.02) it.localAngVel.set(0, 0, 0);
-        }
-
-        it.mesh.position.copy(it.localPos);
-        it.mesh.quaternion.copy(it.localQuat);
       }
 
-      // Narrow-phase uses the mesh-derived compound boxes so empty corners
-      // (notably around barrels) do not generate phantom contacts. The AABB
-      // solver below remains the inexpensive response/broad-phase.
-      const collisionBoxes = items.map((item) => worldCargoBoxes(item));
+      // Pass 2: Solver PBD 3 iterasi (pisah antar-barang + tahan dinding pagar serentak -> nol interpenetrasi & nol getar!)
+      const clampItemToWalls = (it) => {
+        const r = it._colR;
+        const cx = it.localPos.x + it._c0.x;
+        const cz = it.localPos.z + it._c0.z;
+        const itemBottomY = (it.localPos.y + it._c0.y) - it._rotHalfY;
+        const minX = bedMinX + r, maxX = bedMaxX - r;
+        const minZ = bedMinZ + r, maxZ = bedMaxZ - r;
+        if (itemBottomY <= railTopY + 0.04) {
+          if (cz < minZ) it.localPos.z = minZ - it._c0.z;
+          else if (cz > maxZ) it.localPos.z = maxZ - it._c0.z;
+        }
+        if (itemBottomY <= divRailTopY + 0.04 && cx < minX) {
+          it.localPos.x = minX - it._c0.x;
+        }
+        if (itemBottomY <= frontRailTopY + 0.04 && cx > maxX) {
+          it.localPos.x = maxX - it._c0.x;
+        }
+      };
+
+      for (let iter = 0; iter < 3; iter++) {
+        for (let i = 0; i < items.length; i++) {
+          const a = items[i];
+          if (!a || a.spilled || a.hiddenForQuest) continue;
+          clampItemToWalls(a);
+          for (let j = i + 1; j < items.length; j++) {
+            const b = items[j];
+            if (!b || b.spilled || b.hiddenForQuest) continue;
+            if (a._supportBy === b || b._supportBy === a) continue;
+            const ay = a.localPos.y + a._c0.y;
+            const by = b.localPos.y + b._c0.y;
+            if (Math.abs(ay - by) >= (a._rotHalfY + b._rotHalfY) * 0.85) continue;
+
+            const ax = a.localPos.x + a._c0.x, az = a.localPos.z + a._c0.z;
+            const bx = b.localPos.x + b._c0.x, bz = b.localPos.z + b._c0.z;
+            let dx = bx - ax, dz = bz - az;
+            let d = Math.hypot(dx, dz);
+            const minDist = a._colR + b._colR;
+            if (d >= minDist) continue;
+            if (d < 1e-4) { dx = 1; dz = 0; d = 1; }
+            const nx = dx / d, nz = dz / d;
+            const pen = minDist - d;
+            const aAsleep = (a._sleepTimer || 0) >= 0.22;
+            const bAsleep = (b._sleepTimer || 0) >= 0.22;
+            const wA = aAsleep && !bAsleep ? 0.0 : (bAsleep && !aAsleep ? 1.0 : 0.5);
+            const wB = 1.0 - wA;
+            a.localPos.x -= nx * pen * wA;
+            a.localPos.z -= nz * pen * wA;
+            b.localPos.x += nx * pen * wB;
+            b.localPos.z += nz * pen * wB;
+            clampItemToWalls(a);
+            clampItemToWalls(b);
+
+            if (iter === 0) {
+              const rvx = b.localVel.x - a.localVel.x;
+              const rvz = b.localVel.z - a.localVel.z;
+              const vn = rvx * nx + rvz * nz;
+              if (vn < 0) {
+                // Hanya memantul ringan jika tabrakan cepat (> 0.55 m/s); kontak diam tidak boleh memantul!
+                const e = vn < -0.55 ? 0.18 : 0.0;
+                const jImp = -(1 + e) * vn * 0.5;
+                if (!aAsleep) { a.localVel.x -= nx * jImp; a.localVel.z -= nz * jImp; }
+                if (!bAsleep) { b.localVel.x += nx * jImp; b.localVel.z += nz * jImp; }
+              }
+            }
+          }
+        }
+      }
+
+      // Pass 3: Rekonsiliasi kecepatan PBD, rotasi menggelinding di pusat geometri, & penguncian diam (sleep)
       for (let i = 0; i < items.length; i++) {
-        const a = items[i];
-        if (a.spilled || a.hiddenForQuest || !a.half) continue;
-        const af = cargoFootprint(a.localPos.x, a.localPos.z,
-          a.localCenter || { x: 0, z: 0 }, a.localHalf || { x: a.half.x / 0.9, z: a.half.z / 0.9 }, a.localAng.y);
-        const ay = (a.localHalf && a.localHalf.y) || (a.half.y / 0.9);
-        const acy = (a.localCenter && a.localCenter.y) || 0;
-        for (let j = i + 1; j < items.length; j++) {
-          const b = items[j];
-          if (b.spilled || b.hiddenForQuest || !b.half) continue;
-          if (a._supportBy === b || b._supportBy === a) continue;
-          if (!cargoBoundsOverlap3D(collisionBoxes[i], collisionBoxes[j])) continue;
-          if (!cargoBoxesOverlap(collisionBoxes[i], collisionBoxes[j])) continue;
-          const bf = cargoFootprint(b.localPos.x, b.localPos.z,
-            b.localCenter || { x: 0, z: 0 }, b.localHalf || { x: b.half.x / 0.9, z: b.half.z / 0.9 }, b.localAng.y);
-          const by = (b.localHalf && b.localHalf.y) || (b.half.y / 0.9);
-          const bcy = (b.localCenter && b.localCenter.y) || 0;
-          const dx = bf.x - af.x;
-          const dy = (b.localPos.y + bcy) - (a.localPos.y + acy);
-          const dz = bf.z - af.z;
-          const contactPad = 0.008;
-          const ox = (af.hx + bf.hx + contactPad) - Math.abs(dx);
-          const oy = (ay + by) - Math.abs(dy);
-          const oz = (af.hz + bf.hz + contactPad) - Math.abs(dz);
-          if (ox <= 0 || oy <= 0 || oz <= 0) continue;
-          a._touchPrev = true; b._touchPrev = true;
-          if (oy <= ox && oy <= oz) {
-            // beda lapis: barang atas tetap bisa meluncur bebas di atas barang bawah saat miring
-            const top = dy >= 0 ? b : a;
-            if (top.localVel.y < 0) top.localVel.y = 0;
-            const slideDamp = Math.exp(-1.8 * dt);
-            top.localVel.x *= slideDamp; top.localVel.z *= slideDamp;
-            top.localAngVel.x *= 0.92; top.localAngVel.z *= 0.92;
-          } else if (ox <= oz) {
-            const s = dx >= 0 ? 1 : -1;
-            a.localPos.x -= s * ox * 0.5; b.localPos.x += s * ox * 0.5;
-            const av = a.localVel.x, bv = b.localVel.x;
-            const relV = bv - av;
-            if (relV * s < 0) {
-              const e = 0.25;
-              const j = -(1 + e) * relV * 0.5;
-              a.localVel.x -= j; b.localVel.x += j;
-            }
-            const kx = Math.abs(relV) > 0.22 ? Math.min(1.4, Math.abs(relV) * 0.85) : 0;
-            a.localAngVel.z -= s * kx; b.localAngVel.z += s * kx;
-            a.localAngVel.y += (Math.random() - 0.5) * kx * 0.6;
-            b.localAngVel.y -= (Math.random() - 0.5) * kx * 0.6;
-          } else {
-            const s = dz >= 0 ? 1 : -1;
-            a.localPos.z -= s * oz * 0.5; b.localPos.z += s * oz * 0.5;
-            const av = a.localVel.z, bv = b.localVel.z;
-            const relV = bv - av;
-            if (relV * s < 0) {
-              const e = 0.25;
-              const j = -(1 + e) * relV * 0.5;
-              a.localVel.z -= j; b.localVel.z += j;
-            }
-            const kz = Math.abs(relV) > 0.22 ? Math.min(1.4, Math.abs(relV) * 0.85) : 0;
-            a.localAngVel.x += s * kz; b.localAngVel.x -= s * kz;
-            a.localAngVel.y += (Math.random() - 0.5) * kz * 0.6;
-            b.localAngVel.y -= (Math.random() - 0.5) * kz * 0.6;
-          }
-        }
-      }
+        const it = items[i];
+        if (!it || it.spilled || it.hiddenForQuest) continue;
 
-      // Jaring pengaman terakhir: jaga barang tetap di dalam mangkuk pagar selama di bawah tinggi pagar.
-      for (const it of items) {
-        if (it.spilled || it.hiddenForQuest) continue;
-        if (it._wallMinX !== undefined) {
-          const itemBottomY = it.localPos.y - (it.half ? it.half.y * 0.85 : 0.12);
-          const center = it.localCenter || { x: 0, z: 0 };
-          const half = it.localHalf || { x: it.half.x / 0.9, z: it.half.z / 0.9 };
-          const bed = { xMin: bedMinX, xMax: bedMaxX, zMin: bedMinZ, zMax: bedMaxZ };
-          const lim = cargoBedLimits(center, half, it.localAng.y, bed);
-          if (itemBottomY <= divRailTopY + 0.04 && it.localPos.x < lim.minX) it.localPos.x = lim.minX;
-          if (itemBottomY <= frontRailTopY + 0.04 && it.localPos.x > lim.maxX) it.localPos.x = lim.maxX;
-          if (itemBottomY <= railTopY + 0.04) {
-            it.localPos.z = Math.min(lim.maxZ, Math.max(lim.minZ, it.localPos.z));
-          }
+        const actualDx = it.localPos.x - (it._prevRollX ?? it.localPos.x);
+        const actualDz = it.localPos.z - (it._prevRollZ ?? it.localPos.z);
+        const actualMove = Math.hypot(actualDx, actualDz);
+
+        // Rekonsiliasi kecepatan PBD: cegah kecepatan hantu menumpuk saat barang tertahan pagar/tetangga!
+        const pbdVx = actualDx * invDt;
+        const pbdVz = actualDz * invDt;
+        if (Math.abs(pbdVx) < Math.abs(it.localVel.x)) it.localVel.x = pbdVx * 0.85;
+        if (Math.abs(pbdVz) < Math.abs(it.localVel.z)) it.localVel.z = pbdVz * 0.85;
+
+        if (!cartAgitated && it._onFloorNow && actualMove < 0.0035 && Math.abs(it.localVel.y) < 0.08) {
+          it._sleepTimer = (it._sleepTimer || 0) + stepDt;
+        } else if (actualMove > 0.006 || Math.abs(it.localVel.y) > 0.15) {
+          it._sleepTimer = 0;
         }
-        it.mesh.position.copy(it.localPos);
-        if (it.localQuat) it.mesh.quaternion.copy(it.localQuat);
-        if (it.localVel.lengthSq() > 10.24) it.localVel.setLength(3.2);
-        if (it.localAngVel.lengthSq() > 144) it.localAngVel.setLength(12.0);
+
+        if ((it._sleepTimer || 0) >= 0.22 && it._onFloorNow) {
+          // Diam mutlak tanpa getar dan tanpa berputar sedikit pun
+          it.localPos.x = it._prevRollX ?? it.localPos.x;
+          it.localPos.z = it._prevRollZ ?? it.localPos.z;
+          it.localVel.set(0, 0, 0);
+          it.localAngVel.set(0, 0, 0);
+        } else if (actualMove > 0.0025) {
+          // Menggelinding murni proporsional jarak tempuh nyata (dTheta = ds / r) tanpa residual spin!
+          const rollR = Math.max(0.13, it.radius || 0.16);
+          const wx = (actualDz * invDt) / rollR;
+          const wz = -(actualDx * invDt) / rollR;
+          it.localAngVel.set(wx, 0, wz);
+          const wMag = Math.hypot(wx, wz);
+          const wClamped = Math.min(wMag, 10.0);
+          if (wClamped > 0.02) {
+            rotAxis.set(wx / wMag, 0, wz / wMag);
+            rotDq.setFromAxisAngle(rotAxis, wClamped * stepDt);
+            it.localQuat.premultiply(rotDq).normalize();
+          }
+        } else {
+          it.localAngVel.set(0, 0, 0);
+        }
+
+        // Poskan mesh dengan kompensasi pivot pusat geometri (_c0 - R(q)*localCenter) agar berputar tepat di tengah barang!
+        const vc = it.localCenter || tmpV.set(0, 0, 0);
+        tmpV.set(vc.x, vc.y, vc.z).applyQuaternion(it.localQuat);
+        it.mesh.position.set(
+          it.localPos.x + it._c0.x - tmpV.x,
+          it.localPos.y + it._c0.y - tmpV.y,
+          it.localPos.z + it._c0.z - tmpV.z
+        );
+        it.mesh.quaternion.copy(it.localQuat);
       }
 
       // 2) World physics for spilled cargo items (gravity, ground + pebble bounce, rolling, item-item collisions)
@@ -37925,6 +44797,2447 @@ return { buildSmallBandit, buildBigBandit, animateSmallBandit, animateBigBandit 
 
 })();
 
+// --- js/models/sun_ruins_golem_model.js ---
+const __MOD_RUINS_GOLEM = (() => {
+'use strict';
+const THREE = HC.THREE;
+
+const TAU = Math.PI * 2;
+const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
+const lerp = (a, b, t) => a + (b - a) * t;
+const smooth = (t) => {
+  const u = clamp(t, 0, 1);
+  return u * u * (3 - 2 * u);
+};
+const dampRate = (rate, dt) => (dt > 0 ? 1 - Math.exp(-rate * dt) : 1);
+const damp = (cur, target, rate, dt) => {
+  if (!Number.isFinite(cur)) return target;
+  if (dt <= 0) return target;
+  return cur + (target - cur) * (1 - Math.exp(-rate * dt));
+};
+
+// ============================================================================
+// SUN RUINS PURE-VOXEL PALETTE (harmonized with Sylvan NPCs & Bandits)
+// ============================================================================
+
+const CG = {
+  // Ancient Sun Ruins Limestone
+  limeL:   0xd8c69f,
+  lime:    0xc9b48a,
+  limeM:   0xb39d74,
+  limeD:   0x8c7754,
+
+  // Dark Carved Temple Basalt
+  basalt:  0x3e3a35,
+  basaltD: 0x282522,
+
+  // Stepped Moss Clumps
+  mossL:   0x6c8d49,
+  moss:    0x537338,
+  mossD:   0x3b5426,
+
+  // Ancient Gold Trim
+  goldL:   0xf0c450,
+  gold:    0xd9a834,
+  goldD:   0x9e7418,
+
+  // Glowing Cyan Runes & Visor
+  cyanH:   0xc6fff7,
+  cyan:    0x7ef7e6,
+  cyanD:   0x3bc2b3,
+
+  // Warm Solar Core
+  solarH:  0xfff3c4,
+  solar:   0xffd25a,
+  solarD:  0xe89b1e,
+};
+
+// ============================================================================
+// PURE VOXEL BUILDERS (STRICTLY ORTHOGONAL BoxGeometry BRICKS)
+// ============================================================================
+
+function brickHash(x, y, z) {
+  const qx = Math.round(x * 20);
+  const qy = Math.round(y * 20);
+  const qz = Math.round(z * 20);
+  const n = Math.sin(qx * 127.1 + qy * 311.7 + qz * 74.7) * 43758.5453123;
+  return n - Math.floor(n);
+}
+
+/**
+ * Batched orthogonal voxel brick builder matching bandit_models.js.
+ * Uses a single unit BoxGeometry(1,1,1) merged per parent joint with
+ * vertex-colored face shading & subtle deterministic voxel jitter.
+ */
+function createVoxelBuilder(isMobile = false, materialOverride = null, opts = {}) {
+  const base = new THREE.BoxGeometry(1, 1, 1);
+  const unit = base.toNonIndexed();
+  base.dispose();
+
+  const batches = new Map();
+  const matrix = new THREE.Matrix4();
+  const normalMat = new THREE.Matrix3();
+  const v = new THREE.Vector3();
+  const n = new THREE.Vector3();
+  const q = new THREE.Quaternion();
+  const euler = new THREE.Euler();
+  const posVec = new THREE.Vector3();
+  const scaleVec = new THREE.Vector3();
+  const tint = new THREE.Color();
+
+  const isEmissive = !!opts.emissive;
+  const jitterAmt = opts.jitterAmt ?? (isEmissive ? 0.0 : 0.045);
+  const castShadow = opts.castShadow !== undefined ? opts.castShadow : !isMobile && !isEmissive;
+  const receiveShadow = opts.receiveShadow !== undefined ? opts.receiveShadow : !isMobile && !isEmissive;
+
+  const material =
+    materialOverride ||
+    new THREE.MeshLambertMaterial({
+      color: 0xffffff,
+      vertexColors: true,
+      emissive: 0x000000,
+    });
+
+  return {
+    material,
+    box(parent, w, h, d, color, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0) {
+      let data = batches.get(parent);
+      if (!data) {
+        data = { p: [], n: [], c: [] };
+        batches.set(parent, data);
+      }
+      euler.set(rx, ry, rz);
+      q.setFromEuler(euler);
+      posVec.set(x, y, z);
+      scaleVec.set(w, h, d);
+      matrix.compose(posVec, q, scaleVec);
+      normalMat.getNormalMatrix(matrix);
+
+      tint.set(color);
+      const j = jitterAmt > 0 ? 1 + (brickHash(x, y, z) - 0.5) * jitterAmt : 1;
+      const br = tint.r * j;
+      const bg = tint.g * j;
+      const bb = tint.b * j;
+
+      const pos = unit.attributes.position;
+      const norm = unit.attributes.normal;
+      for (let i = 0; i < pos.count; i++) {
+        v.fromBufferAttribute(pos, i).applyMatrix4(matrix);
+        data.p.push(v.x, v.y, v.z);
+        n.fromBufferAttribute(norm, i).applyMatrix3(normalMat).normalize();
+        data.n.push(n.x, n.y, n.z);
+
+        // Subtle quantized per-face shading so stepped voxel courses pop cleanly
+        let shade = 1.0;
+        if (!isEmissive) {
+          if (n.y > 0.6) shade = 1.05;
+          else if (n.y < -0.6) shade = 0.89;
+          else if (Math.abs(n.x) > 0.6) shade = 0.96;
+        }
+        data.c.push(
+          clamp(br * shade, 0, 1),
+          clamp(bg * shade, 0, 1),
+          clamp(bb * shade, 0, 1)
+        );
+      }
+    },
+    finish() {
+      for (const [parent, data] of batches) {
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.Float32BufferAttribute(data.p, 3));
+        geometry.setAttribute('normal', new THREE.Float32BufferAttribute(data.n, 3));
+        geometry.setAttribute('color', new THREE.Float32BufferAttribute(data.c, 3));
+        geometry.computeBoundingSphere();
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.castShadow = castShadow;
+        mesh.receiveShadow = receiveShadow;
+        parent.add(mesh);
+      }
+      unit.dispose();
+    },
+  };
+}
+
+function makeJoint(parent, name, x = 0, y = 0, z = 0) {
+  const g = new THREE.Group();
+  g.name = name;
+  g.position.set(x, y, z);
+  parent.add(g);
+  return g;
+}
+
+/**
+ * Helper to stack a clean stepped voxel moss clump (pure orthogonal boxes).
+ */
+function addMossClump(box, parent, x, y, z, w = 0.24, h = 0.14, d = 0.24, flipX = 1) {
+  box(parent, w, h * 0.55, d, CG.mossD, x, y, z);
+  box(parent, w * 0.78, h * 0.45, d * 0.78, CG.moss, x + flipX * w * 0.06, y + h * 0.42, z - d * 0.04);
+  box(parent, w * 0.48, h * 0.36, d * 0.50, CG.mossL, x - flipX * w * 0.08, y + h * 0.72, z + d * 0.06);
+}
+
+/**
+ * Builds a pure-voxel stepped pixel ring in the XY plane from discrete
+ * axis-aligned voxel blocks (no Torus/Ring geometry, no tilted rectangles).
+ */
+function addPixelRingXY(box, parent, radius, step, thicknessZ, segments, colorFn) {
+  const seen = new Set();
+  for (let i = 0; i < segments; i++) {
+    const ang = (i / segments) * TAU;
+    const gx = Math.round((Math.cos(ang) * radius) / step);
+    const gy = Math.round((Math.sin(ang) * radius) / step);
+    const key = `${gx},${gy}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const col = colorFn(i, gx, gy, ang);
+    box(parent, step * 1.02, step * 1.02, thicknessZ, col, gx * step, gy * step, 0);
+  }
+}
+
+// ============================================================================
+// MAIN BUILDER: buildSunRuinsGolem(isMobile = false)
+// ============================================================================
+
+/**
+ * Builds the 100% pure-voxel Ancient Sun Ruins Guardian Golem (~3.70 m tall).
+ * Grounded cleanly at y = 0, facing +Z.
+ * @param {boolean|object} [isMobile=false]
+ */
+function buildSunRuinsGolem(isMobile = false) {
+  const mobile = typeof isMobile === 'object' ? !!(isMobile.isMobileDevice || isMobile.isMobile) : !!isMobile;
+
+  const root = new THREE.Group();
+  root.name = 'sun_ruins_golem';
+
+  // Primary batched stone/moss/gold voxel builder (flashes red on hit)
+  const stoneBuilder = createVoxelBuilder(mobile);
+  const box = stoneBuilder.box;
+
+  // Emissive voxel builders for glowing cyan runes, eye visor, and solar core
+  const cyanMat = new THREE.MeshLambertMaterial({
+    color: 0xffffff,
+    emissive: 0x4de8d8,
+    emissiveIntensity: 1.15,
+    vertexColors: true,
+  });
+  cyanMat.userData = { isEnergyGlow: true, baseIntensity: 1.15 };
+  const cyanBuilder = createVoxelBuilder(mobile, cyanMat, { emissive: true, castShadow: false, receiveShadow: false });
+  const cyanBox = cyanBuilder.box;
+
+  const solarMat = new THREE.MeshLambertMaterial({
+    color: 0xffffff,
+    emissive: 0xf2a92c,
+    emissiveIntensity: 1.25,
+    vertexColors: true,
+  });
+  solarMat.userData = { isEnergyGlow: true, baseIntensity: 1.25 };
+  const solarBuilder = createVoxelBuilder(mobile, solarMat, { emissive: true, castShadow: false, receiveShadow: false });
+  const solarBox = solarBuilder.box;
+
+  const crispGlowMat = new THREE.MeshBasicMaterial({
+    color: 0xffffff,
+    vertexColors: true,
+  });
+  crispGlowMat.userData = { isEnergyGlow: true };
+  const crispBuilder = createVoxelBuilder(mobile, crispGlowMat, { emissive: true, castShadow: false, receiveShadow: false });
+  const crispBox = crispBuilder.box;
+
+  const BODY_Y = 1.62;
+  const LEG_Y = 1.518;
+  const SHIN_Y = -0.68; // World knee pivot y = 1.518 - 0.68 = 0.838 m
+
+  // --------------------------------------------------------------------------
+  // 1. 2-JOINT ARTICULATED VOXEL PILLAR LEGS (legs: [legL, legR], shins: [shinL, shinR])
+  //    Foot sole rests at shin y = -0.80 => exact world y = 0.000
+  // --------------------------------------------------------------------------
+  const legs = [];
+  const shins = [];
+
+  for (const side of [-1, 1]) {
+    const isLeft = side < 0;
+    const lg = makeJoint(root, isLeft ? 'legL' : 'legR', side * 0.40, LEG_Y, 0);
+
+    // Basalt hip socket & stepped carved limestone thigh pillar
+    box(lg, 0.44, 0.20, 0.46, CG.basalt, 0, -0.02, 0);
+    box(lg, 0.48, 0.24, 0.50, CG.lime, 0, -0.22, 0);
+    box(lg, 0.44, 0.26, 0.46, CG.limeM, 0, -0.45, 0);
+    box(lg, 0.38, 0.12, 0.40, CG.basaltD, 0, -0.61, 0);
+
+    // Gold thigh trim cuff + corner rivets
+    box(lg, 0.49, 0.07, 0.51, CG.gold, 0, -0.43, 0);
+    box(lg, 0.51, 0.04, 0.14, CG.goldD, 0, -0.43, 0);
+
+    // Recessed front thigh cyan rune channel flanked by basalt cheeks
+    box(lg, 0.14, 0.26, 0.04, CG.basaltD, side * 0.11, -0.23, 0.24);
+    cyanBox(lg, 0.055, 0.22, 0.035, CG.cyan, side * 0.11, -0.23, 0.255);
+
+    // Outer stepped stone hip plate + creeping moss clump
+    box(lg, 0.12, 0.28, 0.36, CG.limeD, side * 0.24, -0.22, 0);
+    addMossClump(box, lg, side * 0.24, -0.08, isLeft ? -0.04 : 0.04, 0.16, 0.13, 0.22, side);
+
+    // Knee & Shin Joint (world y = 0.80)
+    const shin = makeJoint(lg, isLeft ? 'shinL' : 'shinR', 0, SHIN_Y, 0);
+
+    // Pure-voxel stepped basalt knee axle drum
+    box(shin, 0.38, 0.20, 0.28, CG.basalt, 0, 0, 0);
+    box(shin, 0.34, 0.28, 0.20, CG.basaltD, 0, 0, 0);
+
+    // Heavy stepped limestone & gold projecting knee shield
+    box(shin, 0.38, 0.24, 0.10, CG.lime, 0, 0.02, 0.17);
+    box(shin, 0.28, 0.18, 0.07, CG.limeL, 0, 0.02, 0.23);
+    box(shin, 0.16, 0.11, 0.05, CG.gold, 0, 0.02, 0.27);
+    solarBox(shin, 0.06, 0.07, 0.035, CG.solar, 0, 0.02, 0.295);
+
+    // Lower greave pillar (flares slightly toward ankle)
+    box(shin, 0.40, 0.22, 0.42, CG.limeM, 0, -0.21, 0);
+    box(shin, 0.46, 0.26, 0.48, CG.lime, 0, -0.43, 0);
+
+    // Front shin cyan rune groove framed by basalt
+    box(shin, 0.14, 0.32, 0.04, CG.basaltD, 0, -0.35, 0.235);
+    cyanBox(shin, 0.055, 0.27, 0.035, CG.cyan, 0, -0.35, 0.25);
+
+    // Gold ankle band + back calf moss clump
+    box(shin, 0.50, 0.07, 0.52, CG.gold, 0, -0.58, 0.01);
+    addMossClump(box, shin, side * 0.03, -0.30, -0.23, 0.24, 0.15, 0.14, side);
+
+    // Chunky Voxel Stone Boot (sole bottom strictly at y = -0.80 => world y = 0.000)
+    box(shin, 0.54, 0.08, 0.72, CG.basaltD, 0, -0.76, 0.08);
+    box(shin, 0.48, 0.14, 0.58, CG.limeM, 0, -0.65, 0.04);
+    box(shin, 0.38, 0.07, 0.14, CG.gold, 0, -0.60, 0.22);
+    box(shin, 0.42, 0.14, 0.16, CG.limeD, 0, -0.73, -0.22);
+
+    // Three heavy chunky stone toe bricks + basalt toe caps (bottom at y = -0.80)
+    for (const toeIdx of [-1, 0, 1]) {
+      const toeW = toeIdx === 0 ? 0.16 : 0.13;
+      const toeH = toeIdx === 0 ? 0.14 : 0.12;
+      const toeD = toeIdx === 0 ? 0.24 : 0.20;
+      const tx = toeIdx * 0.175;
+      const tz = toeIdx === 0 ? 0.42 : 0.40;
+      box(shin, toeW, toeH, toeD, toeIdx === 0 ? CG.limeL : CG.lime, tx, -0.80 + toeH * 0.5, tz);
+      box(shin, toeW * 0.82, 0.07, 0.08, toeIdx === 0 ? CG.goldD : CG.basalt, tx, -0.80 + 0.035, tz + toeD * 0.46);
+    }
+
+    lg.userData.shin = shin;
+    legs.push(lg);
+    shins.push(shin);
+  }
+
+  // --------------------------------------------------------------------------
+  // 2. PELVIS, RECESSED CHEST CHAMBER & MOSS-DRAPED COLLAR (body at y = 1.62)
+  // --------------------------------------------------------------------------
+  const body = makeJoint(root, 'body', 0, BODY_Y, 0);
+
+  // Pelvis waist core + gold girdle + stepped temple loincloth & side tassets
+  box(body, 0.92, 0.34, 0.62, CG.basalt, 0, 0.02, 0);
+  box(body, 1.04, 0.10, 0.70, CG.gold, 0, 0.14, 0);
+  box(body, 0.22, 0.13, 0.06, CG.goldD, 0, 0.14, 0.35);
+  cyanBox(body, 0.12, 0.07, 0.04, CG.cyan, 0, 0.14, 0.375);
+
+  // Front stepped temple loincloth slab
+  box(body, 0.40, 0.18, 0.10, CG.lime, 0, -0.02, 0.34);
+  box(body, 0.32, 0.16, 0.08, CG.limeM, 0, -0.17, 0.35);
+  box(body, 0.20, 0.10, 0.07, CG.limeD, 0, -0.28, 0.35);
+  box(body, 0.42, 0.05, 0.11, CG.gold, 0, 0.05, 0.345);
+  solarBox(body, 0.08, 0.20, 0.04, CG.solar, 0, -0.10, 0.385);
+
+  // Rear loincloth slab & side hip tassets
+  box(body, 0.44, 0.34, 0.09, CG.limeM, 0, -0.06, -0.33);
+  box(body, 0.30, 0.14, 0.07, CG.limeD, 0, -0.25, -0.33);
+  for (const side of [-1, 1]) {
+    box(body, 0.12, 0.34, 0.48, CG.limeM, side * 0.52, -0.04, 0);
+    box(body, 0.09, 0.18, 0.36, CG.limeD, side * 0.54, -0.21, 0);
+    box(body, 0.06, 0.12, 0.38, CG.gold, side * 0.57, 0.06, 0);
+  }
+
+  // Lower abdomen stone tier + glowing cyan waist energy seam
+  cyanBox(body, 0.96, 0.06, 0.68, CG.cyanD, 0, 0.21, 0);
+  box(body, 1.12, 0.28, 0.68, CG.limeM, 0, 0.36, 0);
+  box(body, 0.36, 0.24, 0.06, CG.basaltD, 0, 0.36, 0.33);
+  cyanBox(body, 0.07, 0.20, 0.04, CG.cyan, 0, 0.36, 0.36);
+
+  // Recessed Dark Basalt Chest Chamber Cavity & Massive Backstone Monolith
+  box(body, 1.36, 0.72, 0.34, CG.limeM, 0, 0.82, -0.22);
+  box(body, 1.54, 0.22, 0.30, CG.lime, 0, 1.08, -0.20);
+  box(body, 0.88, 0.66, 0.38, CG.basaltD, 0, 0.80, -0.02); // Deep chamber recess wall
+  box(body, 0.84, 0.12, 0.50, CG.basalt, 0, 0.50, 0.08);   // Chamber lower sill
+  box(body, 0.84, 0.12, 0.50, CG.basalt, 0, 1.08, 0.08);   // Chamber upper lintel
+
+  // Asymmetrical Cracked Left & Right Limestone Pectoral Halves framing the open core cavity
+  // Left pectoral monolith (x: -0.90 to -0.26)
+  box(body, 0.56, 0.62, 0.48, CG.lime, -0.60, 0.80, 0.14);
+  box(body, 0.16, 0.24, 0.44, CG.limeM, -0.32, 0.94, 0.14);
+  box(body, 0.14, 0.20, 0.44, CG.limeL, -0.34, 0.62, 0.14);
+  box(body, 0.10, 0.14, 0.36, CG.basalt, -0.28, 0.78, 0.12);
+  box(body, 0.48, 0.08, 0.12, CG.gold, -0.56, 1.02, 0.34);
+
+  // Right pectoral monolith (x: +0.26 to +0.92, slightly bulkier & stepped differently)
+  box(body, 0.60, 0.64, 0.50, CG.lime, 0.62, 0.81, 0.14);
+  box(body, 0.16, 0.22, 0.44, CG.limeL, 0.32, 0.96, 0.14);
+  box(body, 0.14, 0.22, 0.44, CG.limeM, 0.33, 0.63, 0.14);
+  box(body, 0.10, 0.16, 0.38, CG.basalt, 0.28, 0.80, 0.12);
+  box(body, 0.52, 0.09, 0.12, CG.gold, 0.58, 1.04, 0.35);
+
+  // Stepped Cyan & Solar Energy Cracks radiating out from chest chamber
+  cyanBox(body, 0.14, 0.055, 0.04, CG.cyan, -0.36, 0.72, 0.38);
+  cyanBox(body, 0.12, 0.055, 0.04, CG.cyan, -0.46, 0.67, 0.38);
+  solarBox(body, 0.12, 0.05, 0.04, CG.solar, -0.36, 0.92, 0.38);
+  cyanBox(body, 0.14, 0.055, 0.04, CG.cyan, 0.36, 0.70, 0.39);
+  cyanBox(body, 0.12, 0.055, 0.04, CG.cyan, 0.46, 0.65, 0.39);
+  solarBox(body, 0.14, 0.05, 0.04, CG.solar, 0.36, 0.94, 0.39);
+
+  // Massive Stepped Temple Shoulder Collar (~1.88 m span)
+  box(body, 1.88, 0.18, 0.82, CG.lime, 0, 1.18, -0.02);
+  box(body, 1.56, 0.12, 0.72, CG.limeL, 0, 1.31, -0.02);
+  box(body, 1.62, 0.07, 0.76, CG.gold, 0, 1.26, -0.02);
+  box(body, 0.60, 0.10, 0.56, CG.basaltD, 0, 1.34, 0.04); // Recessed head levitation basin
+
+  // Pure-voxel square cyan levitation rune frame under floating monolith head
+  cyanBox(body, 0.44, 0.04, 0.05, CG.cyan, 0, 1.39, 0.24);
+  cyanBox(body, 0.44, 0.04, 0.05, CG.cyan, 0, 1.39, -0.16);
+  cyanBox(body, 0.05, 0.04, 0.40, CG.cyan, -0.20, 1.39, 0.04);
+  cyanBox(body, 0.05, 0.04, 0.40, CG.cyan, 0.20, 1.39, 0.04);
+
+  // Lush Stepped Moss Collar Blocks wrapping shoulders, nape, and upper spine
+  addMossClump(box, body, -0.56, 1.36, -0.08, 0.44, 0.16, 0.42, -1);
+  addMossClump(box, body, 0.56, 1.37, -0.06, 0.46, 0.17, 0.42, 1);
+  addMossClump(box, body, 0, 1.32, -0.28, 0.58, 0.18, 0.30, 1);
+  addMossClump(box, body, -0.34, 0.98, -0.36, 0.30, 0.18, 0.20, -1);
+  addMossClump(box, body, 0.36, 0.90, -0.36, 0.28, 0.16, 0.20, 1);
+
+  // --------------------------------------------------------------------------
+  // 2B. SOLAR HEART CORE (coreOrb) INSIDE CHEST CHAMBER (100% PURE VOXEL)
+  // --------------------------------------------------------------------------
+  const coreOrb = makeJoint(body, 'coreOrb', 0, 0.79, 0.22);
+
+  // Stepped pixel-sphere Solar Core (coreInner)
+  const coreInner = makeJoint(coreOrb, 'coreInner', 0, 0, 0);
+  crispBox(coreInner, 0.14, 0.14, 0.14, CG.solarH, 0, 0, 0);
+  solarBox(coreInner, 0.21, 0.10, 0.10, CG.solar, 0, 0, 0);
+  solarBox(coreInner, 0.10, 0.21, 0.10, CG.solar, 0, 0, 0);
+  solarBox(coreInner, 0.10, 0.10, 0.21, CG.solar, 0, 0, 0);
+  for (const sx of [-0.07, 0.07]) {
+    for (const sy of [-0.07, 0.07]) {
+      for (const sz of [-0.07, 0.07]) {
+        solarBox(coreInner, 0.055, 0.055, 0.055, CG.solarD, sx, sy, sz);
+      }
+    }
+  }
+
+  // Orbiting Cyan Arcane Shard Cage (coreShell)
+  const coreShell = makeJoint(coreOrb, 'coreShell', 0, 0, 0);
+  for (const [sx, sy, sz] of [
+    [0.18, 0, 0], [-0.18, 0, 0],
+    [0, 0.18, 0], [0, -0.18, 0],
+    [0, 0, 0.18], [0, 0, -0.18],
+  ]) {
+    cyanBox(coreShell, 0.05, 0.05, 0.05, CG.cyan, sx, sy, sz);
+  }
+
+  // Counter-Rotating Stepped Voxel Gimbal Rings (coreRingA, coreRingB)
+  const coreRingA = makeJoint(coreOrb, 'coreRingA', 0, 0, 0);
+  addPixelRingXY(box, coreRingA, 0.26, 0.052, 0.044, 16, (i) => (i % 4 === 0 ? CG.goldL : CG.gold));
+  coreRingA.rotation.set(0.58, 0.25, 0);
+
+  const coreRingB = makeJoint(coreOrb, 'coreRingB', 0, 0, 0);
+  addPixelRingXY(
+    cyanBox,
+    coreRingB,
+    0.32,
+    0.048,
+    0.036,
+    20,
+    (i) => (i % 5 === 0 ? CG.solar : CG.cyan)
+  );
+  coreRingB.rotation.set(-0.48, -0.35, 0.4);
+
+  // --------------------------------------------------------------------------
+  // 2C. PIXEL-STEPPED DORSAL SUN HALO (sunHalo -> innerHaloRing, outerRing)
+  //     Center at world y = 1.62 + 1.11 = 2.73 m; ray tips reach ~3.68 m
+  // --------------------------------------------------------------------------
+  const sunHaloBaseY = 1.11;
+  const sunHaloBaseZ = -0.62;
+  const sunHalo = makeJoint(body, 'sunHalo', 0, sunHaloBaseY, sunHaloBaseZ);
+
+  const innerHaloRing = makeJoint(sunHalo, 'innerHaloRing', 0, 0, 0);
+  addPixelRingXY(box, innerHaloRing, 0.38, 0.075, 0.06, 20, (i) => (i % 5 === 0 ? CG.gold : CG.basalt));
+  // 4 cardinal glowing cyan rune nodes on inner ring
+  for (const [rx, ry] of [[0.38, 0], [-0.38, 0], [0, 0.38], [0, -0.38]]) {
+    cyanBox(innerHaloRing, 0.08, 0.08, 0.075, CG.cyan, rx, ry, 0);
+  }
+
+  const outerRing = makeJoint(sunHalo, 'outerRing', 0, 0, 0);
+  addPixelRingXY(
+    box,
+    outerRing,
+    0.64,
+    0.08,
+    0.07,
+    28,
+    (i) => (i % 2 === 0 ? CG.gold : CG.lime)
+  );
+
+  // 4 Major Cardinal Stepped Solar Obelisk Rays (+Y, -Y, +X, -X)
+  for (const [dx, dy] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
+    const horiz = dx !== 0;
+    box(outerRing, horiz ? 0.12 : 0.17, horiz ? 0.17 : 0.12, 0.08, CG.lime, dx * 0.72, dy * 0.72, 0);
+    box(outerRing, horiz ? 0.10 : 0.11, horiz ? 0.11 : 0.10, 0.075, CG.gold, dx * 0.81, dy * 0.81, 0);
+    solarBox(outerRing, horiz ? 0.08 : 0.065, horiz ? 0.065 : 0.08, 0.065, CG.solar, dx * 0.89, dy * 0.89, 0);
+    cyanBox(outerRing, 0.055, 0.055, 0.08, CG.cyan, dx * 0.64, dy * 0.64, 0);
+  }
+
+  // 4 Minor Diagonal Pixel-Stepped Sun Rays (pure orthogonal stair steps!)
+  for (const sx of [-1, 1]) {
+    for (const sy of [-1, 1]) {
+      box(outerRing, 0.09, 0.09, 0.07, CG.goldD, sx * 0.49, sy * 0.49, 0);
+      box(outerRing, 0.08, 0.08, 0.065, CG.gold, sx * 0.56, sy * 0.56, 0);
+      cyanBox(outerRing, 0.06, 0.06, 0.06, CG.cyan, sx * 0.63, sy * 0.63, 0);
+    }
+  }
+
+  // --------------------------------------------------------------------------
+  // 3. NECKLESS MONOLITH VOXEL HEAD (head + eyeVisor + eyeCore + crown + moss)
+  //    Center at body y = 1.53 => world y = 3.15 m; crown reaches ~3.57 m
+  // --------------------------------------------------------------------------
+  const headBaseY = 1.53;
+  const head = makeJoint(body, 'head', 0, headBaseY, 0.05);
+
+  // Main monolithic limestone block & weathered lower jaw
+  box(head, 0.56, 0.44, 0.52, CG.lime, 0, 0.02, 0);
+  box(head, 0.48, 0.14, 0.46, CG.limeM, 0, -0.17, 0.01);
+  box(head, 0.14, 0.12, 0.12, CG.limeD, -0.22, -0.14, -0.20);
+  box(head, 0.14, 0.12, 0.12, CG.limeD, 0.22, 0.16, -0.20);
+
+  // Hanging pure-voxel levitation crystal under chin
+  box(head, 0.24, 0.05, 0.24, CG.goldD, 0, -0.25, 0);
+  cyanBox(head, 0.08, 0.09, 0.08, CG.cyan, 0, -0.30, 0);
+  crispBox(head, 0.045, 0.05, 0.045, CG.cyanH, 0, -0.34, 0);
+
+  // Recessed dark basalt horizontal visor slot + overhanging gold brow & cheek blocks
+  box(head, 0.44, 0.11, 0.09, CG.basaltD, 0, 0.02, 0.225);
+  box(head, 0.58, 0.075, 0.14, CG.gold, 0, 0.11, 0.235);
+  box(head, 0.54, 0.06, 0.12, CG.limeL, 0, 0.17, 0.22);
+  box(head, 0.10, 0.18, 0.12, CG.limeM, -0.23, -0.05, 0.23);
+  box(head, 0.10, 0.18, 0.12, CG.limeM, 0.23, -0.05, 0.23);
+  box(head, 0.28, 0.10, 0.09, CG.limeM, 0, -0.11, 0.24);
+
+  // Glowing Horizontal Cyan Voxel Eye Slit & Cyclops Pixel Core
+  const eyeVisor = makeJoint(head, 'eyeVisor', 0, 0.02, 0.27);
+  cyanBox(eyeVisor, 0.36, 0.046, 0.03, CG.cyan, 0, 0, 0);
+  const eyeCore = makeJoint(eyeVisor, 'eyeCore', 0, 0, 0.014);
+  solarBox(eyeCore, 0.075, 0.075, 0.03, CG.solar, 0, 0, 0);
+  crispBox(eyeCore, 0.038, 0.038, 0.032, CG.cyanH, 0, 0, 0.008);
+
+  // Side Temple Ear Buttresses with vertical glowing cyan runes
+  for (const side of [-1, 1]) {
+    box(head, 0.09, 0.36, 0.26, CG.limeM, side * 0.31, 0.06, 0);
+    box(head, 0.07, 0.26, 0.14, CG.gold, side * 0.35, 0.08, 0.02);
+    cyanBox(head, 0.035, 0.20, 0.05, CG.cyan, side * 0.375, 0.08, 0.02);
+  }
+
+  // Stepped Temple Ziggurat Crown Crest & Moss Patch
+  box(head, 0.44, 0.08, 0.42, CG.limeM, 0, 0.27, -0.01);
+  box(head, 0.30, 0.07, 0.30, CG.gold, 0, 0.34, -0.01);
+  box(head, 0.14, 0.12, 0.12, CG.limeL, 0, 0.37, 0.14);
+  solarBox(head, 0.06, 0.07, 0.04, CG.solar, 0, 0.37, 0.205);
+  addMossClump(box, head, -0.08, 0.29, -0.14, 0.24, 0.10, 0.20, -1);
+
+  // --------------------------------------------------------------------------
+  // 4. HOVERING MOSSY SHOULDER BOULDERS & 2-JOINT ARMS
+  //    armL (-X): Limestone Buckler Shield | armR (+X): Sun Relic Siege Hammer
+  // --------------------------------------------------------------------------
+  const buildArm = (side) => {
+    const isLeft = side < 0;
+    const arm = makeJoint(body, isLeft ? 'armL' : 'armR', side * 1.04, 1.06, 0.02);
+
+    // Floating Mossy Stone Voxel Shoulder Boulder (child of arm)
+    const padX = side * 0.15;
+    const padY = isLeft ? 0.22 : 0.25;
+    const shoulderPad = makeJoint(arm, isLeft ? 'shoulderPadL' : 'shoulderPadR', padX, padY, 0);
+
+    // Pure-voxel levitation crystal underneath shoulder boulder
+    cyanBox(shoulderPad, 0.09, 0.09, 0.09, CG.cyan, 0, -0.17, 0);
+    crispBox(shoulderPad, 0.05, 0.14, 0.05, CG.cyanH, 0, -0.17, 0);
+
+    if (isLeft) {
+      // Left Boulder: Stepped limestone boulder dome + gold trim + rich moss cushion
+      box(shoulderPad, 0.56, 0.09, 0.56, CG.basalt, 0, -0.07, 0);
+      box(shoulderPad, 0.60, 0.18, 0.58, CG.lime, 0, 0.04, 0);
+      box(shoulderPad, 0.46, 0.11, 0.46, CG.limeM, 0.02, 0.16, 0);
+      box(shoulderPad, 0.30, 0.07, 0.32, CG.limeL, 0.04, 0.23, 0.02);
+      box(shoulderPad, 0.10, 0.14, 0.48, CG.gold, -0.29, 0.06, 0);
+      cyanBox(shoulderPad, 0.04, 0.09, 0.24, CG.cyan, -0.33, 0.06, 0);
+      addMossClump(box, shoulderPad, -0.06, 0.19, -0.06, 0.34, 0.16, 0.34, -1);
+      addMossClump(box, shoulderPad, -0.20, 0.11, 0.14, 0.18, 0.11, 0.20, -1);
+    } else {
+      // Right Boulder: Bulkier stepped boulder + golden Sun Horn Crest + moss cap
+      box(shoulderPad, 0.62, 0.09, 0.60, CG.basalt, 0, -0.07, 0);
+      box(shoulderPad, 0.66, 0.20, 0.62, CG.lime, 0, 0.05, 0);
+      box(shoulderPad, 0.50, 0.12, 0.48, CG.limeM, -0.02, 0.18, 0);
+      box(shoulderPad, 0.34, 0.08, 0.34, CG.limeL, -0.04, 0.26, 0.02);
+      // Stepped Temple Horn Fin on outer ridge
+      box(shoulderPad, 0.14, 0.22, 0.30, CG.goldD, 0.26, 0.16, 0);
+      box(shoulderPad, 0.10, 0.20, 0.20, CG.gold, 0.30, 0.27, 0);
+      solarBox(shoulderPad, 0.05, 0.16, 0.12, CG.solar, 0.34, 0.22, 0.02);
+      addMossClump(box, shoulderPad, 0.02, 0.22, -0.08, 0.36, 0.16, 0.36, 1);
+    }
+
+    // Basalt shoulder ball socket & Upper Arm Stone Pillar
+    const upperW = isLeft ? 0.40 : 0.44;
+    const upperD = isLeft ? 0.40 : 0.44;
+    box(arm, 0.32, 0.22, 0.32, CG.basaltD, 0, -0.02, 0);
+    box(arm, upperW, 0.54, upperD, CG.limeM, 0, -0.34, 0);
+    box(arm, upperW + 0.05, 0.08, upperD + 0.05, CG.gold, 0, -0.36, 0);
+    cyanBox(arm, 0.045, 0.24, 0.09, CG.cyan, side * (upperW * 0.5 + 0.01), -0.30, 0);
+
+    // Elbow & Forearm Joint (y = -0.64 in arm)
+    const fore = makeJoint(arm, isLeft ? 'foreL' : 'foreR', 0, -0.64, 0);
+
+    // Pure-voxel stepped basalt elbow hinge drum
+    box(fore, upperW * 0.92, 0.20, 0.32, CG.basalt, 0, 0, 0);
+    box(fore, upperW * 0.84, 0.24, 0.24, CG.basaltD, 0, 0, 0);
+
+    // Heavy Forearm Monolith Gauntlet
+    const foreW = isLeft ? 0.46 : 0.52;
+    const foreH = isLeft ? 0.60 : 0.64;
+    const foreD = isLeft ? 0.46 : 0.52;
+    box(fore, foreW, foreH, foreD, CG.lime, 0, -foreH * 0.5 - 0.04, 0);
+    box(fore, foreW + 0.04, 0.08, foreD + 0.04, CG.gold, 0, -0.14, 0);
+    box(fore, foreW + 0.04, 0.08, foreD + 0.04, CG.goldD, 0, -foreH - 0.02, 0);
+
+    // Glowing cyan/solar rune wraps around forearm
+    cyanBox(fore, foreW + 0.025, 0.05, foreD + 0.025, CG.cyan, 0, -0.26, 0);
+    cyanBox(fore, foreW + 0.025, 0.05, foreD + 0.025, CG.cyan, 0, -0.48, 0);
+    if (isLeft) {
+      solarBox(fore, 0.05, 0.26, foreD + 0.03, CG.solar, 0, -0.37, 0);
+    } else {
+      solarBox(fore, foreW + 0.03, 0.28, 0.055, CG.solar, 0, -0.37, 0);
+    }
+
+    // Chunky Voxel Stone Fist & Articulated Finger Bricks
+    const fistY = -foreH - 0.18;
+    const fistW = isLeft ? 0.42 : 0.48;
+    const fistH = isLeft ? 0.22 : 0.25;
+    const fistD = isLeft ? 0.42 : 0.48;
+
+    box(fore, fistW, fistH, fistD, CG.limeM, 0, fistY, 0.02);
+    box(fore, fistW * 0.96, 0.07, 0.09, CG.gold, 0, fistY - 0.04, fistD * 0.48);
+
+    // 4 Carved Voxel Fingers (proximal + curled lower knuckle blocks)
+    const fSpan = fistW * 0.80;
+    for (let f = 0; f < 4; f++) {
+      const fx = -fSpan * 0.5 + (f + 0.5) * (fSpan / 4);
+      const fw = (fSpan / 4) * 0.78;
+      box(fore, fw, 0.12, 0.13, CG.lime, fx, fistY - fistH * 0.5 - 0.05, fistD * 0.24);
+      box(fore, fw * 0.92, 0.10, 0.14, CG.limeD, fx, fistY - fistH * 0.5 - 0.12, fistD * 0.08);
+    }
+    // Opposable Voxel Thumb Brick on inner palm side
+    box(fore, 0.12, 0.15, 0.17, CG.lime, isLeft ? fistW * 0.46 : -fistW * 0.46, fistY - 0.03, fistD * 0.25);
+
+    if (!isLeft) {
+      // Heavy Sun Relic Voxel Siege Hammer gripped inside right fist (+Z forward)
+      const gripR = makeJoint(fore, 'gripR', 0, fistY - 0.02, 0.04);
+
+      // Basalt shaft & gold handguard rings
+      box(gripR, 0.11, 0.11, 1.38, CG.basalt, 0, 0, 0.24);
+      box(gripR, 0.14, 0.14, 0.07, CG.gold, 0, 0, -0.14);
+      box(gripR, 0.14, 0.14, 0.07, CG.gold, 0, 0, 0.24);
+      box(gripR, 0.14, 0.14, 0.07, CG.gold, 0, 0, 0.52);
+
+      // Stepped stone & gold counterweight pommel
+      box(gripR, 0.18, 0.18, 0.16, CG.limeM, 0, 0, -0.45);
+      box(gripR, 0.12, 0.12, 0.07, CG.goldD, 0, 0, -0.54);
+      cyanBox(gripR, 0.06, 0.06, 0.04, CG.cyan, 0, 0, -0.575);
+
+      // Colossal Stepped Voxel Siege Hammer Head at z = +0.84
+      const hz = 0.84;
+      box(gripR, 0.40, 0.60, 0.42, CG.basaltD, 0, 0, hz);
+      box(gripR, 0.44, 0.54, 0.46, CG.lime, 0, 0, hz);
+      box(gripR, 0.36, 0.66, 0.36, CG.limeM, 0, 0, hz);
+      box(gripR, 0.28, 0.72, 0.28, CG.limeL, 0, 0, hz); // Top & bottom stepped stone impact faces
+
+      // Gold hammer head binding belt & striking face plates
+      box(gripR, 0.48, 0.14, 0.50, CG.gold, 0, 0, hz);
+      box(gripR, 0.32, 0.05, 0.32, CG.goldD, 0, 0.37, hz);
+      box(gripR, 0.32, 0.05, 0.32, CG.goldD, 0, -0.37, hz);
+
+      // Glowing cyan & warm solar power blocks recessed on left/right/front hammer faces
+      cyanBox(gripR, 0.47, 0.08, 0.24, CG.cyan, 0, 0.18, hz);
+      cyanBox(gripR, 0.47, 0.08, 0.24, CG.cyan, 0, -0.18, hz);
+      solarBox(gripR, 0.50, 0.09, 0.18, CG.solar, 0, 0, hz);
+      crispBox(gripR, 0.51, 0.045, 0.09, CG.solarH, 0, 0, hz);
+      cyanBox(gripR, 0.14, 0.22, 0.05, CG.cyan, 0, 0, hz + 0.24);
+
+      // Ancient moss patch on upper rear edge of hammer head
+      addMossClump(box, gripR, 0.08, 0.31, hz - 0.14, 0.18, 0.09, 0.16, 1);
+    }
+
+    return { arm, fore, shoulderPad, padBaseY: padY };
+  };
+
+  const leftArm = buildArm(-1);
+  const rightArm = buildArm(1);
+
+  // Bake all static voxel batches into clean BufferGeometry meshes
+  stoneBuilder.finish();
+  cyanBuilder.finish();
+  solarBuilder.finish();
+  crispBuilder.finish();
+
+  const parts = {
+    body,
+    head,
+    eyeVisor,
+    eyeCore,
+    coreOrb,
+    coreInner,
+    coreShell,
+    coreRingA,
+    coreRingB,
+    sunHalo,
+    innerHaloRing,
+    outerRing,
+    armL: leftArm.arm,
+    foreL: leftArm.fore,
+    shoulderPadL: leftArm.shoulderPad,
+    armR: rightArm.arm,
+    foreR: rightArm.fore,
+    shoulderPadR: rightArm.shoulderPad,
+    legs,
+    shins,
+    bodyY: BODY_Y,
+    legY: LEG_Y,
+    headBaseY,
+    sunHaloBaseY,
+    sunHaloBaseZ,
+    padBaseYL: leftArm.padBaseY,
+    padBaseYR: rightArm.padBaseY,
+    runeMats: [cyanMat, solarMat],
+    crispGlowMat,
+  };
+
+  // Initialize exact neutral resting pose (dt = 0 snaps cleanly)
+  animateSunRuinsGolem(
+    {
+      mesh: root,
+      parts,
+      material: stoneBuilder.material,
+      vel: { x: 0, z: 0 },
+      flash: 0,
+      swing: 0,
+      telegraph: 0,
+      target: null,
+      dead: false,
+      state: 'idle',
+    },
+    0
+  );
+
+  return {
+    mesh: root,
+    parts,
+    material: stoneBuilder.material,
+  };
+}
+
+// ============================================================================
+// SMOOTH DAMPED ANIMATOR: animateSunRuinsGolem(st, dt)
+// ============================================================================
+
+/**
+ * Safe hit-flash handler for both MeshLambertMaterial and emissive/basic voxel meshes.
+ * Skips energy-glow materials and cleanly restores emissive to 0x000000 when flash === 0.
+ */
+function applyHitFlash(st) {
+  const em = st.flash && st.flash > 0 ? 0xaa2222 : 0x000000;
+  if (st._lastEm === em) return;
+  st._lastEm = em;
+
+  const setMat = (m) => {
+    if (m && m.emissive && !(m.userData && m.userData.isEnergyGlow)) {
+      m.emissive.setHex(em);
+    }
+  };
+
+  if (Array.isArray(st.material)) {
+    for (let i = 0; i < st.material.length; i++) setMat(st.material[i]);
+  } else if (st.material) {
+    setMat(st.material);
+  } else if (st.mesh && typeof st.mesh.traverse === 'function') {
+    st.mesh.traverse((o) => {
+      if (!o.material) return;
+      if (Array.isArray(o.material)) {
+        for (let i = 0; i < o.material.length; i++) setMat(o.material[i]);
+      } else {
+        setMat(o.material);
+      }
+    });
+  }
+}
+
+/**
+ * Animates the Pure-Voxel Sun Ruins Golem smoothly across idle, walk/stalk,
+ * attack_windup, attack_strike, attack_recover, hitstun/stagger, and die states.
+ * @param {object} st
+ * @param {number} dt
+ */
+function animateSunRuinsGolem(st, dt) {
+  if (!st || !st.parts || !st.parts.body) return;
+  const P = st.parts;
+
+  const safeDt = Number.isFinite(dt) ? Math.min(Math.max(dt, 0), 0.1) : 0;
+  const t = (st._t = (st._t || 0) + safeDt);
+
+  applyHitFlash(st);
+
+  const vx = st.vel && Number.isFinite(st.vel.x) ? st.vel.x : 0;
+  const vz = st.vel && Number.isFinite(st.vel.z) ? st.vel.z : 0;
+  const rawSpeed = Math.hypot(vx, vz);
+  const yaw = st.mesh && st.mesh.rotation && Number.isFinite(st.mesh.rotation.y) ? st.mesh.rotation.y : 0;
+
+  const anim =
+    st._golemAnim ||
+    (st._golemAnim = {
+      speedNorm: 0,
+      gaitBlend: 0,
+      combatBlend: 0,
+      telegraphBlend: 0,
+      swingBlend: 0,
+      impactBlend: 0,
+      dieBlend: 0,
+      turnLean: 0,
+      yaw,
+      stepPhase: 0,
+      haloAngle: 0,
+      coreAngle: 0,
+      headScanYaw: 0,
+      headPitch: 0.02,
+      bodyPitch: 0.03,
+      bodyYaw: 0,
+      bodyRoll: 0,
+      bodyBob: 0,
+      bodyZ: 0,
+      haloTiltX: 0,
+      haloTiltZ: 0,
+      energyPulse: 1,
+      hipL: -0.05,
+      hipR: -0.05,
+      kneeL: 0.10,
+      kneeR: 0.10,
+      lSX: -0.14,
+      lSY: 0.16,
+      lSZ: -0.14,
+      lEX: -0.44,
+      lEZ: 0.08,
+      rSX: -0.14,
+      rSY: -0.08,
+      rSZ: 0.14,
+      rEX: -0.40,
+      rEZ: -0.08,
+      windCarry: 0,
+      atkActive: false,
+      atkT: 0,
+      lastSwing: 0,
+      lastState: null,
+    });
+
+  const aMove = dampRate(7.5, safeDt);
+  const aPose = dampRate(6.5, safeDt);
+  const aTele = dampRate(11.5, safeDt);
+  const aStrike = dampRate(17.5, safeDt);
+  const aRecover = dampRate(7.0, safeDt);
+  const aDie = dampRate(4.5, safeDt);
+  const aTurn = dampRate(7.0, safeDt);
+
+  const isDead = !!(st.dead || st.state === 'die' || (typeof st.hp === 'number' && st.hp <= 0));
+  const alive = 1 - anim.dieBlend;
+
+  const targetSpeedNorm = isDead ? 0 : clamp(rawSpeed / 2.2, 0, 1);
+  anim.speedNorm += (targetSpeedNorm - anim.speedNorm) * aMove;
+  anim.gaitBlend += (smooth(clamp(anim.speedNorm * 1.15, 0, 1)) - anim.gaitBlend) * aMove;
+  const inCombat = !!(st.target || st.state === 'stalk' || st.state === 'attack_windup' || st.state === 'attack_strike' || st.state === 'attack_recover');
+  anim.combatBlend += ((inCombat && !isDead ? 1 : 0) - anim.combatBlend) * aPose;
+  anim.dieBlend += ((isDead ? 1 : 0) - anim.dieBlend) * aDie;
+
+  const rawTele = st.state === 'attack_windup' ? Math.max(st.telegraph || 0, 0.55) : st.telegraph || 0;
+  const targetTele = isDead ? 0 : smooth(clamp(rawTele, 0, 1));
+  anim.telegraphBlend += (targetTele - anim.telegraphBlend) * aTele;
+
+  // Smooth yaw banking on turns
+  const yawDiff = Math.atan2(Math.sin(yaw - anim.yaw), Math.cos(yaw - anim.yaw));
+  const instTurn = safeDt > 0.0005 ? clamp(yawDiff / safeDt, -3.5, 3.5) * 0.042 : 0;
+  anim.turnLean += (instTurn * alive - anim.turnLean) * aTurn;
+  anim.yaw = yaw;
+
+  // Trigger heavy overhead Siege Hammer slam on swing > 0 or attack_strike / slam state
+  const curSwing = Number.isFinite(st.swing) ? st.swing : 0;
+  const strikeTriggered =
+    (curSwing > 0 && (anim.lastSwing <= 0 || curSwing > anim.lastSwing + 0.02)) ||
+    ((st.state === 'attack_strike' || st.state === 'slam') &&
+      anim.lastState !== 'attack_strike' &&
+      anim.lastState !== 'slam');
+  if (!isDead && strikeTriggered) {
+    anim.atkActive = true;
+    anim.atkT = 0;
+    anim.windCarry = Math.max(anim.telegraphBlend, 0.85);
+  }
+  anim.lastSwing = curSwing;
+  anim.lastState = st.state || null;
+
+  const ATK_DUR = 0.96;
+  if (anim.atkActive) {
+    anim.atkT += safeDt;
+    if (anim.atkT >= ATK_DUR || isDead) {
+      anim.atkActive = false;
+      anim.atkT = 0;
+      anim.windCarry = 0;
+    }
+  }
+
+  let strikeTarget = 0;
+  let impactTarget = 0;
+  let windCarryW = 0;
+
+  if (anim.atkActive) {
+    const at = anim.atkT;
+    if (at < 0.21) {
+      const u = smooth((at + 0.015) / 0.225);
+      strikeTarget = u;
+      windCarryW = anim.windCarry * (1 - u);
+      impactTarget = smooth((u - 0.62) / 0.38) * 0.72;
+    } else if (at < 0.42) {
+      const u = clamp((at - 0.21) / 0.21, 0, 1);
+      strikeTarget = 1.0 - 0.06 * u;
+      impactTarget = 0.72 + 0.28 * Math.sin(u * Math.PI);
+    } else {
+      const u = clamp((at - 0.42) / (ATK_DUR - 0.42), 0, 1);
+      const easeOut = 1 - smooth(u);
+      strikeTarget = 0.94 * easeOut;
+      impactTarget = 0.48 * Math.pow(1 - u, 2);
+    }
+  }
+
+  const swingRate = strikeTarget > anim.swingBlend ? aStrike : aRecover;
+  anim.swingBlend += (strikeTarget - anim.swingBlend) * swingRate;
+  anim.impactBlend += (impactTarget - anim.impactBlend) * (impactTarget > anim.impactBlend ? aStrike : aRecover);
+
+  const windW = clamp(Math.max(anim.telegraphBlend, windCarryW) * alive, 0, 1);
+  const strikeW = clamp(anim.swingBlend * alive, 0, 1);
+  const impactW = clamp(anim.impactBlend * alive, 0, 1);
+  const dieW = anim.dieBlend;
+  const hitstunW = !isDead && (st.state === 'hitstun' || st.state === 'stagger') ? 1 : 0;
+
+  // Ponderous colossus stride phase
+  const gait = anim.gaitBlend * (1 - windW * 0.65) * (1 - strikeW * 0.65) * alive;
+  const stepFreq = 3.1 + anim.speedNorm * 1.9;
+  anim.stepPhase = (anim.stepPhase + safeDt * stepFreq * (0.08 + gait * 0.92)) % TAU;
+  const sinP = Math.sin(anim.stepPhase);
+  const cosP = Math.cos(anim.stepPhase);
+  const strideAmp = (0.35 + anim.speedNorm * 0.11) * gait;
+
+  // --------------------------------------------------------------------------
+  // 1. LEGS & KNEES: Weighted stride, braced windup/slam, limp die buckle
+  // --------------------------------------------------------------------------
+  if (P.legs && P.legs.length >= 2) {
+    const targetHipL =
+      -0.05 * alive - sinP * strideAmp - windW * 0.18 - impactW * 0.30 - dieW * 0.56;
+    const targetHipR =
+      -0.05 * alive + sinP * strideAmp + windW * 0.14 - impactW * 0.30 - dieW * 0.62;
+
+    anim.hipL = damp(anim.hipL, targetHipL, 12.0, safeDt);
+    anim.hipR = damp(anim.hipR, targetHipR, 12.0, safeDt);
+
+    P.legs[0].rotation.set(anim.hipL, 0.04, -0.05 - windW * 0.035);
+    P.legs[1].rotation.set(anim.hipR, -0.04, 0.05 + windW * 0.035);
+
+    if (P.shins && P.shins.length >= 2) {
+      const liftL = Math.max(0, cosP) * 0.54 * gait + Math.max(0, -targetHipL) * 0.14 * gait;
+      const liftR = Math.max(0, -cosP) * 0.54 * gait + Math.max(0, -targetHipR) * 0.14 * gait;
+
+      const targetKneeL = 0.10 * alive + liftL + windW * 0.22 + impactW * 0.50 + dieW * 1.12;
+      const targetKneeR = 0.10 * alive + liftR + windW * 0.18 + impactW * 0.50 + dieW * 1.18;
+
+      anim.kneeL = damp(anim.kneeL, targetKneeL, 12.0, safeDt);
+      anim.kneeR = damp(anim.kneeR, targetKneeR, 12.0, safeDt);
+
+      P.shins[0].rotation.x = anim.kneeL;
+      P.shins[1].rotation.x = anim.kneeR;
+    }
+  }
+
+  // --------------------------------------------------------------------------
+  // 2. TORSO / BODY: Heavy breathing, gait roll, windup coil -> slam crunch
+  // --------------------------------------------------------------------------
+  const breathe = Math.sin(t * 1.45) * 0.020 * alive;
+  const strideDouble = Math.cos(anim.stepPhase * 2);
+  const strideBob = (0.040 * strideDouble - 0.022) * gait;
+  const plantStomp = -Math.max(0, -strideDouble) * 0.028 * gait;
+
+  const targetBodyPitch =
+    0.03 +
+    0.07 * gait +
+    0.05 * anim.combatBlend -
+    0.32 * windW +
+    0.46 * strikeW -
+    0.10 * hitstunW +
+    Math.sin(t * 1.45) * 0.016 * alive +
+    dieW * 0.65;
+  const targetBodyYaw = -sinP * 0.11 * gait - 0.22 * windW + 0.34 * strikeW;
+  const targetBodyRoll = cosP * 0.05 * gait - anim.turnLean + dieW * 0.10;
+  const targetBodyBob = breathe + strideBob + plantStomp - windW * 0.06 - impactW * 0.24 - dieW * 0.52;
+  const targetBodyZ = -0.09 * windW + 0.20 * strikeW + dieW * 0.16;
+
+  anim.bodyPitch += (targetBodyPitch - anim.bodyPitch) * aPose;
+  anim.bodyYaw += (targetBodyYaw - anim.bodyYaw) * aMove;
+  anim.bodyRoll += (targetBodyRoll - anim.bodyRoll) * aTurn;
+  anim.bodyBob += (targetBodyBob - anim.bodyBob) * aTele;
+  anim.bodyZ += (targetBodyZ - anim.bodyZ) * aTele;
+
+  const bodyBaseY = P.bodyY ?? 1.62;
+  P.body.position.set(-sinP * 0.042 * gait, bodyBaseY + anim.bodyBob, anim.bodyZ);
+  P.body.rotation.set(anim.bodyPitch, anim.bodyYaw, anim.bodyRoll);
+
+  // --------------------------------------------------------------------------
+  // 3. NECKLESS MONOLITH VOXEL HEAD: Gentle levitation & sentinel scanning
+  // --------------------------------------------------------------------------
+  if (P.head) {
+    const calmFactor = (1 - anim.combatBlend) * (1 - gait * 0.7) * (1 - windW) * (1 - strikeW) * alive;
+    const rawScan = clamp((Math.sin(t * 0.62) + 0.35 * Math.sin(t * 1.37)) * 0.26, -0.34, 0.34);
+    const targetHeadYaw = rawScan * calmFactor - anim.bodyYaw * 0.50;
+    const targetHeadPitch = 0.02 - 0.14 * windW + 0.16 * strikeW + Math.sin(t * 1.45) * 0.018 * alive + dieW * 0.36;
+
+    anim.headScanYaw += (targetHeadYaw - anim.headScanYaw) * aPose;
+    anim.headPitch += (targetHeadPitch - anim.headPitch) * aPose;
+
+    const headFloat = Math.sin(t * 1.75 + 0.6) * 0.028 * alive - dieW * 0.12;
+    P.head.position.y = (P.headBaseY ?? 1.53) + headFloat;
+    P.head.rotation.set(anim.headPitch, anim.headScanYaw, -anim.turnLean * 0.35);
+  }
+
+  // --------------------------------------------------------------------------
+  // 4. PIXEL-STEPPED DORSAL SUN HALO: Continuous spin + inertia tilt
+  // --------------------------------------------------------------------------
+  const haloSpinSpeed = (0.44 + anim.combatBlend * 0.28 + windW * 1.15 + strikeW * 0.95) * alive;
+  anim.haloAngle = (anim.haloAngle + safeDt * haloSpinSpeed) % TAU;
+
+  if (P.outerRing) P.outerRing.rotation.z = anim.haloAngle;
+  if (P.innerHaloRing) P.innerHaloRing.rotation.z = -anim.haloAngle * 0.68;
+
+  if (P.sunHalo) {
+    const haloHoverY = Math.sin(t * 1.45 + 1.1) * 0.04 * alive + windW * 0.08 - dieW * 0.20;
+    const haloHoverZ = Math.cos(t * 1.15) * 0.02 * alive - windW * 0.07 + strikeW * 0.09;
+    const targetHaloTiltX = 0.08 * gait - anim.bodyPitch * 0.40 + strikeW * 0.20 + dieW * 0.28;
+    const targetHaloTiltZ = -anim.turnLean * 0.85 - anim.bodyRoll * 0.65;
+
+    anim.haloTiltX += (targetHaloTiltX - anim.haloTiltX) * aPose;
+    anim.haloTiltZ += (targetHaloTiltZ - anim.haloTiltZ) * aTurn;
+
+    P.sunHalo.position.set(0, (P.sunHaloBaseY ?? 1.11) + haloHoverY, (P.sunHaloBaseZ ?? -0.62) + haloHoverZ);
+    P.sunHalo.rotation.set(anim.haloTiltX, 0, anim.haloTiltZ);
+  }
+
+  // --------------------------------------------------------------------------
+  // 5. SOLAR HEART CORE & CYAN/SOLAR RUNE PULSE
+  // --------------------------------------------------------------------------
+  const coreSpinSpeed = (1.1 + windW * 2.8 + strikeW * 2.4) * alive;
+  anim.coreAngle = (anim.coreAngle + safeDt * coreSpinSpeed) % TAU;
+
+  const targetEnergy = (1.0 + 0.16 * Math.sin(t * 2.5) + 0.90 * windW + 1.10 * strikeW) * (0.06 + 0.94 * alive);
+  anim.energyPulse += (targetEnergy - anim.energyPulse) * aTele;
+
+  if (P.coreOrb) {
+    const coreScale = (0.94 + 0.07 * Math.sin(t * 2.5) + 0.15 * windW + 0.20 * strikeW) * (0.65 + 0.35 * alive);
+    P.coreOrb.scale.setScalar(coreScale);
+    if (P.coreInner) P.coreInner.rotation.set(anim.coreAngle * 0.7, anim.coreAngle, 0);
+    if (P.coreShell) P.coreShell.rotation.set(-anim.coreAngle * 0.5, -anim.coreAngle * 0.8, anim.coreAngle * 0.3);
+    if (P.coreRingA) P.coreRingA.rotation.set(0.58 + anim.coreAngle * 0.8, anim.coreAngle * 0.6, anim.coreAngle * 0.35);
+    if (P.coreRingB) P.coreRingB.rotation.set(-0.48 - anim.coreAngle * 0.65, -anim.coreAngle * 0.9, 0.4 + anim.coreAngle * 0.5);
+  }
+
+  if (P.runeMats) {
+    for (let i = 0; i < P.runeMats.length; i++) {
+      const rm = P.runeMats[i];
+      const baseInt = (rm.userData && rm.userData.baseIntensity) || 1.15;
+      rm.emissiveIntensity = baseInt * anim.energyPulse;
+    }
+  }
+  if (P.crispGlowMat) {
+    const glowMul = clamp(0.18 + 0.82 * alive * (0.85 + 0.15 * Math.sin(t * 2.5)), 0.15, 1.0);
+    P.crispGlowMat.color.setScalar(glowMul);
+  }
+
+  // --------------------------------------------------------------------------
+  // 6. ARMS, BUCKLER SHIELD GUARD, SIEGE HAMMER OVERHEAD SLAM & SHOULDER BOULDERS
+  // --------------------------------------------------------------------------
+  if (P.armL && P.foreL && P.armR && P.foreR) {
+    const armSwingAmp = 0.40 * gait * (1 - windW) * (1 - strikeW);
+    const swingL = sinP * armSwingAmp;
+    const swingR = -sinP * armSwingAmp;
+
+    const elbowLagL = Math.max(0, -sinP) * 0.24 * gait + Math.max(0, -cosP) * 0.14 * gait;
+    const elbowLagR = Math.max(0, sinP) * 0.24 * gait + Math.max(0, cosP) * 0.14 * gait;
+
+    // Neutral & combat guard stance
+    let lSX = -0.14 + swingL - 0.18 * anim.combatBlend + Math.sin(t * 1.45 + 0.4) * 0.025 * alive;
+    let lSY = 0.16 + 0.22 * anim.combatBlend;
+    let lSZ = -0.14 - 0.05 * anim.combatBlend;
+    let lEX = -0.44 - elbowLagL - 0.24 * anim.combatBlend + Math.cos(t * 1.45) * 0.02 * alive;
+    let lEZ = 0.08;
+
+    let rSX = -0.14 + swingR - 0.12 * anim.combatBlend - Math.sin(t * 1.45 + 0.4) * 0.025 * alive;
+    let rSY = -0.08 - 0.08 * anim.combatBlend;
+    let rSZ = 0.14 + 0.05 * anim.combatBlend;
+    let rEX = -0.40 - elbowLagR - 0.18 * anim.combatBlend - Math.cos(t * 1.45) * 0.02 * alive;
+    let rEZ = -0.08;
+
+    // Windup (telegraph): Heavy left stone fist and right Siege Hammer both raise for a devastating slam!
+    const tremor = windW > 0.45 ? Math.sin(t * 28) * 0.022 * windW : 0;
+    lSX = lerp(lSX, -2.05 + tremor, windW);
+    lSY = lerp(lSY, -0.14, windW);
+    lSZ = lerp(lSZ, -0.22, windW);
+    lEX = lerp(lEX, -0.52, windW);
+    lEZ = lerp(lEZ, 0.08, windW);
+
+    rSX = lerp(rSX, -2.75 - tremor, windW);
+    rSY = lerp(rSY, 0.14, windW);
+    rSZ = lerp(rSZ, 0.24, windW);
+    rEX = lerp(rEX, -0.48, windW);
+    rEZ = lerp(rEZ, -0.10, windW);
+
+    // Strike (slam): Siege Hammer and heavy left stone fist smash forward together!
+    lSX = lerp(lSX, -0.34, strikeW);
+    lSY = lerp(lSY, 0.16, strikeW);
+    lSZ = lerp(lSZ, -0.06, strikeW);
+    lEX = lerp(lEX, -0.22, strikeW);
+    lEZ = lerp(lEZ, 0.04, strikeW);
+
+    rSX = lerp(rSX, -0.26, strikeW);
+    rSY = lerp(rSY, -0.16, strikeW);
+    rSZ = lerp(rSZ, 0.06, strikeW);
+    rEX = lerp(rEX, -0.16, strikeW);
+    rEZ = lerp(rEZ, 0.04, strikeW);
+
+    // Die: Heavy limp slump
+    lSX = lerp(lSX, -0.22, dieW);
+    lSZ = lerp(lSZ, -0.20, dieW);
+    lEX = lerp(lEX, -0.16, dieW);
+
+    rSX = lerp(rSX, -0.24, dieW);
+    rSZ = lerp(rSZ, 0.20, dieW);
+    rEX = lerp(rEX, -0.14, dieW);
+
+    const aArm = anim.atkActive || windW > 0.02 ? dampRate(19.0, safeDt) : dampRate(11.0, safeDt);
+    anim.lSX += (lSX - anim.lSX) * aArm;
+    anim.lSY += (lSY - anim.lSY) * aArm;
+    anim.lSZ += (lSZ - anim.lSZ) * aArm;
+    anim.lEX += (lEX - anim.lEX) * aArm;
+    anim.lEZ += (lEZ - anim.lEZ) * aArm;
+
+    anim.rSX += (rSX - anim.rSX) * aArm;
+    anim.rSY += (rSY - anim.rSY) * aArm;
+    anim.rSZ += (rSZ - anim.rSZ) * aArm;
+    anim.rEX += (rEX - anim.rEX) * aArm;
+    anim.rEZ += (rEZ - anim.rEZ) * aArm;
+
+    P.armL.rotation.set(anim.lSX, anim.lSY, anim.lSZ);
+    P.foreL.rotation.set(anim.lEX, 0, anim.lEZ);
+    P.armR.rotation.set(anim.rSX, anim.rSY, anim.rSZ);
+    P.foreR.rotation.set(anim.rEX, 0, anim.rEZ);
+
+    // Hovering mossy shoulder boulders float smoothly
+    if (P.shoulderPadL) {
+      const floatL = Math.sin(t * 1.9) * 0.038 * alive + windW * 0.07 - impactW * 0.04 - dieW * 0.13;
+      P.shoulderPadL.position.y = (P.padBaseYL ?? 0.22) + floatL;
+      P.shoulderPadL.rotation.set(0, 0, Math.sin(t * 1.5) * 0.04 * alive + windW * 0.12 - dieW * 0.16);
+    }
+    if (P.shoulderPadR) {
+      const floatR = Math.sin(t * 1.9 + 1.4) * 0.038 * alive + windW * 0.07 - impactW * 0.04 - dieW * 0.13;
+      P.shoulderPadR.position.y = (P.padBaseYR ?? 0.25) + floatR;
+      P.shoulderPadR.rotation.set(0, 0, -Math.sin(t * 1.5 + 0.8) * 0.04 * alive - windW * 0.12 + dieW * 0.16);
+    }
+  }
+}
+
+return { buildSunRuinsGolem, animateSunRuinsGolem };
+
+})();
+
+// --- js/models/crystal_golem_model.js ---
+const __MOD_CRYSTAL_GOLEM = (() => {
+'use strict';
+const THREE = HC.THREE;
+
+// ============================================================================
+// 1. MATH, EXPONENTIAL DAMPING & DETERMINISTIC HASH HELPERS
+// ============================================================================
+
+const TAU = Math.PI * 2;
+
+function clamp(v, lo, hi) {
+  return v < lo ? lo : v > hi ? hi : v;
+}
+
+function lerp(a, b, t) {
+  return a + (b - a) * t;
+}
+
+function smooth(t) {
+  const u = clamp(t, 0, 1);
+  return u * u * (3 - 2 * u);
+}
+
+/**
+ * Exponential damping: frame-rate independent smooth transition.
+ * Snaps cleanly when dt <= 0 (initial build pose).
+ */
+function damp(cur, target, rate, dt) {
+  if (dt <= 0) return target;
+  const k = 1 - Math.exp(-rate * dt);
+  return cur + (target - cur) * k;
+}
+
+function wrapAngle(a) {
+  return Math.atan2(Math.sin(a), Math.cos(a));
+}
+
+function hash3(x, y, z) {
+  const n = Math.sin(x * 127.1 + y * 311.7 + z * 74.7) * 43758.5453123;
+  return n - Math.floor(n);
+}
+
+function makeJoint(parent, x = 0, y = 0, z = 0) {
+  const g = new THREE.Group();
+  g.position.set(x, y, z);
+  parent.add(g);
+  return g;
+}
+
+// ============================================================================
+// 2. COLOR PALETTE (CAVERN SLATE, FROST GRANITE, RADIANT CYAN & AMETHYST)
+// ============================================================================
+
+const CG = {
+  slateDark: 0x1c2230,
+  slate: 0x262d3d,
+  granite: 0x374158,
+  frost: 0x4b5875,
+  frostHi: 0x627192,
+
+  cyanDeep: 0x0891b2,
+  cyan: 0x22d3ee,
+  cyanBright: 0x67e8f9,
+  cyanWhite: 0xb6fbff,
+
+  violetDeep: 0x9333ea,
+  violet: 0xc084fc,
+  violetBright: 0xd8b4fe,
+  violetWhite: 0xf0abfc,
+};
+
+const CYAN_PALETTE = {
+  deep: CG.cyanDeep,
+  mid: CG.cyan,
+  bright: CG.cyanBright,
+  tip: CG.cyanWhite,
+};
+
+const VIOLET_PALETTE = {
+  deep: CG.violetDeep,
+  mid: CG.violet,
+  bright: CG.violetBright,
+  tip: CG.violetWhite,
+};
+
+// ============================================================================
+// 3. PURE-VOXEL BATCHED BUILDER (100% AXIS-ALIGNED BOX GEOMETRY)
+// ============================================================================
+
+/**
+ * Batches axis-aligned BoxGeometry bricks per (parent, materialKey) into clean
+ * vertex-colored BufferGeometries with subtle voxel face shading.
+ */
+function createVoxelBuilder(isMobile = false) {
+  const base = new THREE.BoxGeometry(1, 1, 1);
+  const unit = base.toNonIndexed();
+  base.dispose();
+
+  const stoneMat = new THREE.MeshLambertMaterial({
+    color: 0xffffff,
+    vertexColors: true,
+    emissive: 0x000000,
+    emissiveIntensity: 1.0,
+  });
+
+  const cyanMat = new THREE.MeshLambertMaterial({
+    color: 0xffffff,
+    vertexColors: true,
+    emissive: 0x0e7490,
+    emissiveIntensity: 0.75,
+  });
+
+  const violetMat = new THREE.MeshLambertMaterial({
+    color: 0xffffff,
+    vertexColors: true,
+    emissive: 0x6b21a8,
+    emissiveIntensity: 0.75,
+  });
+
+  const eyeCoreCyanMat = new THREE.MeshLambertMaterial({
+    color: 0xffffff,
+    vertexColors: true,
+    emissive: 0x67e8f9,
+    emissiveIntensity: 1.45,
+  });
+
+  const coreVioletMat = new THREE.MeshLambertMaterial({
+    color: 0xffffff,
+    vertexColors: true,
+    emissive: 0xd8b4fe,
+    emissiveIntensity: 1.45,
+  });
+
+  const matMap = {
+    stone: stoneMat,
+    cyan: cyanMat,
+    violet: violetMat,
+    coreCyan: eyeCoreCyanMat,
+    coreViolet: coreVioletMat,
+  };
+
+  const crystalKeys = new Set(['cyan', 'violet', 'coreCyan', 'coreViolet']);
+  const materials = [stoneMat, cyanMat, violetMat, eyeCoreCyanMat, coreVioletMat];
+  for (const m of materials) {
+    m.userData._cgBaseEmissive = m.emissive.clone();
+    m.userData._cgBaseIntensity = m.emissiveIntensity;
+  }
+
+  const batches = new Map();
+  const matrix = new THREE.Matrix4();
+  const normalMat = new THREE.Matrix3();
+  const v = new THREE.Vector3();
+  const n = new THREE.Vector3();
+  const q = new THREE.Quaternion();
+  const euler = new THREE.Euler();
+  const posVec = new THREE.Vector3();
+  const scaleVec = new THREE.Vector3();
+  const tint = new THREE.Color();
+
+  const posAttr = unit.attributes.position;
+  const normAttr = unit.attributes.normal;
+
+  function box(parent, matKey, w, h, d, color, x = 0, y = 0, z = 0) {
+    let parentBatches = batches.get(parent);
+    if (!parentBatches) {
+      parentBatches = new Map();
+      batches.set(parent, parentBatches);
+    }
+    let data = parentBatches.get(matKey);
+    if (!data) {
+      data = { p: [], n: [], c: [] };
+      parentBatches.set(matKey, data);
+    }
+
+    euler.set(0, 0, 0);
+    q.setFromEuler(euler);
+    posVec.set(x, y, z);
+    scaleVec.set(w, h, d);
+    matrix.compose(posVec, q, scaleVec);
+    normalMat.getNormalMatrix(matrix);
+    tint.set(color);
+
+    const isCrystal = crystalKeys.has(matKey);
+    const jitter = isCrystal ? 0 : (hash3(x * 13.7, y * 19.3, z * 23.1) - 0.5) * 0.065;
+
+    for (let i = 0; i < posAttr.count; i++) {
+      v.fromBufferAttribute(posAttr, i).applyMatrix4(matrix);
+      data.p.push(v.x, v.y, v.z);
+
+      n.fromBufferAttribute(normAttr, i).applyMatrix3(normalMat).normalize();
+      data.n.push(n.x, n.y, n.z);
+
+      let faceShade = 1.0;
+      if (n.y > 0.5) faceShade = isCrystal ? 1.08 : 1.07;
+      else if (n.y < -0.5) faceShade = isCrystal ? 0.88 : 0.74;
+      else if (Math.abs(n.x) > 0.5) faceShade = isCrystal ? 0.94 : 0.89;
+      else faceShade = isCrystal ? 0.99 : 0.97;
+
+      const s = clamp(faceShade + jitter, 0.55, 1.15);
+      data.c.push(
+        clamp(tint.r * s, 0, 1),
+        clamp(tint.g * s, 0, 1),
+        clamp(tint.b * s, 0, 1)
+      );
+    }
+  }
+
+  function finish() {
+    for (const [parent, parentBatches] of batches) {
+      for (const [matKey, data] of parentBatches) {
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.Float32BufferAttribute(data.p, 3));
+        geometry.setAttribute('normal', new THREE.Float32BufferAttribute(data.n, 3));
+        geometry.setAttribute('color', new THREE.Float32BufferAttribute(data.c, 3));
+        geometry.computeBoundingSphere();
+
+        const mesh = new THREE.Mesh(geometry, matMap[matKey]);
+        mesh.castShadow = !isMobile && !crystalKeys.has(matKey);
+        mesh.receiveShadow = !isMobile;
+        parent.add(mesh);
+      }
+    }
+    unit.dispose();
+  }
+
+  return {
+    box,
+    finish,
+    materials,
+    matMap,
+  };
+}
+
+// ============================================================================
+// 4. STEPPED ORTHOGONAL VOXEL PRIMITIVE HELPERS
+// ============================================================================
+
+/**
+ * Stepped pixel-stair crystal spire built strictly from axis-aligned voxel boxes.
+ */
+function voxSpire(
+  vb,
+  parent,
+  matKey,
+  x,
+  y,
+  z,
+  baseW,
+  height,
+  steps,
+  palette,
+  dirY = 1,
+  stepShiftX = 0,
+  stepShiftZ = 0,
+  coreTipMatKey = null
+) {
+  const stepH = height / steps;
+  for (let i = 0; i < steps; i++) {
+    const t = i / Math.max(1, steps - 1);
+    const w = Math.max(0.036, baseW * (1 - t * 0.76));
+    const cy = y + dirY * (i + 0.5) * stepH;
+    const cx = x + stepShiftX * i;
+    const cz = z + stepShiftZ * i;
+
+    let col = palette.mid;
+    let useMat = matKey;
+    if (i === 0) col = palette.deep;
+    else if (i === steps - 1) {
+      col = palette.tip;
+      if (coreTipMatKey) useMat = coreTipMatKey;
+    } else if (i >= steps - 2) col = palette.bright;
+
+    vb.box(parent, useMat, w, stepH * 1.04, w, col, cx, cy, cz);
+  }
+}
+
+/**
+ * Stepped orthogonal pixel-crystal diamond cluster (zero octahedrons/spheres).
+ */
+function voxDiamond(vb, parent, mainMat, coreMat, x, y, z, u, palette) {
+  // Glowing inner core
+  vb.box(parent, coreMat, u * 2.2, u * 2.6, u * 2.2, palette.tip, x, y, z);
+  // Stepped mid cross arms
+  vb.box(parent, mainMat, u * 3.4, u * 1.6, u * 1.6, palette.mid, x, y, z);
+  vb.box(parent, mainMat, u * 1.6, u * 1.6, u * 3.4, palette.mid, x, y, z);
+  vb.box(parent, mainMat, u * 1.8, u * 3.8, u * 1.8, palette.bright, x, y, z);
+  // Stepped top & bottom pixel points
+  vb.box(parent, mainMat, u * 1.1, u * 1.4, u * 1.1, palette.deep, x, y + u * 2.4, z);
+  vb.box(parent, mainMat, u * 1.1, u * 1.4, u * 1.1, palette.deep, x, y - u * 2.4, z);
+  vb.box(parent, coreMat, u * 0.7, u * 0.8, u * 0.7, palette.tip, x, y + u * 3.2, z);
+  vb.box(parent, coreMat, u * 0.7, u * 0.8, u * 0.7, palette.tip, x, y - u * 3.2, z);
+}
+
+/**
+ * Stepped cyan voxel crystal claw built from descending pixel-stair bricks.
+ */
+function voxClaw(vb, parent, x, y, z, length, baseW, forwardSign = 1) {
+  const segs = 4;
+  const segH = length / segs;
+  const cols = [CG.cyanDeep, CG.cyan, CG.cyanBright, CG.cyanWhite];
+  for (let i = 0; i < segs; i++) {
+    const w = Math.max(0.032, baseW * (1 - i * 0.22));
+    const sy = y - (i + 0.5) * segH;
+    const sz = z + forwardSign * i * 0.022;
+    const mk = i === segs - 1 ? 'coreCyan' : 'cyan';
+    vb.box(parent, mk, w, segH * 1.08, w * 1.25, cols[i], x, sy, sz);
+  }
+}
+
+// ============================================================================
+// 5. MODEL BUILDER: buildCrystalGolem(isMobile = false)
+// ============================================================================
+
+/**
+ * Builds the 100% pure-voxel Crystal Golem guardian (~3.60m tall, grounded at y = 0,
+ * facing +Z) with Sylvan voxel shading and full BanditMob rig compatibility.
+ * @param {boolean} [isMobile=false]
+ */
+function buildCrystalGolem(isMobile = false) {
+  const vb = createVoxelBuilder(!!isMobile);
+  const B = vb.box;
+
+  const root = new THREE.Group();
+  root.name = 'crystal_golem';
+
+  const LEG_Y = 1.605;
+  const BODY_Y = 1.605;
+
+  // --------------------------------------------------------------------------
+  // A. ARTICULATED 2-JOINT LEGS, CYAN VOXEL KNEECAPS & CRYSTAL-SPURRED BOOTS
+  //    legs: [legL (-X), legR (+X)], shins: [shinL, shinR]
+  // --------------------------------------------------------------------------
+  const legs = [];
+  const shins = [];
+
+  for (const side of [-1, 1]) {
+    const leg = makeJoint(root, side * 0.44, LEG_Y, 0);
+
+    // Thigh core & stepped frost-granite plates
+    B(leg, 'stone', 0.38, 0.72, 0.38, CG.slateDark, 0, -0.36, 0);
+    B(leg, 'stone', 0.46, 0.54, 0.44, CG.slate, 0, -0.34, 0);
+    B(leg, 'stone', 0.50, 0.22, 0.48, CG.granite, 0, -0.14, 0);
+    B(leg, 'stone', 0.08, 0.44, 0.32, CG.frost, side * 0.24, -0.32, 0);
+    B(leg, 'stone', 0.30, 0.16, 0.06, CG.frost, 0, -0.26, 0.23);
+
+    // Embedded outer thigh cyan crystal vein steps
+    B(leg, 'cyan', 0.05, 0.12, 0.10, CG.cyanDeep, side * 0.27, -0.24, 0.03);
+    B(leg, 'cyan', 0.06, 0.14, 0.08, CG.cyan, side * 0.28, -0.34, 0.05);
+    B(leg, 'cyan', 0.04, 0.10, 0.07, CG.cyanBright, side * 0.27, -0.43, 0.04);
+
+    // Knee / Shin Pivot (local y = -0.78 -> world y = 0.80)
+    const shin = makeJoint(leg, 0, -0.78, 0);
+
+    // Cyan Voxel Kneecap (stepped stone shield + inlaid diamond cyan crystal)
+    B(shin, 'stone', 0.36, 0.24, 0.12, CG.granite, 0, 0.02, 0.22);
+    B(shin, 'stone', 0.28, 0.06, 0.14, CG.frost, 0, 0.14, 0.22);
+    B(shin, 'stone', 0.28, 0.06, 0.14, CG.frost, 0, -0.10, 0.22);
+    B(shin, 'cyan', 0.14, 0.14, 0.06, CG.cyanDeep, 0, 0.02, 0.27);
+    B(shin, 'cyan', 0.20, 0.08, 0.05, CG.cyan, 0, 0.02, 0.28);
+    B(shin, 'cyan', 0.08, 0.20, 0.05, CG.cyan, 0, 0.02, 0.28);
+    B(shin, 'coreCyan', 0.07, 0.07, 0.05, CG.cyanWhite, 0, 0.02, 0.30);
+
+    // Shin column & stepped greave ribs
+    B(shin, 'stone', 0.36, 0.54, 0.38, CG.slateDark, 0, -0.31, 0);
+    B(shin, 'stone', 0.42, 0.42, 0.42, CG.slate, 0, -0.30, 0.02);
+    B(shin, 'stone', 0.16, 0.38, 0.08, CG.frost, 0, -0.30, 0.23);
+    B(shin, 'stone', 0.28, 0.36, 0.12, CG.granite, 0, -0.26, -0.20);
+
+    // Crystal-Spurred Stone Boots (sole bottom at y = -0.80 -> grounded at world y = 0.00)
+    B(shin, 'stone', 0.54, 0.12, 0.74, CG.slateDark, 0, -0.74, 0.06);
+    B(shin, 'stone', 0.50, 0.14, 0.68, CG.slate, 0, -0.64, 0.05);
+    B(shin, 'stone', 0.44, 0.14, 0.46, CG.granite, 0, -0.54, 0.12);
+    B(shin, 'stone', 0.36, 0.08, 0.26, CG.frost, 0, -0.50, 0.24);
+
+    // Twin stepped stone toe claws with cyan crystal tips
+    for (const ts of [-1, 1]) {
+      B(shin, 'stone', 0.14, 0.11, 0.14, CG.frost, ts * 0.14, -0.66, 0.41);
+      B(shin, 'cyan', 0.08, 0.08, 0.09, CG.cyan, ts * 0.14, -0.65, 0.48);
+    }
+
+    // Stepped Heel Crystal Spur (-Z) & Outer Ankle Cyan Spur
+    B(shin, 'stone', 0.22, 0.16, 0.14, CG.granite, 0, -0.60, -0.26);
+    B(shin, 'violet', 0.12, 0.14, 0.12, CG.violetDeep, 0, -0.58, -0.34);
+    B(shin, 'violet', 0.08, 0.12, 0.10, CG.violet, 0, -0.52, -0.40);
+    B(shin, 'coreViolet', 0.05, 0.10, 0.08, CG.violetBright, 0, -0.46, -0.45);
+
+    B(shin, 'stone', 0.12, 0.14, 0.16, CG.granite, side * 0.26, -0.56, -0.04);
+    B(shin, 'cyan', 0.10, 0.12, 0.10, CG.cyanDeep, side * 0.32, -0.52, -0.06);
+    B(shin, 'cyan', 0.08, 0.12, 0.08, CG.cyan, side * 0.36, -0.44, -0.08);
+    B(shin, 'coreCyan', 0.05, 0.10, 0.05, CG.cyanBright, side * 0.39, -0.36, -0.09);
+
+    legs.push(leg);
+    shins.push(shin);
+  }
+
+  // --------------------------------------------------------------------------
+  // B. TORSO, PELVIS & RECESSED CHEST CAVITY
+  // --------------------------------------------------------------------------
+  const body = makeJoint(root, 0, BODY_Y, 0);
+
+  // Pelvis & belt monolith
+  const pelvis = makeJoint(body, 0, 0, 0);
+  B(pelvis, 'stone', 0.78, 0.28, 0.50, CG.slateDark, 0, 0.10, 0);
+  B(pelvis, 'stone', 0.98, 0.18, 0.58, CG.slate, 0, 0.10, 0);
+  B(pelvis, 'stone', 1.02, 0.07, 0.62, CG.frost, 0, 0.18, 0);
+  // Front loin armor monolith + cyan belt diamond
+  B(pelvis, 'stone', 0.36, 0.34, 0.12, CG.granite, 0, -0.02, 0.28);
+  B(pelvis, 'stone', 0.24, 0.14, 0.10, CG.frost, 0, -0.18, 0.27);
+  B(pelvis, 'cyan', 0.12, 0.12, 0.05, CG.cyan, 0, 0.10, 0.33);
+  B(pelvis, 'coreCyan', 0.06, 0.06, 0.04, CG.cyanWhite, 0, 0.10, 0.35);
+  // Side hip tassets
+  for (const s of [-1, 1]) {
+    B(pelvis, 'stone', 0.14, 0.30, 0.44, CG.granite, s * 0.54, 0.02, 0);
+    B(pelvis, 'stone', 0.10, 0.22, 0.34, CG.frost, s * 0.58, -0.06, 0);
+    B(pelvis, 'violet', 0.05, 0.14, 0.10, CG.violet, s * 0.61, 0.02, 0.04);
+  }
+
+  // Tapered abdomen / cavern-slate waist column
+  B(body, 'stone', 0.86, 0.32, 0.54, CG.slateDark, 0, 0.39, 0);
+  for (const s of [-1, 1]) {
+    B(body, 'stone', 0.28, 0.24, 0.58, CG.slate, s * 0.33, 0.39, 0);
+  }
+  B(body, 'stone', 0.72, 0.08, 0.10, CG.granite, 0, 0.33, 0.26);
+  B(body, 'stone', 0.76, 0.08, 0.10, CG.frost, 0, 0.44, 0.27);
+
+  // Upper torso monolith framing the truly RECESSED chest cavity
+  // Rear torso block & shoulder bridge
+  B(body, 'stone', 1.38, 0.68, 0.44, CG.slate, 0, 0.86, -0.10);
+  B(body, 'stone', 1.56, 0.20, 0.72, CG.granite, 0, 1.15, -0.02);
+  B(body, 'stone', 1.12, 0.12, 0.58, CG.frost, 0, 1.25, -0.02);
+  // Deep recessed cavern back wall behind the dual hearts
+  B(body, 'stone', 0.66, 0.52, 0.10, CG.slateDark, 0, 0.83, 0.15);
+
+  // Left & Right front chest armor pillars framing the cavity
+  for (const s of [-1, 1]) {
+    B(body, 'stone', 0.44, 0.58, 0.34, CG.slate, s * 0.50, 0.84, 0.25);
+    B(body, 'stone', 0.36, 0.50, 0.12, CG.granite, s * 0.48, 0.84, 0.40);
+    B(body, 'stone', 0.38, 0.12, 0.14, CG.frost, s * 0.49, 1.05, 0.42);
+    B(body, 'stone', 0.24, 0.14, 0.10, CG.frostHi, s * 0.52, 0.72, 0.42);
+    // Embedded glowing chest edge rune strips
+    B(body, s < 0 ? 'cyan' : 'violet', 0.06, 0.24, 0.05, s < 0 ? CG.cyan : CG.violet, s * 0.35, 0.84, 0.44);
+  }
+
+  // Lower & upper recessed cavity arches + inward crystal rim teeth
+  B(body, 'stone', 0.84, 0.14, 0.26, CG.granite, 0, 0.54, 0.32);
+  B(body, 'stone', 0.64, 0.08, 0.12, CG.frost, 0, 0.54, 0.42);
+  B(body, 'stone', 0.90, 0.14, 0.26, CG.granite, 0, 1.12, 0.32);
+  B(body, 'stone', 0.70, 0.08, 0.12, CG.frost, 0, 1.11, 0.42);
+
+  // Inward cavity crystal rim teeth
+  B(body, 'cyan', 0.07, 0.09, 0.07, CG.cyan, -0.25, 1.02, 0.33);
+  B(body, 'violet', 0.07, 0.09, 0.07, CG.violet, 0.25, 1.02, 0.33);
+  B(body, 'violet', 0.07, 0.08, 0.07, CG.violetDeep, -0.23, 0.63, 0.33);
+  B(body, 'cyan', 0.07, 0.08, 0.07, CG.cyanDeep, 0.23, 0.63, 0.33);
+
+  // --------------------------------------------------------------------------
+  // C. DUAL HEART VOXEL PRISM CORE (heartCyan & heartViolet pulsing independently)
+  // --------------------------------------------------------------------------
+  const coreCrystal = makeJoint(body, 0, 0.83, 0.31);
+  const heartCyan = makeJoint(coreCrystal, -0.105, 0.035, 0.00);
+  const heartViolet = makeJoint(coreCrystal, 0.105, -0.035, 0.015);
+
+  voxDiamond(vb, heartCyan, 'cyan', 'coreCyan', 0, 0, 0, 0.036, CYAN_PALETTE);
+  voxDiamond(vb, heartViolet, 'violet', 'coreViolet', 0, 0, 0, 0.036, VIOLET_PALETTE);
+
+  // --------------------------------------------------------------------------
+  // D. 6 DORSAL VOXEL CRYSTAL SPINES (erupting from stone sockets on upper back)
+  // --------------------------------------------------------------------------
+  const spineConfigs = [
+    // Left fan (i = 0, 1, 2)
+    { pos: [-0.22, 1.14, -0.34], rot: [-0.30, 0.12, 0.22], baseW: 0.17, h: 0.76, steps: 6, isCyan: true },
+    { pos: [-0.46, 0.96, -0.36], rot: [-0.44, 0.20, 0.50], baseW: 0.15, h: 0.66, steps: 5, isCyan: false },
+    { pos: [-0.32, 0.72, -0.36], rot: [-0.62, 0.14, 0.34], baseW: 0.13, h: 0.50, steps: 5, isCyan: true },
+    // Right fan (i = 3, 4, 5)
+    { pos: [0.22, 1.14, -0.34], rot: [-0.30, -0.12, -0.22], baseW: 0.17, h: 0.76, steps: 6, isCyan: false },
+    { pos: [0.46, 0.96, -0.36], rot: [-0.44, -0.20, -0.50], baseW: 0.15, h: 0.66, steps: 5, isCyan: true },
+    { pos: [0.32, 0.72, -0.36], rot: [-0.62, -0.14, -0.34], baseW: 0.13, h: 0.50, steps: 5, isCyan: false },
+  ];
+
+  const crystalSpines = [];
+  for (let i = 0; i < spineConfigs.length; i++) {
+    const sc = spineConfigs[i];
+    const sp = makeJoint(body, sc.pos[0], sc.pos[1], sc.pos[2]);
+    sp.rotation.set(sc.rot[0], sc.rot[1], sc.rot[2]);
+    sp.userData.baseRot = { x: sc.rot[0], y: sc.rot[1], z: sc.rot[2] };
+
+    // Stone dorsal socket collar
+    B(sp, 'stone', sc.baseW * 1.45, 0.12, sc.baseW * 1.45, CG.slateDark, 0, 0.02, 0);
+    B(sp, 'stone', sc.baseW * 1.25, 0.10, sc.baseW * 1.25, CG.granite, 0, 0.09, 0);
+
+    // Stepped dorsal crystal spire
+    voxSpire(
+      vb,
+      sp,
+      sc.isCyan ? 'cyan' : 'violet',
+      0,
+      0.11,
+      0,
+      sc.baseW,
+      sc.h,
+      sc.steps,
+      sc.isCyan ? CYAN_PALETTE : VIOLET_PALETTE,
+      1,
+      0,
+      0,
+      sc.isCyan ? 'coreCyan' : 'coreViolet'
+    );
+    crystalSpines.push(sp);
+  }
+
+  // --------------------------------------------------------------------------
+  // E. 4 ORBITING VOXEL CRYSTAL SHARDS (stepped pixel-diamond blocks)
+  // --------------------------------------------------------------------------
+  const orbitConfigs = [
+    { angle: 0.25, radius: 1.20, baseY: 0.94, speed: 1.08, phase: 0.0, isCyan: true },
+    { angle: 1.82, radius: 1.26, baseY: 0.78, speed: 1.08, phase: 1.57, isCyan: false },
+    { angle: 3.39, radius: 1.20, baseY: 0.98, speed: 1.08, phase: 3.14, isCyan: true },
+    { angle: 4.96, radius: 1.26, baseY: 0.80, speed: 1.08, phase: 4.71, isCyan: false },
+  ];
+
+  const orbitShards = [];
+  for (let i = 0; i < orbitConfigs.length; i++) {
+    const oc = orbitConfigs[i];
+    const shard = makeJoint(
+      body,
+      Math.cos(oc.angle) * oc.radius,
+      oc.baseY,
+      Math.sin(oc.angle) * oc.radius
+    );
+    shard.userData = {
+      angle: oc.angle,
+      radius: oc.radius,
+      baseY: oc.baseY,
+      speed: oc.speed,
+      phase: oc.phase,
+    };
+
+    voxDiamond(
+      vb,
+      shard,
+      oc.isCyan ? 'cyan' : 'violet',
+      oc.isCyan ? 'coreCyan' : 'coreViolet',
+      0,
+      0,
+      0,
+      0.044,
+      oc.isCyan ? CYAN_PALETTE : VIOLET_PALETTE
+    );
+    // Tiny stone rune collar block hugging the center of the orbiting shard
+    B(shard, 'stone', 0.16, 0.04, 0.16, CG.frost, 0, 0, 0);
+    orbitShards.push(shard);
+  }
+
+  // --------------------------------------------------------------------------
+  // F. STEPPED MONOLITH CAVERN-STONE HEAD, PIXEL EYES & JAGGED CRYSTAL CROWN
+  //    head pivot at body local y = 1.32 -> world y = 2.90m; crown tip = 3.60m
+  // --------------------------------------------------------------------------
+  const head = makeJoint(body, 0, 1.32, 0.02);
+
+  // Recessed stone neck collar
+  B(head, 'stone', 0.42, 0.12, 0.40, CG.slateDark, 0, -0.02, 0);
+  B(head, 'stone', 0.46, 0.06, 0.44, CG.granite, 0, 0.02, 0);
+
+  // Cavern-stone monolith cranium & jaw
+  B(head, 'stone', 0.46, 0.14, 0.46, CG.slate, 0, 0.10, 0);
+  B(head, 'stone', 0.30, 0.10, 0.10, CG.granite, 0, 0.08, 0.25);
+  for (const s of [-1, 1]) {
+    B(head, 'stone', 0.08, 0.24, 0.34, CG.frost, s * 0.25, 0.20, 0.02);
+  }
+  // Shadowed eye visor recess
+  B(head, 'stone', 0.46, 0.12, 0.44, CG.slateDark, 0, 0.24, 0.01);
+
+  // Glowing square cyan pixel eyes under heavy stepped brow
+  for (const s of [-1, 1]) {
+    B(head, 'cyan', 0.09, 0.08, 0.04, CG.cyan, s * 0.115, 0.245, 0.235);
+    B(head, 'coreCyan', 0.05, 0.05, 0.04, CG.cyanWhite, s * 0.115, 0.245, 0.250);
+  }
+
+  // Heavy stepped brow overhang & upper cranium tiers
+  B(head, 'stone', 0.52, 0.12, 0.52, CG.granite, 0, 0.36, 0.02);
+  B(head, 'stone', 0.54, 0.07, 0.12, CG.frost, 0, 0.36, 0.26);
+  B(head, 'stone', 0.44, 0.10, 0.44, CG.slate, 0, 0.45, -0.01);
+  B(head, 'stone', 0.36, 0.06, 0.36, CG.frost, 0, 0.49, -0.01);
+
+  // Jagged Voxel Crystal Crown (staggered pixel columns in cyan & violet -> top ~y=0.70 => 3.60m!)
+  // Central cyan crown spire
+  voxSpire(vb, head, 'cyan', 0, 0.46, 0.02, 0.12, 0.26, 4, CYAN_PALETTE, 1, 0, 0, 'coreCyan');
+  // Twin flanking violet crown horns
+  for (const s of [-1, 1]) {
+    voxSpire(
+      vb,
+      head,
+      'violet',
+      s * 0.14,
+      0.44,
+      0.04,
+      0.10,
+      0.21,
+      4,
+      VIOLET_PALETTE,
+      1,
+      s * 0.018,
+      0,
+      'coreViolet'
+    );
+    // Secondary rear-side cyan pixel spike
+    voxSpire(
+      vb,
+      head,
+      'cyan',
+      s * 0.12,
+      0.44,
+      -0.12,
+      0.08,
+      0.16,
+      3,
+      CYAN_PALETTE,
+      1,
+      s * 0.01,
+      -0.012,
+      'coreCyan'
+    );
+  }
+  // Forehead amethyst crown gem & rear center violet tooth
+  B(head, 'coreViolet', 0.06, 0.08, 0.05, CG.violetWhite, 0, 0.42, 0.25);
+  voxSpire(vb, head, 'violet', 0, 0.45, -0.15, 0.09, 0.18, 3, VIOLET_PALETTE, 1, 0, -0.014, 'coreViolet');
+
+  // --------------------------------------------------------------------------
+  // G. LEFT ARM (armL + foreL ending in 3 STEPPED CYAN VOXEL CRYSTAL CLAWS)
+  // --------------------------------------------------------------------------
+  const armL = makeJoint(body, -0.92, 1.00, 0);
+  // Massive stepped shoulder pauldron
+  B(armL, 'stone', 0.56, 0.32, 0.56, CG.slate, -0.04, 0.06, 0);
+  B(armL, 'stone', 0.46, 0.18, 0.46, CG.granite, -0.06, 0.22, 0);
+  B(armL, 'stone', 0.34, 0.10, 0.34, CG.frost, -0.08, 0.31, 0);
+  // Pauldron stepped crystal spikes (amethyst + cyan)
+  voxSpire(vb, armL, 'violet', -0.08, 0.28, 0.04, 0.13, 0.34, 4, VIOLET_PALETTE, 1, -0.025, 0, 'coreViolet');
+  voxSpire(vb, armL, 'cyan', -0.18, 0.20, 0.12, 0.10, 0.24, 3, CYAN_PALETTE, 1, -0.025, 0.015, 'coreCyan');
+  voxSpire(vb, armL, 'violet', -0.12, 0.22, -0.14, 0.10, 0.24, 3, VIOLET_PALETTE, 1, -0.02, -0.015, 'coreViolet');
+
+  // Upper arm stone block & elbow joint
+  B(armL, 'stone', 0.34, 0.46, 0.36, CG.slateDark, 0, -0.30, 0);
+  B(armL, 'stone', 0.38, 0.34, 0.38, CG.slate, 0, -0.28, 0);
+  B(armL, 'stone', 0.10, 0.24, 0.24, CG.frost, -0.19, -0.28, 0);
+
+  const foreL = makeJoint(armL, 0, -0.56, 0);
+  // Heavy gauntlet forearm + outer stone fin + crystal conduit
+  B(foreL, 'stone', 0.34, 0.46, 0.36, CG.slateDark, 0, -0.24, 0);
+  B(foreL, 'stone', 0.40, 0.40, 0.40, CG.slate, 0, -0.25, 0);
+  B(foreL, 'stone', 0.44, 0.14, 0.44, CG.granite, 0, -0.44, 0);
+  B(foreL, 'stone', 0.08, 0.34, 0.22, CG.frost, -0.21, -0.24, -0.02);
+  B(foreL, 'violet', 0.06, 0.26, 0.09, CG.violet, -0.23, -0.24, 0.02);
+
+  // Knuckle block + 3 STEPPED CYAN VOXEL CRYSTAL CLAWS
+  B(foreL, 'stone', 0.36, 0.14, 0.32, CG.granite, 0, -0.52, 0.04);
+  voxClaw(vb, foreL, -0.12, -0.56, 0.06, 0.34, 0.085, 1);
+  voxClaw(vb, foreL, 0.00, -0.56, 0.09, 0.39, 0.095, 1);
+  voxClaw(vb, foreL, 0.12, -0.56, 0.06, 0.33, 0.085, 1);
+  // Inner thumb crystal claw
+  voxClaw(vb, foreL, 0.17, -0.50, 0.15, 0.22, 0.075, 1);
+
+  // --------------------------------------------------------------------------
+  // H. RIGHT ARM & HEAVY VOXEL CRYSTAL BATTLE-AXE / CLEAVER (armR + foreR + weaponR)
+  // --------------------------------------------------------------------------
+  const armR = makeJoint(body, 0.92, 1.00, 0);
+  // Asymmetric massive right pauldron
+  B(armR, 'stone', 0.60, 0.34, 0.60, CG.slate, 0.05, 0.06, 0);
+  B(armR, 'stone', 0.50, 0.20, 0.50, CG.granite, 0.07, 0.23, 0);
+  B(armR, 'stone', 0.38, 0.10, 0.38, CG.frost, 0.09, 0.32, 0);
+  // Pauldron stepped crystal spikes (cyan dominant + amethyst)
+  voxSpire(vb, armR, 'cyan', 0.10, 0.30, 0.02, 0.14, 0.40, 5, CYAN_PALETTE, 1, 0.028, 0, 'coreCyan');
+  voxSpire(vb, armR, 'cyan', 0.20, 0.22, 0.14, 0.11, 0.28, 4, CYAN_PALETTE, 1, 0.028, 0.015, 'coreCyan');
+  voxSpire(vb, armR, 'violet', 0.12, 0.24, -0.15, 0.11, 0.28, 4, VIOLET_PALETTE, 1, 0.022, -0.015, 'coreViolet');
+
+  // Upper arm stone sleeve
+  B(armR, 'stone', 0.36, 0.46, 0.38, CG.slateDark, 0, -0.30, 0);
+  B(armR, 'stone', 0.40, 0.34, 0.40, CG.slate, 0, -0.28, 0);
+  B(armR, 'stone', 0.10, 0.24, 0.24, CG.frost, 0.20, -0.28, 0);
+
+  const foreR = makeJoint(armR, 0, -0.56, 0);
+  // Heavy right gauntlet bracer & clenched fist gripping battle-axe
+  B(foreR, 'stone', 0.36, 0.46, 0.38, CG.slateDark, 0, -0.24, 0);
+  B(foreR, 'stone', 0.42, 0.40, 0.42, CG.slate, 0, -0.25, 0);
+  B(foreR, 'stone', 0.44, 0.16, 0.44, CG.granite, 0, -0.45, 0);
+  B(foreR, 'stone', 0.08, 0.34, 0.22, CG.frost, 0.22, -0.24, -0.02);
+  B(foreR, 'cyan', 0.06, 0.26, 0.09, CG.cyan, 0.24, -0.24, 0.02);
+  // Heavy clenched stone fingers wrapping the handle
+  B(foreR, 'stone', 0.28, 0.20, 0.26, CG.granite, 0, -0.52, 0.03);
+  B(foreR, 'stone', 0.22, 0.14, 0.10, CG.frost, 0, -0.52, 0.15);
+
+  // Heavy Voxel Crystal Battle-Axe / Cleaver (`weaponR`) — haft extends +Z forward, blade edge faces -Y
+  const weaponR = makeJoint(foreR, 0, -0.52, 0.03);
+
+  // Carved stone shaft along +Z & frost-granite grip collars flanking fist (z = 0)
+  B(weaponR, 'stone', 0.11, 0.11, 1.42, CG.slateDark, 0, 0, 0.35);
+  B(weaponR, 'stone', 0.145, 0.145, 0.09, CG.granite, 0, 0, -0.15);
+  B(weaponR, 'stone', 0.145, 0.145, 0.09, CG.granite, 0, 0, 0.16);
+  B(weaponR, 'stone', 0.165, 0.165, 0.09, CG.frost, 0, 0, -0.34);
+  // Rear pommel stepped amethyst spike (-Z behind wrist)
+  B(weaponR, 'violet', 0.11, 0.11, 0.08, CG.violetDeep, 0, 0, -0.42);
+  B(weaponR, 'violet', 0.08, 0.08, 0.08, CG.violet, 0, 0, -0.49);
+  B(weaponR, 'coreViolet', 0.05, 0.05, 0.07, CG.violetWhite, 0, 0, -0.56);
+  // Front shaft stepped cyan spear tip (+Z ahead of axe socket)
+  B(weaponR, 'cyan', 0.11, 0.11, 0.10, CG.cyanDeep, 0, 0, 1.09);
+  B(weaponR, 'cyan', 0.08, 0.08, 0.10, CG.cyan, 0, 0, 1.18);
+  B(weaponR, 'coreCyan', 0.05, 0.05, 0.09, CG.cyanWhite, 0, 0, 1.26);
+
+  // Heavy stone axe-head collar socket (at z = +0.76)
+  B(weaponR, 'stone', 0.20, 0.24, 0.34, CG.slate, 0, 0, 0.76);
+  B(weaponR, 'stone', 0.24, 0.18, 0.24, CG.frost, 0, 0, 0.76);
+  B(weaponR, 'violet', 0.25, 0.10, 0.12, CG.violet, 0, 0, 0.76);
+
+  // Stepped Crescent Crystal Cleaver Blade (-Y chopping edge for forward/downward cleave)
+  B(weaponR, 'violet', 0.14, 0.10, 0.38, CG.violetDeep, 0, -0.14, 0.76);
+  B(weaponR, 'cyan', 0.12, 0.10, 0.48, CG.cyanDeep, 0, -0.23, 0.76);
+  B(weaponR, 'cyan', 0.10, 0.10, 0.62, CG.cyan, 0, -0.32, 0.76);
+  B(weaponR, 'cyan', 0.075, 0.09, 0.76, CG.cyanBright, 0, -0.41, 0.76);
+  // Razor pixel-stepped cutting teeth along -Y leading edge
+  B(weaponR, 'coreCyan', 0.05, 0.07, 0.36, CG.cyanWhite, 0, -0.48, 0.76);
+  B(weaponR, 'coreCyan', 0.05, 0.07, 0.14, CG.cyanWhite, 0, -0.47, 1.08);
+  B(weaponR, 'coreCyan', 0.05, 0.07, 0.14, CG.cyanWhite, 0, -0.47, 0.44);
+  // Front & rear crescent blade wing horns
+  B(weaponR, 'cyan', 0.08, 0.09, 0.10, CG.cyan, 0, -0.32, 1.05);
+  B(weaponR, 'cyan', 0.08, 0.09, 0.10, CG.cyan, 0, -0.32, 0.47);
+
+  // Top counter-balance stepped amethyst pick (+Y back spike at z = +0.76)
+  B(weaponR, 'violet', 0.13, 0.10, 0.20, CG.violetDeep, 0, 0.14, 0.76);
+  B(weaponR, 'violet', 0.10, 0.10, 0.14, CG.violet, 0, 0.23, 0.76);
+  B(weaponR, 'coreViolet', 0.07, 0.09, 0.08, CG.violetWhite, 0, 0.31, 0.76);
+
+  vb.finish();
+
+  const parts = {
+    body,
+    head,
+    armL,
+    foreL,
+    armR,
+    foreR,
+    weaponR,
+    legs,
+    shins,
+    pelvis,
+    coreCrystal,
+    heartCyan,
+    heartViolet,
+    coreCyan: heartCyan,
+    coreAmethyst: heartViolet,
+    crystalSpines,
+    orbitShards,
+    crystalMats: [vb.matMap.cyan, vb.matMap.violet, vb.matMap.coreCyan, vb.matMap.coreViolet],
+    bodyY: BODY_Y,
+    legY: LEG_Y,
+  };
+
+  animateCrystalGolem(
+    {
+      mesh: root,
+      parts,
+      material: vb.materials,
+      vel: { x: 0, z: 0 },
+      flash: 0,
+      swing: 0,
+      telegraph: 0,
+      target: null,
+      dead: false,
+      state: 'idle',
+    },
+    0
+  );
+
+  return { mesh: root, parts, material: vb.materials, materials: vb.materials };
+}
+
+// ============================================================================
+// 6. HIT FLASH HANDLER (Red flash + clean crystal emissive restoration)
+// ============================================================================
+
+function collectMaterials(st, out) {
+  const pushMat = (m) => {
+    if (m && typeof m === 'object' && m.emissive && out.indexOf(m) === -1) {
+      out.push(m);
+    }
+  };
+  const inspect = (entry) => {
+    if (!entry) return;
+    if (Array.isArray(entry)) {
+      for (let i = 0; i < entry.length; i++) inspect(entry[i]);
+    } else {
+      pushMat(entry);
+    }
+  };
+
+  inspect(st.material);
+  inspect(st.materials);
+  if (out.length === 0 && st.mesh && typeof st.mesh.traverse === 'function') {
+    st.mesh.traverse((o) => {
+      if (o && o.material) inspect(o.material);
+    });
+  }
+}
+
+function applyHitFlash(st, crystalPulse = 1.0) {
+  const flashing = !!(st.flash && st.flash > 0);
+  const mats = st._cgMats || (st._cgMats = []);
+  if (mats.length === 0 || st._cgMatRef !== st.material) {
+    mats.length = 0;
+    st._cgMatRef = st.material;
+    collectMaterials(st, mats);
+  }
+
+  for (let i = 0; i < mats.length; i++) {
+    const m = mats[i];
+    if (!m.userData) m.userData = {};
+    if (!m.userData._cgBaseEmissive) {
+      m.userData._cgBaseEmissive = m.emissive.clone();
+      m.userData._cgBaseIntensity = m.emissiveIntensity !== undefined ? m.emissiveIntensity : 1.0;
+    }
+
+    if (flashing) {
+      m.emissive.setHex(0xd93848);
+      if (m.emissiveIntensity !== undefined) {
+        m.emissiveIntensity = Math.max(m.userData._cgBaseIntensity, 1.35);
+      }
+    } else {
+      m.emissive.copy(m.userData._cgBaseEmissive);
+      if (m.emissiveIntensity !== undefined) {
+        const baseI = m.userData._cgBaseIntensity;
+        const isEmissiveCrystal = m.userData._cgBaseEmissive.getHex() !== 0x000000;
+        m.emissiveIntensity = isEmissiveCrystal ? baseI * crystalPulse : baseI;
+      }
+    }
+  }
+}
+
+// ============================================================================
+// 7. SMOOTH EXPONENTIALLY-DAMPED ANIMATOR: animateCrystalGolem(st, dt)
+// ============================================================================
+
+/**
+ * Smoothly animates the pure-voxel Crystal Golem across idle, walk/stalk,
+ * attack_windup, attack_strike, attack_recover, die, and hit-flash states.
+ * @param {object} st
+ * @param {number} dt
+ */
+function animateCrystalGolem(st, dt) {
+  if (!st || !st.parts || !st.parts.body) return;
+  const P = st.parts;
+
+  const safeDt = Number.isFinite(dt) ? clamp(dt, 0, 0.1) : 0;
+  const t = (st._t = (st._t || 0) + safeDt);
+
+  const yaw = st.mesh && st.mesh.rotation && Number.isFinite(st.mesh.rotation.y) ? st.mesh.rotation.y : 0;
+  const vx = st.vel && Number.isFinite(st.vel.x) ? st.vel.x : 0;
+  const vz = st.vel && Number.isFinite(st.vel.z) ? st.vel.z : 0;
+  const rawSp = Math.hypot(vx, vz);
+
+  const isDead = !!(
+    st.dead ||
+    st.state === 'die' ||
+    (typeof st.hp === 'number' && st.hp <= 0)
+  );
+
+  const anim =
+    st._crystalGolemAnim ||
+    (st._crystalGolemAnim = {
+      speedNorm: 0,
+      gaitBlend: 0,
+      combatBlend: 0,
+      telegraphBlend: 0,
+      swingBlend: 0,
+      recoverBlend: 0,
+      dieBlend: 0,
+      turnLean: 0,
+      headTrackYaw: 0,
+      yaw,
+      stepPhase: 0,
+      heartPhaseCyan: 0,
+      heartPhaseViolet: 1.7,
+      atkActive: false,
+      atkT: 0,
+      lastSwing: 0,
+      lastState: st.state || 'idle',
+      windCarry: 0,
+      bodyX: 0,
+      bodyY: P.bodyY || 1.605,
+      bodyZ: 0,
+      bodyRX: 0,
+      bodyRY: 0,
+      bodyRZ: 0,
+      headY: 1.32,
+      headRX: 0,
+      headRY: 0,
+      headRZ: 0,
+      armLRX: -0.14,
+      armLRY: 0.10,
+      armLRZ: -0.16,
+      foreLRX: -0.42,
+      foreLRY: 0.08,
+      armRRX: -0.14,
+      armRRY: -0.06,
+      armRRZ: 0.18,
+      foreRRX: -0.50,
+      foreRRY: -0.04,
+      foreRRZ: -0.06,
+      legLRX: -0.04,
+      legLRZ: -0.04,
+      legRRX: -0.04,
+      legRRZ: 0.04,
+      shinLRX: 0.08,
+      shinRRX: 0.08,
+    });
+
+  // --- 1. Exponentially Damped State Blends ---
+  const stateName = st.state || 'idle';
+  const walkFromState = !isDead && stateName === 'walk' ? 0.55 : 0;
+  const targetSpeedNorm = isDead ? 0 : Math.max(clamp(rawSp / 2.0, 0, 1), walkFromState);
+  const targetGait = isDead ? 0 : Math.max(clamp(rawSp / 1.15, 0, 1), walkFromState);
+  const targetCombat = !isDead && st.target ? 1 : 0;
+
+  let teleInput = clamp(st.telegraph || 0, 0, 1);
+  if (!isDead && stateName === 'attack_windup' && teleInput < 0.05) {
+    teleInput = 0.85;
+  }
+  const targetTele = isDead ? 0 : smooth(teleInput);
+
+  anim.speedNorm = damp(anim.speedNorm, targetSpeedNorm, 7.5, safeDt);
+  anim.gaitBlend = damp(anim.gaitBlend, targetGait, 8.5, safeDt);
+  anim.combatBlend = damp(anim.combatBlend, targetCombat, 6.0, safeDt);
+  anim.telegraphBlend = damp(anim.telegraphBlend, targetTele, 11.5, safeDt);
+  anim.dieBlend = damp(anim.dieBlend, isDead ? 1 : 0, 5.2, safeDt);
+
+  const yawDiff = wrapAngle(yaw - anim.yaw);
+  const instTurn = safeDt > 0.0005 ? clamp(yawDiff / safeDt, -4.0, 4.0) * 0.042 : 0;
+  anim.turnLean = damp(anim.turnLean, isDead ? 0 : instTurn, 7.5, safeDt);
+  anim.yaw = yaw;
+
+  // --- 2. Heavy Crystal Battle-Axe Cleave Envelope ---
+  const curSwing = st.swing || 0;
+  const enteredStrikeState = !isDead && stateName === 'attack_strike' && anim.lastState !== 'attack_strike';
+  const swingTriggered =
+    !isDead &&
+    curSwing > 0 &&
+    (anim.lastSwing <= 0 || curSwing > anim.lastSwing + 0.02) &&
+    !(stateName === 'attack_strike' && anim.atkActive && anim.atkT < 0.25);
+
+  if (enteredStrikeState || swingTriggered) {
+    anim.atkActive = true;
+    anim.atkT = 0;
+    anim.windCarry = Math.max(anim.telegraphBlend, 0.82);
+  }
+  anim.lastSwing = curSwing;
+  anim.lastState = stateName;
+
+  const ATK_DUR = 0.72;
+  const STRIKE_PEAK_T = 0.20;
+  let slashTarget = 0;
+  let recoverTarget = stateName === 'attack_recover' && !isDead ? 0.55 : 0;
+  let windEffort = anim.telegraphBlend;
+
+  if (anim.atkActive) {
+    anim.atkT += safeDt;
+    if (anim.atkT >= ATK_DUR || isDead) {
+      anim.atkActive = false;
+      anim.atkT = 0;
+      anim.windCarry = 0;
+    } else {
+      const at = anim.atkT;
+      if (at < STRIKE_PEAK_T) {
+        const u = clamp(at / STRIKE_PEAK_T, 0, 1);
+        const arc = 1 - Math.pow(1 - u, 2.35);
+        slashTarget = arc;
+        recoverTarget = Math.max(recoverTarget, arc * 0.30);
+        windEffort = Math.max(windEffort, anim.windCarry * (1 - arc));
+      } else {
+        const u = clamp((at - STRIKE_PEAK_T) / (ATK_DUR - STRIKE_PEAK_T), 0, 1);
+        const overshoot = Math.sin(Math.min(1, u * 2.2) * Math.PI * 0.5) * 0.14;
+        const easeDecay = Math.pow(1 - u, 2.1);
+        slashTarget = clamp((1.0 + overshoot) * easeDecay, 0, 1.14);
+        recoverTarget = Math.max(recoverTarget, Math.sin(u * Math.PI) * 0.85);
+        windEffort = 0;
+      }
+    }
+  }
+
+  anim.swingBlend = damp(anim.swingBlend, isDead ? 0 : slashTarget, slashTarget > anim.swingBlend ? 24.0 : 8.5, safeDt);
+  anim.recoverBlend = damp(anim.recoverBlend, recoverTarget, 8.0, safeDt);
+
+  const dieW = clamp(anim.dieBlend, 0, 1);
+  const alive = 1 - dieW;
+  const windW = clamp(windEffort * alive, 0, 1);
+  const strikeW = clamp(anim.swingBlend * alive, 0, 1.14);
+  const recoverW = clamp(anim.recoverBlend * alive, 0, 1);
+  const atkMute = clamp(1 - Math.max(windW, Math.min(1, strikeW)), 0, 1);
+
+  // --- 3. Dual Heart Voxel Prism Independent Pulsing & Hit Flash ---
+  const energyRate = (1.0 + 1.1 * windW + 1.5 * Math.min(1, strikeW)) * alive;
+  anim.heartPhaseCyan = (anim.heartPhaseCyan + safeDt * (2.6 + 2.8 * energyRate)) % TAU;
+  anim.heartPhaseViolet = (anim.heartPhaseViolet + safeDt * (3.1 + 3.0 * energyRate)) % TAU;
+
+  const waveC = Math.sin(anim.heartPhaseCyan);
+  const waveV = Math.sin(anim.heartPhaseViolet);
+  const pulseIntensity = clamp(
+    (0.92 + 0.14 * waveC + 0.10 * waveV + 0.42 * windW + 0.48 * Math.min(1, strikeW)) * (0.20 + 0.80 * alive),
+    0.14,
+    2.1
+  );
+  applyHitFlash(st, pulseIntensity);
+
+  if (P.coreCrystal) {
+    const cScale = (1.0 + 0.05 * waveC + 0.14 * windW + 0.08 * Math.min(1, strikeW)) * (0.72 + 0.28 * alive);
+    P.coreCrystal.scale.setScalar(cScale);
+    P.coreCrystal.rotation.y = Math.sin(t * 1.35) * 0.12 * alive;
+  }
+  if (P.heartCyan) {
+    const sc = 1.0 + 0.09 * waveC + 0.12 * windW;
+    P.heartCyan.scale.setScalar(sc);
+    P.heartCyan.position.y = 0.035 + waveC * 0.016 * alive;
+    P.heartCyan.rotation.set(waveC * 0.12 * alive, t * 0.85 * alive, -waveC * 0.10 * alive);
+  }
+  if (P.heartViolet) {
+    const sv = 1.0 + 0.09 * waveV + 0.12 * Math.min(1, strikeW);
+    P.heartViolet.scale.setScalar(sv);
+    P.heartViolet.position.y = -0.035 + waveV * 0.016 * alive;
+    P.heartViolet.rotation.set(-waveV * 0.12 * alive, -t * 0.95 * alive, waveV * 0.10 * alive);
+  }
+
+  // --- 4. Heavy Grounded Stride & Knees ---
+  const gait = anim.gaitBlend * (1 - windW * 0.55) * (1 - Math.min(1, strikeW) * 0.55) * alive;
+  const stepFreq = 3.6 + anim.speedNorm * 2.0;
+  anim.stepPhase = (anim.stepPhase + safeDt * stepFreq * (0.08 + gait * 0.92)) % TAU;
+  const sinP = Math.sin(anim.stepPhase);
+  const cosP = Math.cos(anim.stepPhase);
+  const stepAmp = (0.38 + anim.speedNorm * 0.14) * gait;
+
+  const tgtLegLRX = -0.04 * alive - sinP * stepAmp + windW * 0.16 - strikeW * 0.22 - dieW * 0.52;
+  const tgtLegRRX = -0.04 * alive + sinP * stepAmp - windW * 0.20 + strikeW * 0.20 - dieW * 0.56;
+  const tgtLegLRZ = -0.04 - windW * 0.04;
+  const tgtLegRRZ = 0.04 + windW * 0.04;
+
+  const tgtShinLRX =
+    0.08 * alive +
+    Math.max(0, cosP) * 0.50 * gait +
+    Math.max(0, -tgtLegLRX) * 0.22 * gait +
+    windW * 0.20 +
+    strikeW * 0.24 +
+    dieW * 1.08;
+  const tgtShinRRX =
+    0.08 * alive +
+    Math.max(0, -cosP) * 0.50 * gait +
+    Math.max(0, -tgtLegRRX) * 0.22 * gait +
+    windW * 0.26 +
+    strikeW * 0.16 +
+    dieW * 1.14;
+
+  anim.legLRX = damp(anim.legLRX, tgtLegLRX, 12.0, safeDt);
+  anim.legRRX = damp(anim.legRRX, tgtLegRRX, 12.0, safeDt);
+  anim.legLRZ = damp(anim.legLRZ, tgtLegLRZ, 10.0, safeDt);
+  anim.legRRZ = damp(anim.legRRZ, tgtLegRRZ, 10.0, safeDt);
+  anim.shinLRX = damp(anim.shinLRX, tgtShinLRX, 13.0, safeDt);
+  anim.shinRRX = damp(anim.shinRRX, tgtShinRRX, 13.0, safeDt);
+
+  if (P.legs && P.legs.length >= 2) {
+    P.legs[0].rotation.set(anim.legLRX, 0, anim.legLRZ);
+    P.legs[1].rotation.set(anim.legRRX, 0, anim.legRRZ);
+  }
+  if (P.shins && P.shins.length >= 2) {
+    P.shins[0].rotation.x = anim.shinLRX;
+    P.shins[1].rotation.x = anim.shinRRX;
+  }
+
+  // --- 5. Torso Breathing, Coiled Windup, Heavy Diagonal Cleave & Die Slump ---
+  const baseBodyY = P.bodyY || 1.605;
+  const breathe = Math.sin(t * 1.8) * 0.022 * (1 - gait * 0.4) * alive;
+  const walkBob = Math.abs(sinP) * 0.048 * gait;
+  const stanceDip = windW * 0.05 + Math.min(1, strikeW) * 0.09 + recoverW * 0.04 + dieW * 0.46;
+
+  const tgtBodyX = -sinP * 0.042 * gait + windW * 0.05 - strikeW * 0.06;
+  const tgtBodyY = baseBodyY + breathe + walkBob - stanceDip;
+  const tgtBodyZ = -0.10 * windW + 0.20 * strikeW + 0.14 * dieW;
+
+  const tgtBodyRX =
+    0.03 * alive +
+    0.07 * gait +
+    0.04 * anim.speedNorm +
+    Math.sin(t * 1.8 - 0.35) * 0.016 * alive -
+    0.20 * windW +
+    0.30 * strikeW +
+    0.08 * recoverW +
+    0.58 * dieW;
+  const tgtBodyRY =
+    sinP * 0.10 * gait * atkMute +
+    0.46 * windW -
+    0.56 * strikeW -
+    0.10 * recoverW;
+  const tgtBodyRZ =
+    -cosP * 0.04 * gait * atkMute +
+    Math.sin(t * 0.9) * 0.018 * (1 - gait) * alive -
+    anim.turnLean -
+    0.14 * windW +
+    0.12 * strikeW +
+    0.08 * dieW;
+
+  anim.bodyX = damp(anim.bodyX, tgtBodyX, 11.0, safeDt);
+  anim.bodyY = damp(anim.bodyY, tgtBodyY, 9.5, safeDt);
+  anim.bodyZ = damp(anim.bodyZ, tgtBodyZ, 13.0, safeDt);
+  anim.bodyRX = damp(anim.bodyRX, tgtBodyRX, 11.0, safeDt);
+  anim.bodyRY = damp(anim.bodyRY, tgtBodyRY, 14.0, safeDt);
+  anim.bodyRZ = damp(anim.bodyRZ, tgtBodyRZ, 11.0, safeDt);
+
+  P.body.position.set(anim.bodyX, anim.bodyY, anim.bodyZ);
+  P.body.rotation.set(anim.bodyRX, anim.bodyRY, anim.bodyRZ);
+
+  if (P.pelvis) {
+    P.pelvis.rotation.set(0.02 * anim.speedNorm, sinP * 0.05 * gait * atkMute, -cosP * 0.03 * gait);
+  }
+
+  // --- 6. Monolith Stone Head & Jagged Voxel Crystal Crown ---
+  let desiredLookYaw = 0;
+  if (!isDead && st.target && st.mesh && st.mesh.position) {
+    let tp = null;
+    if (typeof st.target.getPos === 'function') tp = st.target.getPos();
+    else if (typeof st.target.x === 'number' && typeof st.target.z === 'number') tp = st.target;
+    if (tp && Number.isFinite(tp.x) && Number.isFinite(tp.z)) {
+      const dx = tp.x - st.mesh.position.x;
+      const dz = tp.z - st.mesh.position.z;
+      if (dx * dx + dz * dz > 0.04) {
+        const worldBearing = Math.atan2(dx, dz);
+        desiredLookYaw = clamp(wrapAngle(worldBearing - yaw), -0.46, 0.46);
+      }
+    }
+  }
+  const idleScanYaw =
+    Math.sin(t * 0.74) * 0.22 * (1 - anim.combatBlend) * (1 - gait * 0.45) * atkMute * alive;
+  anim.headTrackYaw = damp(anim.headTrackYaw, desiredLookYaw + idleScanYaw, 6.5, safeDt);
+
+  const tgtHeadY = 1.32 + Math.sin(t * 1.8 - 0.75) * 0.015 * alive + 0.015 * windW - 0.04 * dieW;
+  const tgtHeadRX = -0.02 * alive + Math.sin(t * 1.8 - 1.0) * 0.024 * alive - 0.12 * windW + 0.14 * strikeW + 0.36 * dieW;
+  const tgtHeadRY = anim.headTrackYaw - 0.24 * windW + 0.32 * strikeW;
+  const tgtHeadRZ = Math.cos(t * 0.9 - 0.6) * 0.028 * (1 - gait) * alive - anim.turnLean * 0.42;
+
+  anim.headY = damp(anim.headY, tgtHeadY, 7.5, safeDt);
+  anim.headRX = damp(anim.headRX, tgtHeadRX, 8.0, safeDt);
+  anim.headRY = damp(anim.headRY, tgtHeadRY, 8.5, safeDt);
+  anim.headRZ = damp(anim.headRZ, tgtHeadRZ, 8.0, safeDt);
+
+  if (P.head) {
+    P.head.position.y = anim.headY;
+    P.head.rotation.set(anim.headRX, anim.headRY, anim.headRZ);
+  }
+
+  // --- 7. Arms: Left Crystal Claw Guard & Right Battle-Axe Cleave ---
+  if (P.armL && P.foreL && P.armR && P.foreR) {
+    const swingL = -sinP * 0.38 * gait * atkMute;
+    const swingR = sinP * 0.28 * gait * atkMute;
+
+    // Left Arm (3 cyan crystal claws)
+    let tgtLRX = -0.14 * alive + swingL - 0.16 * anim.combatBlend + Math.cos(t * 1.8 - 0.5) * 0.03 * alive;
+    let tgtLRY = 0.10 * alive + 0.16 * anim.combatBlend;
+    let tgtLRZ = -0.16 - 0.06 * anim.combatBlend;
+    let tgtLFRX = -0.42 * alive - Math.max(0, -swingL) * 0.22 - 0.20 * anim.combatBlend;
+    let tgtLFRY = 0.08 + 0.12 * anim.combatBlend;
+
+    // Windup guard reach
+    tgtLRX = lerp(tgtLRX, -0.58, windW);
+    tgtLRY = lerp(tgtLRY, 0.34, windW);
+    tgtLRZ = lerp(tgtLRZ, -0.28, windW);
+    tgtLFRX = lerp(tgtLFRX, -0.56, windW);
+    tgtLFRY = lerp(tgtLFRY, 0.22, windW);
+
+    // Strike counter-swing
+    const strikeClamp = clamp(strikeW, 0, 1.14);
+    tgtLRX = lerp(tgtLRX, 0.38, strikeClamp);
+    tgtLRY = lerp(tgtLRY, -0.26, strikeClamp);
+    tgtLRZ = lerp(tgtLRZ, -0.38, strikeClamp);
+    tgtLFRX = lerp(tgtLFRX, -0.32, strikeClamp);
+
+    // Die limp drop
+    tgtLRX = lerp(tgtLRX, -0.22, dieW);
+    tgtLRZ = lerp(tgtLRZ, -0.24, dieW);
+    tgtLFRX = lerp(tgtLFRX, -0.18, dieW);
+
+    // Right Arm (Voxel Crystal Battle-Axe / Cleaver)
+    let tgtRRX = -0.14 * alive + swingR - 0.08 * anim.combatBlend + Math.sin(t * 1.8 - 0.6) * 0.028 * alive;
+    let tgtRRY = -0.06 - 0.08 * anim.combatBlend;
+    let tgtRRZ = 0.18 + 0.06 * anim.combatBlend;
+    let tgtRFRX = -0.50 * alive - 0.12 * anim.combatBlend + Math.max(0, -swingR) * 0.16;
+    let tgtRFRY = -0.04;
+    let tgtRFRZ = -0.06;
+
+    // Windup: hoist heavy crystal battle-axe high and back-right
+    const tremor = windW > 0.60 ? Math.sin(t * 26.0) * 0.016 * windW : 0;
+    tgtRRX = lerp(tgtRRX, -2.05 + tremor, windW);
+    tgtRRY = lerp(tgtRRY, -0.22, windW);
+    tgtRRZ = lerp(tgtRRZ, 0.54, windW);
+    tgtRFRX = lerp(tgtRFRX, -0.44, windW);
+    tgtRFRY = lerp(tgtRFRY, -0.22, windW);
+    tgtRFRZ = lerp(tgtRFRZ, 0.12, windW);
+
+    // Strike: devastating diagonal-to-front cleave driving crystal blade down-across
+    tgtRRX = lerp(tgtRRX, 0.14, strikeClamp);
+    tgtRRY = lerp(tgtRRY, -0.78 - 0.12 * recoverW, strikeClamp);
+    tgtRRZ = lerp(tgtRRZ, -0.08, strikeClamp);
+    tgtRFRX = lerp(tgtRFRX, -0.18, strikeClamp);
+    tgtRFRY = lerp(tgtRFRY, 0.24, strikeClamp);
+    tgtRFRZ = lerp(tgtRFRZ, 0.28, strikeClamp);
+
+    // Recover settle
+    tgtRRX = lerp(tgtRRX, -0.28, recoverW * (1 - strikeClamp * 0.7));
+
+    // Die limp drop
+    tgtRRX = lerp(tgtRRX, -0.26, dieW);
+    tgtRRZ = lerp(tgtRRZ, 0.26, dieW);
+    tgtRFRX = lerp(tgtRFRX, -0.16, dieW);
+
+    const armRate = strikeClamp > 0.05 ? 20.0 : 9.5;
+    anim.armLRX = damp(anim.armLRX, tgtLRX, armRate, safeDt);
+    anim.armLRY = damp(anim.armLRY, tgtLRY, armRate, safeDt);
+    anim.armLRZ = damp(anim.armLRZ, tgtLRZ, armRate, safeDt);
+    anim.foreLRX = damp(anim.foreLRX, tgtLFRX, armRate, safeDt);
+    anim.foreLRY = damp(anim.foreLRY, tgtLFRY, armRate, safeDt);
+
+    anim.armRRX = damp(anim.armRRX, tgtRRX, armRate, safeDt);
+    anim.armRRY = damp(anim.armRRY, tgtRRY, armRate, safeDt);
+    anim.armRRZ = damp(anim.armRRZ, tgtRRZ, armRate, safeDt);
+    anim.foreRRX = damp(anim.foreRRX, tgtRFRX, armRate, safeDt);
+    anim.foreRRY = damp(anim.foreRRY, tgtRFRY, armRate, safeDt);
+    anim.foreRRZ = damp(anim.foreRRZ, tgtRFRZ, armRate, safeDt);
+
+    P.armL.rotation.set(anim.armLRX, anim.armLRY, anim.armLRZ);
+    P.foreL.rotation.set(anim.foreLRX, anim.foreLRY, 0);
+
+    P.armR.rotation.set(anim.armRRX, anim.armRRY, anim.armRRZ);
+    P.foreR.rotation.set(anim.foreRRX, anim.foreRRY, anim.foreRRZ);
+  }
+
+  // --- 8. 6 Dorsal Crystal Spines Breathing & Flare ---
+  if (P.crystalSpines) {
+    for (let i = 0; i < P.crystalSpines.length; i++) {
+      const sp = P.crystalSpines[i];
+      const br = sp.userData.baseRot;
+      if (!br) continue;
+      const sideSign = i < 3 ? -1 : 1;
+      const wave = Math.sin(t * 2.0 + i * 0.85) * 0.028 * alive;
+      const flare = windW * 0.14 + Math.min(1, strikeW) * 0.18 - dieW * 0.12;
+      sp.rotation.set(
+        br.x - flare * 0.55 + wave,
+        br.y,
+        br.z + sideSign * flare * 0.65
+      );
+    }
+  }
+
+  // --- 9. 4 Orbiting Voxel Crystal Shards ---
+  if (P.orbitShards) {
+    const orbitBoost = (1.0 + 1.15 * windW + 1.85 * Math.min(1, strikeW)) * (0.15 + 0.85 * alive);
+    for (let i = 0; i < P.orbitShards.length; i++) {
+      const shard = P.orbitShards[i];
+      const u = shard.userData;
+      if (!u) continue;
+      u.angle = (u.angle + safeDt * u.speed * orbitBoost) % TAU;
+      const rad = u.radius + Math.sin(t * 1.6 + u.phase) * 0.045 * alive + windW * 0.12 - dieW * 0.18;
+      shard.position.set(
+        Math.cos(u.angle) * rad,
+        u.baseY + Math.sin(t * 2.2 + u.phase) * 0.10 * alive - dieW * 0.34,
+        Math.sin(u.angle) * rad
+      );
+      shard.rotation.y = -u.angle + t * 1.35 * alive;
+      shard.rotation.z = Math.sin(t * 1.8 + u.phase) * 0.22 * alive;
+    }
+  }
+}
+
+return { buildCrystalGolem, animateCrystalGolem };
+
+})();
+
 // --- js/mobs.js ---
 (() => {
 'use strict';
@@ -37934,6 +47247,14 @@ const {
   animateSmallBandit,
   animateBigBandit,
 } = __MOD_BANDIT_MODELS;
+const {
+  buildSunRuinsGolem,
+  animateSunRuinsGolem,
+} = __MOD_RUINS_GOLEM;
+const {
+  buildCrystalGolem,
+  animateCrystalGolem,
+} = __MOD_CRYSTAL_GOLEM;
 const THREE = HC.THREE;
 
 /* ============================================================================
@@ -40817,20 +50138,32 @@ function keepBanditInForest(pos, world, radius) {
 
 class BanditMob {
   constructor(scene, world, vfx, variant, waypoints, yaw = 0) {
+    const isRuinsGolem = variant === 'ruins_golem';
+    const isCrystalGolem = variant === 'crystal_golem';
+    const isGolem = isRuinsGolem || isCrystalGolem;
+    const isBig = variant === 'big';
+
     this.kind = 'bandit';
-    this.variant = variant === 'big' ? 'big' : 'small';
-    const isBig = this.variant === 'big';
+    this.isGolem = isGolem;
+    this.variant = isRuinsGolem ? 'ruins_golem' : isCrystalGolem ? 'crystal_golem' : (isBig ? 'big' : 'small');
 
     this.scene = scene;
     this.world = world;
     this.vfx = vfx;
 
     const isMobile = !!(HC.QUALITY && HC.QUALITY.key !== 'high');
-    const built = isBig ? buildBigBandit(isMobile) : buildSmallBandit(isMobile);
+    const built = isRuinsGolem
+      ? buildSunRuinsGolem(isMobile)
+      : isCrystalGolem
+        ? buildCrystalGolem(isMobile)
+        : (isBig ? buildBigBandit(isMobile) : buildSmallBandit(isMobile));
     this.mesh = built.mesh;
     this.parts = built.parts;
     this.material = built.material;
-    this.hpBar = new HealthBar3D(scene, { isEnemy: true, width: isBig ? 1.42 : 1.04 });
+    this.hpBar = new HealthBar3D(scene, {
+      isEnemy: true,
+      width: isGolem ? 2.15 : (isBig ? 1.42 : 1.04),
+    });
 
     this.waypoints = Array.isArray(waypoints) && waypoints.length ? waypoints : [{ x: 0, z: 0 }];
     this.wpIdx = 0;
@@ -40842,18 +50175,18 @@ class BanditMob {
     this.heading = yaw;
     this.targetHeading = yaw;
 
-    this.maxHp = isBig ? 240 : 115;
+    this.maxHp = isGolem ? 560 : (isBig ? 240 : 115);
     this.hp = this.maxHp;
-    this.dmg = isBig ? 26 : 14;
-    this.walkSpd = isBig ? 1.45 : 2.10;
+    this.dmg = isGolem ? 36 : (isBig ? 26 : 14);
+    this.walkSpd = isGolem ? 1.05 : (isBig ? 1.45 : 2.10);
     // Kecepatan lari bandit minimal 30% lebih pelan dari kuda berlari (5.25 * 0.70 = 3.675 m/s)
-    this.chaseSpd = isBig ? 2.65 : 3.55;
+    this.chaseSpd = isGolem ? 1.95 : (isBig ? 2.65 : 3.55);
     this.isRoadAmbush = false;
-    this.radius = isBig ? 0.68 : 0.45;
-    this.reach = isBig ? 2.65 : 2.05;
-    this.windupDur = isBig ? 0.68 : 0.38;
-    this.recoverDur = isBig ? 0.92 : 0.60;
-    this.hpBarOffset = isBig ? 2.78 : 1.92;
+    this.radius = isGolem ? 1.18 : (isBig ? 0.68 : 0.45);
+    this.reach = isGolem ? 3.35 : (isBig ? 2.65 : 2.05);
+    this.windupDur = isGolem ? 0.88 : (isBig ? 0.68 : 0.38);
+    this.recoverDur = isGolem ? 1.05 : (isBig ? 0.92 : 0.60);
+    this.hpBarOffset = isRuinsGolem ? 4.35 : isCrystalGolem ? 4.20 : (isBig ? 2.78 : 1.92);
 
     this.dead = false;
     this.respawnTimer = 0;
@@ -40869,7 +50202,7 @@ class BanditMob {
     this.posture = 0;
     this.postureHold = 0;
     this.atkCd = 0;
-    this.strafeDir = isBig ? 1 : (Math.random() > 0.5 ? 1 : -1);
+    this.strafeDir = (isBig || isGolem) ? 1 : (Math.random() > 0.5 ? 1 : -1);
 
     this.flashTimer = 0;
     this.hitstunTimer = 0;
@@ -40887,11 +50220,22 @@ class BanditMob {
       swing: 0,
       telegraph: 0,
       target: null,
+      dead: false,
+      state: 'idle',
     };
 
     this.mesh.position.set(this.x, this.y, this.z);
     this.mesh.rotation.y = this.heading;
     this.scene.add(this.mesh);
+  }
+
+  _runVariantAnim(dt) {
+    this.animState.dead = !!this.dead;
+    this.animState.state = this.state;
+    if (this.variant === 'ruins_golem') animateSunRuinsGolem(this.animState, dt);
+    else if (this.variant === 'crystal_golem') animateCrystalGolem(this.animState, dt);
+    else if (this.variant === 'big') animateBigBandit(this.animState, dt);
+    else animateSmallBandit(this.animState, dt);
   }
 
   _setState(next, dur = 1.0) {
@@ -41048,7 +50392,7 @@ class BanditMob {
         inVillage = refZ > 42 && refZ < 110 && Math.abs(refX - vCx) < 30;
       }
       if (!inVillage) {
-        const aggroRange = this.isRoadAmbush ? 24.0 : 13.5;
+        const aggroRange = this.isRoadAmbush ? 24.0 : (this.variant === 'crystal_golem' ? 11.5 : 13.5);
         const dHorse = anim ? Math.hypot(anim.x - this.x, anim.z - this.z) : Infinity;
         const dCart = phys ? Math.hypot(phys.pos.x - this.x, phys.pos.z - this.z) : Infinity;
         const horseAlive = fullCtx.horseHp === undefined || fullCtx.horseHp > 1;
@@ -41097,11 +50441,16 @@ class BanditMob {
         return;
       }
       const fallU = clamp(this.stateTime / 0.55, 0, 1);
-      this.mesh.position.set(this.x, this.y - fallU * 0.25, this.z);
-      this.mesh.rotation.set(-fallU * 1.48, this.heading, fallU * 0.25);
+      if (this.isGolem) {
+        this.mesh.position.set(this.x, this.y - fallU * 0.12, this.z);
+        this.mesh.rotation.set(-fallU * 0.35, this.heading, 0);
+      } else {
+        this.mesh.position.set(this.x, this.y - fallU * 0.25, this.z);
+        this.mesh.rotation.set(-fallU * 1.48, this.heading, fallU * 0.25);
+      }
       this.animState.vel.x = 0; this.animState.vel.z = 0;
       this.animState.telegraph = 0;
-      (this.variant === 'big' ? animateBigBandit : animateSmallBandit)(this.animState, dt);
+      this._runVariantAnim(dt);
       this.hpBar.setPosture(0, false);
       this.hpBar.setHp(0, this.maxHp, true, dt);
       this.hpBar.updateTransform(this.x, this.y + this.hpBarOffset * 0.5, this.z, dt);
@@ -41119,8 +50468,8 @@ class BanditMob {
       const tp = this.target.getPos();
       const dHome = Math.hypot(this.x - this.homeX, this.z - this.homeZ);
       const dTgt = tp ? Math.hypot(tp.x - this.x, tp.z - this.z) : 999;
-      const homeCap = this.isRoadAmbush ? 44.0 : 25.0;
-      const tgtCap = this.isRoadAmbush ? 28.0 : 17.5;
+      const homeCap = this.isRoadAmbush ? 44.0 : (this.variant === 'crystal_golem' ? 11.0 : this.isGolem ? 17.0 : 25.0);
+      const tgtCap = this.isRoadAmbush ? 28.0 : (this.variant === 'crystal_golem' ? 12.5 : 17.5);
       if (!this.target.isAlive() || dHome > homeCap || dTgt > tgtCap) {
         this.target = null;
       } else if ((this.target.isCart || this.target.isHorse) && fullCtx) {
@@ -41171,34 +50520,36 @@ class BanditMob {
         this._setState('attack_strike', 0.34);
       }
     } else if (this.state === 'attack_strike') {
-      forwardSpeed = this.variant === 'big' ? 1.50 : 2.95;
+      forwardSpeed = this.isGolem ? 1.25 : (this.variant === 'big' ? 1.50 : 2.95);
       if (!this.strikeDealt && this.stateTime >= 0.06) {
         this.strikeDealt = true;
         this.animState.swing = 0.35;
-        const isBig = this.variant === 'big';
+        const isHeavy = this.variant === 'big' || this.isGolem;
+        const arcMain = this.variant === 'crystal_golem' ? 0x22d3ee : this.variant === 'ruins_golem' ? 0xfbbf24 : (isHeavy ? 0xd93829 : 0xe63946);
+        const arcAccent = this.variant === 'crystal_golem' ? 0xc084fc : this.variant === 'ruins_golem' ? 0x7dd3fc : 0xffe48f;
         if (this.vfx) {
           const pos = new THREE.Vector3(
-            this.x + Math.sin(this.heading) * (isBig ? 1.15 : 0.65),
-            this.y + (isBig ? 0.35 : 0.85),
-            this.z + Math.cos(this.heading) * (isBig ? 1.15 : 0.65)
+            this.x + Math.sin(this.heading) * (isHeavy ? 1.45 : 0.65),
+            this.y + (isHeavy ? 0.35 : 0.85),
+            this.z + Math.cos(this.heading) * (isHeavy ? 1.45 : 0.65)
           );
           this.vfx.spawnSlashArc(
-            new THREE.Vector3(this.x, this.y + (isBig ? 0.45 : 0.1), this.z),
+            new THREE.Vector3(this.x, this.y + (isHeavy ? 0.65 : 0.1), this.z),
             this.heading,
-            isBig ? 0xd93829 : 0xe63946,
-            0xffe48f,
+            arcMain,
+            arcAccent,
             this.strafeDir,
-            isBig ? 1.45 : 0.95
+            this.isGolem ? 2.05 : (isHeavy ? 1.45 : 0.95)
           );
-          if (isBig) {
-            this.vfx.spawnRing(pos, 0xff7b39, 0.6, 3.6, 0.35, true);
+          if (isHeavy) {
+            this.vfx.spawnRing(pos, this.variant === 'crystal_golem' ? 0x22d3ee : 0xffbe0b, 0.75, this.isGolem ? 4.6 : 3.6, 0.38, true);
           }
         }
         if (this.target) {
           const tp = this.target.getPos();
           const d = Math.hypot(tp.x - this.x, tp.z - this.z);
           if (d < effReach + 0.55) {
-            const dealt = this.target.takeHit(this.dmg, this.x, this.z, isBig);
+            const dealt = this.target.takeHit(this.dmg, this.x, this.z, isHeavy);
             if ((this.target.isCart || this.target.isHorse) && dealt > 0) {
               if (this.vfx) {
                 const hitV = new THREE.Vector3(
@@ -41206,7 +50557,7 @@ class BanditMob {
                   this.y + 0.95,
                   (tp.z + this.z) * 0.5
                 );
-                this.vfx.spawnHitImpact(hitV, this.target.isHorse ? 0xf87171 : 0xff9f43, isBig);
+                this.vfx.spawnHitImpact(hitV, this.target.isHorse ? 0xf87171 : 0xff9f43, isHeavy);
                 const dmgLbl = this.target.isHorse ? `-${dealt} HP!` : `CART -${dealt}!`;
                 this.vfx.spawnDamageText(hitV.clone().add(new THREE.Vector3(0, 0.7, 0)), dmgLbl, 'npcHit');
                 this.vfx.playSfx('hit');
@@ -41222,7 +50573,7 @@ class BanditMob {
         this.strafeDir *= -1;
       }
       if (this.stateTime >= 0.34) {
-        this.atkCd = this.variant === 'big' ? 1.95 : 1.15;
+        this.atkCd = this.isGolem ? 2.25 : (this.variant === 'big' ? 1.95 : 1.15);
         this._setState('attack_recover', this.recoverDur);
       }
     } else if (this.state === 'attack_recover') {
@@ -41275,7 +50626,7 @@ class BanditMob {
             this._setState('idle', randRange(1.6, 3.4));
           } else {
             this.targetHeading = Math.atan2(wx, wz);
-            this.heading = turnToward(this.heading, this.targetHeading, 4.6, dt);
+            this.heading = turnToward(this.heading, this.targetHeading, this.isGolem ? 2.4 : 4.6, dt);
             forwardSpeed = this.walkSpd;
           }
         }
@@ -41288,15 +50639,26 @@ class BanditMob {
     this.z += vz * dt;
 
     if (Math.hypot(this.knockVx, this.knockVz) > 0.05) {
-      this.x += this.knockVx * dt;
-      this.z += this.knockVz * dt;
+      const kbScale = this.isGolem ? 0.25 : 1.0;
+      this.x += this.knockVx * kbScale * dt;
+      this.z += this.knockVz * kbScale * dt;
       const dampK = Math.exp(-8.5 * dt);
       this.knockVx *= dampK;
       this.knockVz *= dampK;
     }
 
     const pos2 = { x: this.x, z: this.z };
-    const col = keepBanditInForest(pos2, this.world, this.radius);
+    const col = this.isGolem ? { hit: false, nx: 0, nz: 0 } : keepBanditInForest(pos2, this.world, this.radius);
+    if (this.isGolem) {
+      const lim = this.variant === 'crystal_golem' ? 6.2 : 12.0;
+      const dxH = pos2.x - this.homeX;
+      const dzH = pos2.z - this.homeZ;
+      const dH = Math.hypot(dxH, dzH);
+      if (dH > lim && dH > 1e-4) {
+        pos2.x = this.homeX + (dxH / dH) * lim;
+        pos2.z = this.homeZ + (dzH / dH) * lim;
+      }
+    }
     this.x = pos2.x;
     this.z = pos2.z;
     if (col.hit && Math.hypot(col.nx, col.nz) > 1e-4 && !this.target) {
@@ -41305,10 +50667,10 @@ class BanditMob {
     this.y = groundY(this.world, this.x, this.z);
 
     this.mesh.position.set(this.x, this.y, this.z);
-    const staggerTilt = this.state === 'stagger' ? Math.sin(globalTime * 9.0) * 0.14 : 0;
+    const staggerTilt = this.state === 'stagger' ? Math.sin(globalTime * 9.0) * (this.isGolem ? 0.06 : 0.14) : 0;
     this.mesh.rotation.set(0, this.heading, staggerTilt);
     if (this.recoilPop > 0) {
-      const pop = Math.sin(this.recoilPop * Math.PI) * 0.12;
+      const pop = Math.sin(this.recoilPop * Math.PI) * (this.isGolem ? 0.05 : 0.12);
       this.mesh.scale.set(1 + pop * 0.7, 1 - pop, 1 + pop * 0.4);
     } else {
       this.mesh.scale.setScalar(1);
@@ -41318,7 +50680,7 @@ class BanditMob {
     this.animState.vel.z = vz;
     this.animState.telegraph = teleTarget;
     this.animState.target = this.target;
-    (this.variant === 'big' ? animateBigBandit : animateSmallBandit)(this.animState, dt);
+    this._runVariantAnim(dt);
 
     this.hpBar.setPosture(this.posture, this.inCombat);
     this.hpBar.setHp(this.hp, this.maxHp, this.inCombat, dt);
@@ -42290,17 +51652,38 @@ class ForestMobs {
       { x: -330.0, z:  85.0, kind: 'bandit_camp', variants: ['big', 'small'] },
       { x: -265.0, z: 235.0, kind: 'boar', count: 2 },
       { x: -165.0, z: 320.0, kind: 'bandit_camp', variants: ['small', 'small'] },
+      // Pemukiman Bandit Utama & sekeliling dataran luar
+      { x: -414.0, z: 122.0, kind: 'bandit_camp', variants: ['big', 'big', 'small', 'small'] },
+      { x: -432.0, z: 132.0, kind: 'bandit_camp', variants: ['big', 'small'] },
+      // Golem Penjaga Reruntuhan Kuno (Solar Relic Golem) & Goa Kristal (Crystal Prism Golem)
+      {
+        x: 242.0, z: -351.0,
+        kind: 'golem_site',
+        variant: 'ruins_golem',
+        homeAngle: -2.6,
+        waypoints: [{ x: 242.0, z: -351.0 }, { x: 249.5, z: -353.0 }, { x: 246.0, z: -346.5 }],
+      },
+      {
+        x: 416.0, z: 263.5,
+        kind: 'golem_site',
+        variant: 'crystal_golem',
+        homeAngle: -2.35,
+        waypoints: [{ x: 416.0, z: 263.5 }, { x: 413.2, z: 266.2 }, { x: 418.2, z: 266.5 }],
+      },
     ];
 
     const zones = [];
     for (let i = 0; i < seeds.length; i++) {
       const s = seeds[i];
-      if (!this._isValidZonePos(s.x, s.z, s.kind === 'rabbit')) continue;
+      if (s.kind !== 'golem_site' && !this._isValidZonePos(s.x, s.z, s.kind === 'rabbit')) continue;
       zones.push({
         id: i,
         x: s.x,
         z: s.z,
         kind: s.kind,
+        variant: s.variant || null,
+        homeAngle: s.homeAngle || 0,
+        waypoints: s.waypoints || null,
         count: s.count || 2,
         variants: s.variants || ['small', 'small'],
         spawned: false,
@@ -42335,8 +51718,9 @@ class ForestMobs {
         spawned.push(b);
       }
     } else if (z.kind === 'bandit_camp') {
-      if (this.bandits.length >= 8) return;
-      const room = Math.min(z.variants.length, 8 - this.bandits.length);
+      const regBandits = this.bandits.filter((b) => b && !b.isGolem).length;
+      if (regBandits >= 8) return;
+      const room = Math.min(z.variants.length, 8 - regBandits);
       for (let k = 0; k < room; k++) {
         const variant = z.variants[k] === 'big' ? 'big' : 'small';
         const rad = variant === 'big' ? 0.68 : 0.45;
@@ -42355,6 +51739,10 @@ class ForestMobs {
         this.bandits.push(bd);
         spawned.push(bd);
       }
+    } else if (z.kind === 'golem_site') {
+      const gm = new BanditMob(this.scene, this.world, this.vfx, z.variant, z.waypoints || [{ x: z.x, z: z.z }], z.homeAngle || 0);
+      this.bandits.push(gm);
+      spawned.push(gm);
     }
     if (spawned.length > 0) {
       z.entities = spawned;
@@ -42403,7 +51791,8 @@ class ForestMobs {
       for (const ent of z.entities) {
         if (ent) minD = Math.min(minD, Math.hypot(ent.x - hx, ent.z - hz));
       }
-      if (minD > DESPAWN_DIST) {
+      const despawnLim = z.kind === 'golem_site' ? 115.0 : DESPAWN_DIST;
+      if (minD > despawnLim) {
         this._despawnZone(z, party);
       }
     }
@@ -42414,7 +51803,8 @@ class ForestMobs {
       const z = this._zones[i];
       if (z.spawned) continue;
       const d = Math.hypot(z.x - hx, z.z - hz);
-      if (d <= SPAWN_DIST) candidates.push({ z, d });
+      const spawnLim = z.kind === 'golem_site' ? 88.0 : SPAWN_DIST;
+      if (d <= spawnLim) candidates.push({ z, d });
     }
     candidates.sort((a, b) => a.d - b.d);
     for (let i = 0; i < candidates.length; i++) {
@@ -44863,13 +54253,69 @@ class MapUI {
     this._frame = 0;
     this._baseSize = 512;
     this._baseCanvas = null;
+    this._isOrthoBase = false;
+    this.miniSpan = 220;
+    this.wmZoom = 1.0;
+    this.wmCenterX = 0;
+    this.wmCenterZ = 0;
+    this._lastHorseX = 0;
+    this._lastHorseZ = 0;
+    this._wmZoomLabelEl = opts.wmZoomLabelEl || (typeof document !== 'undefined' ? document.getElementById('worldmap-zoom-label') : null);
 
     if (this.miniWrap) {
       this.miniWrap.addEventListener('click', (e) => {
+        if (e.target && e.target.closest && e.target.closest('.mm-zoom-bar')) return;
         e.preventDefault();
         this.toggle();
       });
+      this.miniWrap.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.zoomMinimap(e.deltaY < 0 ? 0.82 : 1.22);
+      }, { passive: false });
     }
+    if (typeof document !== 'undefined') {
+      const mmIn = document.getElementById('btn-mm-zoom-in');
+      const mmOut = document.getElementById('btn-mm-zoom-out');
+      if (mmIn) mmIn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); this.zoomMinimap(0.76); });
+      if (mmOut) mmOut.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); this.zoomMinimap(1.32); });
+
+      const wmIn = document.getElementById('btn-wm-zoom-in');
+      const wmOut = document.getElementById('btn-wm-zoom-out');
+      const wmReset = document.getElementById('btn-wm-zoom-reset');
+      const wmCenter = document.getElementById('btn-wm-center-horse');
+      if (wmIn) wmIn.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (this.wmZoom <= 1.02) {
+          this.wmCenterX = this._lastHorseX || 0;
+          this.wmCenterZ = this._lastHorseZ || 0;
+        }
+        this.zoomWorldMap(1.5, 0.5, 0.5);
+      });
+      if (wmOut) wmOut.addEventListener('click', (e) => { e.preventDefault(); this.zoomWorldMap(1 / 1.5, 0.5, 0.5); });
+      if (wmReset) wmReset.addEventListener('click', (e) => { e.preventDefault(); this.resetWorldMapView(); });
+      if (wmCenter) wmCenter.addEventListener('click', (e) => { e.preventDefault(); this.focusHorseOnWorldMap(); });
+
+      window.addEventListener('keydown', (e) => {
+        if (!this.isOpen) return;
+        if (e.key === '+' || e.key === '=') {
+          if (this.wmZoom <= 1.02) {
+            this.wmCenterX = this._lastHorseX || 0;
+            this.wmCenterZ = this._lastHorseZ || 0;
+          }
+          this.zoomWorldMap(1.35, 0.5, 0.5);
+        } else if (e.key === '-' || e.key === '_') {
+          this.zoomWorldMap(1 / 1.35, 0.5, 0.5);
+        } else if (e.key === '0') {
+          this.resetWorldMapView();
+        }
+      });
+    }
+
+    if (this.fullCanvas) {
+      this._bindWorldMapInteractions();
+    }
+
     if (this.closeBtn) {
       this.closeBtn.addEventListener('click', (e) => {
         e.preventDefault();
@@ -44883,6 +54329,147 @@ class MapUI {
     }
 
     this._bakeStaticMap();
+  }
+
+  _clampWorldMapView() {
+    const T = this._terrainSize();
+    this.wmZoom = Math.max(1.0, Math.min(12.0, this.wmZoom));
+    const span = T / this.wmZoom;
+    const maxOff = Math.max(0, (T - span) * 0.5);
+    this.wmCenterX = Math.max(-maxOff, Math.min(maxOff, this.wmCenterX));
+    this.wmCenterZ = Math.max(-maxOff, Math.min(maxOff, this.wmCenterZ));
+    if (this._wmZoomLabelEl) {
+      this._wmZoomLabelEl.textContent = `${this.wmZoom.toFixed(1)}×`;
+    }
+  }
+
+  zoomMinimap(factor) {
+    this.miniSpan = Math.max(100, Math.min(560, this.miniSpan * factor));
+    this._drawFullMapNow = true;
+  }
+
+  zoomWorldMap(factor, anchorX = 0.5, anchorY = 0.5) {
+    const T = this._terrainSize();
+    const oldZoom = this.wmZoom;
+    const oldSpan = T / oldZoom;
+    const worldAtAnchorX = this.wmCenterX + (anchorX - 0.5) * oldSpan;
+    const worldAtAnchorZ = this.wmCenterZ + (anchorY - 0.5) * oldSpan;
+
+    const nextZoom = Math.max(1.0, Math.min(12.0, oldZoom * factor));
+    const nextSpan = T / nextZoom;
+    this.wmZoom = nextZoom;
+    this.wmCenterX = worldAtAnchorX - (anchorX - 0.5) * nextSpan;
+    this.wmCenterZ = worldAtAnchorZ - (anchorY - 0.5) * nextSpan;
+    this._clampWorldMapView();
+    this._drawFullMapNow = true;
+  }
+
+  resetWorldMapView() {
+    this.wmZoom = 1.0;
+    this.wmCenterX = 0;
+    this.wmCenterZ = 0;
+    this._clampWorldMapView();
+    this._drawFullMapNow = true;
+  }
+
+  focusHorseOnWorldMap() {
+    this.wmCenterX = this._lastHorseX || 0;
+    this.wmCenterZ = this._lastHorseZ || 0;
+    if (this.wmZoom < 3.5) this.wmZoom = 4.0;
+    this._clampWorldMapView();
+    this._drawFullMapNow = true;
+  }
+
+  _bindWorldMapInteractions() {
+    const cv = this.fullCanvas;
+    if (!cv) return;
+    const ptrs = new Map();
+    let dragging = false;
+    let lastX = 0;
+    let lastY = 0;
+    let lastPinchDist = 0;
+
+    cv.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const rect = cv.getBoundingClientRect();
+      const nx = rect.width > 0 ? Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width)) : 0.5;
+      const ny = rect.height > 0 ? Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height)) : 0.5;
+      const factor = e.deltaY < 0 ? 1.28 : 1 / 1.28;
+      this.zoomWorldMap(factor, nx, ny);
+    }, { passive: false });
+
+    cv.addEventListener('dblclick', (e) => {
+      e.preventDefault();
+      const rect = cv.getBoundingClientRect();
+      const nx = rect.width > 0 ? Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width)) : 0.5;
+      const ny = rect.height > 0 ? Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height)) : 0.5;
+      if (this.wmZoom >= 7.5) this.resetWorldMapView();
+      else this.zoomWorldMap(2.0, nx, ny);
+    });
+
+    cv.addEventListener('pointerdown', (e) => {
+      ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (cv.setPointerCapture) {
+        try { cv.setPointerCapture(e.pointerId); } catch (_) {}
+      }
+      if (ptrs.size === 1) {
+        dragging = true;
+        lastX = e.clientX;
+        lastY = e.clientY;
+        cv.classList.add('is-panning');
+      } else if (ptrs.size === 2) {
+        dragging = false;
+        const [a, b] = Array.from(ptrs.values());
+        lastPinchDist = Math.hypot(b.x - a.x, b.y - a.y);
+      }
+    });
+
+    cv.addEventListener('pointermove', (e) => {
+      if (!ptrs.has(e.pointerId)) return;
+      ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+      if (ptrs.size === 2) {
+        const [a, b] = Array.from(ptrs.values());
+        const dist = Math.hypot(b.x - a.x, b.y - a.y);
+        if (lastPinchDist > 4 && dist > 4) {
+          const rect = cv.getBoundingClientRect();
+          const mx = (a.x + b.x) * 0.5;
+          const my = (a.y + b.y) * 0.5;
+          const nx = rect.width > 0 ? Math.max(0, Math.min(1, (mx - rect.left) / rect.width)) : 0.5;
+          const ny = rect.height > 0 ? Math.max(0, Math.min(1, (my - rect.top) / rect.height)) : 0.5;
+          this.zoomWorldMap(dist / lastPinchDist, nx, ny);
+        }
+        lastPinchDist = dist;
+        return;
+      }
+
+      if (dragging && this.wmZoom > 1.001) {
+        const rect = cv.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+          const dx = e.clientX - lastX;
+          const dy = e.clientY - lastY;
+          const span = this._terrainSize() / this.wmZoom;
+          this.wmCenterX -= (dx / rect.width) * span;
+          this.wmCenterZ -= (dy / rect.height) * span;
+          this._clampWorldMapView();
+          this._drawFullMapNow = true;
+        }
+      }
+      lastX = e.clientX;
+      lastY = e.clientY;
+    });
+
+    const endPtr = (e) => {
+      ptrs.delete(e.pointerId);
+      if (ptrs.size < 2) lastPinchDist = 0;
+      if (ptrs.size === 0) {
+        dragging = false;
+        cv.classList.remove('is-panning');
+      }
+    };
+    cv.addEventListener('pointerup', endPtr);
+    cv.addEventListener('pointercancel', endPtr);
   }
 
   _terrainSize() {
@@ -44967,18 +54554,44 @@ class MapUI {
     ctx.lineJoin = 'round';
     for (const poly of polys) {
       if (!poly || !Array.isArray(poly.pts) || poly.pts.length < 2) continue;
+      const isRocky = poly.surface === 'rocky' || poly.surface === 'cliff';
       ctx.beginPath();
       for (let i = 0; i < poly.pts.length; i++) {
         const [px, py] = toPx(poly.pts[i][0], poly.pts[i][1]);
         if (i === 0) ctx.moveTo(px, py);
         else ctx.lineTo(px, py);
       }
-      ctx.strokeStyle = 'rgba(72, 48, 24, 0.55)';
+      ctx.strokeStyle = isRocky ? 'rgba(30, 41, 59, 0.72)' : 'rgba(72, 48, 24, 0.55)';
       ctx.lineWidth = Math.max(3.2, (6.5 / T) * S);
       ctx.stroke();
-      ctx.strokeStyle = '#deb778';
+      ctx.strokeStyle = poly.surface === 'cliff' ? '#cbd5e1' : (isRocky ? '#a8a29e' : '#deb778');
       ctx.lineWidth = Math.max(2.0, (4.2 / T) * S);
       ctx.stroke();
+    }
+
+    // Special story landmark regions on base map
+    const landmarks = (this.world && Array.isArray(this.world.LANDMARKS)) ? this.world.LANDMARKS : [];
+    for (const lm of landmarks) {
+      if (lm.kind === 'forest') {
+        const [lx, ly] = toPx(lm.x, lm.z);
+        const lr = Math.max(8, ((lm.radius || 70) / T) * S);
+        ctx.fillStyle = 'rgba(20, 83, 45, 0.45)';
+        ctx.beginPath();
+        ctx.arc(lx, ly, lr, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (lm.kind === 'waterfall') {
+        const [lx, ly] = toPx(lm.x, lm.z);
+        ctx.fillStyle = 'rgba(56, 189, 248, 0.85)';
+        ctx.beginPath();
+        ctx.arc(lx, ly, Math.max(4, (14 / T) * S), 0, Math.PI * 2);
+        ctx.fill();
+      } else if (lm.kind === 'gorge') {
+        const [lx, ly] = toPx(lm.x, lm.z);
+        ctx.fillStyle = 'rgba(30, 41, 59, 0.68)';
+        ctx.beginPath();
+        ctx.ellipse(lx, ly, Math.max(4, (16 / T) * S), Math.max(8, (46 / T) * S), 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
 
     // Village clearing circles
@@ -45022,28 +54635,410 @@ class MapUI {
     return this.isOpen;
   }
 
-  _drawArrow(ctx, cx, cy, yawRad, size, fill = '#fff3b0', stroke = '#1e293b') {
+  refreshBaseFromOrtho(hideRoots = []) {
+    if (!this.world || typeof this.world.captureOrthoMapCanvas !== 'function') return false;
+    const cap = this.world.captureOrthoMapCanvas(4096, hideRoots);
+    if (!cap) return false;
+    this._baseCanvas = cap;
+    this._baseSize = cap.width;
+    this._isOrthoBase = true;
+    this._drawFullMapNow = true;
+    return true;
+  }
+
+  _drawArrow(ctx, cx, cy, yawRad, size) {
     // animator forward: fx = cos(yaw), fz = -sin(yaw) in north-up coords (+x right, +z down)
     const angle = -yawRad;
     ctx.save();
     ctx.translate(cx, cy);
     ctx.rotate(angle);
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.55)';
+    ctx.shadowBlur = 3;
+
+    // Right shaded half
     ctx.beginPath();
-    ctx.moveTo(size * 1.15, 0);
-    ctx.lineTo(-size * 0.78, -size * 0.72);
+    ctx.moveTo(size * 1.2, 0);
     ctx.lineTo(-size * 0.42, 0);
-    ctx.lineTo(-size * 0.78, size * 0.72);
+    ctx.lineTo(-size * 0.82, size * 0.76);
     ctx.closePath();
-    ctx.fillStyle = fill;
+    ctx.fillStyle = '#facc15';
     ctx.fill();
-    ctx.lineWidth = 1.6;
-    ctx.strokeStyle = stroke;
+
+    // Left highlight half
+    ctx.beginPath();
+    ctx.moveTo(size * 1.2, 0);
+    ctx.lineTo(-size * 0.82, -size * 0.76);
+    ctx.lineTo(-size * 0.42, 0);
+    ctx.closePath();
+    ctx.fillStyle = '#fffbeb';
+    ctx.fill();
+
+    // Crisp outer contour
+    ctx.shadowBlur = 0;
+    ctx.beginPath();
+    ctx.moveTo(size * 1.2, 0);
+    ctx.lineTo(-size * 0.82, -size * 0.76);
+    ctx.lineTo(-size * 0.42, 0);
+    ctx.lineTo(-size * 0.82, size * 0.76);
+    ctx.closePath();
+    ctx.lineWidth = Math.max(1.3, size * 0.22);
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = '#181410';
     ctx.stroke();
     ctx.restore();
   }
 
+  _drawCampfireIcon(ctx, x, y, r, hollow = false) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+
+    if (hollow) {
+      ctx.strokeStyle = 'rgba(251, 146, 60, 0.9)';
+      ctx.lineWidth = 1.6;
+      ctx.setLineDash([4, 3]);
+      ctx.beginPath();
+      ctx.arc(0, 0, Math.max(7, r), 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+      return;
+    }
+
+    // Warm glow halo
+    const g = ctx.createRadialGradient(0, 0, r * 0.2, 0, 0, r * 1.6);
+    g.addColorStop(0, 'rgba(251, 146, 60, 0.55)');
+    g.addColorStop(1, 'rgba(251, 146, 60, 0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 1.6, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Crossed logs at base
+    ctx.strokeStyle = '#1c1209';
+    ctx.lineWidth = Math.max(1.8, r * 0.36);
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.78, r * 0.52);
+    ctx.lineTo(r * 0.78, r * 0.16);
+    ctx.moveTo(r * 0.78, r * 0.52);
+    ctx.lineTo(-r * 0.78, r * 0.16);
+    ctx.stroke();
+    ctx.strokeStyle = '#78350f';
+    ctx.lineWidth = Math.max(1.1, r * 0.20);
+    ctx.stroke();
+
+    // Outer flame silhouette
+    ctx.beginPath();
+    ctx.moveTo(0, -r * 1.05);
+    ctx.quadraticCurveTo(r * 0.72, -r * 0.25, r * 0.56, r * 0.32);
+    ctx.quadraticCurveTo(0, r * 0.62, -r * 0.56, r * 0.32);
+    ctx.quadraticCurveTo(-r * 0.72, -r * 0.25, 0, -r * 1.05);
+    ctx.closePath();
+    ctx.fillStyle = '#ea580c';
+    ctx.fill();
+    ctx.lineWidth = Math.max(1.1, r * 0.18);
+    ctx.strokeStyle = '#1c1209';
+    ctx.stroke();
+
+    // Bright inner flame tongue
+    ctx.beginPath();
+    ctx.moveTo(0, -r * 0.58);
+    ctx.quadraticCurveTo(r * 0.36, -r * 0.08, r * 0.28, r * 0.26);
+    ctx.quadraticCurveTo(0, r * 0.42, -r * 0.28, r * 0.26);
+    ctx.quadraticCurveTo(-r * 0.36, -r * 0.08, 0, -r * 0.58);
+    ctx.closePath();
+    ctx.fillStyle = '#fde047';
+    ctx.fill();
+    ctx.restore();
+  }
+
+  _drawCartIcon(ctx, x, y, r) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.lineJoin = 'round';
+
+    // Pale canopy arch + wooden wagon box + twin wheels
+    ctx.beginPath();
+    ctx.arc(0, -r * 0.12, r * 0.62, Math.PI, 0);
+    ctx.closePath();
+    ctx.fillStyle = '#fef08a';
+    ctx.fill();
+    ctx.lineWidth = Math.max(1.1, r * 0.18);
+    ctx.strokeStyle = '#181410';
+    ctx.stroke();
+
+    ctx.fillStyle = '#d97706';
+    ctx.fillRect(-r * 0.78, -r * 0.12, r * 1.56, r * 0.56);
+    ctx.strokeRect(-r * 0.78, -r * 0.12, r * 1.56, r * 0.56);
+
+    for (const wx of [-r * 0.44, r * 0.44]) {
+      ctx.beginPath();
+      ctx.arc(wx, r * 0.54, r * 0.28, 0, Math.PI * 2);
+      ctx.fillStyle = '#451a03';
+      ctx.fill();
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  _drawLandmarkIcon(ctx, x, y, r, kind) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    const ol = Math.max(1.1, r * 0.18);
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = ol;
+
+    if (kind === 'hill') {
+      // Twin craggy rocky peaks
+      ctx.beginPath();
+      ctx.moveTo(-r * 1.05, r * 0.68);
+      ctx.lineTo(-r * 0.35, -r * 0.62);
+      ctx.lineTo(r * 0.18, r * 0.68);
+      ctx.closePath();
+      ctx.fillStyle = '#78716c';
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(-r * 0.30, r * 0.68);
+      ctx.lineTo(r * 0.35, -r * 0.92);
+      ctx.lineTo(r * 1.05, r * 0.68);
+      ctx.closePath();
+      ctx.fillStyle = '#d6d3d1';
+      ctx.fill();
+      ctx.stroke();
+    } else if (kind === 'waterfall') {
+      // Slate cliff ledge + cascading turquoise water ribbons
+      ctx.fillStyle = '#475569';
+      ctx.fillRect(-r * 0.85, -r * 0.85, r * 1.70, r * 1.35);
+      ctx.strokeRect(-r * 0.85, -r * 0.85, r * 1.70, r * 1.35);
+
+      ctx.fillStyle = '#38bdf8';
+      ctx.fillRect(-r * 0.46, -r * 0.72, r * 0.92, r * 1.18);
+
+      ctx.strokeStyle = '#e0f2fe';
+      ctx.lineWidth = Math.max(1.0, r * 0.16);
+      ctx.beginPath();
+      ctx.moveTo(-r * 0.18, -r * 0.62);
+      ctx.lineTo(-r * 0.18, r * 0.35);
+      ctx.moveTo(r * 0.18, -r * 0.62);
+      ctx.lineTo(r * 0.18, r * 0.35);
+      ctx.stroke();
+
+      // White foam pool oval at base
+      ctx.fillStyle = '#bae6fd';
+      ctx.strokeStyle = '#0f172a';
+      ctx.lineWidth = ol;
+      ctx.beginPath();
+      ctx.ellipse(0, r * 0.56, r * 0.88, r * 0.28, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    } else if (kind === 'gorge') {
+      // Split dark canyon rock walls flanking a deep jagged chasm
+      ctx.beginPath();
+      ctx.moveTo(-r * 0.95, -r * 0.65);
+      ctx.lineTo(-r * 0.18, -r * 0.55);
+      ctx.lineTo(-r * 0.32, 0);
+      ctx.lineTo(-r * 0.10, r * 0.72);
+      ctx.lineTo(-r * 0.95, r * 0.72);
+      ctx.closePath();
+      ctx.fillStyle = '#64748b';
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(r * 0.95, -r * 0.65);
+      ctx.lineTo(r * 0.18, -r * 0.55);
+      ctx.lineTo(r * 0.04, 0);
+      ctx.lineTo(r * 0.22, r * 0.72);
+      ctx.lineTo(r * 0.95, r * 0.72);
+      ctx.closePath();
+      ctx.fillStyle = '#94a3b8';
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(-r * 0.18, -r * 0.55);
+      ctx.lineTo(r * 0.18, -r * 0.55);
+      ctx.lineTo(r * 0.04, 0);
+      ctx.lineTo(r * 0.22, r * 0.72);
+      ctx.lineTo(-r * 0.10, r * 0.72);
+      ctx.lineTo(-r * 0.32, 0);
+      ctx.closePath();
+      ctx.fillStyle = '#090d16';
+      ctx.fill();
+      ctx.stroke();
+    } else if (kind === 'forest') {
+      // Clustered deepwood pine trio
+      for (const [ox, oy, sc, col] of [
+        [-r * 0.42, r * 0.12, 0.74, '#15803d'],
+        [r * 0.42, r * 0.12, 0.74, '#15803d'],
+        [0, -r * 0.08, 0.96, '#22c55e'],
+      ]) {
+        ctx.beginPath();
+        ctx.moveTo(ox, oy - r * 0.92 * sc);
+        ctx.lineTo(ox + r * 0.62 * sc, oy + r * 0.64 * sc);
+        ctx.lineTo(ox - r * 0.62 * sc, oy + r * 0.64 * sc);
+        ctx.closePath();
+        ctx.fillStyle = col;
+        ctx.fill();
+        ctx.stroke();
+      }
+    } else if (kind === 'rocky_road' || kind === 'cliff_road') {
+      const mainCol = kind === 'cliff_road' ? '#f59e0b' : '#d6d3d1';
+      const subCol = kind === 'cliff_road' ? '#b45309' : '#78716c';
+      for (const [bx, by, br, col] of [
+        [-r * 0.42, r * 0.18, r * 0.48, subCol],
+        [r * 0.44, r * 0.24, r * 0.42, subCol],
+        [0, -r * 0.22, r * 0.54, mainCol],
+      ]) {
+        ctx.beginPath();
+        ctx.arc(bx, by, br, 0, Math.PI * 2);
+        ctx.fillStyle = col;
+        ctx.fill();
+        ctx.stroke();
+      }
+    } else if (kind === 'ancient_tree') {
+      // Siluet Pohon Agung Purba: akar lebar + batang coklat kokoh + mahkota zamrud-keemasan megah
+      ctx.fillStyle = '#78350f';
+      ctx.beginPath();
+      ctx.moveTo(-r * 0.45, r * 0.82);
+      ctx.quadraticCurveTo(-r * 0.18, r * 0.30, -r * 0.20, -r * 0.05);
+      ctx.lineTo(r * 0.20, -r * 0.05);
+      ctx.quadraticCurveTo(r * 0.18, r * 0.30, r * 0.45, r * 0.82);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      for (const [cx, cy, cr, col] of [
+        [-r * 0.48, -r * 0.10, r * 0.46, '#15803d'],
+        [r * 0.48, -r * 0.10, r * 0.46, '#15803d'],
+        [0, -r * 0.42, r * 0.58, '#eab308'],
+      ]) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, cr, 0, Math.PI * 2);
+        ctx.fillStyle = col;
+        ctx.fill();
+        ctx.stroke();
+      }
+    } else if (kind === 'ruins') {
+      // Reruntuhan pilar batu kuno & lintel patah
+      ctx.fillStyle = '#d6d3d1';
+      ctx.fillRect(-r * 0.78, r * 0.44, r * 1.56, r * 0.34);
+      ctx.strokeRect(-r * 0.78, r * 0.44, r * 1.56, r * 0.34);
+      ctx.fillStyle = '#c2b79f';
+      ctx.fillRect(-r * 0.58, -r * 0.52, r * 0.34, r * 0.96);
+      ctx.strokeRect(-r * 0.58, -r * 0.52, r * 0.34, r * 0.96);
+      ctx.fillRect(r * 0.22, -r * 0.12, r * 0.34, r * 0.56);
+      ctx.strokeRect(r * 0.22, -r * 0.12, r * 0.34, r * 0.56);
+      ctx.fillRect(-r * 0.72, -r * 0.78, r * 1.12, r * 0.30);
+      ctx.strokeRect(-r * 0.72, -r * 0.78, r * 1.12, r * 0.30);
+    } else if (kind === 'cavern') {
+      // Kubah batu goa gelap + prisma kristal cyan/ungu berpendar
+      ctx.beginPath();
+      ctx.arc(0, r * 0.35, r * 0.88, Math.PI, 0);
+      ctx.closePath();
+      ctx.fillStyle = '#475569';
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(-r * 0.42, r * 0.35);
+      ctx.lineTo(0, -r * 0.75);
+      ctx.lineTo(r * 0.42, r * 0.35);
+      ctx.closePath();
+      ctx.fillStyle = '#22d3ee';
+      ctx.fill();
+      ctx.stroke();
+    } else if (kind === 'bandit_camp') {
+      // Tenda kemah bandit merah marun bertanduk
+      ctx.beginPath();
+      ctx.moveTo(0, -r * 0.85);
+      ctx.lineTo(r * 0.92, r * 0.68);
+      ctx.lineTo(-r * 0.92, r * 0.68);
+      ctx.closePath();
+      ctx.fillStyle = '#dc2626';
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(0, -r * 0.05);
+      ctx.lineTo(r * 0.30, r * 0.68);
+      ctx.lineTo(-r * 0.30, r * 0.68);
+      ctx.closePath();
+      ctx.fillStyle = '#1e1b18';
+      ctx.fill();
+    } else {
+      ctx.beginPath();
+      ctx.moveTo(0, -r);
+      ctx.lineTo(r * 0.85, 0);
+      ctx.lineTo(0, r);
+      ctx.lineTo(-r * 0.85, 0);
+      ctx.closePath();
+      ctx.fillStyle = '#e2e8f0';
+      ctx.fill();
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  _drawLabelPill(ctx, cx, cy, text, opts = {}, placed = []) {
+    const padX = opts.padX || 6;
+    const h = opts.height || 17;
+    const font = opts.font || '700 11px system-ui, sans-serif';
+    const dy = opts.dy || 11;
+    const dx = opts.dx || 12;
+    const order = opts.order || ['bottom', 'top', 'right', 'left'];
+    ctx.font = font;
+    const w = Math.ceil(ctx.measureText(text).width + padX * 2);
+
+    const rectsHit = (a, b) => !(a.x2 <= b.x1 || a.x1 >= b.x2 || a.y2 <= b.y1 || a.y1 >= b.y2);
+    const makeBox = (dir) => {
+      let x = cx - w * 0.5;
+      let y = cy + dy;
+      if (dir === 'top') { x = cx - w * 0.5; y = cy - dy - h; }
+      else if (dir === 'right') { x = cx + dx; y = cy - h * 0.5; }
+      else if (dir === 'left') { x = cx - dx - w; y = cy - h * 0.5; }
+      else if (dir === 'bottom-far') { x = cx - w * 0.5; y = cy + dy + 16; }
+      else if (dir === 'top-far') { x = cx - w * 0.5; y = cy - dy - h - 16; }
+      const clampX = Math.max(4, Math.min((opts.maxW || 600) - w - 4, x));
+      const clampY = Math.max(4, Math.min((opts.maxH || 600) - h - 4, y));
+      return { x1: clampX, y1: clampY, x2: clampX + w, y2: clampY + h };
+    };
+
+    let chosen = null;
+    for (const dir of [...order, 'bottom-far', 'top-far']) {
+      const cand = makeBox(dir);
+      if (!placed.some((b) => rectsHit(cand, b))) {
+        chosen = cand;
+        break;
+      }
+    }
+    if (!chosen) chosen = makeBox(order[0]);
+    placed.push(chosen);
+
+    ctx.fillStyle = opts.bg || 'rgba(15, 23, 42, 0.86)';
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(chosen.x1, chosen.y1, w, h, opts.radius || 5);
+    else ctx.rect(chosen.x1, chosen.y1, w, h);
+    ctx.fill();
+    if (opts.border) {
+      ctx.strokeStyle = opts.border;
+      ctx.lineWidth = opts.borderWidth || 1;
+      ctx.stroke();
+    }
+    ctx.fillStyle = opts.fg || '#f8fafc';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, chosen.x1 + w * 0.5, chosen.y1 + h * 0.5 + 0.5);
+  }
+
   update(horseX, horseZ, horseYaw, cartX, cartZ, activeQuest, nearbyVillage) {
     this._frame++;
+    this._lastHorseX = horseX;
+    this._lastHorseZ = horseZ;
     const trFn = typeof globalThis !== 'undefined' && globalThis.HC && globalThis.HC.t;
     if (this.locLabelEl) {
       this.locLabelEl.textContent = nearbyVillage
@@ -45053,21 +55048,24 @@ class MapUI {
     if (this.isOpen && this.coordLabelEl) {
       this.coordLabelEl.textContent = `X: ${Math.round(horseX)}m • Z: ${Math.round(horseZ)}m`;
     }
+    if (this._wmZoomLabelEl) {
+      this._wmZoomLabelEl.textContent = `${this.wmZoom.toFixed(1)}×`;
+    }
 
     if ((this._frame % 3 !== 0) && !this._drawFullMapNow) return;
     this._drawFullMapNow = false;
 
     const T = this._terrainSize();
     const villages = (this.world && Array.isArray(this.world.VILLAGES)) ? this.world.VILLAGES : [];
-    const workshops = (this.world && Array.isArray(this.world.VILLAGE_WORKSHOPS)) ? this.world.VILLAGE_WORKSHOPS : [];
+    const landmarks = (this.world && Array.isArray(this.world.LANDMARKS)) ? this.world.LANDMARKS : [];
     const pulse = 0.5 + 0.5 * Math.sin(performance.now() * 0.006);
 
-    // 1) Top-right Minimap (cropped local 480m view centered on horse)
+    // 1) Top-right Minimap (zoomable local view centered on horse; real buildings visible without house icons)
     if (this.miniCanvas && this._baseCanvas) {
       const ctx = this.miniCanvas.getContext('2d');
       const W = this.miniCanvas.width;
       const H = this.miniCanvas.height;
-      const spanWorld = 520;
+      const spanWorld = Math.max(100, Math.min(560, this.miniSpan));
       const S = this._baseSize;
       const halfSpan = spanWorld * 0.5;
 
@@ -45082,140 +55080,213 @@ class MapUI {
       ctx.fillRect(0, 0, W, H);
       ctx.drawImage(this._baseCanvas, sx, sy, srcW, srcH, 0, 0, W, H);
 
+      const LW = 144;
+      const LH = 144;
+      const pxPerM = LW / spanWorld;
       const toMini = (wx, wz) => [
-        ((wx - horseX + halfSpan) / spanWorld) * W,
-        ((wz - horseZ + halfSpan) / spanWorld) * H,
+        ((wx - horseX + halfSpan) / spanWorld) * LW,
+        ((wz - horseZ + halfSpan) / spanWorld) * LH,
       ];
 
-      // Campfire point
+      ctx.save();
+      ctx.scale(W / LW, H / LH);
+
+      // Starting Camp indicator (hollow ring when zoomed close so real campfire & clearing remain visible)
       {
         const [fx, fy] = toMini(0, 0);
-        if (fx >= -8 && fx <= W + 8 && fy >= -8 && fy <= H + 8) {
-          ctx.fillStyle = '#ff9f1c';
-          ctx.beginPath();
-          ctx.arc(fx, fy, 3.2, 0, Math.PI * 2);
-          ctx.fill();
+        if (fx >= -12 && fx <= LW + 12 && fy >= -12 && fy <= LH + 12) {
+          this._drawCampfireIcon(ctx, fx, fy, spanWorld <= 230 ? 5.5 : 4.2, spanWorld <= 230);
         }
       }
 
-      // Active quest vector + target marker
+      // Active quest vector + perimeter target ring around village (does not cover buildings inside)
       if (activeQuest) {
         const [qx, qy] = toMini(activeQuest.toX, activeQuest.toZ);
         ctx.save();
         ctx.strokeStyle = 'rgba(255, 214, 70, 0.85)';
-        ctx.lineWidth = 1.6;
+        ctx.lineWidth = 1.4;
         ctx.setLineDash([4, 3]);
         ctx.beginPath();
-        ctx.moveTo(W * 0.5, H * 0.5);
+        ctx.moveTo(LW * 0.5, LH * 0.5);
         ctx.lineTo(qx, qy);
         ctx.stroke();
         ctx.restore();
 
         const pad = 11;
-        const clampedX = Math.max(pad, Math.min(W - pad, qx));
-        const clampedY = Math.max(pad, Math.min(H - pad, qy));
-        ctx.strokeStyle = '#ffd166';
-        ctx.lineWidth = 2;
+        const clampedX = Math.max(pad, Math.min(LW - pad, qx));
+        const clampedY = Math.max(pad, Math.min(LH - pad, qy));
+        const isOnScreen = qx >= 4 && qx <= LW - 4 && qy >= 4 && qy <= LH - 4;
+        const ringR = isOnScreen ? Math.max(7.5, 16 * pxPerM) + pulse * 2.5 : (5.5 + pulse * 2.5);
+        ctx.strokeStyle = '#fde047';
+        ctx.lineWidth = 1.7;
         ctx.beginPath();
-        ctx.arc(clampedX, clampedY, 5 + pulse * 3, 0, Math.PI * 2);
+        ctx.arc(clampedX, clampedY, ringR, 0, Math.PI * 2);
         ctx.stroke();
-        ctx.fillStyle = '#ffb703';
-        ctx.beginPath();
-        ctx.arc(clampedX, clampedY, 3.2, 0, Math.PI * 2);
-        ctx.fill();
+        if (!isOnScreen) {
+          ctx.fillStyle = '#ffb703';
+          ctx.beginPath();
+          ctx.arc(clampedX, clampedY, 2.6, 0, Math.PI * 2);
+          ctx.fill();
+        }
       }
 
-      // Villages inside/near minimap
+      // Story landmarks on minimap (subtle badge; real waterfalls/gorges/forests show underneath)
+      for (const lm of landmarks) {
+        const [lx, ly] = toMini(lm.x, lm.z);
+        if (lx < -14 || lx > LW + 14 || ly < -14 || ly > LH + 14) continue;
+        this._drawLandmarkIcon(ctx, lx, ly, spanWorld <= 240 ? 4.0 : 4.6, lm.kind);
+      }
+
+      // Villages: show REAL 3D rooftops from ortho map! Only place name pill outside village building radius
       ctx.font = 'bold 9.5px system-ui, sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'top';
       for (const v of villages) {
         const [vx, vy] = toMini(v.cx, v.cz);
-        if (vx < -20 || vx > W + 20 || vy < -14 || vy > H + 14) continue;
+        if (vx < -28 || vx > LW + 28 || vy < -24 || vy > LH + 24) continue;
+        const isCurrent = nearbyVillage && nearbyVillage.id === v.id;
         const isQuestDest = activeQuest && activeQuest.toId === v.id;
-        ctx.fillStyle = isQuestDest ? '#ffd166' : '#fef3c7';
-        ctx.beginPath();
-        ctx.arc(vx, vy, isQuestDest ? 4.2 : 3.2, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = '#1e293b';
-        ctx.lineWidth = 1.2;
-        ctx.stroke();
-
+        const vRadPx = Math.max(7, (v.radius || 15) * pxPerM);
+        if (isCurrent) {
+          ctx.strokeStyle = 'rgba(74, 222, 128, 0.75)';
+          ctx.lineWidth = 1.4;
+          ctx.setLineDash([3, 2]);
+          ctx.beginPath();
+          ctx.arc(vx, vy, vRadPx * 1.12, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
         const lbl = villageLabel(v);
-        ctx.fillStyle = 'rgba(15, 23, 42, 0.8)';
-        ctx.fillText(lbl, vx + 1, vy + 6);
-        ctx.fillStyle = isQuestDest ? '#ffe066' : '#f8fafc';
-        ctx.fillText(lbl, vx, vy + 5);
-      }
-
-      // Cart workshop bays on minimap
-      for (const ws of workshops) {
-        const [wx, wy] = toMini(ws.x, ws.z);
-        if (wx < -12 || wx > W + 12 || wy < -12 || wy > H + 12) continue;
-        ctx.fillStyle = '#38bdf8';
-        ctx.strokeStyle = '#0f172a';
-        ctx.lineWidth = 1.2;
-        ctx.fillRect(wx - 2.5, wy - 2.5, 5, 5);
-        ctx.strokeRect(wx - 2.5, wy - 2.5, 5, 5);
+        const lblY = vy + Math.min(34, vRadPx + 3);
+        ctx.lineWidth = 2.6;
+        ctx.strokeStyle = 'rgba(10, 16, 28, 0.90)';
+        ctx.strokeText(lbl, vx, lblY);
+        ctx.fillStyle = isQuestDest ? '#fde047' : isCurrent ? '#86efac' : '#f8fafc';
+        ctx.fillText(lbl, vx, lblY);
       }
 
       // Cart marker
       if (Number.isFinite(cartX) && Number.isFinite(cartZ)) {
         const [cx, cy] = toMini(cartX, cartZ);
-        ctx.fillStyle = '#d97706';
-        ctx.strokeStyle = '#111827';
-        ctx.lineWidth = 1.2;
-        ctx.fillRect(cx - 2.6, cy - 2.6, 5.2, 5.2);
-        ctx.strokeRect(cx - 2.6, cy - 2.6, 5.2, 5.2);
+        if (cx >= -10 && cx <= LW + 10 && cy >= -10 && cy <= LH + 10) {
+          this._drawCartIcon(ctx, cx, cy, 4.2);
+        }
       }
 
       // Horse directional arrow at center
-      this._drawArrow(ctx, W * 0.5, H * 0.5, horseYaw, 6.2, '#ffffff', '#0f172a');
+      this._drawArrow(ctx, LW * 0.5, LH * 0.5, horseYaw, 6.0);
+      ctx.restore();
     }
 
-    // 2) Full World Map Modal (when open)
+    // 2) Full World Map Modal (zoomable 1x..12x & pannable, showing real 3D buildings without icons covering them)
     if (this.isOpen && this.fullCanvas && this._baseCanvas) {
+      this._clampWorldMapView();
       const ctx = this.fullCanvas.getContext('2d');
       const W = this.fullCanvas.width;
       const H = this.fullCanvas.height;
+      const S = this._baseSize;
+      const spanWorld = T / this.wmZoom;
+      const halfSpan = spanWorld * 0.5;
+      const srcW = (spanWorld / T) * S;
+      const srcH = srcW;
+      const cxPx = ((this.wmCenterX + T * 0.5) / T) * S;
+      const czPx = ((this.wmCenterZ + T * 0.5) / T) * S;
+      const sx = cxPx - srcW * 0.5;
+      const sy = czPx - srcH * 0.5;
 
-      ctx.clearRect(0, 0, W, H);
-      ctx.drawImage(this._baseCanvas, 0, 0, W, H);
+      ctx.fillStyle = '#1b3822';
+      ctx.fillRect(0, 0, W, H);
+      ctx.drawImage(this._baseCanvas, sx, sy, srcW, srcH, 0, 0, W, H);
 
-      // Subtle grid lines every 300m
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
-      ctx.lineWidth = 1;
-      for (let g = 1; g < 5; g++) {
-        const p = (g / 5) * W;
-        ctx.beginPath(); ctx.moveTo(p, 0); ctx.lineTo(p, H); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(0, p); ctx.lineTo(W, p); ctx.stroke();
-      }
-
+      const LW = 600;
+      const LH = 600;
+      const pxPerM = LW / spanWorld;
       const toFull = (wx, wz) => [
-        ((wx + T * 0.5) / T) * W,
-        ((wz + T * 0.5) / T) * H,
+        ((wx - this.wmCenterX + halfSpan) / spanWorld) * LW,
+        ((wz - this.wmCenterZ + halfSpan) / spanWorld) * LH,
       ];
 
-      // Campfire icon
-      {
-        const [fx, fy] = toFull(0, 0);
-        ctx.fillStyle = '#fb923c';
-        ctx.beginPath(); ctx.arc(fx, fy, 5.5, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 1.5; ctx.stroke();
-        ctx.font = '600 11px system-ui, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillStyle = '#fff7ed';
-        const trFn = typeof globalThis !== 'undefined' && globalThis.HC && globalThis.HC.t;
-        ctx.fillText(trFn ? trFn('loc_camp') : 'Starting Camp', fx, fy + 16);
+      ctx.save();
+      ctx.scale(W / LW, H / LH);
+
+      // Adaptive world grid lines (300m -> 100m -> 50m as you zoom in)
+      const gridStep = this.wmZoom >= 5.5 ? 50 : this.wmZoom >= 2.2 ? 100 : 300;
+      const startWX = Math.ceil((this.wmCenterX - halfSpan) / gridStep) * gridStep;
+      const endWX = Math.floor((this.wmCenterX + halfSpan) / gridStep) * gridStep;
+      const startWZ = Math.ceil((this.wmCenterZ - halfSpan) / gridStep) * gridStep;
+      const endWZ = Math.floor((this.wmCenterZ + halfSpan) / gridStep) * gridStep;
+      ctx.strokeStyle = this._isOrthoBase ? 'rgba(255, 248, 220, 0.08)' : 'rgba(255, 255, 255, 0.09)';
+      ctx.lineWidth = 1;
+      for (let gx = startWX; gx <= endWX; gx += gridStep) {
+        const px = ((gx - this.wmCenterX + halfSpan) / spanWorld) * LW;
+        ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px, LH); ctx.stroke();
+      }
+      for (let gz = startWZ; gz <= endWZ; gz += gridStep) {
+        const py = ((gz - this.wmCenterZ + halfSpan) / spanWorld) * LH;
+        ctx.beginPath(); ctx.moveTo(0, py); ctx.lineTo(LW, py); ctx.stroke();
       }
 
-      // Quest route line
+      // Compass cardinal badges around map perimeter
+      ctx.font = '800 11px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      for (const [cx, cy, ch] of [
+        [LW * 0.5, 13, 'N'],
+        [LW * 0.5, LH - 13, 'S'],
+        [13, LH * 0.5, 'W'],
+        [LW - 13, LH * 0.5, 'E'],
+      ]) {
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.72)';
+        ctx.beginPath(); ctx.arc(cx, cy, 9.5, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#c89e4c';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+        ctx.fillStyle = '#fde68a';
+        ctx.fillText(ch, cx, cy + 0.5);
+      }
+
+      // Reserve visible icon/perimeter footprints for non-overlapping label pills
+      const placedBoxes = [];
+      const reserveIcon = (ix, iy, r) => placedBoxes.push({ x1: ix - r, y1: iy - r, x2: ix + r, y2: iy + r });
+      reserveIcon(LW * 0.5, 13, 12);
+      reserveIcon(LW * 0.5, LH - 13, 12);
+      reserveIcon(13, LH * 0.5, 12);
+      reserveIcon(LW - 13, LH * 0.5, 12);
+
+      const isVisible = (x, y, m = 45) => x >= -m && x <= LW + m && y >= -m && y <= LH + m;
+
+      {
+        const [fx, fy] = toFull(0, 0);
+        if (isVisible(fx, fy)) reserveIcon(fx, fy, 10);
+      }
+      {
+        const [hpx, hpy] = toFull(horseX, horseZ);
+        if (isVisible(hpx, hpy)) reserveIcon(hpx, hpy, 15);
+      }
+      if (Number.isFinite(cartX) && Number.isFinite(cartZ)) {
+        const [cpx, cpy] = toFull(cartX, cartZ);
+        if (isVisible(cpx, cpy)) reserveIcon(cpx, cpy, 10);
+      }
+      for (const v of villages) {
+        const [vx, vy] = toFull(v.cx, v.cz);
+        if (isVisible(vx, vy, 80)) {
+          // Protect village's real building footprint from pill labels when zoomed in!
+          const vRadPx = Math.min(54, Math.max(9, (v.radius || 15) * pxPerM));
+          reserveIcon(vx, vy, vRadPx);
+        }
+      }
+      for (const lm of landmarks) {
+        const [lx, ly] = toFull(lm.x, lm.z);
+        if (isVisible(lx, ly)) reserveIcon(lx, ly, 10);
+      }
+
+      // Quest route line + hollow outer ring around quest destination village (keeps houses uncovered!)
       if (activeQuest) {
         const [hx, hy] = toFull(horseX, horseZ);
         const [qx, qy] = toFull(activeQuest.toX, activeQuest.toZ);
         ctx.save();
         ctx.strokeStyle = '#ffd166';
-        ctx.lineWidth = 2.4;
+        ctx.lineWidth = 2.2;
         ctx.setLineDash([8, 6]);
         ctx.beginPath();
         ctx.moveTo(hx, hy);
@@ -45223,67 +55294,131 @@ class MapUI {
         ctx.stroke();
         ctx.restore();
 
+        const qDestV = villages.find((v) => v.id === activeQuest.toId);
+        const baseQRad = qDestV ? Math.max(13, (qDestV.radius || 15) * 1.25 * pxPerM) : 14;
         ctx.strokeStyle = '#fde047';
-        ctx.lineWidth = 2.5;
+        ctx.lineWidth = 2.4;
         ctx.beginPath();
-        ctx.arc(qx, qy, 12 + pulse * 5, 0, Math.PI * 2);
+        ctx.arc(qx, qy, baseQRad + pulse * 4.5, 0, Math.PI * 2);
         ctx.stroke();
       }
 
-      // All 5 villages with crisp pills
+      // Current village gentle outer emerald ring (no fill over buildings)
+      if (nearbyVillage) {
+        const [vx, vy] = toFull(nearbyVillage.cx, nearbyVillage.cz);
+        if (isVisible(vx, vy, 80)) {
+          const rPx = Math.max(12, (nearbyVillage.radius || 15) * 1.18 * pxPerM);
+          ctx.save();
+          ctx.strokeStyle = 'rgba(74, 222, 128, 0.85)';
+          ctx.lineWidth = 1.8;
+          ctx.setLineDash([5, 4]);
+          ctx.beginPath();
+          ctx.arc(vx, vy, rPx, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
+
+      // Starting Camp indicator (transitions to delicate hollow ring when zoomed >= 3.2x so campfire stones/tents show!)
+      {
+        const [fx, fy] = toFull(0, 0);
+        if (isVisible(fx, fy)) {
+          const zoomClose = this.wmZoom >= 3.2;
+          this._drawCampfireIcon(ctx, fx, fy, zoomClose ? Math.min(24, Math.max(9, 4.5 * pxPerM)) : 7.8, zoomClose);
+        }
+      }
+
+      // Story landmarks (saat zoomed in, situs 3D besar cukup ring tipis agar bangunan/kristal/pohon aslinya terlihat utuh)
+      const isIdLang = (typeof HC !== 'undefined' && HC.getLang && HC.getLang() === 'id');
+      const lmIconR = this.wmZoom >= 3.5 ? 6.2 : 8.2;
+      for (const lm of landmarks) {
+        const [lx, ly] = toFull(lm.x, lm.z);
+        if (!isVisible(lx, ly)) continue;
+        const isSiteStructure = lm.kind === 'ancient_tree' || lm.kind === 'ruins' || lm.kind === 'cavern' || lm.kind === 'bandit_camp';
+        if (isSiteStructure && this.wmZoom >= 2.6) {
+          const ringR = Math.min(48, Math.max(11, (lm.radius || 20) * 0.85 * pxPerM));
+          ctx.save();
+          ctx.strokeStyle = lm.color || 'rgba(234, 179, 8, 0.85)';
+          ctx.lineWidth = 1.6;
+          ctx.setLineDash([4, 3]);
+          ctx.beginPath();
+          ctx.arc(lx, ly, ringR, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+          continue;
+        }
+        this._drawLandmarkIcon(ctx, lx, ly, lmIconR, lm.kind);
+      }
+
+      // Pill labels ONLY (NO house or anvil icons hiding real 3D roofs!)
       for (const v of villages) {
         const [vx, vy] = toFull(v.cx, v.cz);
+        if (!isVisible(vx, vy, 65)) continue;
         const isCurrent = nearbyVillage && nearbyVillage.id === v.id;
         const isDest = activeQuest && activeQuest.toId === v.id;
-        ctx.fillStyle = isDest ? '#fbbf24' : isCurrent ? '#4ade80' : '#fef3c7';
-        ctx.beginPath();
-        ctx.arc(vx, vy, isDest || isCurrent ? 7.5 : 6.0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = '#1e293b';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-
-        const lbl = villageLabel(v);
-        ctx.font = '700 13px system-ui, sans-serif';
-        const tw = ctx.measureText(lbl).width + 14;
-        const bx = vx - tw * 0.5;
-        const by = vy + 10;
-        ctx.fillStyle = isDest ? 'rgba(180, 83, 9, 0.92)' : 'rgba(15, 23, 42, 0.84)';
-        ctx.beginPath();
-        if (ctx.roundRect) ctx.roundRect(bx, by, tw, 20, 6);
-        else ctx.rect(bx, by, tw, 20);
-        ctx.fill();
-        ctx.fillStyle = '#f8fafc';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(lbl, vx, by + 10);
+        const vRadPx = Math.min(54, Math.max(8, (v.radius || 15) * pxPerM));
+        this._drawLabelPill(ctx, vx, vy, villageLabel(v), {
+          font: '700 12.5px system-ui, sans-serif',
+          height: 19,
+          padX: 7,
+          dy: vRadPx + 5,
+          dx: vRadPx + 6,
+          radius: 6,
+          bg: isDest ? 'rgba(146, 64, 14, 0.94)' : isCurrent ? 'rgba(20, 83, 45, 0.92)' : 'rgba(15, 23, 42, 0.86)',
+          border: isDest ? '#facc15' : isCurrent ? '#4ade80' : '#c89e4c',
+          borderWidth: 1.1,
+          fg: '#f8fafc',
+          order: ['bottom', 'top', 'right', 'left'],
+        }, placedBoxes);
       }
-
-      // Workshop bays on fullscreen map
-      for (const ws of workshops) {
-        const [wx, wy] = toFull(ws.x, ws.z);
-        ctx.fillStyle = '#38bdf8';
-        ctx.strokeStyle = '#0f172a';
-        ctx.lineWidth = 1.6;
-        ctx.beginPath();
-        ctx.rect(wx - 4.5, wy - 4.5, 9, 9);
-        ctx.fill();
-        ctx.stroke();
+      {
+        const [fx, fy] = toFull(0, 0);
+        if (isVisible(fx, fy, 45)) {
+          const campOff = this.wmZoom >= 3.2 ? Math.min(30, Math.max(12, 5.5 * pxPerM)) : 11;
+          this._drawLabelPill(ctx, fx, fy, trFn ? trFn('loc_camp') : 'Starting Camp', {
+            font: '700 11px system-ui, sans-serif',
+            height: 17,
+            padX: 6,
+            dy: campOff,
+            dx: campOff + 4,
+            bg: 'rgba(28, 19, 12, 0.88)',
+            border: 'rgba(251, 146, 60, 0.72)',
+            fg: '#ffedd5',
+            order: ['top', 'left', 'right', 'bottom'],
+          }, placedBoxes);
+        }
+      }
+      for (const lm of landmarks) {
+        const [lx, ly] = toFull(lm.x, lm.z);
+        if (!isVisible(lx, ly, 45)) continue;
+        const lmLbl = isIdLang ? lm.nameId : lm.nameEn;
+        const isSiteStructure = lm.kind === 'ancient_tree' || lm.kind === 'ruins' || lm.kind === 'cavern' || lm.kind === 'bandit_camp';
+        const siteOff = (isSiteStructure && this.wmZoom >= 2.6)
+          ? Math.min(54, Math.max(14, (lm.radius || 18) * pxPerM))
+          : 10;
+        this._drawLabelPill(ctx, lx, ly, lmLbl, {
+          font: '700 11px system-ui, sans-serif',
+          height: 17,
+          padX: 6,
+          dy: siteOff,
+          dx: siteOff + 2,
+          bg: 'rgba(15, 23, 42, 0.86)',
+          border: 'rgba(148, 163, 184, 0.5)',
+          fg: '#f1f5f9',
+          order: lm.id === 'cliffside_pass' ? ['right', 'top', 'bottom', 'left'] : ['bottom', 'top', 'left', 'right'],
+        }, placedBoxes);
       }
 
       // Cart marker
       if (Number.isFinite(cartX) && Number.isFinite(cartZ)) {
         const [cx, cy] = toFull(cartX, cartZ);
-        ctx.fillStyle = '#ea580c';
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 1.5;
-        ctx.fillRect(cx - 4, cy - 4, 8, 8);
-        ctx.strokeRect(cx - 4, cy - 4, 8, 8);
+        if (isVisible(cx, cy)) this._drawCartIcon(ctx, cx, cy, 6.4);
       }
 
       // Player horse arrow
       const [px, py] = toFull(horseX, horseZ);
-      this._drawArrow(ctx, px, py, horseYaw, 9.5, '#ffffff', '#0f172a');
+      if (isVisible(px, py)) this._drawArrow(ctx, px, py, horseYaw, 9.2);
+      ctx.restore();
     }
   }
 }
@@ -46645,6 +56780,19 @@ const mapUI = new MapUI({
   coordLabelEl: document.getElementById('worldmap-coords'),
   quests,
 });
+const orthoHideRoots = [
+  horse.root,
+  cart.root,
+  ...(party && party.wild ? party.wild.map((w) => w && w.root) : []),
+  ...(mobs && mobs.rabbits ? mobs.rabbits.map((r) => r && r.root) : []),
+  ...(mobs && mobs.boars ? mobs.boars.map((b) => b && b.root) : []),
+  ...(mobs && mobs.bandits ? mobs.bandits.map((b) => b && b.root) : []),
+  mobs && mobs.vfx && mobs.vfx.group,
+].filter(Boolean);
+const orthoOk = mapUI.refreshBaseFromOrtho(orthoHideRoots);
+if (!orthoOk) {
+  console.warn('[SHOD] Initial ortho map capture returned false:', world._orthoCaptureError || 'no error');
+}
 
 function createQuestMarkerMesh(symbol) {
   const g = new THREE.Group();
@@ -46890,8 +57038,14 @@ const _upY = new THREE.Vector3(0, 1, 0);
 let _inspectHasSaved = false;
 let _inspectReturning = false;
 
+let _inspectIntroActive = false;
+let _inspectIntroT = 0;
+
 controls.addEventListener('start', () => {
-  if (!animator.inspectMode && _inspectReturning) {
+  if (animator.inspectMode) {
+    // Pengguna mulai memutar/zoom kamera secara manual -> lepas intro lerp agar kamera bebas diputar 360°
+    _inspectIntroActive = false;
+  } else if (_inspectReturning) {
     _inspectReturning = false;
     _inspectHasSaved = false;
   }
@@ -46931,9 +57085,12 @@ function setInspectMode(on, notifyDenied = false) {
       _inspectHasSaved = true;
     }
     _inspectReturning = false;
+    _inspectIntroActive = true;
+    _inspectIntroT = 0;
     const side = _inspectSavedLocalOff.z >= 0 ? 1 : -1;
     _inspectTargetLocalOff.set(-1.35, 3.25, side * 6.8);
   } else if (_inspectHasSaved) {
+    _inspectIntroActive = false;
     _inspectReturning = true;
   }
   _inspectWasActive = finalNext;
@@ -47483,10 +57640,12 @@ function loadGameState() {
     horse.root.rotation.y = animator.yaw;
   }
 
-  const cPose = save.cart || { x: animator.x, z: animator.z, yaw: animator.yaw, hitched: hasCart };
+  const cPose = (!hasCart && world.getOldCartSpot)
+    ? { ...world.getOldCartSpot(), hitched: false }
+    : (save.cart || { x: animator.x, z: animator.z, yaw: animator.yaw, hitched: hasCart });
   physics.reset(animator.x, animator.z, animator.yaw);
   physics.pos.set(cPose.x, 0, cPose.z);
-  physics.yaw = cPose.yaw || animator.yaw;
+  physics.yaw = cPose.yaw !== undefined ? cPose.yaw : animator.yaw;
   physics.hitched = !!hasCart && cPose.hitched !== false;
   physics.unhitchedDroop = physics.hitched ? 0 : 1;
   physics.syncVisual();
@@ -48081,15 +58240,7 @@ bindBtn('btn-graze', () => doEatOrDrink());
 bindBtn('btn-interact', () => doInteract());
 bindBtn('btn-sleep', () => doSleepToggle());
 if (btnInspectEl) {
-  const startInsp = (e) => { e.preventDefault(); setInspectMode(true, true); };
-  const stopInsp = (e) => { if (e) e.preventDefault(); setInspectMode(false); };
-  btnInspectEl.addEventListener('pointerdown', startInsp);
-  btnInspectEl.addEventListener('pointerup', stopInsp);
-  btnInspectEl.addEventListener('pointerleave', stopInsp);
-  btnInspectEl.addEventListener('pointercancel', stopInsp);
-  btnInspectEl.addEventListener('touchstart', startInsp, { passive: false });
-  btnInspectEl.addEventListener('touchend', stopInsp, { passive: false });
-  btnInspectEl.addEventListener('touchcancel', stopInsp, { passive: false });
+  bindBtn('btn-inspect', () => setInspectMode(!animator.inspectMode, true));
 }
 bindBtn('btn-map', () => mapUI.toggle());
 
@@ -48901,7 +59052,7 @@ window.addEventListener('keydown', (e) => {
   else if (k === '4' || k === 'f') { e.preventDefault(); if (!e.repeat) doInteract(); }
   else if (k === 'z') { e.preventDefault(); if (!e.repeat) doSleepToggle(); }
   else if (k === 'm') { e.preventDefault(); if (!e.repeat) mapUI.toggle(); }
-  else if (k === 'q') { e.preventDefault(); setInspectMode(true, !e.repeat); }
+  else if (k === 'q') { e.preventDefault(); if (!e.repeat) setInspectMode(!animator.inspectMode, true); }
   else if (k === 't') spawnTipRamp();
   else if (k === 'b') world.spawnPebbleClusterAhead(animator.x, animator.z, animator.yaw);
   else if (k === 'g') recruitNearbyNPC();
@@ -48914,7 +59065,6 @@ window.addEventListener('keyup', (e) => {
   else if (k === 's' || k === 'arrowdown') keysHeld.backward = false;
   else if (k === 'arrowleft' || k === 'a') { keysHeld.left = false; syncSteerInput(); }
   else if (k === 'arrowright' || k === 'd') { keysHeld.right = false; syncSteerInput(); }
-  else if (k === 'q') setInspectMode(false);
 });
 window.addEventListener('blur', () => {
   keysHeld.forward = false;
@@ -49112,6 +59262,19 @@ function requestWaterBarrelRefill(barrelItem, waterSrc = null) {
   return false;
 }
 
+let _cargoLeaderSvg = null;
+const _cartCenterProj = new THREE.Vector3();
+
+function ensureCargoLeaderSvg() {
+  if (!cargoLabelOverlayEl) return null;
+  if (!_cargoLeaderSvg || _cargoLeaderSvg.parentNode !== cargoLabelOverlayEl) {
+    _cargoLeaderSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    _cargoLeaderSvg.setAttribute('class', 'cargo-leader-svg');
+    cargoLabelOverlayEl.insertBefore(_cargoLeaderSvg, cargoLabelOverlayEl.firstChild);
+  }
+  return _cargoLeaderSvg;
+}
+
 function syncCargoTagPool() {
   if (!cargoLabelOverlayEl) return;
   const items = (cart && cart.cargoItems) || [];
@@ -49119,6 +59282,8 @@ function syncCargoTagPool() {
     _tagCartRef = cart;
     _tagItemCount = items.length;
     cargoLabelOverlayEl.innerHTML = '';
+    _cargoLeaderSvg = null;
+    ensureCargoLeaderSvg();
     for (const item of items) {
       const tag = document.createElement('div');
       tag.className = 'cargo-tag';
@@ -49148,6 +59313,7 @@ function syncCargoTagPool() {
 function updateCargoLabelOverlay() {
   if (!cargoLabelOverlayEl || !cart || !cart.cargoItems) return;
   syncCargoTagPool();
+  const svg = ensureCargoLeaderSvg();
   const hideAll = !hasCart || gameMode !== 'play' || workshopOpen || (mapUI && mapUI.isOpen);
   const vw = Math.max(1, window.innerWidth);
   const vh = Math.max(1, window.innerHeight);
@@ -49158,6 +59324,19 @@ function updateCargoLabelOverlay() {
   const fetchingNpc = inspectOn && party && party.members
     ? party.members.find((m) => m.state === 'fetching_water')
     : null;
+
+  // Proyeksi pusat gerobak ke layar untuk membagi kolom kiri & kanan secara dinamis mengikuti sudut putar kamera
+  let cartSx = vw * 0.5;
+  if (inspectOn && cart.root) {
+    cart.root.getWorldPosition(_cartCenterProj);
+    _cartCenterProj.y += 0.55;
+    _cartCenterProj.project(camera);
+    if (_cartCenterProj.z >= -1 && _cartCenterProj.z <= 1) {
+      cartSx = (_cartCenterProj.x * 0.5 + 0.5) * vw;
+    }
+  }
+
+  const callouts = [];
 
   for (const item of cart.cargoItems) {
     const el = item._tagEl;
@@ -49186,7 +59365,7 @@ function updateCargoLabelOverlay() {
     }
 
     _projTmp.copy(_itemWorldPos);
-    _projTmp.y += isSpilled ? 0.38 : (item.supplyKind ? 0.44 : 0.34);
+    _projTmp.y += isSpilled ? 0.38 : 0.16;
     _projTmp.project(camera);
     if (_projTmp.z > 1 || _projTmp.z < -1) {
       el.style.display = 'none';
@@ -49240,14 +59419,131 @@ function updateCargoLabelOverlay() {
     }
     const nextHtml = `<span class="cargo-tag-row">${badgeHtml}<span>${itemName}${chargeHtml}</span></span>${hintHtml}`;
 
-    if (el.className !== cls) el.className = cls;
     if (el.dataset.html !== nextHtml) {
       el.dataset.html = nextHtml;
       el.innerHTML = nextHtml;
     }
-    el.style.display = '';
-    el.style.left = Math.round(sx) + 'px';
-    el.style.top = Math.round(sy) + 'px';
+
+    if (isSpilled) {
+      // Barang jatuh di tanah tetap menampilkan tag tepat di atas lokasinya
+      if (el.className !== cls) el.className = cls;
+      el.style.display = '';
+      el.style.left = Math.round(sx) + 'px';
+      el.style.top = Math.round(sy) + 'px';
+    } else {
+      callouts.push({ item, el, cls, ax: sx, ay: sy });
+    }
+  }
+
+  // Tata rapi label barang di dalam gerobak ke kolom KIRI dan KANAN + garis putih tipis (leader lines)
+  if (!callouts.length) {
+    if (svg && svg.innerHTML) svg.innerHTML = '';
+    return;
+  }
+
+  // Pisahkan ke kolom kiri/kanan berdasarkan posisi horizontal relatif terhadap gerobak
+  const leftList = [];
+  const rightList = [];
+  let minAx = vw, maxAx = 0;
+  for (const c of callouts) {
+    if (c.ax < minAx) minAx = c.ax;
+    if (c.ax > maxAx) maxAx = c.ax;
+    if (c.ax < cartSx) leftList.push(c);
+    else rightList.push(c);
+  }
+  // Seimbangkan sedikit jika semua numpuk di satu sisi
+  const maxPerSide = Math.ceil(callouts.length * 0.55);
+  if (leftList.length > maxPerSide && rightList.length < leftList.length - 1) {
+    leftList.sort((a, b) => b.ax - a.ax);
+    while (leftList.length > maxPerSide) rightList.push(leftList.shift());
+  } else if (rightList.length > maxPerSide && leftList.length < rightList.length - 1) {
+    rightList.sort((a, b) => a.ax - b.ax);
+    while (rightList.length > maxPerSide) leftList.push(rightList.shift());
+  }
+
+  const isNarrow = vw < 680;
+  const colPad = isNarrow ? 34 : 68;
+  const minMarginX = isNarrow ? 115 : 175;
+  const leftColX = Math.max(minMarginX, Math.min(vw * 0.34, minAx - colPad));
+  const rightColX = Math.min(vw - minMarginX, Math.max(vw * 0.66, maxAx + colPad));
+  const topBound = isNarrow ? 74 : 92;
+  const bottomBound = vh - (isNarrow ? 96 : 86);
+
+  const layoutColumn = (list, side) => {
+    if (!list.length) return;
+    // Urutkan atas ke bawah berdasarkan Y titik barang agar garis putih tidak pernah bersilangan
+    list.sort((a, b) => a.ay - b.ay);
+    const colX = side === 'left' ? leftColX : rightColX;
+    const heights = list.map((c) => {
+      c.el.style.display = '';
+      const h = c.el.offsetHeight || 28;
+      return Math.max(26, h);
+    });
+    const gap = isNarrow ? 6 : 9;
+
+    // Posisi awal di Y masing-masing, lalu dorong rapi agar tidak ada tumpang tindih
+    const ys = list.map((c) => Math.max(topBound + 14, Math.min(bottomBound - 14, c.ay)));
+    for (let i = 1; i < ys.length; i++) {
+      const minStep = (heights[i - 1] + heights[i]) * 0.5 + gap;
+      if (ys[i] < ys[i - 1] + minStep) ys[i] = ys[i - 1] + minStep;
+    }
+    // Jika melewati batas bawah, geser mundur ke atas
+    const lastIdx = ys.length - 1;
+    const maxLastY = bottomBound - heights[lastIdx] * 0.5;
+    if (ys[lastIdx] > maxLastY) {
+      ys[lastIdx] = maxLastY;
+      for (let i = lastIdx - 1; i >= 0; i--) {
+        const minStep = (heights[i] + heights[i + 1]) * 0.5 + gap;
+        if (ys[i] > ys[i + 1] - minStep) ys[i] = ys[i + 1] - minStep;
+      }
+    }
+    // Pastikan paling atas tidak keluar batas atas
+    if (ys[0] < topBound + heights[0] * 0.5) {
+      ys[0] = topBound + heights[0] * 0.5;
+      for (let i = 1; i < ys.length; i++) {
+        const minStep = (heights[i - 1] + heights[i]) * 0.5 + gap;
+        if (ys[i] < ys[i - 1] + minStep) ys[i] = ys[i - 1] + minStep;
+      }
+    }
+
+    for (let i = 0; i < list.length; i++) {
+      const c = list[i];
+      const ly = Math.round(ys[i]);
+      const lx = Math.round(colX);
+      const nextCls = `${c.cls} callout-${side}`;
+      if (c.el.className !== nextCls) c.el.className = nextCls;
+      c.el.style.display = '';
+      c.el.style.left = lx + 'px';
+      c.el.style.top = ly + 'px';
+      c.lx = lx;
+      c.ly = ly;
+      c.side = side;
+    }
+  };
+
+  layoutColumn(leftList, 'left');
+  layoutColumn(rightList, 'right');
+
+  // Gambar garis putih tipis + titik jangkar di atas setiap barang
+  if (svg) {
+    const parts = [];
+    const drawList = leftList.concat(rightList);
+    for (const c of drawList) {
+      const ax = Math.round(c.ax * 10) / 10;
+      const ay = Math.round(c.ay * 10) / 10;
+      const lx = c.lx;
+      const ly = c.ly;
+      const elbowX = c.side === 'left'
+        ? Math.round((lx + 18) * 10) / 10
+        : Math.round((lx - 18) * 10) / 10;
+      // Bayangan gelap tipis di bawah garis putih agar terbaca jelas di rumput/langit terang
+      parts.push(
+        `<polyline points="${ax},${ay} ${elbowX},${ly} ${lx},${ly}" fill="none" stroke="rgba(24,18,32,0.55)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" />` +
+        `<polyline points="${ax},${ay} ${elbowX},${ly} ${lx},${ly}" fill="none" stroke="rgba(255,255,255,0.92)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" />` +
+        `<circle cx="${ax}" cy="${ay}" r="3.2" fill="#ffffff" stroke="rgba(24,18,32,0.85)" stroke-width="1.2" />`
+      );
+    }
+    svg.innerHTML = parts.join('');
   }
 }
 
@@ -49761,10 +60057,17 @@ function stepSim(dt) {
     camera.position.x += dx; camera.position.y += dy; camera.position.z += dz;
 
     if (animator.inspectMode) {
-      _inspectWantOff.copy(_inspectTargetLocalOff).applyAxisAngle(_upY, animator.yaw);
-      _inspectCurOff.copy(camera.position).sub(controls.target);
-      _inspectCurOff.lerp(_inspectWantOff, 1 - Math.exp(-7.5 * dt));
-      camera.position.copy(controls.target).add(_inspectCurOff);
+      // Transisi awal singkat ke sudut inspeksi, lalu kamera bebas diputar 360° & zoom dengan OrbitControls
+      if (_inspectIntroActive) {
+        _inspectIntroT += dt;
+        _inspectWantOff.copy(_inspectTargetLocalOff).applyAxisAngle(_upY, animator.yaw);
+        _inspectCurOff.copy(camera.position).sub(controls.target);
+        _inspectCurOff.lerp(_inspectWantOff, 1 - Math.exp(-8.5 * dt));
+        camera.position.copy(controls.target).add(_inspectCurOff);
+        if (_inspectIntroT >= 0.45 || _inspectCurOff.distanceTo(_inspectWantOff) < 0.08) {
+          _inspectIntroActive = false;
+        }
+      }
     } else if (_inspectReturning && _inspectHasSaved) {
       _inspectWantOff.copy(_inspectSavedLocalOff).applyAxisAngle(_upY, animator.yaw);
       _inspectCurOff.copy(camera.position).sub(controls.target);

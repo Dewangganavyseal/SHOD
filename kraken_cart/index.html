@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Silkscreen:wght@400;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./css/style.css?v=vintage18" />
+  <link rel="stylesheet" href="./css/style.css?v=vintage20" />
   <script type="importmap">
   {
     "imports": {
@@ -255,7 +255,7 @@
           <div class="ctrl-row"><span class="ctrl-key">Space</span><span class="ctrl-desc" data-i18n="ctrl_g_jump">Jump / Lift Cart</span></div>
           <div class="ctrl-row"><span class="ctrl-key">F</span><span class="ctrl-desc" data-i18n="ctrl_g_interact">Interact / Quest / Workshop</span></div>
           <div class="ctrl-row"><span class="ctrl-key">E</span><span class="ctrl-desc" data-i18n="ctrl_g_graze">Eat / Drink</span></div>
-          <div class="ctrl-row"><span class="ctrl-key">Q</span><span class="ctrl-desc" data-i18n="ctrl_g_inspect">Hold: Inspect Cart &amp; Supplies</span></div>
+          <div class="ctrl-row"><span class="ctrl-key">Q</span><span class="ctrl-desc" data-i18n="ctrl_g_inspect">Toggle: Inspect Cart &amp; Orbit Camera</span></div>
           <div class="ctrl-row"><span class="ctrl-key">V</span><span class="ctrl-desc" data-i18n="ctrl_g_hitch">Hitch / Unhitch Cart</span></div>
           <div class="ctrl-row"><span class="ctrl-key">G / H</span><span class="ctrl-desc" data-i18n="ctrl_g_npc">Recruit / Release NPC</span></div>
           <div class="ctrl-row"><span class="ctrl-key">Z</span><span class="ctrl-desc" data-i18n="ctrl_g_sleep">Sleep / Rest Horse</span></div>
@@ -279,9 +279,13 @@
         <span class="js-corner" data-pos="bl"></span>
         <span class="js-corner" data-pos="br"></span>
         <div class="minimap-inner-well">
-          <canvas id="minimap-canvas" width="144" height="144"></canvas>
+          <canvas id="minimap-canvas" width="288" height="288"></canvas>
           <span class="mm-compass">N</span>
           <span class="mm-key" data-i18n="map_badge">[M] Map</span>
+          <div class="mm-zoom-bar" aria-label="Minimap zoom">
+            <button id="btn-mm-zoom-in" type="button" class="mm-zoom-btn" title="Zoom In Minimap">+</button>
+            <button id="btn-mm-zoom-out" type="button" class="mm-zoom-btn" title="Zoom Out Minimap">−</button>
+          </div>
           <div id="minimap-loc" class="mm-loc">Forest &amp; Trail</div>
         </div>
       </div>
@@ -355,8 +359,16 @@
         <span class="js-filigree" data-pos="bottom"></span>
         <div class="wm-head">
           <div id="worldmap-coords" class="wm-sub">X: 0m • Z: 0m</div>
+          <div id="worldmap-controls" class="wm-controls" aria-label="World map zoom controls">
+            <button id="btn-wm-zoom-out" type="button" class="wm-ctrl-btn" title="Zoom Out (-)">−</button>
+            <button id="btn-wm-zoom-reset" type="button" class="wm-ctrl-btn wm-ctrl-wide" title="Reset View (1x)">
+              <span id="worldmap-zoom-label">1.0×</span>
+            </button>
+            <button id="btn-wm-zoom-in" type="button" class="wm-ctrl-btn" title="Zoom In (+)">+</button>
+            <button id="btn-wm-center-horse" type="button" class="wm-ctrl-btn wm-ctrl-wide" title="Focus on Horse">⌖</button>
+          </div>
         </div>
-        <canvas id="worldmap-canvas" width="600" height="600"></canvas>
+        <canvas id="worldmap-canvas" width="900" height="900"></canvas>
         <div class="wm-legend">
           <span><i>📍</i> <span data-i18n="map_legend_horse">Horse Position</span></span>
           <span><i>🏘️</i> <span data-i18n="map_legend_villages">5 Villages (Radnar, Zenoa, Casna, Kohona, Valen)</span></span>
@@ -500,7 +512,7 @@
     (function boot() {
       function loadBundle() {
         const s = document.createElement('script');
-        s.src = './dist/game.bundle.js?v=vintage18';
+        s.src = './dist/game.bundle.js?v=vintage38';
         s.onerror = () => reportBootError('Failed to load ./dist/game.bundle.js');
         document.body.appendChild(s);
       }
@@ -512,7 +524,7 @@
 
       const mod = document.createElement('script');
       mod.type = 'module';
-      mod.src = './js/main.js?v=vintage18';
+      mod.src = './js/main.js?v=vintage38';
       mod.onerror = () => loadBundle();
       document.body.appendChild(mod);
     })();
