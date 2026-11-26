@@ -99,6 +99,10 @@ function buildSideEffectModule(relPath) {
 function buildForestAssets() {
   let src = read('js/forest_assets.js');
   src = mustReplace(src, /^\s*import\s*\{\s*HC\s*\}\s*from\s*'\.\/hc\.js';\s*\r?\n/m, '', 'js/forest_assets.js (import)');
+  src = src.replace(
+    /^\s*import\s*\{([^}]*?)\}\s*from\s*'\.\/models\/stylized_trees\.js';\s*\r?\n/m,
+    'const {$1} = __MOD_STYLIZED_TREES;\n'
+  );
   const idx = src.lastIndexOf('export {');
   if (idx < 0) throw new Error('export { not found in js/forest_assets.js');
   src = src.slice(0, idx) + 'return {' + src.slice(idx + 'export {'.length);
@@ -120,7 +124,7 @@ function buildForestConsumer(relPath) {
 
 function buildModelModule(relPath, assignVar) {
   let src = read(relPath);
-  src = mustReplace(src, /^\s*import\s*\{\s*HC\s*\}\s*from\s*'\.\.\/hc\.js';\s*\r?\n/m, '', `${relPath} (HC import)`);
+  src = src.replace(/^\s*import\s*\{\s*HC\s*\}\s*from\s*'\.\.\/hc\.js';\s*\r?\n/m, '');
   const idx = src.lastIndexOf('export {');
   if (idx < 0) throw new Error(`export { not found in ${relPath}`);
   src = src.slice(0, idx) + 'return {' + src.slice(idx + 'export {'.length);
@@ -134,39 +138,45 @@ function buildWorld() {
   src = mustReplace(src, /^\s*import\s+MAP\s+from\s*'\.\/map\.js';\s*\r?\n/m, 'const MAP = __MOD_MAP;\n', 'js/world.js (MAP)');
   src = mustReplace(
     src,
-    /^\s*import\s*\{([\s\S]*?)\}\s*from\s*'\.\/models\/village_buildings\.js';\s*\r?\n/m,
+    /^\s*import\s*\{([^}]*?)\}\s*from\s*'\.\/models\/village_buildings\.js';\s*\r?\n/m,
     'const {$1} = __MOD_VILLAGE_BLDG;\n',
     'js/world.js (village_buildings)'
   );
   src = mustReplace(
     src,
-    /^\s*import\s*\{([\s\S]*?)\}\s*from\s*'\.\/models\/village_props\.js';\s*\r?\n/m,
+    /^\s*import\s*\{([^}]*?)\}\s*from\s*'\.\/models\/village_props\.js';\s*\r?\n/m,
     'const {$1} = __MOD_VILLAGE_PROPS;\n',
     'js/world.js (village_props)'
   );
   src = mustReplace(
     src,
-    /^\s*import\s*\{([\s\S]*?)\}\s*from\s*'\.\/models\/river_assets\.js';\s*\r?\n/m,
+    /^\s*import\s*\{([^}]*?)\}\s*from\s*'\.\/models\/river_assets\.js';\s*\r?\n/m,
     'const {$1} = __MOD_RIVER_ASSETS;\n',
     'js/world.js (river_assets)'
   );
   src = mustReplace(
     src,
-    /^\s*import\s*\{([\s\S]*?)\}\s*from\s*'\.\/models\/sun_ruins_model\.js';\s*\r?\n/m,
+    /^\s*import\s*\{([^}]*?)\}\s*from\s*'\.\/models\/sun_ruins_model\.js';\s*\r?\n/m,
     'const {$1} = __MOD_SUN_RUINS;\n',
     'js/world.js (sun_ruins_model)'
   );
   src = mustReplace(
     src,
-    /^\s*import\s*\{([\s\S]*?)\}\s*from\s*'\.\/models\/crystal_cavern_model\.js';\s*\r?\n/m,
+    /^\s*import\s*\{([^}]*?)\}\s*from\s*'\.\/models\/crystal_cavern_model\.js';\s*\r?\n/m,
     'const {$1} = __MOD_CRYSTAL_CAVERN;\n',
     'js/world.js (crystal_cavern_model)'
   );
   src = mustReplace(
     src,
-    /^\s*import\s*\{([\s\S]*?)\}\s*from\s*'\.\/models\/bandit_camp_model\.js';\s*\r?\n/m,
+    /^\s*import\s*\{([^}]*?)\}\s*from\s*'\.\/models\/bandit_camp_model\.js';\s*\r?\n/m,
     'const {$1} = __MOD_BANDIT_CAMP;\n',
     'js/world.js (bandit_camp_model)'
+  );
+  src = mustReplace(
+    src,
+    /^\s*import\s*\{([^}]*?)\}\s*from\s*'\.\/models\/stylized_trees\.js';\s*\r?\n/m,
+    'const {$1} = __MOD_STYLIZED_TREES;\n',
+    'js/world.js (stylized_trees)'
   );
   return wrapIIFE('js/world.js', src);
 }
@@ -339,6 +349,7 @@ const chunks = [
   buildModelModule('js/models/sun_ruins_model.js', '__MOD_SUN_RUINS'),
   buildModelModule('js/models/crystal_cavern_model.js', '__MOD_CRYSTAL_CAVERN'),
   buildModelModule('js/models/bandit_camp_model.js', '__MOD_BANDIT_CAMP'),
+  buildModelModule('js/models/stylized_trees.js', '__MOD_STYLIZED_TREES'),
   buildWorld(),
   buildSideEffectModule('js/physics.js'),
   buildSideEffectModule('js/animator.js'),
@@ -353,6 +364,7 @@ const chunks = [
   buildMobs(),
   buildUpgrades(),
   buildSideEffectModule('js/vintage_gui.js'),
+  buildSideEffectModule('js/sfx.js'),
   buildUI(),
   buildSurvival(),
   buildQuests(),

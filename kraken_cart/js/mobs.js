@@ -824,6 +824,10 @@ class CombatVFX {
   }
 
   playSfx(kind = 'hit') {
+    if (HC.SFX && typeof HC.SFX.play === 'function') {
+      HC.SFX.play(kind);
+      return;
+    }
     const w = this.world;
     if (!w || !w._isAudioPlaying || !w._audioCtx) return;
     try {

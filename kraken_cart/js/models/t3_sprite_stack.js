@@ -1153,34 +1153,60 @@ void main() {
   vec4 baseSample = texture2D(tDiffuse, vUv);
   vec3 col = baseSample.rgb;
 
-  if (uEnabled > 0.5) {
+  // Alpha mask contract: grass shaders write a = 0.0 (transparent:false keeps depth writes);
+  // sky, terrain, buildings, fences, props, rocks, trees, horses, carts, NPCs, and mobs write a = 1.0.
+  if (uEnabled > 0.5 && baseSample.a >= 0.5) {
     float dC = texture2D(tDepth, vUv).r;
     if (dC < 0.99985) {
       float zC = linearizeDepth(dC);
-      float zL = linearizeDepth(texture2D(tDepth, vUv - vec2(uTexel.x, 0.0)).r);
-      float zR = linearizeDepth(texture2D(tDepth, vUv + vec2(uTexel.x, 0.0)).r);
-      float zD = linearizeDepth(texture2D(tDepth, vUv - vec2(0.0, uTexel.y)).r);
-      float zU = linearizeDepth(texture2D(tDepth, vUv + vec2(0.0, uTexel.y)).r);
+      vec2 offX = vec2(uTexel.x, 0.0);
+      vec2 offY = vec2(0.0, uTexel.y);
+
+      vec4 sL = texture2D(tDiffuse, vUv - offX);
+      vec4 sR = texture2D(tDiffuse, vUv + offX);
+      vec4 sD = texture2D(tDiffuse, vUv - offY);
+      vec4 sU = texture2D(tDiffuse, vUv + offY);
+
+      float zL = linearizeDepth(texture2D(tDepth, vUv - offX).r);
+      float zR = linearizeDepth(texture2D(tDepth, vUv + offX).r);
+      float zD = linearizeDepth(texture2D(tDepth, vUv - offY).r);
+      float zU = linearizeDepth(texture2D(tDepth, vUv + offY).r);
+
+      bool gL = sL.a < 0.5;
+      bool gR = sR.a < 0.5;
+      bool gD = sD.a < 0.5;
+      bool gU = sU.a < 0.5;
+
+      // Ignore closer (foreground) grass neighbors so grass blades never cast dark halos onto surfaces behind them
+      float zLs = (gL && zL < zC) ? zC : zL;
+      float zRs = (gR && zR < zC) ? zC : zR;
+      float zDs = (gD && zD < zC) ? zC : zD;
+      float zUs = (gU && zU < zC) ? zC : zU;
 
       // Forward-side depth jump + second-order Laplacian keeps continuous hill slopes 0-outline
-      float dzOut = max(0.0, max(max(zL, zR), max(zU, zD)) - zC);
-      float lapX = abs(zL + zR - 2.0 * zC);
-      float lapY = abs(zU + zD - 2.0 * zC);
-      float lap = lapX + lapY;
+      float dzOut = max(0.0, max(max(zLs, zRs), max(zUs, zDs)) - zC);
+      float lapX = abs(zLs + zRs - 2.0 * zC);
+      float lapY = abs(zUs + zDs - 2.0 * zC);
+      float lapSil = lapX + lapY;
+
+      // Never trigger interior creases or color-diff creases across grass neighbors
+      float lapCrease = ((gL || gR) ? 0.0 : lapX) + ((gD || gU) ? 0.0 : lapY);
 
       // Reject planar sloped terrain/roads where zL < zC < zR symmetrically
-      float slopeGate = smoothstep(0.08, 0.24, lap / max(0.28, zC * 0.042));
+      float slopeDenom = max(0.28, zC * 0.042);
+      float slopeGateSil = smoothstep(0.08, 0.24, lapSil / slopeDenom);
+      float slopeGateCrease = smoothstep(0.08, 0.24, lapCrease / slopeDenom);
 
       float silThresh = max(0.42, zC * 0.055);
       float creaseThresh = max(0.22, zC * 0.030);
-      float silMask = smoothstep(silThresh, silThresh * 1.45, dzOut) * slopeGate;
-      float creaseMask = smoothstep(creaseThresh, creaseThresh * 1.65, lap) * slopeGate;
+      float silMask = smoothstep(silThresh, silThresh * 1.45, dzOut) * slopeGateSil;
+      float creaseMask = smoothstep(creaseThresh, creaseThresh * 1.65, lapCrease) * slopeGateCrease;
 
       // Neighbor color discontinuity boost helps crisp architectural roof/wall trim edges
-      vec3 cL = texture2D(tDiffuse, vUv - vec2(uTexel.x, 0.0)).rgb;
-      vec3 cR = texture2D(tDiffuse, vUv + vec2(uTexel.x, 0.0)).rgb;
-      vec3 cU = texture2D(tDiffuse, vUv + vec2(0.0, uTexel.y)).rgb;
-      float colDiff = max(length(col - cL), max(length(col - cR), length(col - cU)));
+      float colDiff = 0.0;
+      if (!gL) colDiff = max(colDiff, length(col - sL.rgb));
+      if (!gR) colDiff = max(colDiff, length(col - sR.rgb));
+      if (!gU) colDiff = max(colDiff, length(col - sU.rgb));
       creaseMask = max(creaseMask * 0.85, creaseMask * smoothstep(0.03, 0.14, colDiff));
 
       float distFade = 1.0 - smoothstep(62.0, 125.0, zC);

@@ -6,6 +6,11 @@
    dan Math.random diganti PRNG deterministik (peta SHOD tetap, bukan generate).
    ============================================================================ */
 import { HC } from './hc.js';
+import {
+  createStylizedTreeToolkit,
+  STYLIZED_TREE_VARIANTS,
+  STYLIZED_DECIDUOUS_PALETTES as DECIDUOUS_PALETTES,
+} from './models/stylized_trees.js';
 const THREE = HC.THREE;
 
 // Builder asli memanggil scene.add & push ke array interaksi hutan; di SHOD object
@@ -990,501 +995,70 @@ function createStylizedDeadPine(x, z, scale = 1.0) {
             return group;
         }
 
-// ---- source: createFluffyZeldaLeafCardTexture ----
-function createFluffyZeldaLeafCardTexture(palette) {
-            const canvas = document.createElement('canvas');
-            canvas.width = 256;
-            canvas.height = 256;
-            const ctx = canvas.getContext('2d');
-            ctx.clearRect(0, 0, 256, 256);
-
-            // Helper to draw an individual stylized Zelda/Ghibli broad ovate leaf with subtle midrib
-            function drawStylizedBroadLeaf(cx, cy, length, width, angle, colBase, colMid, colTip) {
-                ctx.save();
-                ctx.translate(cx, cy);
-                ctx.rotate(angle);
-
-                const grad = ctx.createLinearGradient(0, 0, 0, -length);
-                grad.addColorStop(0.0, colBase);
-                grad.addColorStop(0.52, colMid);
-                grad.addColorStop(1.0, colTip);
-
-                ctx.fillStyle = grad;
-                ctx.beginPath();
-                ctx.moveTo(0, 0);
-                ctx.bezierCurveTo(-width * 0.85, -length * 0.28, -width * 0.95, -length * 0.76, 0, -length);
-                ctx.bezierCurveTo(width * 0.95, -length * 0.76, width * 0.85, -length * 0.28, 0, 0);
-                ctx.closePath();
-                ctx.fill();
-
-                // Soft painterly highlight along one side of the leaf blade
-                ctx.fillStyle = colTip;
-                ctx.globalAlpha = 0.28;
-                ctx.beginPath();
-                ctx.moveTo(0, -length * 0.12);
-                ctx.bezierCurveTo(-width * 0.55, -length * 0.34, -width * 0.58, -length * 0.72, 0, -length * 0.92);
-                ctx.bezierCurveTo(-width * 0.12, -length * 0.65, -width * 0.10, -length * 0.32, 0, -length * 0.12);
-                ctx.fill();
-
-                // Subtle central vein
-                ctx.globalAlpha = 0.22;
-                ctx.strokeStyle = colTip;
-                ctx.lineWidth = 2.2;
-                ctx.lineCap = 'round';
-                ctx.beginPath();
-                ctx.moveTo(0, -length * 0.10);
-                ctx.lineTo(0, -length * 0.82);
-                ctx.stroke();
-
-                ctx.restore();
-            }
-
-            // Soft inner core fill so overlapping scattered cards never leave harsh holes
-            const coreGrad = ctx.createRadialGradient(128, 148, 12, 128, 148, 76);
-            coreGrad.addColorStop(0.0, palette.base);
-            coreGrad.addColorStop(0.7, palette.shadow);
-            coreGrad.addColorStop(1.0, 'rgba(40, 85, 60, 0.0)');
-            ctx.fillStyle = coreGrad;
-            ctx.beginPath();
-            ctx.arc(128, 148, 76, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Back layer of fanned broad leaves
-            const backLeaves = [
-                { x: 108, y: 196, len: 118, w: 46, ang: -0.72 },
-                { x: 148, y: 196, len: 118, w: 46, ang: 0.72 },
-                { x: 118, y: 204, len: 110, w: 44, ang: -1.18 },
-                { x: 138, y: 204, len: 110, w: 44, ang: 1.18 },
-                { x: 128, y: 188, len: 132, w: 50, ang: 0.0 }
-            ];
-            backLeaves.forEach(l => {
-                drawStylizedBroadLeaf(l.x, l.y, l.len, l.w, l.ang, palette.shadow, palette.base, palette.mid);
-            });
-
-            // Mid & front layer of fluffy overlapping leaf blades (gives crisp leafy silhouette on inspect)
-            const frontLeaves = [
-                { x: 116, y: 184, len: 126, w: 48, ang: -0.42, c1: palette.base, c2: palette.mid, c3: palette.tip },
-                { x: 140, y: 184, len: 126, w: 48, ang: 0.42, c1: palette.base, c2: palette.mid, c3: palette.tip },
-                { x: 102, y: 176, len: 106, w: 42, ang: -0.88, c1: palette.base, c2: palette.mid, c3: palette.tip },
-                { x: 154, y: 176, len: 106, w: 42, ang: 0.88, c1: palette.base, c2: palette.mid, c3: palette.tip },
-                { x: 128, y: 172, len: 134, w: 52, ang: -0.06, c1: palette.mid, c2: palette.tip, c3: palette.highlight },
-                { x: 122, y: 162, len: 105, w: 42, ang: -0.26, c1: palette.mid, c2: palette.tip, c3: palette.highlight },
-                { x: 136, y: 162, len: 105, w: 42, ang: 0.28, c1: palette.mid, c2: palette.tip, c3: palette.highlight }
-            ];
-            frontLeaves.forEach(l => {
-                drawStylizedBroadLeaf(l.x, l.y, l.len, l.w, l.ang, l.c1, l.c2, l.c3);
-            });
-
-            const tex = new THREE.CanvasTexture(canvas);
-            tex.encoding = THREE.sRGBEncoding;
-            tex.anisotropy = 4;
-            return tex;
-        }
-
-// ---- source: injectFluffyZeldaLeafShader ----
-function injectFluffyZeldaLeafShader(shader) {
-            shader.uniforms.uTime = grassUniforms.uTime;
-            shader.uniforms.uWindSpeed = grassUniforms.uWindSpeed;
-            shader.uniforms.uSunDir = celShaderUniforms.uSunDir;
-            shader.uniforms.uSunColor = celShaderUniforms.uSunColor;
-            shader.uniforms.uShadowTint = celShaderUniforms.uShadowTint;
-            shader.uniforms.uRimTint = celShaderUniforms.uRimTint;
-            shader.uniforms.uCampfirePos = celShaderUniforms.uCampfirePos;
-            shader.uniforms.uCampfireColor = celShaderUniforms.uCampfireColor;
-            shader.uniforms.uCampfireStrength = celShaderUniforms.uCampfireStrength;
-
-            shader.vertexShader = `
-                attribute vec3 aSocketPos;
-                attribute vec3 aProjectedNormal;
-                attribute vec3 aBranchInfo;
-                uniform float uTime;
-                uniform float uWindSpeed;
-                varying float vFoliageAO;
-                varying float vHeightNorm;
-                varying vec3 vFluffyWorldPos;
-                varying vec3 vProjectedWorldNormal;
-            ` + shader.vertexShader;
-
-            shader.vertexShader = shader.vertexShader.replace(
-                '#include <begin_vertex>',
-                `
-                #include <begin_vertex>
-                vec3 relPos = transformed - aSocketPos;
-                float distFromSocket = length(relPos);
-                float tipFactor = smoothstep(0.05, 1.45, distFromSocket);
-
-                float cardPhase = aBranchInfo.x;
-                float heightNorm = aBranchInfo.y;
-                float foliageAO = aBranchInfo.z;
-
-                // 1. Cohesive branch lobe sway around its wooden branch socket
-                float swayTime = uTime * (1.35 + uWindSpeed * 0.48) + cardPhase * 0.25;
-                float amp = (0.032 + 0.028 * heightNorm) * uWindSpeed * tipFactor;
-                float rx = sin(swayTime) * amp;
-                float rz = cos(swayTime * 1.12 + 0.6) * amp;
-                float cx = cos(rx), sx = sin(rx);
-                float cz = cos(rz), sz = sin(rz);
-
-                vec3 r1 = vec3(relPos.x, relPos.y * cx - relPos.z * sx, relPos.y * sx + relPos.z * cx);
-                vec3 r2 = vec3(r1.x * cz - r1.y * sz, r1.x * sz + r1.y * cz, r1.z);
-
-                // 2. Gentle individual leaf-card flutter along the outer silhouette tips (uv.y)
-                float leafFlutter = sin(uTime * (2.6 + uWindSpeed * 0.85) + cardPhase) * 0.042 * uWindSpeed * uv.y;
-                vec3 flutterOffset = aProjectedNormal * (leafFlutter * 0.45) + vec3(leafFlutter, 0.0, -leafFlutter * 0.7);
-
-                transformed = aSocketPos + r2 + flutterOffset;
-
-                vFoliageAO = foliageAO;
-                vHeightNorm = heightNorm;
-                vFluffyWorldPos = (modelMatrix * vec4(transformed, 1.0)).xyz;
-                // CRITICAL: Use the Projected Vertex Normal from the Scatter Base Lobe Surface!
-                vProjectedWorldNormal = normalize(mat3(modelMatrix) * aProjectedNormal);
-                `
-            );
-
-            if (shader.fragmentShader.includes('#include <tonemapping_fragment>')) {
-                shader.fragmentShader = `
-                    uniform vec3 uSunDir;
-                    uniform vec3 uSunColor;
-                    uniform vec3 uShadowTint;
-                    uniform vec3 uRimTint;
-                    uniform vec3 uCampfirePos;
-                    uniform vec3 uCampfireColor;
-                    uniform float uCampfireStrength;
-                    varying float vFoliageAO;
-                    varying float vHeightNorm;
-                    varying vec3 vFluffyWorldPos;
-                    varying vec3 vProjectedWorldNormal;
-                ` + shader.fragmentShader;
-
-                shader.fragmentShader = shader.fragmentShader.replace(
-                    '#include <tonemapping_fragment>',
-                    `
-                    vec3 N = normalize(vProjectedWorldNormal);
-                    vec3 L = normalize(uSunDir);
-                    vec3 V = normalize(cameraPosition - vFluffyWorldPos);
-
-                    // T3 Hybrid 3-Tier Quantized Cel Shading for Deciduous Foliage
-                    float ndl = max(dot(N, L), 0.0) * mix(0.65, 1.10, vFoliageAO);
-                    float cel = ndl > 0.62 ? 1.0 : (ndl > 0.22 ? 0.75 : 0.45);
-
-                    float crownLift = mix(0.90, 1.12, smoothstep(0.0, 1.0, vHeightNorm));
-                    vec3 decSq = sqrt(max(diffuseColor.rgb * crownLift, vec3(0.0)));
-                    vec3 decSqQ = floor(decSq * 24.0 + 0.5) / 24.0;
-                    vec3 baseLeaf = decSqQ * decSqQ;
-
-                    vec3 deepCanopyShadow = mix(baseLeaf * uShadowTint * 1.32, baseLeaf * 0.58, 0.48);
-                    vec3 sunlitCanopy = baseLeaf * (0.36 + 0.64 * cel) * mix(vec3(1.0), uSunColor, 0.30) * 1.12;
-                    vec3 fluffyColor = mix(deepCanopyShadow, sunlitCanopy, smoothstep(0.45, 1.0, cel));
-
-                    // Subsurface Scattering (Warm translucent glow on backlit leaf puffs)
-                    float sss = pow(clamp(dot(V, -L), 0.0, 1.0), 2.0) * smoothstep(0.35, 0.95, vFoliageAO);
-                    fluffyColor += baseLeaf * uSunColor * sss * 0.34;
-
-                    // Crisp T3 rim highlight
-                    float rim = pow(1.0 - max(dot(N, V), 0.0), 2.0) * smoothstep(0.2, 0.85, N.y * 0.5 + 0.5);
-                    fluffyColor += uRimTint * rim * 0.20;
-
-                    // Blend gently with Three.js cast shadow map
-                    float engineLightRatio = clamp(length(outgoingLight) / max(length(diffuseColor.rgb), 0.001), 0.35, 1.35);
-                    float castShadowMask = smoothstep(0.36, 0.68, engineLightRatio);
-                    outgoingLight = mix(deepCanopyShadow * 0.90, fluffyColor, castShadowMask);
-
-                    // Warm campfire bounce light on lower leaves
-                    float fireDist = length(uCampfirePos - vFluffyWorldPos);
-                    float fireGlow = (1.0 - smoothstep(2.5, 13.5, fireDist)) * uCampfireStrength;
-                    outgoingLight += baseLeaf * uCampfireColor * smoothstep(0.15, 0.65, fireGlow) * 0.52;
-
-                    gl_FragColor = vec4(outgoingLight, diffuseColor.a);
-                    #include <tonemapping_fragment>
-                    `
-                );
-            }
-        }
-
-// ---- source: createCurvedLeafTuftCardGeometry ----
-function createCurvedLeafTuftCardGeometry() {
-            const geo = new THREE.PlaneGeometry(1.0, 1.0, 2, 2);
-            // Shift pivot near the bottom stem of the leaf cluster
-            geo.translate(0, 0.36, 0);
-            const pos = geo.attributes.position;
-            for (let i = 0; i < pos.count; i++) {
-                const vx = pos.getX(i);
-                const vy = pos.getY(i);
-                // Subtle spherical cup + outward curve at the leaf tip
-                const radial = vx * vx + (vy - 0.36) * (vy - 0.36);
-                const vz = -radial * 0.22 + Math.pow(Math.max(0, vy), 1.6) * 0.12;
-                pos.setZ(i, vz);
-            }
-            geo.computeVertexNormals();
-            return geo;
-        }
-
-// ---- source: createBotWDeciduousTree ----
-function createBotWDeciduousTree(x, z, scale = 1.0, colorKey = 'emerald') {
-            const group = new THREE.Group();
-            const y = getTerrainHeight(x, z);
-            group.position.set(x, y, z);
-
-            const seed = Math.abs(Math.sin(x * 23.4 + z * 51.2)) * 100;
-            const distFromOrigin = Math.hypot(x, z);
-            const castsShadow = distFromOrigin < 24.0;
-
-            const trunkHeight = 3.85 * scale;
-            const canopy = new THREE.Group();
-            group.add(canopy);
-
-            // 1. Sculpted Zelda-style organic trunk with root flare
-            const trunk = createSculptedTrunkMesh(
-                trunkHeight,
-                0.42 * scale,
-                0.17 * scale,
-                0.28 * scale,
-                trunkMat,
-                seed
-            );
-
-            const boughWoodGeos = [trunk.geometry];
-            const scatteredLeafCardGeos = [];
-            const GOLDEN_ANGLE = 2.399963229728653;
-            const treeCrownCenter = new THREE.Vector3(0, trunkHeight * 1.08, 0);
-
-            // Forest-Pack style surface scatterer on an ellipsoidal canopy lobe with Projected Vertex Normals
-            function scatterLeavesOnCanopyLobe(lobeCenter, socketPos, radiusX, radiusY, radiusZ, cardCount, heightNorm, phaseSeed) {
-                const dummy = new THREE.Object3D();
-                const upVec = new THREE.Vector3(0, 1, 0);
-
-                // Inner core crossed cards + Outer shell Forest-Pack scattered cards
-                const totalCards = cardCount + 6;
-                for (let c = 0; c < totalCards; c++) {
-                    const isCore = c < 6;
-                    let dir, shellDist, cardScale;
-
-                    if (isCore) {
-                        // Dense inner core cards so you can never see empty holes through the canopy
-                        const corePhi = Math.acos(1.0 - ((c + 0.5) / 6) * 1.6);
-                        const coreTheta = c * GOLDEN_ANGLE + phaseSeed;
-                        dir = new THREE.Vector3(
-                            Math.sin(corePhi) * Math.cos(coreTheta),
-                            Math.cos(corePhi),
-                            Math.sin(corePhi) * Math.sin(coreTheta)
-                        ).normalize();
-                        shellDist = 0.28;
-                        cardScale = (radiusX + radiusY) * 0.62;
-                    } else {
-                        // Fibonacci sphere distribution across the scatter base surface
-                        const idx = c - 6;
-                        const u = (idx + 0.5) / cardCount;
-                        // Concentrate slightly more on upper & outer hemisphere (y from -0.62 to +1.0)
-                        const cosPhi = 1.0 - u * 1.62;
-                        const sinPhi = Math.sqrt(Math.max(0.0, 1.0 - cosPhi * cosPhi));
-                        const theta = idx * GOLDEN_ANGLE + phaseSeed;
-
-                        dir = new THREE.Vector3(
-                            sinPhi * Math.cos(theta),
-                            cosPhi,
-                            sinPhi * Math.sin(theta)
-                        ).normalize();
-                        shellDist = 0.72 + ((idx * 37) % 11) / 11.0 * 0.26;
-                        cardScale = (radiusX * 0.68) * (0.86 + ((idx * 19) % 7) / 7.0 * 0.34);
-                    }
-
-                    // Position on the ellipsoidal scatter base surface
-                    const px = lobeCenter.x + dir.x * radiusX * shellDist;
-                    const py = lobeCenter.y + dir.y * radiusY * shellDist;
-                    const pz = lobeCenter.z + dir.z * radiusZ * shellDist;
-
-                    // Orient card tangent to the lobe surface + fluff outward so leaf tips burst around the silhouette
-                    dummy.position.set(px, py, pz);
-                    const targetPt = new THREE.Vector3(px + dir.x, py + dir.y * 0.85 + 0.35, pz + dir.z);
-                    dummy.lookAt(targetPt);
-                    // Random spin around surface normal + outward flare tilt
-                    dummy.rotateZ(((c * 53 + phaseSeed) % 100) / 100 * Math.PI * 2);
-                    dummy.rotateX(-0.32 - (isCore ? 0.0 : 0.22));
-                    dummy.scale.set(cardScale, cardScale, cardScale);
-                    dummy.updateMatrix();
-
-                    const cardGeo = BASE_FLUFFY_LEAF_CARD_GEO.clone();
-                    cardGeo.applyMatrix4(dummy.matrix);
-
-                    const posAttr = cardGeo.attributes.position;
-                    const vCount = posAttr.count;
-                    const socketArr = new Float32Array(vCount * 3);
-                    const projNormArr = new Float32Array(vCount * 3);
-                    const infoArr = new Float32Array(vCount * 3);
-                    const cardPhase = (phaseSeed + c * 0.91) % (Math.PI * 2);
-
-                    for (let iv = 0; iv < vCount; iv++) {
-                        const vx = posAttr.getX(iv);
-                        const vy = posAttr.getY(iv);
-                        const vz = posAttr.getZ(iv);
-
-                        // PROJECTED VERTEX NORMAL off the Scatter Base Lobe Surface
-                        // Blended 80% from local lobe ellipsoid normal + 20% from overall tree crown dome normal
-                        const localNx = (vx - lobeCenter.x) / (radiusX * radiusX);
-                        const localNy = (vy - lobeCenter.y) / (radiusY * radiusY);
-                        const localNz = (vz - lobeCenter.z) / (radiusZ * radiusZ);
-                        const localN = new THREE.Vector3(localNx, localNy + 0.15, localNz).normalize();
-
-                        const globalN = new THREE.Vector3(
-                            vx - treeCrownCenter.x,
-                            (vy - treeCrownCenter.y) * 1.15 + 0.35,
-                            vz - treeCrownCenter.z
-                        ).normalize();
-
-                        const projN = localN.lerp(globalN, 0.24).normalize();
-
-                        // Per-vertex Spherical Ambient Occlusion (outer & upper vertices are brightest)
-                        const relY = (vy - lobeCenter.y) / radiusY;
-                        const radialOut = Math.hypot((vx - lobeCenter.x) / radiusX, (vz - lobeCenter.z) / radiusZ);
-                        const ao = isCore
-                            ? 0.48
-                            : THREE.MathUtils.clamp(0.52 + radialOut * 0.34 + relY * 0.24, 0.38, 1.0);
-
-                        socketArr[iv * 3] = socketPos.x;
-                        socketArr[iv * 3 + 1] = socketPos.y;
-                        socketArr[iv * 3 + 2] = socketPos.z;
-
-                        projNormArr[iv * 3] = projN.x;
-                        projNormArr[iv * 3 + 1] = projN.y;
-                        projNormArr[iv * 3 + 2] = projN.z;
-
-                        infoArr[iv * 3] = cardPhase;
-                        infoArr[iv * 3 + 1] = heightNorm;
-                        infoArr[iv * 3 + 2] = ao;
-                    }
-
-                    cardGeo.setAttribute('aSocketPos', new THREE.BufferAttribute(socketArr, 3));
-                    cardGeo.setAttribute('aProjectedNormal', new THREE.BufferAttribute(projNormArr, 3));
-                    cardGeo.setAttribute('aBranchInfo', new THREE.BufferAttribute(infoArr, 3));
-                    // Also override base normal for shadow/depth consistency
-                    cardGeo.setAttribute('normal', new THREE.BufferAttribute(projNormArr, 3));
-                    scatteredLeafCardGeos.push(cardGeo);
-                }
-            }
-
-            // 2. Sculpted spreading wooden boughs + multi-lobed Fluffy Zelda canopy puffs
-            const boughSpecs = [
-                { normY: 0.58, yawOff: 0.0, pitch: 0.78, len: 1.75, rx: 1.38, ry: 1.05, rz: 1.38, cards: 24 },
-                { normY: 0.66, yawOff: 2.15, pitch: 0.72, len: 1.85, rx: 1.48, ry: 1.12, rz: 1.45, cards: 26 },
-                { normY: 0.74, yawOff: 4.25, pitch: 0.68, len: 1.70, rx: 1.42, ry: 1.08, rz: 1.42, cards: 25 },
-                { normY: 0.82, yawOff: 1.08, pitch: 0.58, len: 1.55, rx: 1.35, ry: 1.05, rz: 1.35, cards: 24 },
-                { normY: 0.88, yawOff: 3.35, pitch: 0.52, len: 1.45, rx: 1.32, ry: 1.02, rz: 1.32, cards: 22 }
-            ];
-
-            boughSpecs.forEach((spec, idx) => {
-                const spine = trunk.userData.getSpineAt(spec.normY);
-                const yaw = spec.yawOff + (seed % 6.28);
-                const branchLen = spec.len * scale;
-
-                const dirX = Math.sin(spec.pitch) * Math.sin(yaw);
-                const dirY = Math.cos(spec.pitch);
-                const dirZ = Math.sin(spec.pitch) * Math.cos(yaw);
-
-                // Tapered main branch + secondary elbow twig
-                const bGeo = new THREE.CylinderGeometry(0.055 * scale, 0.145 * scale, branchLen, 6);
-                bGeo.translate(0, branchLen * 0.5, 0);
-                bGeo.rotateX(spec.pitch);
-                bGeo.rotateY(yaw);
-                bGeo.translate(spine.x, spine.y, spine.z);
-                boughWoodGeos.push(bGeo);
-
-                const socketPos = new THREE.Vector3(spine.x, spine.y, spine.z);
-                const tipCenter = new THREE.Vector3(
-                    spine.x + dirX * branchLen,
-                    spine.y + dirY * branchLen + 0.24 * scale,
-                    spine.z + dirZ * branchLen
-                );
-
-                // Main fluffy lobe at the end of this bough
-                scatterLeavesOnCanopyLobe(
-                    tipCenter,
-                    socketPos,
-                    spec.rx * scale,
-                    spec.ry * scale,
-                    spec.rz * scale,
-                    spec.cards,
-                    spec.normY,
-                    seed + idx * 3.1
-                );
-
-                // Secondary sub-puff on alternating branches for rich asymmetrical Zelda silhouette
-                if (idx % 2 === 0) {
-                    const subYaw = yaw + 0.55;
-                    const subCenter = new THREE.Vector3(
-                        tipCenter.x + Math.sin(subYaw) * 0.68 * scale,
-                        tipCenter.y - 0.22 * scale,
-                        tipCenter.z + Math.cos(subYaw) * 0.68 * scale
-                    );
-                    scatterLeavesOnCanopyLobe(
-                        subCenter,
-                        socketPos,
-                        0.96 * scale,
-                        0.78 * scale,
-                        0.96 * scale,
-                        14,
-                        spec.normY * 0.92,
-                        seed + idx * 5.7
-                    );
-                }
-            });
-
-            // 3. Lush Upper Crown Dome Lobe (Anchors the top of the Fluffy Zelda Tree silhouette)
-            const topSpine = trunk.userData.getSpineAt(0.98);
-            const topSocket = new THREE.Vector3(topSpine.x, topSpine.y, topSpine.z);
-            const crownCenter = new THREE.Vector3(
-                topSpine.x,
-                topSpine.y + 1.05 * scale,
-                topSpine.z
-            );
-            scatterLeavesOnCanopyLobe(
-                crownCenter,
-                topSocket,
-                1.72 * scale,
-                1.32 * scale,
-                1.72 * scale,
-                32,
-                0.98,
-                seed + 17.3
-            );
-
-            trunk.geometry = mergeBufferGeometriesSimple(boughWoodGeos);
-            trunk.castShadow = castsShadow;
-            canopy.add(trunk);
-
-            const pal = PINE_PALETTES[colorKey] || PINE_PALETTES.emerald;
-            const foliageMat = deciduousMaterials[colorKey] || deciduousMaterials.emerald;
-            const foliageDepthMat = deciduousDepthMaterials[colorKey] || deciduousDepthMaterials.emerald;
-
-            const mergedCloudGeo = mergeBufferGeometriesSimple(scatteredLeafCardGeos);
-            const foliageMesh = new THREE.Mesh(mergedCloudGeo, foliageMat);
-            foliageMesh.customDepthMaterial = foliageDepthMat;
-            foliageMesh.castShadow = castsShadow;
-            foliageMesh.receiveShadow = true;
-            canopy.add(foliageMesh);
-
-            const treeData = {
-                type: 'tree',
-                name: `Fluffy Tree Zelda Style (${pal.name})`,
-                treeKind: 'deciduous',
-                canopy: canopy,
-                foliageMesh: foliageMesh,
-                naturalColorKey: colorKey,
-                phase: rnd() * Math.PI * 2,
-                rustleBoost: 0,
-                leafColor: new THREE.Color(pal.burstColor),
-                boundingSphere: new THREE.Sphere(
-                    new THREE.Vector3(x, y + trunkHeight * 0.95, z),
-                    trunkHeight * 1.15
-                )
-            };
-
-            group.userData = treeData;
-            swayingCanopies.push(treeData);
-            interactiveTrees.push(group);
-            scene.add(group);
-            return group;
-        }
+// ---- source: stylizedTreeToolkit (3-archetype 7b6XZhsvcEM cloud-leaf deciduous trees) ----
+let _stylizedToolkit = null;
+function getStylizedTreeToolkit() {
+  if (!_stylizedToolkit) {
+    _stylizedToolkit = createStylizedTreeToolkit(THREE, {
+      celShaderUniforms,
+      grassUniforms,
+      trunkMat,
+      applyStylizedCelShading,
+    });
+  }
+  return _stylizedToolkit;
+}
+
+function createStylizedDeciduousTreeGeometry(variantKey = 'oak_dome') {
+  return getStylizedTreeToolkit().createStylizedDeciduousTreeGeometry(variantKey);
+}
+
+function buildStylizedTree(variantKey = 'auto', colorKey = 'emerald', scale = 1.0, options = {}) {
+  return getStylizedTreeToolkit().buildStylizedTree(variantKey, colorKey, scale, options);
+}
+
+function createBotWDeciduousTree(x, z, scale = 1.0, colorKey = 'emerald', variantOrHeight = 'auto', heightRatioArg = 1.0) {
+  let variantKey = 'auto';
+  let heightRatio = heightRatioArg;
+  let yawOverride;
+  if (typeof variantOrHeight === 'string') {
+    variantKey = variantOrHeight;
+  } else if (typeof variantOrHeight === 'number' && Number.isFinite(variantOrHeight)) {
+    heightRatio = variantOrHeight;
+  } else if (variantOrHeight && typeof variantOrHeight === 'object') {
+    if (variantOrHeight.variant !== undefined) variantKey = variantOrHeight.variant;
+    if (variantOrHeight.heightRatio !== undefined) heightRatio = variantOrHeight.heightRatio;
+    if (variantOrHeight.yaw !== undefined) yawOverride = variantOrHeight.yaw;
+  }
+
+  const y = getTerrainHeight(x, z);
+  const isOriginTemplate = x === 0 && z === 0;
+  const distFromOrigin = Math.hypot(x, z);
+  const castsShadow = isOriginTemplate || distFromOrigin < 24.0;
+  const seedHint = (variantKey === 'auto' && !isOriginTemplate)
+    ? Math.abs(Math.sin(x * 23.4 + z * 51.2)) * 100
+    : undefined;
+  const yaw = yawOverride !== undefined
+    ? yawOverride
+    : (isOriginTemplate ? 0 : (Math.abs(Math.sin(x * 17.3 + z * 31.7)) * Math.PI * 2));
+
+  const group = getStylizedTreeToolkit().buildStylizedTree(variantKey, colorKey, scale, {
+    x,
+    y,
+    z,
+    yaw,
+    heightRatio,
+    castShadow: castsShadow,
+    seedHint,
+    phase: rnd() * Math.PI * 2,
+  });
+
+  const treeData = group.userData;
+  swayingCanopies.push(treeData);
+  interactiveTrees.push(group);
+  scene.add(group);
+  return group;
+}
 
 // ---- source: createBotWWaterDataTexture ----
 function createBotWWaterDataTexture() {
@@ -1631,8 +1205,6 @@ const rockMat = new THREE.MeshStandardMaterial({ color: 0x7a8288, roughness: 0.8
 
 const BASE_BOTW_PINE_PAD_GEO = createBotWPinePadGeometry();
 
-const BASE_FLUFFY_LEAF_CARD_GEO = createCurvedLeafTuftCardGeometry();
-
 Object.keys(PINE_PALETTES).forEach(key => {
   const pal = PINE_PALETTES[key];
   const tex = createBotWPineFanTexture(pal);
@@ -1643,20 +1215,16 @@ Object.keys(PINE_PALETTES).forEach(key => {
   depthMat.onBeforeCompile = injectBranchSocketWindShader;
   pineDepthMaterials[key] = depthMat;
 });
-Object.keys(PINE_PALETTES).forEach(key => {
-  const pal = PINE_PALETTES[key];
-  const tex = createFluffyZeldaLeafCardTexture(pal);
-  const mat = new THREE.MeshStandardMaterial({ map: tex, alphaTest: 0.35, side: THREE.DoubleSide, roughness: 0.82, metalness: 0.0 });
-  mat.onBeforeCompile = injectFluffyZeldaLeafShader;
-  deciduousMaterials[key] = mat;
-  const depthMat = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: tex, alphaTest: 0.38 });
-  depthMat.onBeforeCompile = injectFluffyZeldaLeafShader;
-  deciduousDepthMaterials[key] = depthMat;
-});
 applyStylizedCelShading(trunkMat, { rimStrength: 0.18, shadowLift: 0.55 });
 applyStylizedCelShading(deadWoodMat, { rimStrength: 0.15, shadowLift: 0.52 });
 applyStylizedCelShading(bushLeafMat, { rimStrength: 0.25, shadowLift: 0.58 });
 applyStylizedCelShading(rockMat, { rimStrength: 0.18, shadowLift: 0.52 });
+
+{
+  const stylizedTk = getStylizedTreeToolkit();
+  Object.assign(deciduousMaterials, stylizedTk.deciduousMaterials);
+  Object.assign(deciduousDepthMaterials, stylizedTk.deciduousDepthMaterials);
+}
 
 
 const grassMat = new THREE.MeshStandardMaterial({
@@ -1759,7 +1327,8 @@ grassMat.onBeforeCompile = (shader) => {
                     float fireGlow = (1.0 - smoothstep(1.2, 11.5, fireDist)) * uCampfireStrength;
                     outgoingLight += gradCol * uCampfireColor * fireGlow * 0.75 * vGrassUv.y;
 
-                    gl_FragColor = vec4(outgoingLight, diffuseColor.a);
+                    // Alpha 0.0 marks grass in T3 post-process so blades stay outline-free (transparent:false still writes depth)
+                    gl_FragColor = vec4(outgoingLight, 0.0);
                     #include <tonemapping_fragment>
                     `
                 );
@@ -1771,7 +1340,9 @@ export {
   createBotWBush, createBotWGrassBladeGeometry, createBotWWaterDataTexture,
   createWindFlowTexture, createBladeShadingTexture, applyStylizedCelShading,
   grassMat, grassUniforms, celShaderUniforms, pineMaterials, deciduousMaterials,
-  pineDepthMaterials, deciduousDepthMaterials, PINE_PALETTES,
+  pineDepthMaterials, deciduousDepthMaterials, PINE_PALETTES, DECIDUOUS_PALETTES,
+  STYLIZED_TREE_VARIANTS, createStylizedTreeToolkit,
+  createStylizedDeciduousTreeGeometry, buildStylizedTree,
   trunkMat, deadWoodMat, bushLeafMat, berryMat, rockMat,
   setForestSeed, setTerrainHeightSampler, getTerrainHeight, atmosphere,
 };

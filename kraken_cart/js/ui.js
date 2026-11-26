@@ -91,6 +91,7 @@ export function initUpgradeUI({ store, quests, onUpgrade, onPreview, onRefill, o
       tab.type = 'button';
       tab.className = `ws-cat-tab${l.key === activeKey ? ' is-active' : ''}`;
       tab.dataset.key = l.key;
+      tab.title = t(l.nameKey);
       tab.innerHTML = `<span class="ws-tab-ico">${l.icon}</span><span class="ws-tab-name">${t(l.nameKey)}</span><span class="ws-tab-lv">Lv.${curLv}</span>`;
       tab.addEventListener('click', () => selectCategory(l.key));
       tabs.appendChild(tab);
@@ -124,16 +125,7 @@ export function initUpgradeUI({ store, quests, onUpgrade, onPreview, onRefill, o
       card.dataset.key = line.key;
       card.dataset.tier = String(idx);
 
-      // Top status badge
-      const badge = document.createElement('span');
-      badge.className = `ws-slide-badge${isEquipped ? ' equipped' : isUnlocked ? ' owned' : ''}`;
-      badge.textContent = isEquipped
-        ? t('ws_equipped')
-        : isUnlocked
-          ? t('ws_owned')
-          : `Lv.${idx + 1}`;
-
-      // Real 3D Model Thumbnail
+      // Real 3D Model Thumbnail (left compact stage)
       const stage = document.createElement('div');
       stage.className = 'ws-part-stage';
       const thumbSrc = HC.renderCartPartThumbnail ? HC.renderCartPartThumbnail(line.key, idx) : '';
@@ -151,6 +143,29 @@ export function initUpgradeUI({ store, quests, onUpgrade, onPreview, onRefill, o
         stage.appendChild(fallback);
       }
 
+      // Compact Card Body (right column: badge + price, title, detail)
+      const body = document.createElement('div');
+      body.className = 'ws-card-body';
+
+      const top = document.createElement('div');
+      top.className = 'ws-card-top';
+
+      const badge = document.createElement('span');
+      badge.className = `ws-slide-badge${isEquipped ? ' equipped' : isUnlocked ? ' owned' : ''}`;
+      badge.textContent = isEquipped
+        ? t('ws_equipped')
+        : isUnlocked
+          ? t('ws_owned')
+          : `Lv.${idx + 1}`;
+      top.appendChild(badge);
+
+      if (!isUnlocked && chk.cost) {
+        const price = document.createElement('span');
+        price.className = `ws-card-price${chk.missingGold > 0 ? ' short' : ''}`;
+        price.textContent = `🪙${chk.cost.gold}G`;
+        top.appendChild(price);
+      }
+
       const title = document.createElement('div');
       title.className = 'ws-slide-title';
       title.textContent = lvObj.shortKey ? t(lvObj.shortKey) : lvObj.short;
@@ -159,7 +174,8 @@ export function initUpgradeUI({ store, quests, onUpgrade, onPreview, onRefill, o
       detail.className = 'ws-slide-detail';
       detail.textContent = lvObj.shortKey ? t(`${lvObj.shortKey}_detail`) : (lvObj.detail || '');
 
-      card.append(badge, stage, title, detail);
+      body.append(top, title, detail);
+      card.append(stage, body);
       card.addEventListener('click', () => selectTier(idx));
       track.appendChild(card);
     }
@@ -226,6 +242,7 @@ export function initUpgradeUI({ store, quests, onUpgrade, onPreview, onRefill, o
       actionBtn.addEventListener('click', () => {
         const res = store.upgradeToLevelWithCost(line.key, selectedTier, quests);
         if (res.ok) {
+          if (HC.SFX && HC.SFX.play) HC.SFX.play('equip');
           refresh();
           if (onUpgrade) onUpgrade(line.key, true, t('ws_upgraded', { name: t(line.nameKey), lv: selLabel }));
         }
@@ -239,6 +256,7 @@ export function initUpgradeUI({ store, quests, onUpgrade, onPreview, onRefill, o
       actionBtn.addEventListener('click', () => {
         const res = store.upgradeToLevelWithCost(line.key, selectedTier, quests);
         if (!res.ok) {
+          if (HC.SFX && HC.SFX.play) HC.SFX.play('deny');
           const msg = res.reason === 'gold'
             ? t('ws_need_gold', { g: res.check.cost.gold })
             : t('ws_need_items', { items: formatMissingItems(res.check.missingItems) });
@@ -247,7 +265,8 @@ export function initUpgradeUI({ store, quests, onUpgrade, onPreview, onRefill, o
           return;
         }
         const msg = t('ws_upgraded', { name: t(line.nameKey), lv: selLabel });
-        if (HC.VintageGUI && HC.VintageGUI.playSfx) HC.VintageGUI.playSfx('confirm');
+        if (HC.SFX && HC.SFX.play) HC.SFX.play('upgrade');
+        else if (HC.VintageGUI && HC.VintageGUI.playSfx) HC.VintageGUI.playSfx('confirm');
         refresh();
         if (onUpgrade) onUpgrade(line.key, true, msg);
       });
@@ -262,10 +281,13 @@ export function initUpgradeUI({ store, quests, onUpgrade, onPreview, onRefill, o
     if (titleEl) {
       titleEl.textContent = t('ws_title', {
         village: currentWorkshop ? currentWorkshop.villageName : 'Village',
-      });
+      }).replace(/^🔧\s*/, '');
     }
     if (refillBtn) refillBtn.textContent = t('ws_refill_btn');
-    if (closeBtn) closeBtn.textContent = t('ws_exit');
+    if (closeBtn) {
+      closeBtn.title = t('ws_exit');
+      closeBtn.setAttribute('aria-label', t('ws_exit'));
+    }
     renderMaterials(gold);
     renderWorkshopBody(gold);
   }
@@ -287,6 +309,7 @@ export function initUpgradeUI({ store, quests, onUpgrade, onPreview, onRefill, o
 
   if (refillBtn) {
     refillBtn.addEventListener('click', () => {
+      if (HC.SFX && HC.SFX.play) HC.SFX.play('refill');
       if (onRefill) onRefill();
       refresh();
     });

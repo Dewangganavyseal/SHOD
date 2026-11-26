@@ -1628,6 +1628,7 @@ function computeCargoSupports(items, boxesByItem, maxGap = 0.035, maxPenetration
       scene.attach(obj);              // pindah ke koordinat dunia, lepas dari bak
       w.detached = true;
       w.contact = false;
+      if (HC.SFX && HC.SFX.play) HC.SFX.play('wheel_detach');
 
       const sp = Math.hypot(this.vel.x, this.vel.z);
       const side = Math.sign(w.wa.z) || 1;
@@ -1800,6 +1801,7 @@ function computeCargoSupports(items, boxesByItem, maxGap = 0.035, maxPenetration
         item.localAngVel.z + (Math.random() - 0.5) * 5.5
       );
       this.spilled.push(item);
+      if (HC.SFX && HC.SFX.play) HC.SFX.play('cargo_spill');
     }
 
     spillCargo() {

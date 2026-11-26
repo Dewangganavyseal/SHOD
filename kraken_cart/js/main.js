@@ -9,6 +9,7 @@ import './npc.js';
 import './mobs.js';
 import './sylvan/models.js';
 import './vintage_gui.js';
+import './sfx.js';
 import { UpgradeStore, HorseStatsStore, MATERIAL_DEFS, UPGRADE_COSTS, HORSE_STAT_DEFS } from './upgrades.js';
 import { initUpgradeUI } from './ui.js';
 import { Survival } from './survival.js';
@@ -39,7 +40,7 @@ scene.background = new THREE.Color(0x6bb0e6);
 
 const initW = Math.max(1, window.innerWidth);
 const initH = Math.max(1, window.innerHeight);
-const camera = new THREE.PerspectiveCamera(46, initW / initH, 0.2, 450);
+const camera = new THREE.PerspectiveCamera(46, initW / initH, 0.2, 980);
 
 const renderer = new THREE.WebGLRenderer({
   antialias: !!quality.antialias,
@@ -472,12 +473,19 @@ function showToast(text) {
 
 let renderHorseUpgrades = () => {};
 
+function playSfx(kind, opts) {
+  if (HC.SFX && typeof HC.SFX.play === 'function') HC.SFX.play(kind, opts);
+  else if (HC.VintageGUI && typeof HC.VintageGUI.playSfx === 'function') HC.VintageGUI.playSfx(kind, opts);
+}
+
 function setStatsPanelOpen(open) {
   if (!statsPanelEl || !btnHorsePortrait) return;
+  const wasOpen = !statsPanelEl.hidden;
   const show = !!open;
   statsPanelEl.hidden = !show;
   btnHorsePortrait.classList.toggle('open', show);
   btnHorsePortrait.setAttribute('aria-expanded', show ? 'true' : 'false');
+  if (show !== wasOpen) playSfx(show ? 'panel_open' : 'panel_close');
   if (show) renderHorseUpgrades();
   if (show && settingsPanelEl && btnSettings) {
     settingsPanelEl.hidden = true;
@@ -488,10 +496,12 @@ function setStatsPanelOpen(open) {
 
 function setSettingsPanelOpen(open) {
   if (!settingsPanelEl || !btnSettings) return;
+  const wasOpen = !settingsPanelEl.hidden;
   const show = !!open;
   settingsPanelEl.hidden = !show;
   btnSettings.classList.toggle('open', show);
   btnSettings.setAttribute('aria-expanded', show ? 'true' : 'false');
+  if (show !== wasOpen) playSfx(show ? 'panel_open' : 'panel_close');
   if (show && statsPanelEl && btnHorsePortrait) {
     statsPanelEl.hidden = true;
     btnHorsePortrait.classList.remove('open');
@@ -726,6 +736,7 @@ function tryAcceptQuestAtGiver(nearGiver) {
   }
   const res = quests.acceptQuest(nearGiver.villageId, party.wild);
   if (res.ok && res.quest) {
+    playSfx('quest_accept');
     if (res.quest.questType === 'passenger') {
       if (party.boardQuestPassengers) party.boardQuestPassengers(res.quest.passengerRoles, cart);
       if (HC.clearQuestCargoFromCart) HC.clearQuestCargoFromCart(cart, physics);
@@ -885,7 +896,7 @@ function setInspectMode(on, notifyDenied = false) {
   const next = !!on;
   if (next && workshopOpen) return false;
   if (next && !canInspectCart()) {
-    if (notifyDenied) showToast(t('inspect_far'));
+    if (notifyDenied) { playSfx('deny'); showToast(t('inspect_far')); }
     if (_inspectWasActive) on = false;
     else {
       animator.inspectMode = false;
@@ -895,6 +906,7 @@ function setInspectMode(on, notifyDenied = false) {
   }
   const finalNext = !!on;
   if (finalNext === _inspectWasActive) return finalNext;
+  playSfx(finalNext ? 'inspect_on' : 'inspect_off');
   animator.inspectMode = finalNext;
   if (wheelHpOverlayEl) wheelHpOverlayEl.hidden = !finalNext;
   if (btnInspectEl) {
@@ -1042,10 +1054,11 @@ renderHorseUpgrades = function renderHorseUpgradeRows() {
         e.preventDefault();
         const res = horseStats.upgradeStat(def.key, quests);
         if (!res.ok) {
+          playSfx('deny');
           showToast(t('not_enough_gold', { g: cost }));
           return;
         }
-        if (HC.VintageGUI && HC.VintageGUI.playSfx) HC.VintageGUI.playSfx('confirm');
+        playSfx('upgrade');
         syncHorseStats();
         renderHorseUpgrades();
         if (ui && ui.refresh) ui.refresh();
@@ -1111,9 +1124,12 @@ function computeWorkshopCamera(ws) {
 function openWorkshop(ws) {
   if (!ws || physics.flipped) return false;
   if (!physics.hitched) {
+    playSfx('deny');
     showToast(t('ws_need_cart_hitched'));
     return false;
   }
+  playSfx('workshop_open');
+  if (HC.SFX && HC.SFX.stopLoops) HC.SFX.stopLoops();
   if (animator.state === 'sleep') doSleepToggle();
   if (animator.inspectMode) setInspectMode(false);
   setStatsPanelOpen(false);
@@ -1153,6 +1169,7 @@ function openWorkshop(ws) {
 
 function closeWorkshop() {
   if (!workshopOpen) return false;
+  playSfx('workshop_close');
   workshopOpen = false;
   _wsRecord = null;
   _wsTransitionT = 0;
@@ -1271,6 +1288,7 @@ function positionCameraBehindHorse() {
 }
 
 function enterMainMenu() {
+  if (HC.SFX && HC.SFX.stopLoops) HC.SFX.stopLoops();
   if (workshopOpen) closeWorkshop();
   if (animator.inspectMode) setInspectMode(false);
   if (mapUI && mapUI.isOpen) mapUI.close();
@@ -1318,6 +1336,7 @@ function enterMainMenu() {
 }
 
 function startNewGame() {
+  playSfx('menu_start');
   if (workshopOpen) closeWorkshop();
   if (letterCardEl) letterCardEl.hidden = true;
   if (cutsceneBoxEl) cutsceneBoxEl.hidden = true;
@@ -1587,6 +1606,7 @@ function startRadnarCutscene() {
 
 function advanceCutscene() {
   if (gameMode !== 'cutscene' || _csPhase !== 'dialogue') return false;
+  playSfx('dialogue_blip');
   _cutsceneIdx += 1;
   if (_cutsceneIdx < CUTSCENE_KEYS.length) {
     renderCutsceneStep();
@@ -1609,6 +1629,8 @@ function advanceCutscene() {
 
 function claimHeroOldCart() {
   if (hasCart) return false;
+  playSfx('hitch');
+  playSfx('quest_accept');
   hasCart = true;
   party.hasCart = true;
   storyStage = 'done';
@@ -1734,6 +1756,7 @@ function renderFarmerDialogue() {
 
 function advanceFarmerDialogue() {
   if (!_farmerDlg) return false;
+  playSfx('dialogue_blip');
   if (_farmerDlg.idx < _farmerDlg.lines.length - 1) {
     _farmerDlg.idx += 1;
     renderFarmerDialogue();
@@ -1747,6 +1770,7 @@ function advanceFarmerDialogue() {
 function startFarmerDialogue(farmerEntry) {
   if (!farmerEntry || !farmerEntry.farmPlot) return false;
   if (gameMode !== 'play' || workshopOpen) return false;
+  playSfx('dialogue_blip');
   stopForSurvivalAction();
   const fp = farmerEntry.farmPlot;
   const vName = farmerEntry.villageName || 'Radnar';
@@ -1875,6 +1899,7 @@ function syncSteerInput() {
 function toggleRun() {
   runLatched = !runLatched;
   animator.setState(runLatched ? 'run' : 'walk');
+  playSfx(runLatched ? 'sprint_on' : 'sprint_off');
   if (touchUI && touchUI.setRunLatched) touchUI.setRunLatched(runLatched);
 }
 const survCtx = () => ({
@@ -1902,12 +1927,15 @@ function doEat() {
   ctx.speed = 0;
   const ok = survival.tryEat(ctx);
   if (ok) {
+    playSfx('eat');
     animator.setState('graze');
     if (world.grazeGrassAt) {
       const muzzleX = animator.x + Math.cos(animator.yaw) * 1.05;
       const muzzleZ = animator.z - Math.sin(animator.yaw) * 1.05;
       world.grazeGrassAt(muzzleX, muzzleZ, 1.65);
     }
+  } else {
+    playSfx('deny');
   }
   syncVitals();
 }
@@ -1917,8 +1945,11 @@ function doDrink() {
   ctx.speed = 0;
   const ok = survival.tryDrink(ctx);
   if (ok) {
+    playSfx('drink');
     animator.setState('graze');
     if (world.triggerPondRipple) world.triggerPondRipple(animator.x, animator.z);
+  } else {
+    playSfx('deny');
   }
   syncVitals();
 }
@@ -1974,18 +2005,21 @@ function doInteract() {
     return startFarmerDialogue(nearFarmer);
   }
 
+  playSfx('deny');
   showToast(t('no_interact_near'));
   return false;
 }
 function doJump() {
   const cost = physics.hitched ? 6 : 4;
-  if (survival.stamina < cost) { survival.msg = t('msg_stamina_jump'); syncVitals(); return; }
+  if (survival.stamina < cost) { playSfx('deny'); survival.msg = t('msg_stamina_jump'); syncVitals(); return; }
+  if (!animator.jumpActive) playSfx('jump');
   survival.stamina = Math.max(0, survival.stamina - cost);
   animator.setState('jump');
 }
 function doSleepToggle() {
   if (animator.state === 'sleep') {
     animator.setState(runLatched ? 'run' : 'walk');
+    playSfx('sleep_off');
     survival.msg = t('msg_sleep_off');
     if (btnSleepEl) btnSleepEl.classList.remove('active');
     if (touchUI && touchUI.setSleepState) touchUI.setSleepState(false);
@@ -1993,6 +2027,7 @@ function doSleepToggle() {
     return false;
   }
   if (physics.flipped || animator.jumpActive) {
+    playSfx('deny');
     survival.msg = t('msg_sleep_deny');
     syncVitals();
     return false;
@@ -2002,6 +2037,7 @@ function doSleepToggle() {
   survival.drinkT = 0;
   if (animator.inspectMode) setInspectMode(false);
   animator.setState('sleep');
+  playSfx('sleep_on');
   survival.msg = t('msg_sleep_on');
   if (btnSleepEl) btnSleepEl.classList.add('active');
   if (touchUI && touchUI.setSleepState) touchUI.setSleepState(true);
@@ -2301,12 +2337,18 @@ function renderNpcDock() {
 party.onChange = renderNpcDock;
 
 function recruitNearbyNPC() {
+  const prevN = party.members ? party.members.length : 0;
   party.recruit(animator.x, animator.z);
+  const nextN = party.members ? party.members.length : 0;
+  playSfx(nextN > prevN ? 'recruit' : 'deny');
   syncNpcHud();
   renderNpcDock();
 }
 function releaseLastNPC() {
+  const prevN = party.members ? party.members.length : 0;
   party.releaseLast();
+  const nextN = party.members ? party.members.length : 0;
+  playSfx(nextN < prevN ? 'release' : 'deny');
   syncNpcHud();
   renderNpcDock();
 }
@@ -2427,6 +2469,7 @@ function unhitchCart(fromFlip = false) {
   animator.unhitched = true;
   setRopesVisible(false);
   if (!fromFlip) {
+    playSfx('unhitch');
     survival.msg = t('msg_unhitched');
     syncVitals();
   }
@@ -2460,6 +2503,7 @@ function finalizeReHitch() {
   if (physics.syncVisual) physics.syncVisual();
   setRopesVisible(true);
   resetRopes();
+  playSfx('hitch');
   survival.msg = t('msg_hitched');
   syncVitals();
   _lastDockSig = '';
@@ -2477,6 +2521,7 @@ function reHitchCart() {
   if (physics.hitched || hitchAnim.active) return true;
   const al = getHitchAlignment();
   if (!al.ready) {
+    playSfx('deny');
     if (!al.alignedYaw) survival.msg = t('ctrl_hitch_align_yaw');
     else if (!al.alignedLat) survival.msg = t('ctrl_hitch_align_lat');
     else if (al.longErr > 1.25) survival.msg = t('ctrl_hitch_reverse');
@@ -2484,6 +2529,7 @@ function reHitchCart() {
     syncVitals();
     return false;
   }
+  playSfx('docking');
   keysHeld.forward = false;
   keysHeld.backward = false;
   btnForwardHeld = false;
@@ -2602,6 +2648,7 @@ const flipGame = {
 
   start() {
     if (!physics.flipped) return false;
+    playSfx('flip_start');
     this.active = true;
     this.progress = 8;
     this.cursor = 0.18;
@@ -2661,14 +2708,17 @@ const flipGame = {
     const cfg = this.configForCount(npcN);
     const dist = Math.abs(this.cursor - this.zoneCenter);
     if (dist <= cfg.perfectWidth * 0.5) {
+      playSfx('flip_perfect');
       this.progress = Math.min(100, this.progress + cfg.gainPerfect);
       this._setFeedback(t('flip_perfect', { p: cfg.gainPerfect }), 'perfect');
       this.zoneCenter = 0.34 + Math.random() * 0.32;
     } else if (dist <= cfg.zoneWidth * 0.5) {
+      playSfx('flip_good');
       this.progress = Math.min(100, this.progress + cfg.gainGood);
       this._setFeedback(t('flip_good', { p: cfg.gainGood }), 'good');
       this.zoneCenter = 0.34 + Math.random() * 0.32;
     } else {
+      playSfx('flip_miss');
       this.progress = Math.max(0, this.progress - cfg.missPenalty);
       this._setFeedback(t('flip_miss', { p: cfg.missPenalty }), 'miss');
       this._shake();
@@ -2677,6 +2727,7 @@ const flipGame = {
     this._render(cfg);
 
     if (this.progress >= 100) {
+      playSfx('flip_done');
       physics.liftProgress = 1;
       physics.rightCartInPlace();
       this.stop(true);
@@ -2704,6 +2755,7 @@ if (flipGameEl) { flipGameEl.hidden = true; flipGameEl.style.display = 'none'; }
 window.FLIP_GAME = flipGame;
 
 physics.onFlip = () => {
+  playSfx('cart_flip');
   unhitchCart(true);
   party.onCartFlip(cart, physics);
   const dmgRep = physics.wheelReport ? physics.wheelReport() : [];
@@ -2980,6 +3032,7 @@ function consumeCartSupply(item) {
   const ok = item.supplyKind === 'water'
     ? survival.drinkFromSupply(item)
     : survival.eatFromSupply(item);
+  playSfx(ok ? (item.supplyKind === 'water' ? 'drink' : 'eat') : 'deny');
   syncVitals();
   updateCargoLabelOverlay();
   return ok;
@@ -3695,11 +3748,13 @@ function stepSim(dt) {
     camera,
     world,
     onCartAttacked: (dmg, variant) => {
+      playSfx('cart_bump', { intensity: 1.25 });
       const label = t(variant === 'big' ? 'bandit_big' : 'bandit_small');
       survival.msg = t('msg_cart_attacked', { who: label, dmg });
       syncVitals();
     },
     onHorseAttacked: (dmg, variant) => {
+      playSfx('hit', { intensity: 1.15 });
       const label = t(variant === 'big' ? 'bandit_big' : 'bandit_small');
       survival.hp = Math.max(0, survival.hp - dmg);
       survival.msg = t('msg_horse_attacked', { who: label, dmg });
@@ -3707,6 +3762,7 @@ function stepSim(dt) {
       syncVitals();
     },
     onMobRammed: (mob, dmg) => {
+      playSfx('ram');
       const who = mob && mob.kind === 'bandit'
         ? t(mob.variant === 'big' ? 'bandit_big' : 'bandit_small')
         : ((mob && mob.kind) || 'Mob');
@@ -3716,6 +3772,7 @@ function stepSim(dt) {
       syncVitals();
     },
     onNightAmbush: (list) => {
+      playSfx('ambush');
       const n = (list && list.length) || 1;
       const msg = t('msg_ambush', { n });
       survival.msg = msg;
@@ -3738,6 +3795,7 @@ function stepSim(dt) {
   syncQuestNpcMarkers(dt);
   const nearVillage = quests.getNearbyVillage(animator.x, animator.z);
   quests.update(animator.x, animator.z, hasCart ? physics : null, (done) => {
+    playSfx('quest_complete');
     if (HC.clearQuestCargoFromCart) HC.clearQuestCargoFromCart(cart, physics);
     if (party.clearQuestPassengers) party.clearQuestPassengers(cart);
     if (done.rewardMaterials && store.addMaterials) store.addMaterials(done.rewardMaterials);
@@ -3825,6 +3883,15 @@ function stepSim(dt) {
   flipGame.step(dt);
   syncFlipBanner();
   syncHitchUi();
+  if (HC.SFX && HC.SFX.updateMovement) {
+    HC.SFX.updateMovement(dt, {
+      active: gameMode === 'play' && !workshopOpen,
+      animator,
+      physics,
+      world,
+      hasCart,
+    });
+  }
 
   const gyHorse = world.terrainHeightAt ? world.terrainHeightAt(animator.x, animator.z) : 0;
   horseBlob.position.set(animator.x - Math.cos(animator.yaw) * 0.15, gyHorse + 0.02, animator.z + Math.sin(animator.yaw) * 0.15);

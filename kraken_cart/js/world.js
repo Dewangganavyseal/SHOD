@@ -36,6 +36,7 @@ import {
 import { createAncientSunRuins } from './models/sun_ruins_model.js';
 import { createCrystalCavern } from './models/crystal_cavern_model.js';
 import { createBanditSettlement } from './models/bandit_camp_model.js';
+import { createStylizedTreeToolkit, STYLIZED_TREE_VARIANTS } from './models/stylized_trees.js';
 
 const THREE = HC.THREE, P = HC.PAL;
 
@@ -586,14 +587,14 @@ class World {
         // Genangan air hujan yang tersebar di padang liar, jauh dari desa (Radnar z≈76)
         // dan di luar jalur sungai. Hanya sedikit — bukan kolam di setiap tikungan.
         const PUDDLES = [
-            { z: -98, off: -5.4, r: 1.8, seed: 1.3 },
-            { z: -80, off: 4.3, r: 1.4, seed: 3.7 },
+            { z: -98, off: -5.4, r: 1.85, seed: 1.3 },
+            { z: -80, off: 5.4, r: 1.85, seed: 3.7 },
             { z: -62, off: -6.6, r: 2.1, seed: 5.1 },
-            { z: -43, off: 5.4, r: 1.6, seed: 2.4 },
-            { z: -26, off: -4.1, r: 1.25, seed: 7.2 },
+            { z: -43, off: 5.6, r: 1.80, seed: 2.4 },
+            { z: -26, off: -5.3, r: 1.75, seed: 7.2 },
             { z: -10, off: 6.0, r: 1.85, seed: 4.6 },
-            { z: 106, off: 5.0, r: 1.95, seed: 6.3 },
-            { z: 128, off: -5.6, r: 1.45, seed: 0.9 },
+            { z: 106, off: 5.6, r: 1.95, seed: 6.3 },
+            { z: 128, off: -6.2, r: 1.90, seed: 0.9 },
             { z: 154, off: 6.4, r: 2.2, seed: 8.1 }
         ].map((p) => ({ ...p, x: getRoadCenterX(p.z) + p.off }));
 
@@ -812,6 +813,59 @@ class World {
         const RUINS_SITE = { x: 245, z: -365, radius: 22 };
         const CAVERN_SITE = { x: 415, z: 265, radius: 24 };
         const BANDIT_SITE = { x: -420, z: 125, radius: 25 };
+
+        // ---- Pegunungan Rim Luar & Dataran Tinggi Berbatu Dalam Peta (Ridged Multifractal) ----
+        const MOUNTAIN_PEAKS = [
+            // 3 Dataran Tinggi Berbatu Dalam Peta (Walkable Rocky Highlands / Buttes)
+            { id: 'cragstone_hill',      name: 'Cragstone Hill',      x: -135, z: -135, rX: 52,  rZ: 48,  rot:  0.45, peakH: 16.5, ridgeFreq: 0.055, seed: 1.7, isHighland: true, flatTopRadius: 12.0 },
+            { id: 'east_gorge_ridge',    name: 'East Gorge Ridge',    x:  274, z: -142, rX: 44,  rZ: 74,  rot:  0.08, peakH: 17.8, ridgeFreq: 0.052, seed: 3.1, isHighland: true },
+            { id: 'west_highland_butte', name: 'West Highland Butte', x: -238, z: -178, rX: 46,  rZ: 42,  rot: -0.52, peakH: 15.5, ridgeFreq: 0.056, seed: 5.4, isHighland: true },
+
+            // Northern Alpine Spine (Utara -Z, mengapit celah jalan utama utara)
+            { id: 'north_alpine_w1',     name: 'North Alpine Spine',  x: -145, z: -660, rX: 98,  rZ: 68,  rot: -0.18, peakH: 46.0, ridgeFreq: 0.036, seed: 7.2 },
+            { id: 'north_alpine_w2',     name: 'North Alpine West',   x: -315, z: -665, rX: 112, rZ: 72,  rot:  0.22, peakH: 52.0, ridgeFreq: 0.034, seed: 9.8 },
+            { id: 'north_alpine_e1',     name: 'North Alpine East',   x:  138, z: -655, rX: 108, rZ: 72,  rot:  0.16, peakH: 48.0, ridgeFreq: 0.035, seed: 11.4 },
+            { id: 'north_alpine_e2',     name: 'Frostcrest Peak',     x:  325, z: -655, rX: 115, rZ: 74,  rot: -0.24, peakH: 54.0, ridgeFreq: 0.032, seed: 13.9 },
+            { id: 'north_alpine_e3',     name: 'North Rim Spur',      x:  495, z: -585, rX: 108, rZ: 80,  rot: -0.68, peakH: 44.0, ridgeFreq: 0.038, seed: 15.6 },
+
+            // Northwest Crag Ridge (belakang Ancient Elder Tree & Elderbrook Basin)
+            { id: 'nw_crag_1',           name: 'Northwest Crag',      x: -635, z: -435, rX: 88,  rZ: 105, rot:  0.55, peakH: 47.0, ridgeFreq: 0.036, seed: 18.1 },
+            { id: 'nw_crag_2',           name: 'Elder Spire',         x: -545, z: -590, rX: 105, rZ: 85,  rot:  0.65, peakH: 51.0, ridgeFreq: 0.034, seed: 20.5 },
+            { id: 'nw_crag_3',           name: 'West Crag Wall',      x: -655, z: -285, rX: 72,  rZ: 88,  rot:  0.28, peakH: 38.0, ridgeFreq: 0.040, seed: 22.3 },
+            { id: 'nw_foothill_ridge',   name: 'Elder Backdrop Ridge',x: -475, z: -235, rX: 64,  rZ: 58,  rot:  0.42, peakH: 26.0, ridgeFreq: 0.048, seed: 24.7 },
+
+            // Northeast Highland Peaks
+            { id: 'ne_highland_1',       name: 'Northeast Highlands', x:  625, z: -435, rX: 90,  rZ: 105, rot: -0.58, peakH: 46.0, ridgeFreq: 0.037, seed: 27.2 },
+            { id: 'ne_highland_2',       name: 'Suncrest Crag',       x:  655, z: -245, rX: 74,  rZ: 96,  rot: -0.25, peakH: 39.0, ridgeFreq: 0.041, seed: 29.6 },
+            { id: 'ne_inner_crest',      name: 'Ruins Watch Ridge',   x:  410, z: -260, rX: 68,  rZ: 62,  rot: -0.55, peakH: 27.0, ridgeFreq: 0.046, seed: 31.8 },
+
+            // Eastern Mountain Wall
+            { id: 'east_wall_n',         name: 'East North Bastion',  x:  525, z: -75,  rX: 72,  rZ: 64,  rot:  0.32, peakH: 28.0, ridgeFreq: 0.045, seed: 34.1 },
+            { id: 'east_wall_s1',        name: 'Eastern Wall North',  x:  655, z: 225,  rX: 78,  rZ: 96,  rot:  0.24, peakH: 41.0, ridgeFreq: 0.039, seed: 36.5 },
+            { id: 'east_wall_s2',        name: 'Eastern Mountain',    x:  645, z: 405,  rX: 85,  rZ: 102, rot:  0.48, peakH: 49.0, ridgeFreq: 0.035, seed: 38.9 },
+            { id: 'east_wall_s3',        name: 'Southeast Massif',    x:  585, z: 575,  rX: 98,  rZ: 95,  rot:  0.72, peakH: 52.0, ridgeFreq: 0.033, seed: 41.2 },
+            { id: 'east_inner_spur',     name: 'Kohona Watch',        x:  470, z: 125,  rX: 62,  rZ: 58,  rot: -0.22, peakH: 25.0, ridgeFreq: 0.048, seed: 43.7 },
+
+            // Southwest Serrated Peaks & Western Sentinels
+            { id: 'sw_serrated_1',       name: 'Southwest Crags',     x: -640, z: 360,  rX: 82,  rZ: 98,  rot: -0.48, peakH: 43.0, ridgeFreq: 0.038, seed: 46.1 },
+            { id: 'sw_serrated_2',       name: 'Serrated Peak',       x: -575, z: 545,  rX: 105, rZ: 96,  rot: -0.68, peakH: 51.0, ridgeFreq: 0.035, seed: 48.5 },
+            { id: 'sw_serrated_3',       name: 'Misty South Ridge',   x: -415, z: 645,  rX: 105, rZ: 78,  rot: -0.35, peakH: 46.0, ridgeFreq: 0.036, seed: 50.8 },
+            { id: 'west_sentinel_n',     name: 'West North Sentinel', x: -590, z: -85,  rX: 82,  rZ: 72,  rot:  0.18, peakH: 34.0, ridgeFreq: 0.042, seed: 53.3 },
+            { id: 'west_sentinel_s',     name: 'Bandit Ridge',        x: -595, z: 105,  rX: 74,  rZ: 64,  rot: -0.25, peakH: 30.0, ridgeFreq: 0.044, seed: 55.9 },
+
+            // Southern Border Peaks
+            { id: 'south_border_w',      name: 'Southern West Peak',  x: -265, z: 660,  rX: 98,  rZ: 72,  rot:  0.15, peakH: 44.0, ridgeFreq: 0.037, seed: 58.2 },
+            { id: 'south_border_cw',     name: 'Southern Gate West',  x: -120, z: 665,  rX: 72,  rZ: 64,  rot: -0.14, peakH: 33.0, ridgeFreq: 0.041, seed: 60.4 },
+            { id: 'south_border_e1',     name: 'Southern Gate East',  x:  155, z: 655,  rX: 102, rZ: 72,  rot: -0.18, peakH: 46.0, ridgeFreq: 0.036, seed: 62.9 },
+            { id: 'south_border_e2',     name: 'Southern East Peak',  x:  415, z: 650,  rX: 105, rZ: 78,  rot:  0.28, peakH: 50.0, ridgeFreq: 0.034, seed: 65.3 },
+            { id: 'south_inner_highland',name: 'Zenoa Highland',      x: -155, z: 485,  rX: 68,  rZ: 62,  rot: -0.35, peakH: 25.0, ridgeFreq: 0.048, seed: 67.8 },
+        ].map((m) => ({
+            ...m,
+            cosR: Math.cos(m.rot),
+            sinR: Math.sin(m.rot),
+            maxR: Math.max(m.rX, m.rZ) + 4.0,
+            maxR2: (Math.max(m.rX, m.rZ) + 4.0) * (Math.max(m.rX, m.rZ) + 4.0),
+        }));
 
         function getBaseRollingTerrainY(x, z) {
             let h = Math.sin(x * 0.075) * Math.cos(z * 0.075) * 1.45
@@ -1170,6 +1224,20 @@ class World {
         };
         for (const pd of PUDDLES) insertPuddleGrid(pd);
 
+        function puddleWobbleAt(ang, seed) {
+            return 1.0 + 0.16 * Math.sin(ang * 3.0 + seed) + 0.09 * Math.cos(ang * 5.0 - seed * 1.7);
+        }
+
+        function puddleNormDist(x, z, pd) {
+            const dx = (x - pd.x) / 1.10;
+            const dz = (z - pd.z) / 0.84;
+            const d = Math.hypot(dx, dz);
+            if (d < 1e-5) return 0.0;
+            const ang = Math.atan2(dz, dx);
+            const wob = puddleWobbleAt(ang, pd.seed);
+            return d / (pd.r * wob);
+        }
+
         function hasNearbyPuddle(x, z, extraMargin = 0.0) {
             const arr = puddleGrid.get(`${Math.floor(x / PUDDLE_CELL)},${Math.floor(z / PUDDLE_CELL)}`);
             if (!arr) return false;
@@ -1187,91 +1255,180 @@ class World {
             if (!arr) return null;
             let bestPd = null;
             let bestD = Infinity;
+            let bestU = Infinity;
             for (let i = 0; i < arr.length; i++) {
                 const pd = arr[i];
-                const d = Math.hypot(x - pd.x, z - pd.z);
-                if (d < pd.r * 1.45 && d < bestD) {
-                    bestD = d;
+                const maxWorld = pd.r * (pd.apronOuter || 2.15) * 1.40;
+                const dx = x - pd.x, dz = z - pd.z;
+                if (dx * dx + dz * dz > maxWorld * maxWorld) continue;
+                const u = puddleNormDist(x, z, pd);
+                if (u < (pd.apronOuter || 2.15) && u < bestU) {
+                    bestU = u;
+                    bestD = Math.hypot(dx, dz);
                     bestPd = pd;
                 }
             }
-            return bestPd ? { pd: bestPd, dist: bestD } : null;
+            return bestPd ? { pd: bestPd, dist: bestD, normDist: bestU } : null;
         }
 
-        (function scatterDrinkingPuddles() {
-            let pSeed = 52917;
-            const pRand = () => { pSeed = (pSeed * 1664525 + 1013904223) >>> 0; return pSeed / 4294967296; };
-
-            const canPlacePuddle = (px, pz, r) => {
-                if (Math.abs(px) > 685 || Math.abs(pz) > 685) return false;
-                if (Math.hypot(px, pz) < 12.0 + r) return false;
-                if (Math.hypot(px - POND_CENTER.x, pz - POND_CENTER.z) < POND_CENTER.radius + r + 5.0) return false;
-                if (Math.abs(pz - riverCenterZ(px)) < riverHalfWidthAt(px) + RIVER.bank + r + 4.5) return false;
-                const gb = sampleGrandBasinAt(px, pz);
-                if (gb && gb.edgeDist < gb.basin.bank + r + 4.5) return false;
-                if (getRoadDistance(px, pz) < r + 2.8) return false;
-                for (let vi = 0; vi < VILLAGES.length; vi++) {
-                    const v = VILLAGES[vi];
-                    if (Math.hypot(px - v.cx, pz - v.cz) < v.radius * 2.25 + r) return false;
-                }
-                if (Math.hypot(px + 135, pz + 135) < 34.0) return false;
-                if (Math.hypot(px - 155, pz - 224) < 28.0) return false;
-                if (Math.abs(px - 175) < 26.0 && pz > -210 && pz < -80) return false;
-                if (Math.hypot(px - ANCIENT_ELDER_TREE.x, pz - ANCIENT_ELDER_TREE.z) < 18.0 + r) return false;
-                if (Math.hypot(px - RUINS_SITE.x, pz - RUINS_SITE.z) < 26.0 + r) return false;
-                if (Math.hypot(px - CAVERN_SITE.x, pz - CAVERN_SITE.z) < 28.0 + r) return false;
-                if (Math.hypot(px - BANDIT_SITE.x, pz - BANDIT_SITE.z) < 28.0 + r) return false;
-                if (hasNearbyPuddle(px, pz, 24.0 + r)) return false;
-                return true;
+        function groundNoise2D(x, z) {
+            const ix = Math.floor(x);
+            const iz = Math.floor(z);
+            const fx = x - ix;
+            const fz = z - iz;
+            const ux = fx * fx * (3.0 - 2.0 * fx);
+            const uz = fz * fz * (3.0 - 2.0 * fz);
+            const h = (px, pz) => {
+                let n = Math.imul(px * 374761393 + pz * 668265263, 1274126177);
+                n = Math.imul(n ^ (n >>> 13), 1274126177);
+                return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
             };
+            const a = h(ix, iz);
+            const b = h(ix + 1, iz);
+            const c = h(ix, iz + 1);
+            const d = h(ix + 1, iz + 1);
+            const nx0 = a + (b - a) * ux;
+            const nx1 = c + (d - c) * ux;
+            return nx0 + (nx1 - nx0) * uz;
+        }
 
-            // 1) Sebaran genangan minum di sepanjang jalur jalan cabang & jalan utama luar (7..14.5m dari tepi jalan, r=3.1..4.5m)
-            for (let pIdx = 0; pIdx < allRoadPolylines.length; pIdx++) {
-                const poly = allRoadPolylines[pIdx];
-                if (poly.surface === 'cliff') continue;
-                const pts = poly.pts;
-                const stepIdx = poly.id === 'main_trunk' ? 28 : 16;
-                for (let i = 10; i < pts.length - 10; i += stepIdx) {
-                    const pt = pts[i];
-                    const nxt = pts[Math.min(pts.length - 1, i + 1)];
-                    const tx = nxt[0] - pt[0], tz = nxt[1] - pt[1];
-                    const tLen = Math.hypot(tx, tz) || 1;
-                    const nx = -tz / tLen, nz = tx / tLen;
-                    const side = pRand() < 0.5 ? 1 : -1;
-                    const off = 7.2 + pRand() * 7.6;
-                    const px = pt[0] + nx * side * off;
-                    const pz = pt[1] + nz * side * off;
-                    const r = 3.1 + pRand() * 1.45;
-                    if (canPlacePuddle(px, pz, r)) {
-                        const np = { x: px, z: pz, r, seed: (PUDDLES.length * 1.9 + pRand()) * 2.3 };
-                        PUDDLES.push(np);
-                        insertPuddleGrid(np);
-                    }
-                }
+        function sampleGroundSoilAt(x, z, elev = 0.0, roadDist = 999.0) {
+            const warpX = groundNoise2D(x * 0.021 + 11.3, z * 0.021 + 4.7) * 14.0;
+            const warpZ = groundNoise2D(x * 0.023 - 6.1, z * 0.023 + 17.9) * 14.0;
+            const wx = x + warpX;
+            const wz = z + warpZ;
+            const macro = 0.54 * groundNoise2D(wx * 0.027, wz * 0.027)
+                        + 0.30 * groundNoise2D(wx * 0.066 + 31.7, wz * 0.066 - 19.2)
+                        + 0.16 * groundNoise2D(wx * 0.145 - 43.1, wz * 0.145 + 27.4);
+            const loamNoise = groundNoise2D(wx * 0.052 + 83.2, wz * 0.052 + 12.9);
+            const dryNoise = groundNoise2D(x * 0.041 - 19.5, z * 0.041 + 41.2);
+            const distOrigin = Math.hypot(x, z);
+            const dDeepwood = Math.hypot(x + 195.0, z - 215.0);
+            const forestBias = Math.max(
+                smoothstepJS(70.0, 220.0, distOrigin) * 0.12,
+                (1.0 - smoothstepJS(35.0, 88.0, dDeepwood)) * 0.22
+            );
+            const vergeBias = (roadDist >= 1.8 && roadDist < 6.4)
+                ? (1.0 - smoothstepJS(2.6, 6.4, roadDist)) * 0.24
+                : 0.0;
+            const hillBias = smoothstepJS(1.8, 6.2, elev) * 0.12;
+            const rawSoil = macro + forestBias + vergeBias + hillBias * 0.5;
+            const soilPatch = smoothstepJS(0.46, 0.78, rawSoil);
+            const loamMix = smoothstepJS(0.35, 0.76, loamNoise);
+            const peatMix = smoothstepJS(0.48, 0.85, (1.0 - loamNoise) * 0.65 + forestBias * 1.6);
+            const dryGrassMix = smoothstepJS(0.45, 0.82, dryNoise * 0.65 + hillBias * 1.8);
+            return { soilPatch, loamMix, peatMix, dryGrassMix, macro };
+        }
+
+        function smoothMaxJS(a, b, k = 4.5) {
+            const h = Math.max(k - Math.abs(a - b), 0.0) / k;
+            return Math.max(a, b) + h * h * k * 0.25;
+        }
+
+        function getMountainSiteProtection(x, z, roadDist) {
+            let prot = smoothstepJS(7.5, 14.2, roadDist);
+            if (prot <= 0.001) return 0.0;
+
+            const distOrigin = Math.hypot(x, z);
+            prot *= smoothstepJS(22.0, 44.0, distOrigin);
+            if (prot <= 0.001) return 0.0;
+
+            const dPond = Math.hypot(x - POND_CENTER.x, z - POND_CENTER.z);
+            prot *= smoothstepJS(POND_CENTER.radius + 8.0, POND_CENTER.radius + 22.0, dPond);
+
+            const rDist = Math.abs(z - riverCenterZ(x));
+            const rLim = riverHalfWidthAt(x) + RIVER.bank;
+            prot *= smoothstepJS(rLim + 6.0, rLim + 22.0, rDist);
+            if (prot <= 0.001) return 0.0;
+
+            const gBasin = sampleGrandBasinAt(x, z);
+            if (gBasin) {
+                prot *= smoothstepJS(gBasin.basin.bank + 6.0, gBasin.basin.bank + 26.0, gBasin.edgeDist);
+                if (prot <= 0.001) return 0.0;
             }
 
-            // 2) Kisi genangan air alami merata di seluruh padang liar & tepi hutan 1500x1500m (r=3.3..5.1m agar tampak jelas di peta)
-            for (let gz = -4; gz <= 4; gz++) {
-                for (let gx = -4; gx <= 4; gx++) {
-                    if (gx === 0 && gz === 0) continue;
-                    const baseX = gx * 145.0;
-                    const baseZ = gz * 145.0;
-                    const px = baseX + (pRand() - 0.5) * 95.0;
-                    const pz = baseZ + (pRand() - 0.5) * 95.0;
-                    const r = 3.3 + pRand() * 1.80;
-                    if (canPlacePuddle(px, pz, r)) {
-                        const np = { x: px, z: pz, r, seed: (PUDDLES.length * 2.1 + pRand()) * 1.7 };
-                        PUDDLES.push(np);
-                        insertPuddleGrid(np);
-                    }
-                }
+            for (let vi = 0; vi < VILLAGES.length; vi++) {
+                const v = VILLAGES[vi];
+                const dv = Math.hypot(x - v.cx, z - v.cz);
+                prot *= smoothstepJS(v.radius * 2.15, v.radius * 3.05, dv);
+                if (prot <= 0.001) return 0.0;
             }
-        })();
 
-        function getTerrainHeight(x, z) {
+            const dElder = Math.hypot(x - ANCIENT_ELDER_TREE.x, z - ANCIENT_ELDER_TREE.z);
+            prot *= smoothstepJS(ANCIENT_ELDER_TREE.radius + 8.0, ANCIENT_ELDER_TREE.radius + 28.0, dElder);
+            for (const site of [RUINS_SITE, CAVERN_SITE, BANDIT_SITE]) {
+                const ds = Math.hypot(x - site.x, z - site.z);
+                prot *= smoothstepJS(site.radius + 8.0, site.radius + 26.0, ds);
+                if (prot <= 0.001) return 0.0;
+            }
+
+            const dPool = Math.hypot(x - 155.0, z - 220.0);
+            prot *= smoothstepJS(14.0, 26.0, dPool);
+
+            const gDist = Math.hypot((x - 175.0) / 22.0, (z + 145.0) / 58.0);
+            if (gDist < 1.35) {
+                prot *= smoothstepJS(0.85, 1.35, gDist);
+            }
+            return prot;
+        }
+
+        function getMountainHeightAt(x, z, roadDist = getRoadDistance(x, z)) {
+            let mHeight = 0.0;
+            let anyHit = false;
+            for (let i = 0; i < MOUNTAIN_PEAKS.length; i++) {
+                const m = MOUNTAIN_PEAKS[i];
+                const dx = x - m.x;
+                const dz = z - m.z;
+                const d2 = dx * dx + dz * dz;
+                if (d2 >= m.maxR2) continue;
+
+                const lx = dx * m.cosR + dz * m.sinR;
+                const lz = -dx * m.sinR + dz * m.cosR;
+                const e = Math.hypot(lx / m.rX, lz / m.rZ);
+                if (e >= 1.0) continue;
+
+                anyHit = true;
+                const env = 1.0 - smoothstepJS(0.06, 1.0, e);
+                const spineWarp = Math.sin(lz * 0.032 + m.seed) * (m.rX * 0.14);
+                const spineDist = Math.abs(lx - spineWarp) / (m.rX * 0.62);
+                const spineCrest = Math.pow(Math.max(0.0, 1.0 - Math.min(1.0, spineDist)), 1.35);
+
+                // Ridged multifractal height math (1 - abs(sin(...)) crested ridges)
+                const rf = m.ridgeFreq || 0.042;
+                const p1x = lx * rf + Math.sin(lz * rf * 0.72 + m.seed) * 0.85;
+                const p1z = lz * rf + Math.cos(lx * rf * 0.68 - m.seed) * 0.85;
+                const r1 = 1.0 - Math.abs(Math.sin(p1x * 1.35 + p1z * 0.95 + m.seed));
+                const r2 = 1.0 - Math.abs(Math.sin(p1x * 2.75 - p1z * 2.15 + r1 * 1.35 + m.seed * 1.7));
+                const r3 = 1.0 - Math.abs(Math.sin(p1x * 5.40 + p1z * 4.70 - r2 * 1.05 + m.seed * 2.3));
+                const c1 = Math.pow(r1, 1.55);
+                const c2 = Math.pow(r2, 1.80) * (0.35 + 0.65 * c1);
+                const c3 = Math.pow(r3, 2.00) * (0.25 + 0.75 * c2);
+                const ridgeMF = c1 * 0.56 + c2 * 0.30 + c3 * 0.14;
+
+                const dCenter = Math.sqrt(d2);
+                const plateauMix = m.flatTopRadius
+                    ? (1.0 - smoothstepJS(m.flatTopRadius * 0.72, m.flatTopRadius * 1.45, dCenter))
+                    : 0.0;
+                const profile = Math.pow(env, 1.28) * (0.24 + 0.34 * ridgeMF)
+                              + Math.pow(env, 2.05) * (0.22 + 0.24 * spineCrest + 0.18 * ridgeMF);
+                const tierShelf = Math.sin(profile * 10.5 + m.seed) * 0.028 * env * (1.0 - plateauMix);
+                const targetPeak = m.isHighland ? Math.max(6.0, m.peakH - 4.2) : m.peakH;
+                let contrib = Math.max(0.0, profile + tierShelf) * targetPeak;
+                if (plateauMix > 0.001) {
+                    contrib = THREE.MathUtils.lerp(contrib, targetPeak * 0.92, plateauMix);
+                }
+                mHeight = smoothMaxJS(mHeight, contrib, m.isHighland ? 2.5 : 4.5);
+            }
+
+            if (!anyHit || mHeight <= 0.001) return 0.0;
+            return mHeight * getMountainSiteProtection(x, z, roadDist);
+        }
+
+        function getTerrainHeightBase(x, z) {
             // Rolling cozy storybook meadow hills
             let h = getBaseRollingTerrainY(x, z);
             const distOrigin = Math.hypot(x, z);
+            const roadDist = getRoadDistance(x, z);
 
             // Flatten central campfire clearing smoothly
             const clearingFlatten = 1.0 - smoothstepJS(2.2, 6.2, distOrigin);
@@ -1295,23 +1452,18 @@ class World {
                 }
             }
 
-            // ---- Kontur Landmark Story: Bukit Bebatuan, Tebing Air Terjun, Jurang & Tebing Jalan ----
-            // 1) Bukit Bebatuan (Cragstone Hill) di (-135, -135)
-            {
-                const dHill = Math.hypot(x + 135, z + 135);
-                if (dHill < 48.0) {
-                    const hillM = 1.0 - smoothstepJS(10.0, 46.0, dHill);
-                    h += hillM * hillM * 9.5;
-                }
-            }
-            // 2) Air Terjun Kabut (Silvermist Falls): tebing tinggi di (155, 240) + kolam terjun di (155, 220)
+            // ---- Kontur Landmark Story & Pegunungan Ridged Multifractal ----
+            h += getMountainHeightAt(x, z, roadDist);
+
+            // Air Terjun Kabut (Silvermist Falls): tebing berbatu bertingkat di (155, 242) + kolam terjun di (155, 220)
             {
                 const dxCliff = (x - 155) / 28.0;
                 const dzCliff = (z - 242) / 16.0;
                 const dCliff = Math.hypot(dxCliff, dzCliff);
                 if (dCliff < 1.35) {
                     const cliffM = 1.0 - smoothstepJS(0.28, 1.32, dCliff);
-                    h += cliffM * 12.8;
+                    const cragDetail = (1.0 - Math.abs(Math.sin(x * 0.18 + z * 0.14))) * 1.65;
+                    h += cliffM * (12.8 + cragDetail);
                 }
                 const dPool = Math.hypot(x - 155, z - 220);
                 if (dPool < 16.0) {
@@ -1319,7 +1471,7 @@ class World {
                     h = THREE.MathUtils.lerp(h, -1.25, poolM);
                 }
             }
-            // 3) Jurang Bayangan (Shadowrift Gorge) di (175, -145) + Tebing Tinggi di Timur Jalan Tebing (x ~ 238)
+            // Jurang Bayangan (Shadowrift Gorge) di (175, -145)
             {
                 const gDx = (x - 175) / 20.0;
                 const gDz = (z + 145) / 56.0;
@@ -1328,17 +1480,9 @@ class World {
                     const gorgeM = 1.0 - smoothstepJS(0.32, 1.22, dGorge);
                     h -= gorgeM * 9.2;
                 }
-                const cDx = (x - 240) / 22.0;
-                const cDz = (z + 142) / 68.0;
-                const dRidge = Math.hypot(cDx, cDz);
-                if (dRidge < 1.3) {
-                    const ridgeM = 1.0 - smoothstepJS(0.30, 1.28, dRidge);
-                    h += ridgeM * 11.2;
-                }
             }
 
             // Smoothly grade the entire road network (Main Trunk + Unique Branch Trails) & carve wheel ruts
-            const roadDist = getRoadDistance(x, z);
             const shoulderWide = 5.2 + Math.min(4.5, Math.max(0.0, distOrigin - 34.0) * 0.08);
             if (roadDist < shoulderWide + 0.5) {
                 const roadFlatten = 1.0 - smoothstepJS(2.0, shoulderWide, roadDist);
@@ -1410,11 +1554,149 @@ class World {
                 }
             }
 
-            // Cekungan dangkal alami (~0.10m) di titik genangan air minum kuda
+            return h;
+        }
+
+        function computePuddleBasinParams(pd) {
+            const N = 16;
+            const rimSamples = [];
+            let minPerimeterY = Infinity;
+            let maxPerimeterY = -Infinity;
+            for (let a = 0; a < N; a++) {
+                const ang = (a / N) * Math.PI * 2;
+                const wob = puddleWobbleAt(ang, pd.seed);
+                const sx = pd.x + Math.cos(ang) * pd.r * wob * 1.10 * 1.06;
+                const sz = pd.z + Math.sin(ang) * pd.r * wob * 0.84 * 1.06;
+                const sy = getTerrainHeightBase(sx, sz);
+                rimSamples.push(sy);
+                if (sy < minPerimeterY) minPerimeterY = sy;
+                if (sy > maxPerimeterY) maxPerimeterY = sy;
+            }
+            const span = Math.max(0.0, maxPerimeterY - minPerimeterY);
+            // Set a level shore rim just above the downhill edge so water sits inside a genuine bowl without volcanic berms
+            const rimY = minPerimeterY + Math.min(0.24, span * 0.22);
+            const rNorm = THREE.MathUtils.clamp((pd.r - 1.5) / 3.2, 0.0, 1.0);
+            const rimDrop = 0.13 + rNorm * 0.05;
+            const bowlDepth = 0.44 + rNorm * 0.22;
+            pd.rimY = rimY;
+            pd.rimDrop = rimDrop;
+            pd.bowlDepth = bowlDepth;
+            pd.waterY = rimY - rimDrop;
+            pd.bedY = rimY - bowlDepth;
+            pd.apronOuter = 1.65 + Math.min(0.45, span * 0.15);
+        }
+
+        (function scatterDrinkingPuddles() {
+            let pSeed = 52917;
+            const pRand = () => { pSeed = (pSeed * 1664525 + 1013904223) >>> 0; return pSeed / 4294967296; };
+
+            const canPlacePuddle = (px, pz, r) => {
+                if (Math.abs(px) > 685 || Math.abs(pz) > 685) return false;
+                if (Math.hypot(px, pz) < 12.0 + r) return false;
+                if (Math.hypot(px - POND_CENTER.x, pz - POND_CENTER.z) < POND_CENTER.radius + r + 5.0) return false;
+                if (Math.abs(pz - riverCenterZ(px)) < riverHalfWidthAt(px) + RIVER.bank + r + 4.5) return false;
+                const gb = sampleGrandBasinAt(px, pz);
+                if (gb && gb.edgeDist < gb.basin.bank + r + 4.5) return false;
+                if (getRoadDistance(px, pz) < r * 1.75 + 2.6) return false;
+                for (let vi = 0; vi < VILLAGES.length; vi++) {
+                    const v = VILLAGES[vi];
+                    if (Math.hypot(px - v.cx, pz - v.cz) < v.radius * 2.25 + r) return false;
+                }
+                if (Math.hypot(px + 135, pz + 135) < 34.0) return false;
+                if (Math.hypot(px - 155, pz - 224) < 28.0) return false;
+                if (Math.abs(px - 175) < 26.0 && pz > -210 && pz < -80) return false;
+                if (Math.hypot(px - ANCIENT_ELDER_TREE.x, pz - ANCIENT_ELDER_TREE.z) < 18.0 + r) return false;
+                if (Math.hypot(px - RUINS_SITE.x, pz - RUINS_SITE.z) < 26.0 + r) return false;
+                if (Math.hypot(px - CAVERN_SITE.x, pz - CAVERN_SITE.z) < 28.0 + r) return false;
+                if (Math.hypot(px - BANDIT_SITE.x, pz - BANDIT_SITE.z) < 28.0 + r) return false;
+                if (hasNearbyPuddle(px, pz, 24.0 + r)) return false;
+                // Keep basins off cliff walls and steep embankments
+                let minH = Infinity, maxH = -Infinity;
+                for (let a = 0; a < 8; a++) {
+                    const ang = (a / 8) * Math.PI * 2;
+                    const sy = getTerrainHeightBase(px + Math.cos(ang) * r * 1.25, pz + Math.sin(ang) * r * 1.25);
+                    if (sy < minH) minH = sy;
+                    if (sy > maxH) maxH = sy;
+                }
+                if (maxH - minH > 2.85) return false;
+                return true;
+            };
+
+            // 1) Sebaran genangan minum di sepanjang jalur jalan cabang & jalan utama luar (8.4..16.2m dari jalan, r=3.1..4.55m)
+            for (let pIdx = 0; pIdx < allRoadPolylines.length; pIdx++) {
+                const poly = allRoadPolylines[pIdx];
+                if (poly.surface === 'cliff') continue;
+                const pts = poly.pts;
+                const stepIdx = poly.id === 'main_trunk' ? 28 : 16;
+                for (let i = 10; i < pts.length - 10; i += stepIdx) {
+                    const pt = pts[i];
+                    const nxt = pts[Math.min(pts.length - 1, i + 1)];
+                    const tx = nxt[0] - pt[0], tz = nxt[1] - pt[1];
+                    const tLen = Math.hypot(tx, tz) || 1;
+                    const nx = -tz / tLen, nz = tx / tLen;
+                    const side = pRand() < 0.5 ? 1 : -1;
+                    const off = 8.4 + pRand() * 7.8;
+                    const r = 3.1 + pRand() * 1.45;
+                    let px = pt[0] + nx * side * off;
+                    let pz = pt[1] + nz * side * off;
+                    if (!canPlacePuddle(px, pz, r)) {
+                        px = pt[0] - nx * side * off;
+                        pz = pt[1] - nz * side * off;
+                    }
+                    if (canPlacePuddle(px, pz, r)) {
+                        const np = { x: px, z: pz, r, seed: (PUDDLES.length * 1.9 + pRand()) * 2.3 };
+                        PUDDLES.push(np);
+                        insertPuddleGrid(np);
+                    }
+                }
+            }
+
+            // 2) Kisi genangan air alami merata di seluruh padang liar & tepi hutan 1500x1500m (r=3.3..5.1m agar tampak jelas di peta)
+            for (let gz = -4; gz <= 4; gz++) {
+                for (let gx = -4; gx <= 4; gx++) {
+                    if (gx === 0 && gz === 0) continue;
+                    const baseX = gx * 145.0;
+                    const baseZ = gz * 145.0;
+                    const px = baseX + (pRand() - 0.5) * 95.0;
+                    const pz = baseZ + (pRand() - 0.5) * 95.0;
+                    const r = 3.3 + pRand() * 1.80;
+                    if (canPlacePuddle(px, pz, r)) {
+                        const np = { x: px, z: pz, r, seed: (PUDDLES.length * 2.1 + pRand()) * 1.7 };
+                        PUDDLES.push(np);
+                        insertPuddleGrid(np);
+                    }
+                }
+            }
+
+            for (let i = 0; i < PUDDLES.length; i++) {
+                computePuddleBasinParams(PUDDLES[i]);
+            }
+        })();
+
+        function getTerrainHeight(x, z) {
+            let h = getTerrainHeightBase(x, z);
+
+            // Cekungan tanah cekung alami (concave bowl + level rim) untuk setiap genangan air minum
             const pSamp = nearestPuddleSample(x, z);
             if (pSamp) {
-                const m = 1.0 - smoothstepJS(pSamp.pd.r * 0.25, pSamp.pd.r * 1.38, pSamp.dist);
-                h -= m * 0.11;
+                const pd = pSamp.pd;
+                const u = pSamp.normDist;
+                const rimU = 1.06;
+                const apronOuter = pd.apronOuter || 1.65;
+                if (u < apronOuter) {
+                    const roadProtect = smoothstepJS(2.15, 3.05, getRoadDistance(x, z));
+                    if (roadProtect > 0.001) {
+                        if (u <= rimU) {
+                            const t = u / rimU;
+                            const bowlCurve = Math.pow(t, 2.05);
+                            const bowlY = pd.bedY + (pd.rimY - pd.bedY) * bowlCurve;
+                            h = THREE.MathUtils.lerp(h, bowlY, roadProtect);
+                        } else {
+                            const apronBlend = (1.0 - smoothstepJS(rimU, apronOuter, u)) * roadProtect;
+                            h = THREE.MathUtils.lerp(h, pd.rimY, apronBlend);
+                        }
+                    }
+                }
             }
 
             return h;
@@ -1429,17 +1711,28 @@ class World {
             return new THREE.Vector3(hL - hR, 2.0 * eps, hD - hU).normalize();
         }
 
-        // Rich Truckful storybook ground vertex palette (lush clover grass, sunlit meadow, warm ochre road, wet pond bed)
+        // Rich Truckful storybook ground vertex palette (lush meadow, natural brown earth/loam/peat, wet dark mud shores, slate/granite rock)
         const colMeadowBase = new THREE.Color(0x3a8238);
         const colMeadowWarm = new THREE.Color(0x69ab3f);
         const colMeadowCool = new THREE.Color(0x286b38);
+        const colDryGrass = new THREE.Color(0x7e9436);
+        const colSoilBrown = new THREE.Color(0x7c5b3b);
+        const colSoilLoam = new THREE.Color(0x97734d);
+        const colForestFloor = new THREE.Color(0x5c4a30);
         const colRoadOchre = new THREE.Color(0xc2905b);
         const colRoadRut = new THREE.Color(0x8e6239);
-        const colPondShore = new THREE.Color(0x9e8b62);
-        const colPondBed = new THREE.Color(0x2e5959);
-        const colRiverSand = new THREE.Color(0xa6946b);
-        const colRiverWetBank = new THREE.Color(0x7c7054);
-        const colRiverBed = new THREE.Color(0x2a5758);
+        const colWetMudDark = new THREE.Color(0x3b2d1f);
+        const colWetShoreSilt = new THREE.Color(0x56432e);
+        const colPondShore = new THREE.Color(0x56432e);
+        const colPondBed = new THREE.Color(0x1e3f41);
+        const colRiverSand = new THREE.Color(0x6e583d);
+        const colRiverWetBank = new THREE.Color(0x3b2d1f);
+        const colRiverBed = new THREE.Color(0x1e3f41);
+        const colRockSlate = new THREE.Color(0x646b73);
+        const colRockGranite = new THREE.Color(0x8a8378);
+        const colRockCrevice = new THREE.Color(0x3b3e45);
+        const colRockPeak = new THREE.Color(0xa69f93);
+        const colRockMoss = new THREE.Color(0x3c6b32);
         const colVillagePlaza = new THREE.Color(0xb6976e);
         const colClearingDirt = new THREE.Color(0xa67e53);
 
@@ -1543,6 +1836,15 @@ class World {
             shader.uniforms.uCampfirePos = celShaderUniforms.uCampfirePos;
             shader.uniforms.uCampfireColor = celShaderUniforms.uCampfireColor;
             shader.uniforms.uCampfireStrength = celShaderUniforms.uCampfireStrength;
+            shader.uniforms.uDryGrass = { value: colDryGrass };
+            shader.uniforms.uSoilBrown = { value: colSoilBrown };
+            shader.uniforms.uSoilLoam = { value: colSoilLoam };
+            shader.uniforms.uForestFloor = { value: colForestFloor };
+            shader.uniforms.uRockSlate = { value: colRockSlate };
+            shader.uniforms.uRockGranite = { value: colRockGranite };
+            shader.uniforms.uRockCrevice = { value: colRockCrevice };
+            shader.uniforms.uRockPeak = { value: colRockPeak };
+            shader.uniforms.uRockMoss = { value: colRockMoss };
             Object.assign(shader.uniforms, dylearnSharedUniforms);
 
             shader.vertexShader = [
@@ -1575,6 +1877,15 @@ class World {
                 'uniform vec3 uAlbedo2;',
                 'uniform vec3 uAlbedo3;',
                 'uniform vec3 uAccentAlbedo2;',
+                'uniform vec3 uDryGrass;',
+                'uniform vec3 uSoilBrown;',
+                'uniform vec3 uSoilLoam;',
+                'uniform vec3 uForestFloor;',
+                'uniform vec3 uRockSlate;',
+                'uniform vec3 uRockGranite;',
+                'uniform vec3 uRockCrevice;',
+                'uniform vec3 uRockPeak;',
+                'uniform vec3 uRockMoss;',
                 'uniform sampler2D uAlbedo2Noise;',
                 'uniform sampler2D uAlbedo3Noise;',
                 'uniform float uAlbedo2Scale;',
@@ -1652,13 +1963,45 @@ class World {
                 '#include <color_fragment>',
                 [
                     '#include <color_fragment>',
+                    'vec3 cfN = normalize(vTerrainWorldNormal);',
+                    'float cfSlope = 1.0 - clamp(abs(cfN.y), 0.0, 1.0);',
+                    'float cfElev = vTerrainWorldPos.y;',
                     'float flMacro = dylearnOrganicFbm(vTerrainWorldPos.xz * 0.62);',
                     'float flDetail = dylearnOrganicFbm(vTerrainWorldPos.xz * 1.45 + vec2(73.4, -28.9));',
                     'float flFine = dylearnValueNoise(vTerrainWorldPos.xz * 0.28 + vec2(-19.5, 41.2));',
+                    'float cfSoilWave = dylearnOrganicFbm(vTerrainWorldPos.xz * 0.48 + vec2(-51.2, 88.7));',
+                    'float cfLoamWave = dylearnValueNoise(vTerrainWorldPos.xz * 0.15 + vec2(19.8, -64.3));',
+                    'float cfElevNoise = dylearnOrganicFbm(vTerrainWorldPos.xz * 0.34 + vec2(17.2, -9.4));',
+                    'float cfSlopeRock = smoothstep(0.16, 0.34, cfSlope);',
+                    'float cfElevRock = smoothstep(5.8, 9.5, cfElev + (cfElevNoise - 0.5) * 2.4);',
+                    'float cfRockFactor = clamp(max(cfSlopeRock, cfElevRock), 0.0, 1.0);',
                     'vec3 flPatchCol = mix(uAlbedo1, uAlbedo2, smoothstep(0.35, 0.68, flMacro));',
                     'flPatchCol = mix(flPatchCol, uAlbedo3, smoothstep(0.40, 0.72, flDetail) * 0.68);',
-                    'flPatchCol = mix(flPatchCol, uAccentAlbedo2, smoothstep(0.56, 0.88, 1.0 - flMacro) * 0.30 + smoothstep(0.60, 0.90, flFine) * 0.14);',
-                    'diffuseColor.rgb = mix(diffuseColor.rgb, flPatchCol * uGrassMoodTint, clamp(vMeadowMask, 0.0, 1.0));'
+                    'flPatchCol = mix(flPatchCol, uAccentAlbedo2, smoothstep(0.56, 0.88, 1.0 - flMacro) * 0.26 + smoothstep(0.60, 0.90, flFine) * 0.14);',
+                    'float cfDryMix = smoothstep(0.50, 0.82, flFine * 0.55 + flDetail * 0.45) * smoothstep(0.8, 5.2, cfElev + 1.4);',
+                    'flPatchCol = mix(flPatchCol, uDryGrass, cfDryMix * 0.52);',
+                    'float cfSoilPatch = smoothstep(0.49, 0.77, cfSoilWave * 0.68 + flFine * 0.32);',
+                    'vec3 cfEarthCol = mix(uSoilBrown, uSoilLoam, smoothstep(0.35, 0.72, cfLoamWave));',
+                    'cfEarthCol = mix(cfEarthCol, uForestFloor, smoothstep(0.58, 0.88, 1.0 - flMacro) * 0.65);',
+                    'flPatchCol = mix(flPatchCol, cfEarthCol, cfSoilPatch * 0.64);',
+                    'float cfMeadowAmt = clamp(vMeadowMask * (1.0 - cfRockFactor * 0.92), 0.0, 1.0);',
+                    'diffuseColor.rgb = mix(diffuseColor.rgb, flPatchCol * uGrassMoodTint, cfMeadowAmt);',
+                    'float cfBareGrain = dylearnValueNoise(vTerrainWorldPos.xz * 0.92 + vec2(4.1, 9.7));',
+                    'diffuseColor.rgb *= mix(0.92, 1.07, cfBareGrain * (1.0 - clamp(vMeadowMask, 0.0, 1.0)) * (1.0 - cfRockFactor));',
+                    'if (cfRockFactor > 0.002) {',
+                    '    float cfCrag = dylearnOrganicFbm(vTerrainWorldPos.xz * 1.15 + vec2(cfElev * 0.42, -cfElev * 0.31));',
+                    '    float cfCragFine = dylearnValueNoise(vTerrainWorldPos.xz * 0.68 + vec2(cfElev * 0.55, -cfElev * 0.37));',
+                    '    float cfStrata = sin(cfElev * 2.4 + cfCrag * 2.6 + cfCragFine * 0.75);',
+                    '    float cfBedLine = smoothstep(0.72, 0.98, abs(sin(cfElev * 4.8 + cfCrag * 3.1)));',
+                    '    float cfFracture = 1.0 - smoothstep(0.04, 0.22, abs(cfCragFine - 0.5) * 2.0);',
+                    '    float cfCrevice = clamp(cfBedLine * 0.54 + cfFracture * 0.64, 0.0, 1.0);',
+                    '    vec3 cfStoneCol = mix(uRockSlate, uRockGranite, smoothstep(-0.35, 0.55, cfStrata) * 0.74 + smoothstep(0.40, 0.78, flMacro) * 0.26);',
+                    '    cfStoneCol = mix(cfStoneCol, uRockPeak, smoothstep(18.0, 38.0, cfElev) * smoothstep(0.38, 0.78, cfCrag) * 0.56);',
+                    '    cfStoneCol = mix(cfStoneCol, uRockCrevice, cfCrevice * 0.66);',
+                    '    float cfLedgeMoss = smoothstep(0.72, 0.88, cfN.y) * smoothstep(0.42, 0.74, cfCrag) * (1.0 - smoothstep(20.0, 32.0, cfElev));',
+                    '    cfStoneCol = mix(cfStoneCol, uRockMoss * uGrassMoodTint, cfLedgeMoss * 0.76);',
+                    '    diffuseColor.rgb = mix(diffuseColor.rgb, cfStoneCol, cfRockFactor);',
+                    '}'
                 ].join('\n')
             );
 
@@ -1737,11 +2080,73 @@ class World {
             return false;
         }
 
+        function hasWaterBasinInChunk(cx, cz) {
+            if (Math.hypot(cx - POND_CENTER.x, cz - POND_CENTER.z) < CHUNK_SIZE * 0.72 + POND_CENTER.radius + 3.0) {
+                return true;
+            }
+            const halfC = CHUNK_SIZE * 0.5;
+            for (let i = 0; i < PUDDLES.length; i++) {
+                const pd = PUDDLES[i];
+                const pad = pd.r * (pd.apronOuter || 2.1) * 1.40;
+                if (Math.abs(pd.x - cx) <= halfC + pad && Math.abs(pd.z - cz) <= halfC + pad) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function hasMountainCoreInChunk(cx, cz) {
+            const pad = CHUNK_SIZE * 0.72;
+            for (let i = 0; i < MOUNTAIN_PEAKS.length; i++) {
+                const m = MOUNTAIN_PEAKS[i];
+                const lim = m.maxR * 0.85 + pad;
+                const dx = cx - m.x;
+                const dz = cz - m.z;
+                if (dx * dx + dz * dz <= lim * lim) return true;
+            }
+            if (Math.hypot(cx - 155.0, cz - 240.0) < CHUNK_SIZE * 0.72 + 28.0) return true;
+            if (Math.hypot(cx - 175.0, cz + 145.0) < CHUNK_SIZE * 0.72 + 56.0) return true;
+            return false;
+        }
+
+        function hasMountainSlopeInChunk(cx, cz) {
+            const pad = CHUNK_SIZE * 0.78;
+            for (let i = 0; i < MOUNTAIN_PEAKS.length; i++) {
+                const m = MOUNTAIN_PEAKS[i];
+                const lim = m.maxR * 1.15 + pad;
+                const dx = cx - m.x;
+                const dz = cz - m.z;
+                if (dx * dx + dz * dz <= lim * lim) return true;
+            }
+            return false;
+        }
+
+        const chunkSegsGrid = Array.from({ length: CHUNK_GRID }, (_, gz) =>
+            Array.from({ length: CHUNK_GRID }, (_, gx) => {
+                const cx = -TERRAIN_SIZE * 0.5 + (gx + 0.5) * CHUNK_SIZE;
+                const cz = -TERRAIN_SIZE * 0.5 + (gz + 0.5) * CHUNK_SIZE;
+                if (hasWaterBasinInChunk(cx, cz) || hasMountainCoreInChunk(cx, cz)) return 36;
+                if (hasMountainSlopeInChunk(cx, cz) || isNearActiveCorridor(cx, cz)) return 18;
+                return 9;
+            })
+        );
+
+        const tmpColAux = new THREE.Color();
+        const tmpColStone = new THREE.Color();
+
         for (let gz = 0; gz < CHUNK_GRID; gz++) {
             for (let gx = 0; gx < CHUNK_GRID; gx++) {
                 const cx = -TERRAIN_SIZE * 0.5 + (gx + 0.5) * CHUNK_SIZE;
                 const cz = -TERRAIN_SIZE * 0.5 + (gz + 0.5) * CHUNK_SIZE;
-                const segs = isNearActiveCorridor(cx, cz) ? 18 : 7;
+                const segs = chunkSegsGrid[gz][gx];
+                const chunkMinX = cx - CHUNK_SIZE * 0.5;
+                const chunkMaxX = cx + CHUNK_SIZE * 0.5;
+                const chunkMinZ = cz - CHUNK_SIZE * 0.5;
+                const chunkMaxZ = cz + CHUNK_SIZE * 0.5;
+                const nSegL = gx > 0 ? chunkSegsGrid[gz][gx - 1] : segs;
+                const nSegR = gx < CHUNK_GRID - 1 ? chunkSegsGrid[gz][gx + 1] : segs;
+                const nSegD = gz > 0 ? chunkSegsGrid[gz - 1][gx] : segs;
+                const nSegU = gz < CHUNK_GRID - 1 ? chunkSegsGrid[gz + 1][gx] : segs;
 
                 const geo = new THREE.PlaneGeometry(CHUNK_SIZE, CHUNK_SIZE, segs, segs);
                 geo.rotateX(-Math.PI / 2);
@@ -1755,16 +2160,69 @@ class World {
                 for (let i = 0; i < posAttr.count; i++) {
                     const vx = posAttr.getX(i);
                     const vz = posAttr.getZ(i);
-                    const vy = getTerrainHeight(vx, vz);
+                    let vy = getTerrainHeight(vx, vz);
+                    // Snap shared border vertices to coarser neighboring chunk edges so zero T-junction seams appear
+                    if (nSegL < segs && Math.abs(vx - chunkMinX) < 1e-3) {
+                        const fIdx = THREE.MathUtils.clamp((vz - chunkMinZ) / CHUNK_SIZE, 0, 1) * nSegL;
+                        const i0 = Math.floor(fIdx), i1 = Math.min(nSegL, i0 + 1), frac = fIdx - i0;
+                        if (frac > 1e-4 && frac < 1 - 1e-4) {
+                            vy = THREE.MathUtils.lerp(
+                                getTerrainHeight(vx, chunkMinZ + (i0 / nSegL) * CHUNK_SIZE),
+                                getTerrainHeight(vx, chunkMinZ + (i1 / nSegL) * CHUNK_SIZE),
+                                frac
+                            );
+                        }
+                    } else if (nSegR < segs && Math.abs(vx - chunkMaxX) < 1e-3) {
+                        const fIdx = THREE.MathUtils.clamp((vz - chunkMinZ) / CHUNK_SIZE, 0, 1) * nSegR;
+                        const i0 = Math.floor(fIdx), i1 = Math.min(nSegR, i0 + 1), frac = fIdx - i0;
+                        if (frac > 1e-4 && frac < 1 - 1e-4) {
+                            vy = THREE.MathUtils.lerp(
+                                getTerrainHeight(vx, chunkMinZ + (i0 / nSegR) * CHUNK_SIZE),
+                                getTerrainHeight(vx, chunkMinZ + (i1 / nSegR) * CHUNK_SIZE),
+                                frac
+                            );
+                        }
+                    } else if (nSegD < segs && Math.abs(vz - chunkMinZ) < 1e-3) {
+                        const fIdx = THREE.MathUtils.clamp((vx - chunkMinX) / CHUNK_SIZE, 0, 1) * nSegD;
+                        const i0 = Math.floor(fIdx), i1 = Math.min(nSegD, i0 + 1), frac = fIdx - i0;
+                        if (frac > 1e-4 && frac < 1 - 1e-4) {
+                            vy = THREE.MathUtils.lerp(
+                                getTerrainHeight(chunkMinX + (i0 / nSegD) * CHUNK_SIZE, vz),
+                                getTerrainHeight(chunkMinX + (i1 / nSegD) * CHUNK_SIZE, vz),
+                                frac
+                            );
+                        }
+                    } else if (nSegU < segs && Math.abs(vz - chunkMaxZ) < 1e-3) {
+                        const fIdx = THREE.MathUtils.clamp((vx - chunkMinX) / CHUNK_SIZE, 0, 1) * nSegU;
+                        const i0 = Math.floor(fIdx), i1 = Math.min(nSegU, i0 + 1), frac = fIdx - i0;
+                        if (frac > 1e-4 && frac < 1 - 1e-4) {
+                            vy = THREE.MathUtils.lerp(
+                                getTerrainHeight(chunkMinX + (i0 / nSegU) * CHUNK_SIZE, vz),
+                                getTerrainHeight(chunkMinX + (i1 / nSegU) * CHUNK_SIZE, vz),
+                                frac
+                            );
+                        }
+                    }
                     posAttr.setY(i, vy);
                     if (vy < minY) minY = vy;
                     if (vy > maxY) maxY = vy;
 
-                    // Organic meadow color patches matching Truckful grass tufts
+                    const roadDist = getRoadDistance(vx, vz);
+                    const soilInfo = sampleGroundSoilAt(vx, vz, vy, roadDist);
+
+                    // Organic meadow + dry grass + brown earth/loam/peat ground variation
                     const patch = Math.sin(vx * 0.13 + Math.cos(vz * 0.11) * 1.4) * 0.5 + 0.5;
                     const detail = Math.cos(vx * 0.28 - vz * 0.24) * 0.5 + 0.5;
                     tempCol.copy(colMeadowCool).lerp(colMeadowBase, patch);
                     tempCol.lerp(colMeadowWarm, smoothstepJS(0.45, 0.92, patch * 0.7 + detail * 0.3) * 0.65);
+                    if (soilInfo.dryGrassMix > 0.02) {
+                        tempCol.lerp(colDryGrass, soilInfo.dryGrassMix * 0.56);
+                    }
+                    if (soilInfo.soilPatch > 0.02) {
+                        tmpColAux.copy(colSoilBrown).lerp(colSoilLoam, soilInfo.loamMix);
+                        tmpColAux.lerp(colForestFloor, soilInfo.peatMix * 0.68);
+                        tempCol.lerp(tmpColAux, soilInfo.soilPatch * 0.88);
+                    }
 
                     // Campfire earth clearing
                     const distCamp = Math.hypot(vx, vz);
@@ -1773,8 +2231,14 @@ class World {
                         tempCol.lerp(colClearingDirt, campFactor * 0.85);
                     }
 
-                    // Winding Truckful country dirt road + all unique branch roads + darker wheel ruts
-                    const roadDist = getRoadDistance(vx, vz);
+                    // Winding Truckful country dirt road + all unique branch roads + darker wheel ruts + organic trail verge soil
+                    const vergeSoilFactor = (roadDist >= 1.65 && roadDist < 5.2)
+                        ? (1.0 - smoothstepJS(2.0, 5.2, roadDist)) * (0.32 + 0.48 * soilInfo.loamMix)
+                        : 0.0;
+                    if (vergeSoilFactor > 0.01) {
+                        tmpColAux.copy(colSoilBrown).lerp(colSoilLoam, soilInfo.loamMix * 0.75);
+                        tempCol.lerp(tmpColAux, vergeSoilFactor);
+                    }
                     const roadFactor = 1.0 - smoothstepJS(1.45, 2.55, roadDist);
                     if (roadFactor > 0.01) {
                         tempCol.lerp(colRoadOchre, roadFactor * 0.92);
@@ -1782,47 +2246,86 @@ class World {
                         tempCol.lerp(colRoadRut, rutFactor * roadFactor * 0.58);
                     }
 
-                    // Pond shore sand & deep underwater bed coloring
+                    // Pond dark wet earth/silt shoreline (waterY - 0.16 .. waterY + 0.65) & deep bed
+                    const pondWaterY = -0.30;
                     const distPond = Math.hypot(vx - POND_CENTER.x, vz - POND_CENTER.z);
-                    const shoreFactor = 1.0 - smoothstepJS(POND_CENTER.radius - 0.5, POND_CENTER.radius + 1.2, distPond);
+                    const shoreFactor = 1.0 - smoothstepJS(POND_CENTER.radius - 0.4, POND_CENTER.radius + 2.2, distPond);
                     if (shoreFactor > 0.01) {
-                        tempCol.lerp(colPondShore, shoreFactor * 0.85);
-                        const deepFactor = 1.0 - smoothstepJS(0.4, POND_CENTER.radius - 0.8, distPond);
-                        tempCol.lerp(colPondBed, deepFactor * 0.88);
+                        const pondDepth = pondWaterY - vy;
+                        const siltBank = smoothstepJS(-0.65, -0.14, pondDepth) * (1.0 - smoothstepJS(0.14, 0.42, pondDepth));
+                        const wetMud = smoothstepJS(-0.26, 0.04, pondDepth) * (1.0 - smoothstepJS(0.16, 0.48, pondDepth));
+                        const deepFactor = smoothstepJS(0.14, 0.68, pondDepth);
+                        tempCol.lerp(colWetShoreSilt, Math.max(shoreFactor * 0.75, siltBank) * 0.92);
+                        tempCol.lerp(colWetMudDark, wetMud * 0.90);
+                        tempCol.lerp(colPondBed, deepFactor * 0.94);
                     }
 
-                    // Natural riverbank sand/silt transition & BotW teal riverbed coloring (matches pond!)
+                    // Scattered puddle dark wet silt bank, saturated mud rim, and deep bed
+                    let puddleGrassClear = 0.0;
+                    const pSampCol = nearestPuddleSample(vx, vz);
+                    if (pSampCol && pSampCol.normDist < 1.48) {
+                        const pd = pSampCol.pd;
+                        const pu = pSampCol.normDist;
+                        const pDepth = pd.waterY - vy;
+                        const dampOuter = 1.0 - smoothstepJS(1.02, 1.46, pu);
+                        const siltZone = smoothstepJS(-0.65, -0.15, pDepth) * (1.0 - smoothstepJS(0.12, 0.40, pDepth));
+                        const mudLip = Math.max(1.0 - smoothstepJS(0.84, 1.14, pu), smoothstepJS(-0.26, 0.04, pDepth))
+                                     * (1.0 - smoothstepJS(0.16, 0.42, pDepth));
+                        const deepBed = Math.max(1.0 - smoothstepJS(0.16, 0.80, pu), smoothstepJS(0.16, 0.42, pDepth));
+                        tempCol.lerp(colWetShoreSilt, Math.max(dampOuter * 0.78, siltZone * 0.88));
+                        tempCol.lerp(colWetMudDark, Math.min(1.0, mudLip * 0.92));
+                        tempCol.lerp(colPondBed, Math.min(1.0, deepBed * 0.94));
+                        puddleGrassClear = Math.max(dampOuter * 0.88, mudLip * 0.98);
+                    }
+
+                    // Natural riverbank wet silt/dark mud shore (waterY - 0.16 .. waterY + 0.65) & deep teal riverbed
                     const rDist = Math.abs(vz - riverCenterZ(vx));
                     const rHalf = riverHalfWidthAt(vx);
                     const rJit = riverBankJitterAt(vx, vz) * 0.65;
-                    const rShoreOuter = 1.0 - smoothstepJS(rHalf + 0.1, rHalf + RIVER.bank * 1.25, rDist + rJit);
+                    const rShoreOuter = 1.0 - smoothstepJS(rHalf + 0.1, rHalf + RIVER.bank * 1.35, rDist + rJit);
                     let riverGrassClear = 0.0;
                     if (rShoreOuter > 0.01) {
                         const rDepth = RIVER.waterY - vy;
-                        const shoreBand = smoothstepJS(-0.95, -0.05, rDepth);
-                        const sandMix = Math.max(rShoreOuter * 0.92, shoreBand * rShoreOuter);
-                        tempCol.lerp(colRiverSand, sandMix * 0.92);
-                        const wetLip = smoothstepJS(-0.34, 0.06, rDepth) * (1.0 - smoothstepJS(0.16, 0.52, rDepth));
-                        tempCol.lerp(colRiverWetBank, wetLip * rShoreOuter * 0.62);
-                        const rDeepFactor = smoothstepJS(0.06, 0.72, rDepth);
-                        tempCol.lerp(colRiverBed, rDeepFactor * 0.92);
-                        riverGrassClear = Math.max(smoothstepJS(-0.72, -0.05, rDepth) * 0.98, rShoreOuter * 0.94);
+                        const fordClear = 1.0 - smoothstepJS(1.6, 3.0, roadDist);
+                        const siltBank = smoothstepJS(-0.65, -0.14, rDepth) * (1.0 - smoothstepJS(0.14, 0.42, rDepth));
+                        const wetLip = smoothstepJS(-0.28, 0.06, rDepth) * (1.0 - smoothstepJS(0.16, 0.48, rDepth));
+                        const rDeepFactor = smoothstepJS(0.16, 0.72, rDepth);
+                        tempCol.lerp(colWetShoreSilt, Math.max(rShoreOuter * 0.82, siltBank * rShoreOuter) * (1.0 - fordClear * 0.45));
+                        tempCol.lerp(colWetMudDark, wetLip * rShoreOuter * (1.0 - fordClear * 0.55) * 0.92);
+                        tempCol.lerp(colRiverBed, rDeepFactor * 0.94);
+                        riverGrassClear = Math.max(smoothstepJS(-0.68, -0.05, rDepth) * 0.98, rShoreOuter * 0.94);
                     }
 
-                    // Tepian pasir & dasar sungai besar sektor luar peta
+                    // Tepian lumpur basah & dasar sungai besar sektor luar peta (waterY - 0.16 .. waterY + 0.65)
                     let grandBasinGrassClear = 0.0;
                     const gBasinSample = sampleGrandBasinAt(vx, vz);
-                    if (gBasinSample && gBasinSample.edgeDist < gBasinSample.basin.bank * 1.15) {
+                    if (gBasinSample && gBasinSample.edgeDist < gBasinSample.basin.bank * 1.25) {
                         const b = gBasinSample.basin;
                         const bDepth = b.waterY - vy;
-                        const bOuter = 1.0 - smoothstepJS(0.0, b.bank * 1.15, gBasinSample.edgeDist);
-                        const sandMix = Math.max(bOuter * 0.90, smoothstepJS(-0.9, -0.05, bDepth) * bOuter);
-                        tempCol.lerp(colRiverSand, sandMix * 0.90);
-                        const wetLip = smoothstepJS(-0.34, 0.06, bDepth) * (1.0 - smoothstepJS(0.16, 0.52, bDepth));
-                        tempCol.lerp(colRiverWetBank, wetLip * bOuter * 0.62);
-                        const deepMix = smoothstepJS(0.08, 0.78, bDepth);
-                        tempCol.lerp(colRiverBed, deepMix * 0.92);
-                        grandBasinGrassClear = Math.max(smoothstepJS(-0.7, -0.04, bDepth) * 0.98, bOuter * 0.92);
+                        const bOuter = 1.0 - smoothstepJS(0.0, b.bank * 1.25, gBasinSample.edgeDist);
+                        const siltBank = smoothstepJS(-0.65, -0.14, bDepth) * (1.0 - smoothstepJS(0.14, 0.42, bDepth));
+                        const wetLip = smoothstepJS(-0.28, 0.06, bDepth) * (1.0 - smoothstepJS(0.16, 0.48, bDepth));
+                        const deepMix = smoothstepJS(0.16, 0.74, bDepth);
+                        tempCol.lerp(colWetShoreSilt, Math.max(bOuter * 0.82, siltBank * bOuter) * 0.92);
+                        tempCol.lerp(colWetMudDark, wetLip * bOuter * 0.92);
+                        tempCol.lerp(colRiverBed, deepMix * 0.94);
+                        grandBasinGrassClear = Math.max(smoothstepJS(-0.68, -0.04, bDepth) * 0.98, bOuter * 0.94);
+                    }
+
+                    // Kolam Air Terjun Kabut (Silvermist Falls pool di (155, 220), poolY = -0.25)
+                    let waterfallPoolClear = 0.0;
+                    const dWfPool = Math.hypot(vx - 155.0, vz - 220.0);
+                    if (dWfPool < 16.5 && vy < 0.75) {
+                        const wfPoolY = -0.25;
+                        const wfDepth = wfPoolY - vy;
+                        const wfOuter = 1.0 - smoothstepJS(9.5, 16.2, dWfPool);
+                        const wfSilt = smoothstepJS(-0.65, -0.14, wfDepth) * (1.0 - smoothstepJS(0.14, 0.42, wfDepth));
+                        const wfMud = smoothstepJS(-0.28, 0.06, wfDepth) * (1.0 - smoothstepJS(0.16, 0.48, wfDepth));
+                        const wfDeep = smoothstepJS(0.16, 0.74, wfDepth);
+                        tempCol.lerp(colWetShoreSilt, Math.max(wfOuter * 0.78, wfSilt) * 0.92);
+                        tempCol.lerp(colWetMudDark, wfMud * wfOuter * 0.92);
+                        tempCol.lerp(colPondBed, wfDeep * 0.94);
+                        waterfallPoolClear = Math.max(wfOuter * 0.92, smoothstepJS(-0.65, -0.04, wfDepth));
                     }
 
                     // Packed warm earth in the central village square of all 5 villages
@@ -1862,11 +2365,15 @@ class World {
                     }
 
                     let meadowMask = 1.0;
+                    meadowMask *= (1.0 - soilInfo.soilPatch * 0.88);
+                    meadowMask *= (1.0 - vergeSoilFactor * 0.85);
                     meadowMask *= (1.0 - campFactor * 0.92);
                     meadowMask *= (1.0 - roadFactor * 0.98);
                     meadowMask *= (1.0 - shoreFactor * 0.96);
+                    meadowMask *= (1.0 - puddleGrassClear);
                     meadowMask *= (1.0 - riverGrassClear * 0.96);
                     meadowMask *= (1.0 - grandBasinGrassClear * 0.96);
+                    meadowMask *= (1.0 - waterfallPoolClear);
                     meadowMask *= (1.0 - villagePlazaFactor * 0.78);
                     meadowMask *= (1.0 - storyPadClear);
                     meadowMasks[i] = Math.max(0.0, Math.min(1.0, meadowMask));
@@ -1877,8 +2384,43 @@ class World {
                 }
 
                 geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-                geo.setAttribute('aMeadowMask', new THREE.BufferAttribute(meadowMasks, 1));
+                const meadowAttr = new THREE.BufferAttribute(meadowMasks, 1);
+                geo.setAttribute('aMeadowMask', meadowAttr);
                 geo.computeVertexNormals();
+
+                // Apply slope & elevation-aware stone/rock cliff vertex tint and clear meadowMask on rock faces
+                const normAttr = geo.attributes.normal;
+                const colAttr = geo.attributes.color;
+                for (let i = 0; i < posAttr.count; i++) {
+                    const vx = posAttr.getX(i);
+                    const vy = posAttr.getY(i);
+                    const vz = posAttr.getZ(i);
+                    const ny = Math.min(1.0, Math.max(0.0, Math.abs(normAttr.getY(i))));
+                    const slope = 1.0 - ny;
+                    const elevNoise = groundNoise2D(vx * 0.045 + 17.2, vz * 0.045 - 9.4);
+                    const slopeRock = smoothstepJS(0.16, 0.34, slope);
+                    const elevRock = smoothstepJS(5.8, 9.5, vy + (elevNoise - 0.5) * 2.4);
+                    const rockFactor = Math.min(1.0, Math.max(slopeRock, elevRock));
+                    if (rockFactor > 0.005) {
+                        const strata = Math.sin(vy * 2.4 + elevNoise * 2.6) * 0.5 + 0.5;
+                        tmpColStone.copy(colRockSlate).lerp(colRockGranite, strata * 0.75);
+                        if (vy > 18.0) {
+                            tmpColStone.lerp(colRockPeak, smoothstepJS(18.0, 38.0, vy) * 0.52);
+                        }
+                        const ledgeMoss = smoothstepJS(0.72, 0.88, ny) * (1.0 - smoothstepJS(20.0, 32.0, vy));
+                        if (ledgeMoss > 0.01) {
+                            tmpColStone.lerp(colRockMoss, ledgeMoss * 0.58);
+                        }
+                        tempCol.setRGB(colors[i * 3], colors[i * 3 + 1], colors[i * 3 + 2]);
+                        tempCol.lerp(tmpColStone, rockFactor);
+                        colors[i * 3] = tempCol.r;
+                        colors[i * 3 + 1] = tempCol.g;
+                        colors[i * 3 + 2] = tempCol.b;
+                        meadowMasks[i] *= (1.0 - rockFactor);
+                    }
+                }
+                colAttr.needsUpdate = true;
+                meadowAttr.needsUpdate = true;
 
                 const chunkMesh = new THREE.Mesh(geo, terrainMat);
                 chunkMesh.receiveShadow = true;
@@ -1887,7 +2429,7 @@ class World {
                 chunkMesh.userData = {
                     boundingSphere: new THREE.Sphere(
                         new THREE.Vector3(cx, midY, cz),
-                        Math.hypot(CHUNK_SIZE * 0.75, (maxY - minY) * 0.6 + 1.0)
+                        Math.hypot(CHUNK_SIZE * 0.78, (maxY - minY) * 0.56 + 2.5)
                     )
                 };
                 terrainChunks.push(chunkMesh);
@@ -1933,7 +2475,8 @@ class World {
             grassMapCtx.fillStyle = '#ffffff';
             grassMapCtx.fillRect(0, 0, GRASS_MAP_SIZE, GRASS_MAP_SIZE);
             paintGrassVisibilityCircle(0, 0, 2.8, 0.0);
-            paintGrassVisibilityCircle(POND_CENTER.x, POND_CENTER.z, POND_CENTER.radius + 0.75, 0.0);
+            paintGrassVisibilityCircle(POND_CENTER.x, POND_CENTER.z, POND_CENTER.radius + 1.1, 0.0);
+            paintGrassVisibilityCircle(155.0, 220.0, 13.5, 0.0);
             paintGrassVisibilityCircle(ANCIENT_ELDER_TREE.x, ANCIENT_ELDER_TREE.z, 5.2, 0.0);
             paintGrassVisibilityCircle(RUINS_SITE.x, RUINS_SITE.z, 17.5, 0.0);
             paintGrassVisibilityCircle(CAVERN_SITE.x, CAVERN_SITE.z, 19.0, 0.0);
@@ -1941,10 +2484,10 @@ class World {
             for (let bIdx = 0; bIdx < GRAND_WATER_BASINS.length; bIdx++) {
                 const b = GRAND_WATER_BASINS[bIdx];
                 for (let pIdx = 0; pIdx < b.pts.length; pIdx++) {
-                    paintGrassVisibilityCircle(b.pts[pIdx][0], b.pts[pIdx][1], b.halfW + 3.0, 0.0);
+                    paintGrassVisibilityCircle(b.pts[pIdx][0], b.pts[pIdx][1], b.halfW + 3.6, 0.0);
                 }
             }
-            for (const p of PUDDLES) paintGrassVisibilityCircle(p.x, p.z, p.r * 1.2 + 0.65, 0.0);
+            for (const p of PUDDLES) paintGrassVisibilityCircle(p.x, p.z, p.r * 1.24 + 0.65, 0.0);
 
             // Clear lush grass cleanly along Main Road and all Unique Branch Roads
             for (const poly of allRoadPolylines) {
@@ -2401,6 +2944,7 @@ class World {
                     'float grDetail = dylearnOrganicFbm(vRootWorldPos.xz * 1.45 + vec2(73.4, -28.9));',
                     'vec3 grassCol = mix(uAlbedo1, uAlbedo2, smoothstep(0.35, 0.68, grMacro));',
                     'grassCol = mix(grassCol, uAlbedo3, smoothstep(0.40, 0.72, grDetail) * 0.68);',
+                    'grassCol = mix(grassCol, vec3(0.21, 0.30, 0.035), smoothstep(1.8, 6.2, vRootWorldPos.y) * smoothstep(0.42, 0.80, grDetail) * 0.46);',
                     'if (vIdSeed1 < uAccentFreq1) {',
                     '    gTex = texture2D(uAccentTex1, gUv);',
                     '    grassCol = uAccentAlbedo1;',
@@ -2451,9 +2995,20 @@ class World {
                         'float grFireDist = length(uCampfirePos - vRootWorldPos);',
                         'float grFireGlow = (1.0 - smoothstep(1.8, 13.5, grFireDist)) * uCampfireStrength;',
                         'outgoingLight += dylearnAlbedo * uCampfireColor * smoothstep(0.10, 0.62, grFireGlow) * 0.46;',
-                        'gl_FragColor = vec4(outgoingLight, 1.0);',
+                        'gl_FragColor = vec4(outgoingLight, 0.0);',
                         '#include <tonemapping_fragment>'
                     ].join('\n')
+                );
+            }
+            if (shader.fragmentShader.includes('#include <dithering_fragment>')) {
+                shader.fragmentShader = shader.fragmentShader.replace(
+                    '#include <dithering_fragment>',
+                    '#include <dithering_fragment>\ngl_FragColor.a = 0.0;'
+                );
+            } else if (shader.fragmentShader.includes('#include <opaque_fragment>')) {
+                shader.fragmentShader = shader.fragmentShader.replace(
+                    '#include <opaque_fragment>',
+                    '#include <opaque_fragment>\ngl_FragColor.a = 0.0;'
                 );
             }
         };
@@ -2524,6 +3079,8 @@ class World {
             };
 
             let count = 0;
+            let minGrassY = Infinity;
+            let maxGrassY = -Infinity;
             for (let b = 0; b < TUFTS_PER_TILE; b++) {
                 const bx = minX + nextRand() * GRASS_TILE_SIZE;
                 const bz = minZ + nextRand() * GRASS_TILE_SIZE;
@@ -2536,10 +3093,18 @@ class World {
                 if (distCamp < 2.2) continue;
 
                 const distPond = Math.hypot(bx - POND_CENTER.x, bz - POND_CENTER.z);
-                if (distPond < POND_CENTER.radius + 0.15) continue;
+                if (distPond < POND_CENTER.radius + 0.45) continue;
+
+                const pSampG = nearestPuddleSample(bx, bz);
+                if (pSampG && pSampG.normDist < 1.14) continue;
 
                 const rDist = Math.abs(bz - riverCenterZ(bx));
-                if (rDist < riverHalfWidthAt(bx) + 0.65) continue;
+                if (rDist < riverHalfWidthAt(bx) + 1.05) continue;
+
+                const gBasinG = sampleGrandBasinAt(bx, bz);
+                if (gBasinG && gBasinG.edgeDist < 2.2) continue;
+
+                if (Math.hypot(bx - 155.0, bz - 220.0) < 12.6) continue;
 
                 const roadDist = getRoadDistance(bx, bz);
                 if (roadDist < 1.72) continue;
@@ -2555,11 +3120,29 @@ class World {
                 }
 
                 const by = getTerrainHeight(bx, bz);
-                if (distPond < POND_CENTER.radius + 0.65 && by < -0.18) continue;
+                if (distPond < POND_CENTER.radius + 1.1 && by < 0.05) continue;
+                if (by < -0.05) continue;
+
+                // Reduce grass tufts on bare organic soil/loam/peat patches & trail verges
+                const soilInfoG = sampleGroundSoilAt(bx, bz, by, roadDist);
+                if (soilInfoG.soilPatch > 0.22 && r1 > (1.0 - soilInfoG.soilPatch * 0.88)) continue;
+
+                // Zero grass tufts on rock cliff walls & steep rocky slopes
+                const n = getTerrainNormal(bx, bz);
+                if (n.y < 0.87) continue;
+                const slope = 1.0 - Math.min(1.0, Math.max(0.0, Math.abs(n.y)));
+                const elevNoise = groundNoise2D(bx * 0.045 + 17.2, bz * 0.045 - 9.4);
+                const slopeRock = smoothstepJS(0.16, 0.34, slope);
+                const elevRock = smoothstepJS(5.8, 9.5, by + (elevNoise - 0.5) * 2.4);
+                const rockFactor = Math.min(1.0, Math.max(slopeRock, elevRock));
+                if (rockFactor > 0.45) continue;
+                if (rockFactor > 0.14 && r2 > (1.0 - rockFactor * 1.9)) continue;
 
                 const roadsideBoost = (roadDist > 2.25 && roadDist < 4.2) ? 1.15 : 1.0;
-                const n = getTerrainNormal(bx, bz);
                 const locSeed = Math.abs(Math.sin(bx * 12.9898 + bz * 78.233) * 43758.5453) % 1.0;
+
+                if (by < minGrassY) minGrassY = by;
+                if (by > maxGrassY) maxGrassY = by;
 
                 const i16 = count * 16;
                 mArr[i16] = 1; mArr[i16 + 1] = 0; mArr[i16 + 2] = 0; mArr[i16 + 3] = 0;
@@ -2579,7 +3162,7 @@ class World {
                 dataArr[i4] = r1;
                 dataArr[i4 + 1] = r2;
                 dataArr[i4 + 2] = locSeed;
-                dataArr[i4 + 3] = (0.86 + rScale * 0.30) * roadsideBoost;
+                dataArr[i4 + 3] = (0.86 + rScale * 0.30) * roadsideBoost * (1.0 - rockFactor * 0.45);
 
                 count++;
             }
@@ -2590,7 +3173,14 @@ class World {
             instMesh.userData.maxCount = count;
             instMesh.count = count;
             instMesh.visible = count > 0;
-            instMesh.userData.boundingSphere.center.set(cx, getTerrainHeight(cx, cz) + 0.55, cz);
+            if (count > 0) {
+                const midGY = (minGrassY + maxGrassY) * 0.5 + 0.35;
+                instMesh.userData.boundingSphere.center.set(cx, midGY, cz);
+                instMesh.userData.boundingSphere.radius = Math.hypot(GRASS_TILE_SIZE * 0.78, (maxGrassY - minGrassY) * 0.5 + 0.9);
+            } else {
+                instMesh.userData.boundingSphere.center.set(cx, getTerrainHeight(cx, cz) + 0.55, cz);
+                instMesh.userData.boundingSphere.radius = GRASS_TILE_SIZE * 0.85;
+            }
             instMesh.instanceMatrix.needsUpdate = true;
             tile.normalAttr.needsUpdate = true;
             tile.dataAttr.needsUpdate = true;
@@ -3971,511 +4561,61 @@ class World {
         }
 
         // ============================================================================
-        // 6B. TRUCKFUL SMALL-LEAF DECIDUOUS TREES (VIEW-ALIGNED BOUQUET CLUSTERS)
-        //     - Forked Wooden Boughs + Hundreds of Small Painterly Leaves in Bouquets
-        //     - Camera-Aligned Clusters + Projected Canopy Normals (Plush & No Paper Edge!)
+        // 6B. STYLIZED FLUFFY CLOUD-LEAF BROADLEAF TREES (3 Distinct Models)
+        //     - Custom 128x128 Alpha-Cutout Leaf Clumps + 3D Intersecting Puffs
+        //     - Smooth Transferred Sphere Normals + Socket Breeze Sway + T3 Cel
         // ============================================================================
-        const DECIDUOUS_PALETTES = {
-            emerald: {
-                name: 'Pohon Ek Rimbun Truckful',
-                shadow: '#1a4d2c',
-                base: '#2d7a3c',
-                mid: '#51a648',
-                tip: '#87cf52',
-                highlight: '#c4ed70',
-                burstColor: 0x76cc4b
-            },
-            teal: {
-                name: 'Pohon Ek Lembah Sejuk',
-                shadow: '#174845',
-                base: '#287368',
-                mid: '#449e83',
-                tip: '#73c798',
-                highlight: '#afe8b4',
-                burstColor: 0x67bf92
-            },
-            olive: {
-                name: 'Pohon Maple Madu Emas',
-                shadow: '#543b18',
-                base: '#8c6122',
-                mid: '#c4892d',
-                tip: '#e6b145',
-                highlight: '#f7d674',
-                burstColor: 0xe6b145
-            }
-        };
-
-        function createTruckfulSmallLeafClusterTexture(palette) {
-            const cShadow = hexToRgbBytes(palette.shadow);
-            const cBase = hexToRgbBytes(palette.base);
-            const cMid = hexToRgbBytes(palette.mid);
-            const cTip = hexToRgbBytes(palette.tip);
-            const cHi = hexToRgbBytes(palette.highlight);
-            return createPixelFoliageTexture(32, ({ stampPixelLeaf }) => {
-                let s = 48271;
-                const nextRand = () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; };
-                const varyLeaf = (c1, c2) => {
-                    const shift = nextRand() - 0.45;
-                    const dr = shift * 20 + (nextRand() - 0.5) * 6;
-                    const dg = shift * 16 + (nextRand() - 0.5) * 6;
-                    const db = -shift * 12 + (nextRand() - 0.5) * 6;
-                    return [varyRgbBytes(c1, dr * 0.85, dg * 0.85, db * 0.85), varyRgbBytes(c2, dr, dg, db)];
-                };
-                const cx = 15.5;
-                const cy = 15.5;
-                for (let i = 0; i < 14; i++) {
-                    const theta = i * 2.3999632;
-                    const r = Math.sqrt((i + 0.4) / 14) * 7.2;
-                    const lx = cx + Math.cos(theta) * r;
-                    const ly = cy + Math.sin(theta) * r;
-                    const ang = Math.atan2(lx - cx, -(ly - cy)) + (nextRand() - 0.5) * 0.7;
-                    const [v1, v2] = varyLeaf(cShadow, cBase);
-                    stampPixelLeaf(lx, ly, 5.4 + nextRand() * 1.6, 3.2 + nextRand() * 0.8, ang, v1, v2);
-                }
-                for (let i = 0; i < 14; i++) {
-                    const theta = (i / 14) * Math.PI * 2 + (nextRand() - 0.5) * 0.2;
-                    const r = 7.2 + nextRand() * 3.3;
-                    const lx = cx + Math.cos(theta) * r;
-                    const ly = cy + Math.sin(theta) * r;
-                    const ang = Math.atan2(lx - cx, -(ly - cy)) + (nextRand() - 0.5) * 0.5;
-                    const upper = ly < cy + 1.5;
-                    const [v1, v2] = varyLeaf(upper ? cBase : cShadow, upper ? cMid : cBase);
-                    stampPixelLeaf(lx, ly, 5.0 + nextRand() * 1.4, 2.8 + nextRand() * 0.8, ang, v1, v2);
-                }
-                for (let i = 0; i < 18; i++) {
-                    const theta = i * 2.3999632 + 1.3;
-                    const r = Math.sqrt((i + 0.3) / 18) * 9.0;
-                    const lx = cx + Math.cos(theta) * r;
-                    const ly = cy - 0.8 + Math.sin(theta) * r * 0.90;
-                    const ang = Math.atan2(lx - cx, -(ly - cy)) + (nextRand() - 0.5) * 0.75;
-                    const bright = ly < cy + 0.6 && nextRand() > 0.34;
-                    const [v1, v2] = varyLeaf(bright ? cMid : cBase, bright ? cHi : cTip);
-                    stampPixelLeaf(lx, ly, 4.4 + nextRand() * 1.2, 2.4 + nextRand() * 0.7, ang, v1, v2);
-                }
-            });
-        }
-
-        function injectTruckfulDeciduousShader(shader) {
-            shader.uniforms.uTime = grassUniforms.uTime;
-            shader.uniforms.uWindSpeed = grassUniforms.uWindSpeed;
-            shader.uniforms.uSunDir = celShaderUniforms.uSunDir;
-            shader.uniforms.uSunColor = celShaderUniforms.uSunColor;
-            shader.uniforms.uShadowTint = celShaderUniforms.uShadowTint;
-            shader.uniforms.uRimTint = celShaderUniforms.uRimTint;
-            shader.uniforms.uSceneBrightness = celShaderUniforms.uSceneBrightness;
-            shader.uniforms.uCampfirePos = celShaderUniforms.uCampfirePos;
-            shader.uniforms.uCampfireColor = celShaderUniforms.uCampfireColor;
-            shader.uniforms.uCampfireStrength = celShaderUniforms.uCampfireStrength;
-            Object.assign(shader.uniforms, dylearnSharedUniforms);
-
-            shader.vertexShader = [
-                'attribute vec3 aProjectedNormal;',
-                'attribute vec3 aCanopyInfo;',
-                'attribute vec3 aQuadData;',
-                'uniform float uTime;',
-                'uniform float uWindSpeed;',
-                'varying vec3 vLeafWorldPos;',
-                'varying vec3 vLeafNormal;',
-                'varying float vLeafAO;',
-                'varying float vLeafTint;',
-                'varying float vLeafClusterHue;'
-            ].join('\n') + '\n' + shader.vertexShader;
-
-            shader.vertexShader = shader.vertexShader.replace(
-                '#include <begin_vertex>',
-                [
-                    '#include <begin_vertex>',
-                    'float cardPhase = aCanopyInfo.x;',
-                    'float leafAO = aCanopyInfo.y;',
-                    'float leafTint = aCanopyInfo.z;',
-                    'float frametime = 1.0 / 5.0;',
-                    'float qPhase = mod(cardPhase * 1.7, frametime);',
-                    'float qTime = floor((uTime + qPhase) * 5.0 + 0.5) / 5.0;',
-                    'float t = qTime * (1.7 + uWindSpeed * 0.55) + cardPhase;',
-                    'float swayAmt = 0.06 * uWindSpeed;',
-                    'vec3 anchor = transformed + vec3(sin(t) * swayAmt, cos(t * 1.2) * swayAmt * 0.35, cos(t * 0.9) * swayAmt * 0.8);',
-                    'vec3 camRight = normalize(vec3(modelViewMatrix[0][0], modelViewMatrix[1][0], modelViewMatrix[2][0]));',
-                    'vec3 camUp = normalize(vec3(modelViewMatrix[0][1], modelViewMatrix[1][1], modelViewMatrix[2][1]));',
-                    'vec3 camFwd = normalize(vec3(modelViewMatrix[0][2], modelViewMatrix[1][2], modelViewMatrix[2][2]));',
-                    'float spin = aQuadData.z + sin(t * 0.95) * 0.08 * uWindSpeed;',
-                    'float cs = cos(spin), sn = sin(spin);',
-                    'vec2 rotOff = vec2(aQuadData.x * cs - aQuadData.y * sn, aQuadData.x * sn + aQuadData.y * cs);',
-                    'float qSize = length(aQuadData.xy);',
-                    'transformed = anchor + camRight * rotOff.x + camUp * rotOff.y + camFwd * (qSize * 0.12);',
-                    'vLeafAO = leafAO;',
-                    'vLeafTint = leafTint;',
-                    'vLeafClusterHue = fract(cardPhase * 1.73 + leafTint * 0.61);',
-                    'vLeafWorldPos = (modelMatrix * vec4(anchor, 1.0)).xyz;',
-                    'vLeafNormal = normalize(mat3(modelMatrix) * aProjectedNormal);'
-                ].join('\n')
-            );
-
-            if (shader.vertexShader.includes('#include <worldpos_vertex>')) {
-                shader.vertexShader = shader.vertexShader.replace(
-                    '#include <worldpos_vertex>',
-                    [
-                        '#if defined( USE_ENVMAP ) || defined ( DISTANCE ) || defined ( USE_SHADOWMAP ) || defined ( USE_TRANSMISSION ) || NUM_SPOT_LIGHT_COORDS > 0',
-                        '    vec4 worldPosition = modelMatrix * vec4(anchor, 1.0);',
-                        '#endif'
-                    ].join('\n')
-                );
-            }
-
-            if (shader.fragmentShader.includes('#include <tonemapping_fragment>')) {
-                shader.fragmentShader = [
-                    "uniform float uTime;",
-                    "uniform vec3 uSunDir;",
-                    "uniform vec3 uSunColor;",
-                    "uniform vec3 uShadowTint;",
-                    "uniform vec3 uRimTint;",
-                    "uniform float uSceneBrightness;",
-                    "uniform vec3 uCampfirePos;",
-                    "uniform vec3 uCampfireColor;",
-                    "uniform float uCampfireStrength;",
-                    "uniform sampler2D uCloudNoise;",
-                    "uniform float uCloudScale;",
-                    "uniform float uCloudWorldY;",
-                    "uniform float uCloudSpeed;",
-                    "uniform float uCloudContrast;",
-                    "uniform float uCloudThreshold;",
-                    "uniform vec2 uCloudDir;",
-                    "uniform float uCloudShadowMin;",
-                    "uniform float uCloudDivergeAngle;",
-                    "uniform float uToonCuts;",
-                    "uniform float uToonWrap;",
-                    "uniform float uToonSteepness;",
-                    "uniform float uThresholdGradSize;",
-                    'varying vec3 vLeafWorldPos;',
-                    'varying vec3 vLeafNormal;',
-                    'varying float vLeafAO;',
-                    'varying float vLeafTint;',
-                    'varying float vLeafClusterHue;',
-                    "vec2 dylearnRotateVec2(vec2 v, float angleDeg) {",
-                    "    float a = radians(angleDeg);",
-                    "    float c = cos(a);",
-                    "    float s = sin(a);",
-                    "    return vec2(v.x * c - v.y * s, v.x * s + v.y * c);",
-                    "}",
-                    "float dylearnCloudNoise(vec3 wp) {",
-                    "    float t = clamp((uCloudWorldY - wp.y) / max(uSunDir.y, 0.42), 0.0, 140.0);",
-                    "    vec3 hitPos = vec3(wp.x + uSunDir.x * t * 0.16, wp.y, wp.z + uSunDir.z * t * 0.16);",
-                    "    float invScale = 1.0 / max(uCloudScale, 0.001);",
-                    "    vec2 d1 = normalize(dylearnRotateVec2(uCloudDir, uCloudDivergeAngle));",
-                    "    vec2 d2 = normalize(dylearnRotateVec2(uCloudDir, -uCloudDivergeAngle));",
-                    "    vec2 td1 = uTime * uCloudSpeed * d1;",
-                    "    vec2 td2 = uTime * uCloudSpeed * d2;",
-                    "    float s1 = texture2D(uCloudNoise, hitPos.xz * invScale + td1).r;",
-                    "    float s2 = texture2D(uCloudNoise, hitPos.xz * (invScale * 0.8) + (td2 * 0.89 * 3.14159265 / 3.0)).r;",
-                    "    float lv = clamp((s1 * s2) + uCloudThreshold, 0.0, 1.0);",
-                    "    lv = (lv - 0.5) * uCloudContrast + 0.5;",
-                    "    return clamp(lv + uCloudThreshold, uCloudShadowMin, 1.0);",
-                    "}"
-                ].join('\n') + '\n' + shader.fragmentShader;
-
-                shader.fragmentShader = shader.fragmentShader.replace(
-                    '#include <tonemapping_fragment>',
-                    [
-                        'vec3 dcN = normalize(vLeafNormal);',
-                        'vec3 dcL = normalize(uSunDir);',
-                        'vec3 dcV = normalize(cameraPosition - vLeafWorldPos);',
-                        'float dcDirAtten = 1.0;',
-                        '#if defined( USE_SHADOWMAP ) && NUM_DIR_LIGHT_SHADOWS > 0',
-                        '    if (receiveShadow) {',
-                        '        DirectionalLightShadow dcShadow = directionalLightShadows[0];',
-                        '        dcDirAtten = getShadow(directionalShadowMap[0], dcShadow.shadowMapSize, dcShadow.shadowBias, dcShadow.shadowRadius, vDirectionalShadowCoord[0]);',
-                        '    }',
-                        '#endif',
-                        'float dcDiff = (dot(dcN, dcL) + (dcDirAtten - 1.0) + uToonWrap) * uToonSteepness;',
-                        'dcDiff *= mix(0.60, 1.08, vLeafAO);',
-                        'float dcCloud = dylearnCloudNoise(vLeafWorldPos);',
-                        'dcDiff = clamp(min(dcDiff, dcCloud), 0.0, 1.0);',
-                        'float dcCut = 1.0 / max(uToonCuts, 1.0);',
-                        'float dcStep = clamp(ceil(dcDiff * uToonCuts) * dcCut, 0.0, 1.0);',
-                        'if (uThresholdGradSize > 0.0) {',
-                        '    float dcK = floor(dcDiff / dcCut + 0.5);',
-                        '    if (dcK >= 0.0 && dcK <= uToonCuts) {',
-                        '        float dcThresh = dcK * dcCut;',
-                        '        float dcHw = 0.5 * dcCut * uThresholdGradSize;',
-                        '        float dcLo = max(0.0, dcThresh - dcHw);',
-                        '        float dcHi = min(1.0, dcThresh + dcHw);',
-                        '        float dcBlend = (dcHi > dcLo) ? smoothstep(dcLo, dcHi, dcDiff) : step(dcThresh, dcDiff);',
-                        '        dcStep = clamp(mix(dcThresh, min(dcThresh + dcCut, 1.0), dcBlend), 0.0, 1.0);',
-                        '    }',
-                        '}',
-                        'float lobePatch = sin(vLeafWorldPos.x * 1.35 + vLeafWorldPos.z * 1.15 + vLeafWorldPos.y * 0.75) * 0.5 + 0.5;',
-                        'float varMix = clamp(lobePatch * 0.55 + vLeafClusterHue * 0.45, 0.0, 1.0);',
-                        'vec3 coolTone = vec3(0.89, 1.02, 0.96);',
-                        'vec3 midTone  = vec3(1.00, 1.00, 1.00);',
-                        'vec3 warmTone = vec3(1.11, 1.04, 0.85);',
-                        'vec3 clusterTint = varMix < 0.5 ? mix(coolTone, midTone, varMix * 2.0) : mix(midTone, warmTone, (varMix - 0.5) * 2.0);',
-                        'clusterTint *= mix(vec3(0.94, 0.97, 1.01), vec3(1.06, 1.03, 0.95), smoothstep(0.35, 0.95, vLeafAO));',
-                        'vec3 dcBase = diffuseColor.rgb * clusterTint * mix(0.88, 1.12, vLeafTint) * uSceneBrightness;',
-                        'vec3 dcCool = mix(dcBase * uShadowTint * 1.20, dcBase * 0.44, 0.46);',
-                        'vec3 dcSun = dcBase * mix(vec3(1.04), uSunColor * 1.10, 0.28);',
-                        'vec3 dcCol = mix(dcCool, dcSun, mix(0.20, 1.0, dcStep));',
-                        'float dcRim = pow(1.0 - max(dot(dcN, dcV), 0.0), 3.0) * smoothstep(0.22, 0.86, dcN.y * 0.5 + 0.5);',
-                        'dcCol += uRimTint * dcRim * 0.12 * uSceneBrightness;',
-                        'float dcFireDist = length(uCampfirePos - vLeafWorldPos);',
-                        'float dcFireGlow = (1.0 - smoothstep(2.0, 14.0, dcFireDist)) * uCampfireStrength;',
-                        'outgoingLight = dcCol + diffuseColor.rgb * uCampfireColor * smoothstep(0.10, 0.65, dcFireGlow) * 0.42;',
-                        'gl_FragColor = vec4(outgoingLight, diffuseColor.a);',
-                        '#include <tonemapping_fragment>'
-                    ].join('\n')
-                );
-            }
-        }
-
-                const deciduousMaterials = {};
-        const deciduousDepthMaterials = {};
-        Object.keys(DECIDUOUS_PALETTES).forEach(key => {
-            const tex = createTruckfulSmallLeafClusterTexture(DECIDUOUS_PALETTES[key]);
-            const mat = new THREE.MeshStandardMaterial({
-                map: tex,
-                alphaTest: 0.45,
-                side: THREE.DoubleSide,
-                roughness: 0.88,
-                metalness: 0.0
-            });
-            mat.onBeforeCompile = injectTruckfulDeciduousShader;
-            deciduousMaterials[key] = mat;
-
-            const depthMat = new THREE.MeshDepthMaterial({
-                depthPacking: THREE.RGBADepthPacking,
-                map: tex,
-                alphaTest: 0.45
-            });
-            depthMat.onBeforeCompile = injectTruckfulDeciduousShader;
-            deciduousDepthMaterials[key] = depthMat;
+        const stylizedTrees = createStylizedTreeToolkit(THREE, {
+            celShaderUniforms,
+            grassUniforms,
+            dylearnSharedUniforms,
+            trunkMat,
+            applyStylizedCelShading,
         });
-
-        function createTruckfulDeciduousCanopyGeometry() {
-            // 7 asymmetric storybook crown domes composed purely of small-leaf camera-facing bouquets
-            const lobes = [
-                { cx: 0.0, cy: 4.55, cz: 0.0, rx: 1.48, ry: 1.12, rz: 1.44, count: 22 },
-                { cx: -1.28, cy: 3.75, cz: 0.55, rx: 1.15, ry: 0.88, rz: 1.12, count: 15 },
-                { cx: 1.24, cy: 3.85, cz: -0.45, rx: 1.18, ry: 0.92, rz: 1.14, count: 15 },
-                { cx: 0.35, cy: 3.62, cz: 1.22, rx: 1.08, ry: 0.84, rz: 1.04, count: 13 },
-                { cx: -0.58, cy: 3.92, cz: -1.16, rx: 1.10, ry: 0.86, rz: 1.06, count: 13 },
-                { cx: 0.95, cy: 4.95, cz: 0.48, rx: 0.94, ry: 0.78, rz: 0.94, count: 11 },
-                { cx: -0.82, cy: 4.88, cz: -0.36, rx: 0.92, ry: 0.76, rz: 0.92, count: 11 }
-            ];
-
-            const crownCenter = new THREE.Vector3(0, 3.85, 0);
-            const goldenAngle = 2.3999632;
-            const clusters = [];
-
-            lobes.forEach((lobe, lIdx) => {
-                // Shaded interior heart bouquet so no light gaps show through the middle
-                clusters.push({
-                    pos: new THREE.Vector3(lobe.cx, lobe.cy - 0.12, lobe.cz),
-                    lobe,
-                    size: Math.max(lobe.rx, lobe.ry) * 1.45,
-                    aoScale: 0.50,
-                    phase: (lIdx * 1.4) % (Math.PI * 2),
-                    spin: (lIdx * 2.1) % (Math.PI * 2),
-                    tint: 0.25
-                });
-
-                for (let i = 0; i < lobe.count; i++) {
-                    const u = (i + 0.5) / lobe.count;
-                    const cosPhi = 1.0 - 1.72 * u;
-                    const sinPhi = Math.sqrt(Math.max(0.0, 1.0 - cosPhi * cosPhi));
-                    const theta = i * goldenAngle + lIdx * 1.6;
-
-                    const dir = new THREE.Vector3(
-                        sinPhi * Math.cos(theta),
-                        cosPhi,
-                        sinPhi * Math.sin(theta)
-                    ).normalize();
-
-                    const rJit = 0.78 + ((i * 11 + lIdx * 5) % 4) * 0.08;
-                    clusters.push({
-                        pos: new THREE.Vector3(
-                            lobe.cx + dir.x * lobe.rx * rJit,
-                            lobe.cy + dir.y * lobe.ry * rJit,
-                            lobe.cz + dir.z * lobe.rz * rJit
-                        ),
-                        lobe,
-                        size: 0.92 + ((i * 17 + lIdx * 7) % 4) * 0.13,
-                        aoScale: 1.0,
-                        phase: (lIdx * 1.3 + i * 0.47) % (Math.PI * 2),
-                        spin: ((i * 31 + lIdx * 19) % 100) / 100 * Math.PI * 2,
-                        tint: ((i * 23 + lIdx * 13) % 100) / 100
-                    });
-                }
-            });
-
-            const total = clusters.length;
-            const positions = new Float32Array(total * 4 * 3);
-            const normals = new Float32Array(total * 4 * 3);
-            const projNormals = new Float32Array(total * 4 * 3);
-            const canopyInfos = new Float32Array(total * 4 * 3);
-            const quadData = new Float32Array(total * 4 * 3);
-            const uvs = new Float32Array(total * 4 * 2);
-            const indices = [];
-
-            const corners = [
-                [-0.5, -0.5, 0, 0],
-                [0.5, -0.5, 1, 0],
-                [-0.5, 0.5, 0, 1],
-                [0.5, 0.5, 1, 1]
-            ];
-
-            for (let c = 0; c < total; c++) {
-                const cl = clusters[c];
-                const lobeN = new THREE.Vector3(
-                    (cl.pos.x - cl.lobe.cx) / cl.lobe.rx,
-                    (cl.pos.y - cl.lobe.cy) / cl.lobe.ry,
-                    (cl.pos.z - cl.lobe.cz) / cl.lobe.rz
-                );
-                if (lobeN.lengthSq() < 0.0001) lobeN.set(0, 1, 0);
-                else lobeN.normalize();
-
-                const overallN = cl.pos.clone().sub(crownCenter);
-                if (overallN.lengthSq() < 0.0001) overallN.set(0, 1, 0);
-                else overallN.normalize();
-
-                const projN = lobeN.lerp(overallN, 0.52).normalize();
-                const heightNorm = THREE.MathUtils.clamp((cl.pos.y - 2.6) / 3.2, 0.0, 1.0);
-                const ao = THREE.MathUtils.clamp((0.38 + heightNorm * 0.45 + Math.max(0.0, projN.y) * 0.25) * cl.aoScale, 0.28, 1.0);
-
-                const vBase = c * 4;
-                for (let k = 0; k < 4; k++) {
-                    const vi = vBase + k;
-                    const i3 = vi * 3;
-                    const i2 = vi * 2;
-                    const co = corners[k];
-
-                    positions[i3] = cl.pos.x;
-                    positions[i3 + 1] = cl.pos.y;
-                    positions[i3 + 2] = cl.pos.z;
-
-                    normals[i3] = projN.x;
-                    normals[i3 + 1] = projN.y;
-                    normals[i3 + 2] = projN.z;
-
-                    projNormals[i3] = projN.x;
-                    projNormals[i3 + 1] = projN.y;
-                    projNormals[i3 + 2] = projN.z;
-
-                    canopyInfos[i3] = cl.phase;
-                    canopyInfos[i3 + 1] = ao;
-                    canopyInfos[i3 + 2] = cl.tint;
-
-                    quadData[i3] = co[0] * cl.size;
-                    quadData[i3 + 1] = co[1] * cl.size;
-                    quadData[i3 + 2] = cl.spin;
-
-                    uvs[i2] = co[2];
-                    uvs[i2 + 1] = co[3];
-                }
-                indices.push(vBase, vBase + 1, vBase + 2, vBase + 1, vBase + 3, vBase + 2);
-            }
-
-            const geo = new THREE.BufferGeometry();
-            geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-            geo.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
-            geo.setAttribute('aProjectedNormal', new THREE.BufferAttribute(projNormals, 3));
-            geo.setAttribute('aCanopyInfo', new THREE.BufferAttribute(canopyInfos, 3));
-            geo.setAttribute('aQuadData', new THREE.BufferAttribute(quadData, 3));
-            geo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
-            geo.setIndex(indices);
-            return geo;
-        }
-
-        const BASE_DECIDUOUS_CANOPY_GEO = createTruckfulDeciduousCanopyGeometry();
-        const deciduousTrunkCache = [];
+        const DECIDUOUS_PALETTES = stylizedTrees.DECIDUOUS_PALETTES;
+        const deciduousMaterials = stylizedTrees.deciduousMaterials;
+        const deciduousDepthMaterials = stylizedTrees.deciduousDepthMaterials;
+        const BASE_DECIDUOUS_CANOPY_GEO = stylizedTrees.createStylizedDeciduousTreeGeometry('oak_dome').foliageGeo;
         let deciduousSpawnCounter = 0;
 
-        function getDeciduousTrunkArchetype(slotIdx) {
-            const idx = slotIdx % 3;
-            if (deciduousTrunkCache[idx]) return deciduousTrunkCache[idx];
-            const { mesh: trunkTemplate, getSpineOffset } = createSculptedTrunkMesh(
-                3.7, 0.34, 0.16, (Math.random() - 0.5) * 0.25, (Math.random() - 0.5) * 0.25, trunkMat
-            );
-            const forkTop = getSpineOffset(0.76);
-            const boughDirs = [
-                { yaw: 0.4, pitch: 0.62, len: 1.65 },
-                { yaw: 2.0, pitch: 0.58, len: 1.55 },
-                { yaw: 3.6, pitch: 0.66, len: 1.60 },
-                { yaw: 5.1, pitch: 0.55, len: 1.50 }
-            ];
-            const geos = [trunkTemplate.geometry.clone()];
-            const dummy = new THREE.Object3D();
-            boughDirs.forEach(bd => {
-                const bGeo = new THREE.CylinderGeometry(0.065, 0.13, bd.len, 6);
-                bGeo.translate(0, bd.len * 0.5, 0);
-                dummy.position.set(forkTop.x, 2.72, forkTop.z);
-                dummy.rotation.set(bd.pitch, bd.yaw, 0, 'YXZ');
-                dummy.updateMatrix();
-                bGeo.applyMatrix4(dummy.matrix);
-                geos.push(bGeo);
-            });
-            const mergedWoodGeo = mergeBufferGeometriesSimple(geos);
-            deciduousTrunkCache[idx] = mergedWoodGeo;
-            return mergedWoodGeo;
-        }
-
-        function createBotWDeciduousTree(x, z, scale = 1.0, colorKey = 'emerald', heightRatio = 1.0) {
-            const group = new THREE.Group();
+        function createBotWDeciduousTree(x, z, scale = 1.0, colorKey = 'emerald', heightRatio = 1.0, variantKey = 'auto') {
             const y = getTerrainHeight(x, z);
-            group.position.set(x, y - 0.08, z);
-
-            const canopyPivot = new THREE.Group();
-            group.add(canopyPivot);
-
-            // Cached sculpted trunk + 4 forked wooden boughs merged into 1 draw call
-            const woodGeo = getDeciduousTrunkArchetype(deciduousSpawnCounter++);
-            const trunkMesh = new THREE.Mesh(woodGeo, trunkMat);
-            trunkMesh.castShadow = Math.hypot(x, z) < 28.0;
-            trunkMesh.receiveShadow = true;
-            canopyPivot.add(trunkMesh);
-
-            const pal = DECIDUOUS_PALETTES[colorKey] || DECIDUOUS_PALETTES.emerald;
-            const foliageMesh = new THREE.Mesh(
-                BASE_DECIDUOUS_CANOPY_GEO,
-                deciduousMaterials[colorKey] || deciduousMaterials.emerald
-            );
-            foliageMesh.customDepthMaterial = deciduousDepthMaterials[colorKey] || deciduousDepthMaterials.emerald;
-            foliageMesh.rotation.y = Math.random() * Math.PI * 2;
-            foliageMesh.castShadow = Math.hypot(x, z) < 26.0;
-            foliageMesh.receiveShadow = true;
-            foliageMesh.frustumCulled = false;
-            canopyPivot.add(foliageMesh);
-
-            group.scale.set(scale, scale * heightRatio, scale);
-            const treeData = {
-                type: 'tree',
-                treeKind: 'deciduous',
-                name: pal.name,
-                naturalColorKey: colorKey,
-                foliageMesh,
-                canopy: canopyPivot,
-                phase: Math.random() * Math.PI * 2,
-                rustleBoost: 0,
-                leafColor: new THREE.Color(pal.burstColor),
-                boundingSphere: new THREE.Sphere(new THREE.Vector3(x, y + 3.4 * scale * heightRatio, z), 3.6 * scale * Math.max(1, heightRatio))
-            };
-            group.userData = treeData;
+            const resolvedVar = STYLIZED_TREE_VARIANTS.includes(variantKey)
+                ? variantKey
+                : STYLIZED_TREE_VARIANTS[deciduousSpawnCounter % STYLIZED_TREE_VARIANTS.length];
+            const idxSeed = deciduousSpawnCounter++;
+            const castShadow = Math.hypot(x, z) < 26.0;
+            const yaw = ((idxSeed * 2.3999632) + Math.abs(x * 0.37 + z * 0.19)) % (Math.PI * 2);
+            const group = stylizedTrees.buildStylizedTree(resolvedVar, colorKey, scale, {
+                x,
+                y: y - 0.08,
+                z,
+                heightRatio,
+                yaw,
+                castShadow,
+            });
+            const treeData = group.userData;
+            treeData.treeKind = `deciduous_${treeData.variantKey}`;
             swayingCanopies.push(treeData);
             interactiveTrees.push(group);
             scene.add(group);
-            addCircleCollider('tree', x, z, 0.34 * scale * 1.18, y + 4.5 * scale * heightRatio, group);
+            const colRad = resolvedVar === 'twin_bough' ? 0.27 : (resolvedVar === 'tiered_shelf' ? 0.25 : 0.28);
+            addCircleCollider('tree', x, z, colRad * scale * 1.15, y + 4.8 * scale * heightRatio, group);
             return group;
         }
 
         // Hero Foreground & Midground Valley Trees framing the campfire, pond & Truckful road
         const heroTrees = [
-            { x: -10.8, z: -2.6, s: 1.38, hr: 1.12, kind: 'deciduous', c: 'emerald' },
+            { x: -10.8, z: -2.6, s: 1.38, hr: 1.12, kind: 'deciduous', v: 'oak_dome', c: 'emerald' },
             { x: -11.6, z: 8.6, s: 0.72, hr: 0.90, kind: 'pine', v: 'broad_woodland', c: 'teal' },
-            { x: 5.2, z: -7.8, s: 1.46, hr: 1.15, kind: 'deciduous', c: 'olive' },
+            { x: 5.2, z: -7.8, s: 1.46, hr: 1.15, kind: 'deciduous', v: 'twin_bough', c: 'olive' },
             { x: 13.8, z: 3.4, s: 1.54, hr: 1.18, kind: 'pine', v: 'tall_alpine', c: 'emerald' },
-            { x: 12.6, z: 10.6, s: 0.66, hr: 0.88, kind: 'deciduous', c: 'emerald' },
+            { x: 12.6, z: 10.6, s: 0.66, hr: 0.88, kind: 'deciduous', v: 'tiered_shelf', c: 'emerald' },
             { x: -0.6, z: -9.8, s: 1.42, hr: 1.10, kind: 'pine', v: 'tall_alpine', c: 'teal' },
             { x: 3.6, z: 12.2, s: 0.62, hr: 0.85, kind: 'pine', v: 'young_bushy', c: 'olive' },
             { x: -12.8, z: 2.8, s: 1.18, hr: 1.05, kind: 'pine', v: 'high_canopy', c: 'emerald' },
-            { x: 9.8, z: -4.2, s: 0.96, hr: 0.96, kind: 'deciduous', c: 'teal' },
-            { x: -10.2, z: 14.5, s: 0.78, hr: 0.92, kind: 'deciduous', c: 'olive' }
+            { x: 9.8, z: -4.2, s: 0.96, hr: 0.96, kind: 'deciduous', v: 'oak_dome', c: 'teal' },
+            { x: -10.2, z: 14.5, s: 0.78, hr: 0.92, kind: 'deciduous', v: 'twin_bough', c: 'olive' }
         ];
         const treeGrid = new Map();
         const TREE_CELL = 3.6;
@@ -4494,7 +4634,7 @@ class World {
             if (Math.abs(z - riverCenterZ(x)) < riverHalfWidthAt(x) + RIVER.bank + 2.4) return false;
             const gBasin = sampleGrandBasinAt(x, z);
             if (gBasin && gBasin.edgeDist < gBasin.basin.bank * 0.6 + 2.5) return false;
-            if (hasNearbyPuddle(x, z, 2.2)) return false;
+            if (hasNearbyPuddle(x, z, 3.2)) return false;
             if (Math.hypot(x - ANCIENT_ELDER_TREE.x, z - ANCIENT_ELDER_TREE.z) < ANCIENT_ELDER_TREE.radius) return false;
             if (Math.hypot(x - RUINS_SITE.x, z - RUINS_SITE.z) < RUINS_SITE.radius + 3.0) return false;
             if (Math.hypot(x - CAVERN_SITE.x, z - CAVERN_SITE.z) < CAVERN_SITE.radius + 4.0) return false;
@@ -4529,13 +4669,13 @@ class World {
             if (getRoadDistance(ht.x, ht.z) < 3.2) return;
             registerTreeSpot(ht.x, ht.z);
             if (ht.kind === 'deciduous') {
-                createBotWDeciduousTree(ht.x, ht.z, ht.s, ht.c, ht.hr || 1.0);
+                createBotWDeciduousTree(ht.x, ht.z, ht.s, ht.c, ht.hr || 1.0, ht.v || 'auto');
             } else {
                 createStylizedPineTree(ht.x, ht.z, ht.s, ht.v, ht.c, ht.hr || 1.0);
             }
         });
 
-        const variantCycle = ['tall_alpine', 'deciduous', 'broad_woodland', 'deciduous', 'high_canopy', 'young_bushy'];
+        const variantCycle = ['tall_alpine', 'deciduous_oak', 'broad_woodland', 'deciduous_twin', 'high_canopy', 'deciduous_tiered', 'young_bushy'];
         const colorCycle = ['emerald', 'teal', 'olive', 'emerald'];
         let treeIdxSeq = 0;
         function placeForestTreeAt(x, z, minSp = 3.6, deadChance = 0.06) {
@@ -4553,8 +4693,12 @@ class World {
             } else {
                 const v = variantCycle[idx % variantCycle.length];
                 const c = colorCycle[(idx + Math.floor(idx / 3)) % colorCycle.length];
-                if (v === 'deciduous') {
-                    createBotWDeciduousTree(x, z, scale, c, heightRatio);
+                if (v === 'deciduous_oak') {
+                    createBotWDeciduousTree(x, z, scale, c, heightRatio, 'oak_dome');
+                } else if (v === 'deciduous_twin') {
+                    createBotWDeciduousTree(x, z, scale, c, heightRatio, 'twin_bough');
+                } else if (v === 'deciduous_tiered') {
+                    createBotWDeciduousTree(x, z, scale, c, heightRatio, 'tiered_shelf');
                 } else {
                     createStylizedPineTree(x, z, scale, v, c, heightRatio);
                 }
@@ -5390,7 +5534,7 @@ class World {
         }
 
         // ============================================================================
-        // 7B-2. GENANGAN AIR HUJAN DI PADANG LIAR (murah: satu shader, 9 quad)
+        // 7B-2. GENANGAN AIR HUJAN DI PADANG LIAR (cekungan kolam mini + 1 draw call)
         // ============================================================================
         const puddleGroup = new THREE.Group();
         puddleGroup.name = 'puddles';
@@ -5402,7 +5546,8 @@ class World {
             uSunColor: celShaderUniforms.uSunColor,
             uSkyTop: { value: activeAtmosphere.bgTop },
             uSkyBottom: { value: activeAtmosphere.bgBottom },
-            uBrightness: celShaderUniforms.uSceneBrightness
+            uBrightness: celShaderUniforms.uSceneBrightness,
+            uWaterDataTex: { value: botWWaterDataTex }
         };
 
         const puddleMat = new THREE.ShaderMaterial({
@@ -5412,10 +5557,16 @@ class World {
             uniforms: puddleUniforms,
             vertexShader: `
                 precision highp float;
+                attribute float aBedDepth;
+                attribute float aRimU;
                 varying vec3 vWorldPos;
                 varying vec2 vUv;
+                varying float vDepth;
+                varying float vRimU;
                 void main() {
                     vUv = uv;
+                    vDepth = aBedDepth;
+                    vRimU = aRimU;
                     vec4 wp = modelMatrix * vec4(position, 1.0);
                     vWorldPos = wp.xyz;
                     gl_Position = projectionMatrix * viewMatrix * wp;
@@ -5429,46 +5580,70 @@ class World {
                 uniform vec3 uSkyTop;
                 uniform vec3 uSkyBottom;
                 uniform float uBrightness;
+                uniform sampler2D uWaterDataTex;
 
                 varying vec3 vWorldPos;
                 varying vec2 vUv;
+                varying float vDepth;
+                varying float vRimU;
 
                 void main() {
-                    float rim = length(vUv - vec2(0.5)) * 2.0;
-                    if (rim > 1.0) discard;
-
-                    // Tepi genangan memudar halus di bibir terluar agar menyatu alami tapi berinti air turquoise jelas di peta & 3D
-                    float edge = 1.0 - smoothstep(0.78, 1.0, rim);
+                    if (vRimU > 1.04) discard;
+                    float edgeFade = 1.0 - smoothstep(0.92, 1.04, vRimU);
 
                     vec3 V = normalize(cameraPosition - vWorldPos);
                     vec2 p = vWorldPos.xz;
-
-                    // Riak halus: dua gelombang silang, aman untuk GPU kentang.
                     float t = uTime;
-                    float nx = sin(p.x * 3.1 + t * 1.7) * 0.035
-                             + sin((p.x + p.y) * 6.7 - t * 2.4) * 0.016
-                             + sin(p.y * 9.3 + t * 1.1) * 0.010;
-                    float nz = cos(p.y * 2.7 - t * 1.5) * 0.035
-                             + cos((p.x - p.y) * 5.9 + t * 2.1) * 0.016
-                             + cos(p.x * 8.1 - t * 1.2) * 0.010;
-                    vec3 N = normalize(vec3(nx, 1.0, nz));
+
+                    // Dual-scrolling Voronoi + ripple wave normals matching Starting Camp pond
+                    vec2 uv1 = p * 0.34 + vec2(t * 0.036, t * 0.024);
+                    vec2 uv2 = p * 0.42 - vec2(t * 0.028, -t * 0.032);
+                    vec4 s1 = texture2D(uWaterDataTex, uv1);
+                    vec4 s2 = texture2D(uWaterDataTex, uv2);
+
+                    vec2 nXY = ((s1.rg * 2.0 - 1.0) + (s2.rg * 2.0 - 1.0)) * 0.12;
+                    nXY.x += sin(p.x * 3.1 + t * 1.7) * 0.025 + sin((p.x + p.y) * 6.7 - t * 2.4) * 0.012;
+                    nXY.y += cos(p.y * 2.7 - t * 1.5) * 0.025 + cos((p.x - p.y) * 5.9 + t * 2.1) * 0.012;
+                    vec3 N = normalize(vec3(nXY.x, 1.0, nXY.y));
+
+                    float dClamped = max(0.0, vDepth);
+                    float depthNorm = clamp(dClamped / 0.42, 0.0, 1.0);
+
+                    vec3 shallowCol = pow(vec3(0.30, 0.86, 0.80), vec3(2.2));
+                    vec3 midCol = pow(vec3(0.11, 0.60, 0.72), vec3(2.2));
+                    vec3 deepCol = pow(vec3(0.06, 0.36, 0.54), vec3(2.2));
+                    vec3 waterBody = mix(shallowCol, midCol, smoothstep(0.05, 0.52, depthNorm));
+                    waterBody = mix(waterBody, deepCol, smoothstep(0.50, 0.98, depthNorm));
+
+                    // Subtle underwater Voronoi caustics projected onto the sunken basin bed
+                    vec2 parallaxOffset = V.xz / max(V.y, 0.28) * (dClamped * 0.25);
+                    float caust1 = texture2D(uWaterDataTex, (p - parallaxOffset) * 0.38 + vec2(t * 0.04, -t * 0.03)).b;
+                    float caust2 = texture2D(uWaterDataTex, (p - parallaxOffset) * 0.46 + vec2(-t * 0.03, t * 0.04)).b;
+                    float caustics = smoothstep(0.30, 0.70, (caust1 + caust2) * 0.60);
+                    float caustVis = smoothstep(0.03, 0.22, depthNorm);
+                    waterBody += mix(pow(vec3(0.65, 0.98, 0.92), vec3(2.2)), uSunColor, 0.5) * caustics * caustVis * 0.34;
+                    waterBody *= 0.45 + uBrightness * 0.85;
 
                     float NoV = clamp(dot(N, V), 0.0, 1.0);
-                    float fresnel = 0.08 + 0.88 * pow(1.0 - NoV, 3.0);
-
-                    vec3 refl = mix(uSkyBottom, uSkyTop, clamp(reflect(-V, N).y * 0.8 + 0.2, 0.0, 1.0)) * 0.92;
-                    vec3 deepWater = pow(vec3(0.08, 0.56, 0.78), vec3(2.2));
-                    vec3 shallowWater = pow(vec3(0.24, 0.82, 0.90), vec3(2.2));
-                    vec3 wetGround = mix(shallowWater, deepWater, clamp(rim * 0.45 + 0.35, 0.0, 1.0));
-                    wetGround *= 0.45 + uBrightness * 0.85;
-
-                    vec3 col = mix(wetGround, refl, clamp(0.18 + fresnel * 0.52, 0.0, 0.84));
+                    float fresnel = clamp(0.07 + 0.86 * pow(1.0 - NoV, 3.2), 0.0, 1.0);
+                    vec3 refl = mix(uSkyBottom, uSkyTop, clamp(reflect(-V, N).y * 0.75 + 0.25, 0.0, 1.0));
+                    vec3 col = mix(waterBody, refl * 1.02, fresnel * 0.62);
 
                     vec3 H = normalize(normalize(uSunDir) + V);
-                    float spec = pow(max(dot(N, H), 0.0), 70.0);
-                    col += uSunColor * spec * 0.45;
+                    float NoH = max(dot(N, H), 0.0);
+                    float specSoft = pow(NoH, 32.0) * 0.28;
+                    float specGlint = smoothstep(0.65, 0.72, pow(NoH, 92.0) + caustics * 0.14) * 0.65;
+                    col += uSunColor * (specSoft + specGlint);
 
-                    float alpha = edge * (0.86 + 0.10 * fresnel);
+                    // Subtle meniscus/foam where water meets the sloped earthen basin bank
+                    float cellular = (s1.a + s2.a) * 0.5;
+                    float shoreLip = (1.0 - smoothstep(0.005, 0.055, dClamped)) * step(-0.02, vDepth);
+                    float foamMask = clamp(shoreLip * (0.45 + 0.45 * cellular), 0.0, 0.85);
+                    vec3 foamCol = mix(pow(vec3(0.88, 0.98, 1.0), vec3(2.2)), uSunColor, 0.24);
+                    col = mix(col, foamCol, foamMask);
+
+                    float baseAlpha = mix(0.48, 0.86, smoothstep(0.04, 0.58, depthNorm));
+                    float alpha = edgeFade * clamp(max(baseAlpha + fresnel * 0.10, foamMask), 0.0, 0.92);
                     gl_FragColor = vec4(col, alpha);
                     #include <colorspace_fragment>
                 }
@@ -5476,58 +5651,72 @@ class World {
         });
 
         // Gabungkan seluruh genangan air minum kuda menjadi 1 mesh tunggal (1 draw call)
-        const PUDDLE_Y_OFF = 0.04;
+        // Permukaan air rata datar pada pd.waterY dan masuk sedikit ke dinding cekungan (rf = 1.04) tanpa celah tepi
         {
-            const SEG = 24;
-            const vertsPerPuddle = 1 + (SEG + 1) * 2;
+            const SEG = 28;
+            const ringFracs = [0.42, 0.80, 1.04];
+            const vertsPerPuddle = 1 + (SEG + 1) * ringFracs.length;
             const totalVerts = PUDDLES.length * vertsPerPuddle;
             const pos = new Float32Array(totalVerts * 3);
             const uvArr = new Float32Array(totalVerts * 2);
+            const depthArr = new Float32Array(totalVerts);
+            const rimUArr = new Float32Array(totalVerts);
             const idx = [];
             let vCursor = 0;
 
             for (const pd of PUDDLES) {
                 const baseV = vCursor;
-                const cy = getTerrainHeight(pd.x, pd.z) + PUDDLE_Y_OFF;
+                const wy = pd.waterY;
                 pos[vCursor * 3] = pd.x;
-                pos[vCursor * 3 + 1] = cy;
+                pos[vCursor * 3 + 1] = wy;
                 pos[vCursor * 3 + 2] = pd.z;
                 uvArr[vCursor * 2] = 0.5;
                 uvArr[vCursor * 2 + 1] = 0.5;
+                depthArr[vCursor] = wy - getTerrainHeight(pd.x, pd.z);
+                rimUArr[vCursor] = 0.0;
                 vCursor++;
 
-                // Cincin tengah (radius 55%) & cincin tepi (radius 100%) mengikuti kontur tanah mulus
-                for (let ring = 0; ring < 2; ring++) {
-                    const rf = ring === 0 ? 0.55 : 1.0;
+                for (let rIdx = 0; rIdx < ringFracs.length; rIdx++) {
+                    const rf = ringFracs[rIdx];
                     for (let k = 0; k <= SEG; k++) {
                         const ang = (k / SEG) * Math.PI * 2;
-                        const wob = 1.0 + 0.16 * Math.sin(ang * 3.0 + pd.seed) + 0.09 * Math.cos(ang * 5.0 - pd.seed * 1.7);
+                        const wob = puddleWobbleAt(ang, pd.seed);
                         const rx = pd.r * wob * 1.10 * rf;
                         const rz = pd.r * wob * 0.84 * rf;
                         const wx = pd.x + Math.cos(ang) * rx;
                         const wz = pd.z + Math.sin(ang) * rz;
                         pos[vCursor * 3] = wx;
-                        pos[vCursor * 3 + 1] = getTerrainHeight(wx, wz) + PUDDLE_Y_OFF;
+                        pos[vCursor * 3 + 1] = wy;
                         pos[vCursor * 3 + 2] = wz;
                         uvArr[vCursor * 2] = 0.5 + Math.cos(ang) * 0.5 * rf;
                         uvArr[vCursor * 2 + 1] = 0.5 + Math.sin(ang) * 0.5 * rf;
+                        depthArr[vCursor] = wy - getTerrainHeight(wx, wz);
+                        rimUArr[vCursor] = rf;
                         vCursor++;
                     }
                 }
 
-                const ring1Start = baseV + 1;
-                const ring2Start = baseV + 1 + (SEG + 1);
+                const rStride = SEG + 1;
+                const ring0Start = baseV + 1;
                 for (let k = 0; k < SEG; k++) {
-                    idx.push(baseV, ring1Start + k + 1, ring1Start + k);
-                    const a = ring1Start + k, b = ring1Start + k + 1;
-                    const c = ring2Start + k, d = ring2Start + k + 1;
-                    idx.push(a, b, d, a, d, c);
+                    idx.push(baseV, ring0Start + k + 1, ring0Start + k);
+                }
+                for (let rIdx = 0; rIdx < ringFracs.length - 1; rIdx++) {
+                    const rA = ring0Start + rIdx * rStride;
+                    const rB = rA + rStride;
+                    for (let k = 0; k < SEG; k++) {
+                        const a = rA + k, b = rA + k + 1;
+                        const c = rB + k, d = rB + k + 1;
+                        idx.push(a, b, d, a, d, c);
+                    }
                 }
             }
 
             const geo = new THREE.BufferGeometry();
             geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
             geo.setAttribute('uv', new THREE.BufferAttribute(uvArr, 2));
+            geo.setAttribute('aBedDepth', new THREE.BufferAttribute(depthArr, 1));
+            geo.setAttribute('aRimU', new THREE.BufferAttribute(rimUArr, 1));
             geo.setIndex(idx);
             geo.computeBoundingSphere();
             const puddlesMesh = new THREE.Mesh(geo, puddleMat);
@@ -7363,11 +7552,14 @@ class World {
     this._campfireSparks = campfireSparks;
     this.isCampfireLit = isCampfireLit;
     this.LANDMARKS = STORY_LANDMARKS;
+    this.MOUNTAINS = MOUNTAIN_PEAKS;
     this.GRAND_WATER_BASINS = GRAND_WATER_BASINS;
     this._sampleGrandBasinAt = sampleGrandBasinAt;
     this.PUDDLES = PUDDLES;
     this._puddleGrid = puddleGrid;
     this._puddleCell = PUDDLE_CELL;
+    this._nearestPuddleSample = nearestPuddleSample;
+    this._puddleNormDist = puddleNormDist;
     this.ANCIENT_ELDER_TREE = ANCIENT_ELDER_TREE;
     this.ancientTreeGroup = ancientTreeGroup;
     this.grandWaterMeshes = grandWaterMeshes;
@@ -8567,7 +8759,9 @@ class World {
       if (arr) {
         for (let i = 0; i < arr.length; i++) {
           const pd = arr[i];
-          const pEdge = Math.hypot(x - pd.x, z - pd.z) - pd.r * 1.12;
+          const pEdge = this._puddleNormDist
+            ? (this._puddleNormDist(x, z, pd) - 0.90) * pd.r
+            : (Math.hypot(x - pd.x, z - pd.z) - pd.r * 1.12);
           if (pEdge < best) best = pEdge;
         }
       }
@@ -8687,7 +8881,47 @@ class World {
         if (bd > maxD) maxD = bd;
       }
     }
+    if (this._nearestPuddleSample) {
+      const pSamp = this._nearestPuddleSample(x, z);
+      if (pSamp && pSamp.normDist < 1.02) {
+        const pDepth = pSamp.pd.waterY - gy;
+        if (pDepth > maxD) maxD = pDepth;
+      }
+    }
     return maxD;
+  }
+
+  waterSurfaceYAt(x, z) {
+    const gy = this._getTerrainHeight(x, z);
+    let bestY = this.RIVER ? this.RIVER.waterY : -0.22;
+    let bestD = 0;
+    if (this._riverCenterZ && this._riverHalfWidthAt && this.RIVER) {
+      const rDist = Math.abs(z - this._riverCenterZ(x));
+      if (rDist < this._riverHalfWidthAt(x) + 1.8) {
+        const rd = this.RIVER.waterY - gy;
+        if (rd > bestD) { bestD = rd; bestY = this.RIVER.waterY; }
+      }
+    }
+    const pd = Math.hypot(x - this.POND_CENTER.x, z - this.POND_CENTER.z);
+    if (pd < this.POND_CENTER.radius + 0.8) {
+      const pDepth = this.POND_WATER_Y - gy;
+      if (pDepth > bestD) { bestD = pDepth; bestY = this.POND_WATER_Y; }
+    }
+    if (this._sampleGrandBasinAt) {
+      const gb = this._sampleGrandBasinAt(x, z);
+      if (gb && gb.edgeDist < 0.6) {
+        const bd = gb.basin.waterY - gy;
+        if (bd > bestD) { bestD = bd; bestY = gb.basin.waterY; }
+      }
+    }
+    if (this._nearestPuddleSample) {
+      const pSamp = this._nearestPuddleSample(x, z);
+      if (pSamp && pSamp.normDist < 1.02) {
+        const pDepth = pSamp.pd.waterY - gy;
+        if (pDepth > bestD) { bestD = pDepth; bestY = pSamp.pd.waterY; }
+      }
+    }
+    return bestY;
   }
 
   triggerPondRipple(x, z) {
@@ -9020,6 +9254,16 @@ class World {
     const rootInv = new THREE.Matrix4().copy(tree.matrixWorld).invert();
     const m4 = new THREE.Matrix4();
     const c = new THREE.Color();
+    const cShad = new THREE.Color();
+    const cMid = new THREE.Color();
+    const cTip = new THREE.Color();
+    const sunDirLod = new THREE.Vector3(0.42, 0.86, 0.30).normalize();
+    const isStylizedDecid = !!(tree.userData && tree.userData.isStylizedDeciduous && tree.userData.paletteColors);
+    if (isStylizedDecid) {
+      cShad.set(tree.userData.paletteColors.shadow);
+      cMid.set(tree.userData.paletteColors.mid);
+      cTip.set(tree.userData.paletteColors.tip);
+    }
     const treeScale = tree.scale.x || 1;
     const ts = 1 / treeScale;
     const wood = { pos: [], nrm: [], col: [] };
@@ -9056,8 +9300,21 @@ class World {
           if (uv) bucket.uv.push(uv.getX(i), uv.getY(i));
           else bucket.uv.push(0.5, 0.5);
         }
-        if (!isFoliage || !leafMap) bucket.col.push(c.r, c.g, c.b);
-        else bucket.col.push(1, 1, 1);
+        if (!isFoliage || !leafMap) {
+          bucket.col.push(c.r, c.g, c.b);
+        } else if (isStylizedDecid) {
+          const nx = nrm ? nrm.getX(i) : 0;
+          const ny = nrm ? nrm.getY(i) : 1;
+          const nz = nrm ? nrm.getZ(i) : 0;
+          const ndl = (nx * sunDirLod.x + ny * sunDirLod.y + nz * sunDirLod.z) * 0.5 + 0.5;
+          const sunFac = Math.min(1, Math.max(0, (ndl - 0.14) / 0.74));
+          if (sunFac > 0.66) c.copy(cTip);
+          else if (sunFac > 0.34) c.copy(cMid);
+          else c.copy(cShad);
+          bucket.col.push(c.r, c.g, c.b);
+        } else {
+          bucket.col.push(1, 1, 1);
+        }
       }
       g.dispose();
     });
@@ -9120,13 +9377,22 @@ class World {
         return entry;
       });
 
+      const isStylizedBucket = !!(tpl.userData && tpl.userData.isStylizedDeciduous);
       let woodMesh = null;
       if (baked.wood) {
-        woodMesh = new THREE.InstancedMesh(
-          baked.wood,
-          new THREE.MeshLambertMaterial({ vertexColors: true }),
-          count
-        );
+        const woodLodMat = new THREE.MeshLambertMaterial({ vertexColors: true });
+        if (isStylizedBucket) {
+          woodLodMat.customProgramCacheKey = () => 'lod-stylized-wood-outline-v2';
+          woodLodMat.onBeforeCompile = (shader) => {
+            if (shader.fragmentShader.includes('#include <tonemapping_fragment>')) {
+              shader.fragmentShader = shader.fragmentShader.replace(
+                '#include <tonemapping_fragment>',
+                'gl_FragColor = vec4(outgoingLight, 1.0);\n#include <tonemapping_fragment>'
+              );
+            }
+          };
+        }
+        woodMesh = new THREE.InstancedMesh(baked.wood, woodLodMat, count);
         woodMesh.count = 0;
         woodMesh.frustumCulled = false;
         woodMesh.castShadow = false;
@@ -9138,18 +9404,37 @@ class World {
 
       let leafMesh = null;
       if (baked.leaf) {
-        // Tekstur daun tetap dipakai: pad pohon berupa quad alpha-cutout, tanpa
-        // map bentuknya jadi kotak hijau. alphaTest sama dengan model asli.
-        leafMesh = new THREE.InstancedMesh(
-          baked.leaf,
-          new THREE.MeshLambertMaterial({
-            map: baked.leafMap || null,
-            vertexColors: true,
-            alphaTest: baked.leafMap ? 0.44 : 0.0,
-            side: THREE.DoubleSide
-          }),
-          count
-        );
+        const leafLodMat = isStylizedBucket
+          ? new THREE.MeshBasicMaterial({
+              map: baked.leafMap || null,
+              vertexColors: true,
+              alphaTest: baked.leafMap ? 0.45 : 0.0,
+              side: THREE.DoubleSide
+            })
+          : new THREE.MeshLambertMaterial({
+              map: baked.leafMap || null,
+              vertexColors: true,
+              alphaTest: baked.leafMap ? 0.44 : 0.0,
+              side: THREE.DoubleSide
+            });
+        if (isStylizedBucket) {
+          leafLodMat.customProgramCacheKey = () => 'lod-stylized-leaf-outline-v2';
+          leafLodMat.onBeforeCompile = (shader) => {
+            shader.uniforms.uSceneBrightness = this.celShaderUniforms.uSceneBrightness;
+            shader.fragmentShader = 'uniform float uSceneBrightness;\n' + shader.fragmentShader;
+            if (shader.fragmentShader.includes('#include <tonemapping_fragment>')) {
+              shader.fragmentShader = shader.fragmentShader.replace(
+                '#include <tonemapping_fragment>',
+                [
+                  'float dayScale = clamp(uSceneBrightness / 0.72, 0.26, 1.20);',
+                  'gl_FragColor = vec4(outgoingLight * dayScale, 1.0);',
+                  '#include <tonemapping_fragment>'
+                ].join('\n')
+              );
+            }
+          };
+        }
+        leafMesh = new THREE.InstancedMesh(baked.leaf, leafLodMat, count);
         leafMesh.count = 0;
         leafMesh.frustumCulled = false;
         leafMesh.castShadow = false;
@@ -9495,6 +9780,10 @@ class World {
 
   syncCamera(camera) {
     if (!camera) return;
+    if (camera.isPerspectiveCamera && camera.far < 980) {
+      camera.far = 980;
+      camera.updateProjectionMatrix();
+    }
     camera.getWorldDirection(this._tmpCamForward);
     const fx = this._tmpCamForward.x;
     const fz = this._tmpCamForward.z;
@@ -9814,15 +10103,18 @@ class World {
     }
 
     if (this.riverUniforms && this.RIVER) {
-      const wy = this.RIVER.waterY;
+      const wy = this.waterSurfaceYAt(horseX, horseZ);
+      const inMainRiver = this._riverCenterZ && this._riverHalfWidthAt
+        ? Math.abs(horseZ - this._riverCenterZ(horseX)) < (this._riverHalfWidthAt(horseX) + 2.4)
+        : false;
       if (horseDepth > 0.03 && dPond > this.POND_CENTER.radius + 1.0 && !horseInAir) {
         if (horseJustLanded) {
-          this.triggerRiverRipple(horseX, horseZ, 1.5);
+          if (inMainRiver) this.triggerRiverRipple(horseX, horseZ, 1.5);
           this.spawnWaterSplash(horseX, wy, horseZ, 2.0, hVelX, hVelZ);
           this._lastRiverRippleAt = elapsed;
           this._lastHoofSplashAt = elapsed;
         } else {
-          if (hSpeed > 0.25 && (elapsed - this._lastRiverRippleAt) > 0.26) {
+          if (inMainRiver && hSpeed > 0.25 && (elapsed - this._lastRiverRippleAt) > 0.26) {
             this._lastRiverRippleAt = elapsed;
             this.triggerRiverRipple(horseX, horseZ, 0.62 + Math.min(0.68, hSpeed / 5.2));
           }
@@ -9846,15 +10138,18 @@ class World {
         const cartDepth = this.waterDepthAt(this.cartX, this.cartZ);
         if (cartDepth > 0.04 && cSpeed > 0.25 && (elapsed - this._lastCartWakeAt) > 0.30) {
           this._lastCartWakeAt = elapsed;
+          const cwy = this.waterSurfaceYAt(this.cartX, this.cartZ);
           const cy = this.cartYaw || 0;
           const lx = -Math.sin(cy), lz = -Math.cos(cy);
           const wxL = this.cartX + lx * 1.05, wzL = this.cartZ + lz * 1.05;
           const wxR = this.cartX - lx * 1.05, wzR = this.cartZ - lz * 1.05;
           const str = 0.48 + Math.min(0.55, cSpeed / 5.5);
-          this.triggerRiverRipple(wxL, wzL, str);
-          this.triggerRiverRipple(wxR, wzR, str);
-          this.spawnWaterSplash(wxL, wy, wzL, 0.55 * str, cVelX, cVelZ);
-          this.spawnWaterSplash(wxR, wy, wzR, 0.55 * str, cVelX, cVelZ);
+          if (this._riverCenterZ && this._riverHalfWidthAt && Math.abs(this.cartZ - this._riverCenterZ(this.cartX)) < (this._riverHalfWidthAt(this.cartX) + 2.4)) {
+            this.triggerRiverRipple(wxL, wzL, str);
+            this.triggerRiverRipple(wxR, wzR, str);
+          }
+          this.spawnWaterSplash(wxL, cwy, wzL, 0.55 * str, cVelX, cVelZ);
+          this.spawnWaterSplash(wxR, cwy, wzR, 0.55 * str, cVelX, cVelZ);
         }
       }
     }

@@ -263,29 +263,110 @@ export class MapUI {
 
     // Base meadow
     const bgGrad = ctx.createRadialGradient(S * 0.5, S * 0.5, S * 0.08, S * 0.5, S * 0.5, S * 0.7);
-    bgGrad.addColorStop(0, '#4f8f4e');
-    bgGrad.addColorStop(0.55, '#3b7340');
-    bgGrad.addColorStop(1, '#26522e');
+    bgGrad.addColorStop(0, '#558e49');
+    bgGrad.addColorStop(0.55, '#3f743d');
+    bgGrad.addColorStop(1, '#2b552c');
     ctx.fillStyle = bgGrad;
     ctx.fillRect(0, 0, S, S);
 
-    // Subtle forest patches texture
-    ctx.fillStyle = 'rgba(20, 48, 25, 0.24)';
-    for (let i = 0; i < 64; i++) {
+    // Organic soil/loam & woodland clearings variation
+    for (let i = 0; i < 72; i++) {
       const rx = ((Math.sin(i * 19.3) * 0.5 + 0.5) * 0.9 + 0.05) * S;
       const ry = ((Math.cos(i * 31.7) * 0.5 + 0.5) * 0.9 + 0.05) * S;
-      const rad = 12 + (i % 5) * 9;
+      const rad = 10 + (i % 5) * 8;
+      ctx.fillStyle = i % 3 === 0 ? 'rgba(124, 91, 59, 0.24)' : (i % 5 === 0 ? 'rgba(151, 115, 77, 0.18)' : 'rgba(20, 48, 25, 0.25)');
       ctx.beginPath();
       ctx.arc(rx, ry, rad, 0, Math.PI * 2);
       ctx.fill();
     }
 
-    // Winding River
+    // Mountain ranges & rocky highland ridges (before roads & villages so passes stay crisp)
+    const mountains = (this.world && Array.isArray(this.world.MOUNTAINS)) ? this.world.MOUNTAINS : [];
+    for (const m of mountains) {
+      if (!m) continue;
+      const [mx, my] = toPx(m.x, m.z);
+      const rxPx = Math.max(4.5, (m.rX / T) * S);
+      const rzPx = Math.max(4.5, (m.rZ / T) * S);
+      const isAlpine = (m.peakH || 0) >= 24.0;
+      ctx.save();
+      ctx.translate(mx, my);
+      ctx.rotate(-(m.rot || 0));
+
+      // Tier 1: Rocky foothill skirt
+      ctx.fillStyle = isAlpine ? 'rgba(92, 86, 76, 0.74)' : 'rgba(116, 102, 78, 0.68)';
+      ctx.beginPath();
+      ctx.ellipse(0, 0, rxPx, rzPx, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Tier 2: SE cast slope shadow + slate cliff mid-tier
+      ctx.fillStyle = 'rgba(24, 29, 38, 0.42)';
+      ctx.beginPath();
+      ctx.ellipse(rxPx * 0.11, rzPx * 0.11, rxPx * 0.74, rzPx * 0.74, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = isAlpine ? '#646b73' : '#78716c';
+      ctx.beginPath();
+      ctx.ellipse(0, 0, rxPx * 0.68, rzPx * 0.68, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Tier 3: Sunlit granite shoulder + jagged ridge crest spine
+      ctx.fillStyle = isAlpine ? '#9ca3af' : '#a8a29e';
+      ctx.beginPath();
+      ctx.ellipse(-rxPx * 0.08, -rzPx * 0.08, rxPx * 0.42, rzPx * 0.44, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      if (isAlpine && m.peakH >= 38.0) {
+        ctx.fillStyle = '#d6d3d1';
+        ctx.beginPath();
+        ctx.ellipse(-rxPx * 0.06, -rzPx * 0.06, rxPx * 0.22, rzPx * 0.24, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Serrated ridge spine line
+      const spineLen = rzPx * 0.72;
+      const zig = Math.max(2.0, rxPx * 0.16);
+      ctx.strokeStyle = isAlpine ? 'rgba(30, 41, 59, 0.72)' : 'rgba(51, 45, 38, 0.65)';
+      ctx.lineWidth = Math.max(1.0, (m.peakH || 16) * 0.03);
+      ctx.beginPath();
+      ctx.moveTo(0, -spineLen);
+      ctx.lineTo(zig * 0.7, -spineLen * 0.35);
+      ctx.lineTo(-zig * 0.8, 0);
+      ctx.lineTo(zig * 0.6, spineLen * 0.4);
+      ctx.lineTo(0, spineLen);
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
+    // Grand outer water basins with darker wet mud shores
+    const grandBasins = (this.world && Array.isArray(this.world.GRAND_WATER_BASINS)) ? this.world.GRAND_WATER_BASINS : [];
+    for (const b of grandBasins) {
+      if (!b || !Array.isArray(b.pts) || b.pts.length < 2) continue;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      for (let i = 0; i < b.pts.length; i++) {
+        const [px, py] = toPx(b.pts[i][0], b.pts[i][1]);
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.strokeStyle = '#56432e';
+      ctx.lineWidth = Math.max(5.5, ((b.halfW * 2 + b.bank * 1.1) / T) * S);
+      ctx.stroke();
+      ctx.strokeStyle = '#3b2d1f';
+      ctx.lineWidth = Math.max(4.4, ((b.halfW * 2 + 2.5) / T) * S);
+      ctx.stroke();
+      ctx.strokeStyle = '#269ab8';
+      ctx.lineWidth = Math.max(3.2, ((b.halfW * 1.9) / T) * S);
+      ctx.stroke();
+    }
+
+    // Winding River with dark wet earth/silt shoreline
     if (typeof this.world._riverCenterZ === 'function') {
       const step = 12;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
-      // Sandy bank stroke
+      // Wet silt outer bank stroke
       ctx.beginPath();
       for (let x = -T * 0.5; x <= T * 0.5; x += step) {
         const z = this.world._riverCenterZ(x);
@@ -293,8 +374,13 @@ export class MapUI {
         if (x === -T * 0.5) ctx.moveTo(px, py);
         else ctx.lineTo(px, py);
       }
-      ctx.strokeStyle = '#c8b384';
-      ctx.lineWidth = Math.max(4.5, (14 / T) * S);
+      ctx.strokeStyle = '#56432e';
+      ctx.lineWidth = Math.max(5.0, (16 / T) * S);
+      ctx.stroke();
+
+      // Dark wet mud lip
+      ctx.strokeStyle = '#3b2d1f';
+      ctx.lineWidth = Math.max(3.8, (12 / T) * S);
       ctx.stroke();
 
       // Water stream stroke
@@ -303,14 +389,14 @@ export class MapUI {
       ctx.stroke();
     }
 
-    // Pond near origin
+    // Pond near origin (dark wet shore)
     if (this.world.POND_CENTER) {
       const p = this.world.POND_CENTER;
       const [px, py] = toPx(p.x, p.z);
       const pr = Math.max(2.2, (p.radius / T) * S);
-      ctx.fillStyle = '#d3bf8e';
+      ctx.fillStyle = '#3b2d1f';
       ctx.beginPath();
-      ctx.arc(px, py, pr + 1.2, 0, Math.PI * 2);
+      ctx.arc(px, py, pr + 1.3, 0, Math.PI * 2);
       ctx.fill();
       ctx.fillStyle = '#38b5d2';
       ctx.beginPath();
@@ -383,20 +469,24 @@ export class MapUI {
   }
 
   open() {
+    const wasOpen = this.isOpen;
     this.isOpen = true;
     if (this.modalEl) {
       this.modalEl.hidden = false;
       this.modalEl.style.display = 'flex';
     }
     this._drawFullMapNow = true;
+    if (!wasOpen && HC.SFX && HC.SFX.play) HC.SFX.play('map_open');
   }
 
   close() {
+    const wasOpen = this.isOpen;
     this.isOpen = false;
     if (this.modalEl) {
       this.modalEl.hidden = true;
       this.modalEl.style.display = 'none';
     }
+    if (wasOpen && HC.SFX && HC.SFX.play) HC.SFX.play('map_close');
   }
 
   toggle() {

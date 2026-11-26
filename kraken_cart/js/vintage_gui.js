@@ -604,8 +604,12 @@ function getAudioCtx() {
   }
 }
 
-function playSfx(type = 'click') {
+function playSfx(type = 'click', opts = {}) {
   if (!uiState.sfxEnabled || uiState.sfxVol <= 0) return;
+  if (HC.SFX && typeof HC.SFX.play === 'function') {
+    HC.SFX.play(type, opts);
+    return;
+  }
   try {
     const ctx = getAudioCtx();
     if (!ctx) return;
@@ -640,6 +644,10 @@ function playSfx(type = 'click') {
       tone(540, 0.04, 'square', 0, 620);
     }
   } catch (_e) { /* ignore autoplay restrictions */ }
+}
+
+function getAudioSettings() {
+  return uiState;
 }
 
 // ============================================================
@@ -910,6 +918,7 @@ function renderAudioControls() {
       uiState.sfxEnabled = !uiState.sfxEnabled;
       saveUiSettings();
       renderAudioControls();
+      if (!uiState.sfxEnabled && HC.SFX && HC.SFX.stopLoops) HC.SFX.stopLoops();
       playSfx('click');
     });
   }
@@ -980,6 +989,7 @@ HC.VintageGUI = {
   hydrateSvgs,
   renderIcon,
   playSfx,
+  getAudioSettings,
   updateVitals,
   step,
   setDesc,
