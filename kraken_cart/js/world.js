@@ -389,9 +389,11 @@ class World {
                         vec3 L = normalize(uSunDir);
                         vec3 V = normalize(cameraPosition - vCelWorldPos);
 
-                        // 2) Kuantisasi palet warna (lebih kasar pada LOD rumah jauh agar terasa low-res)
+                        // 2) Kuantisasi palet warna persepsi (agar warna gelap kayu/batu/baju tetap kaya detail)
                         float palSteps = uLowResMode > 0.5 ? 10.0 : 26.0;
-                        vec3 qAlbedo = floor(diffuseColor.rgb * palSteps + 0.5) / palSteps;
+                        vec3 sqA = sqrt(max(diffuseColor.rgb, vec3(0.0)));
+                        vec3 qS = floor(sqA * palSteps + 0.5) / palSteps;
+                        vec3 qAlbedo = qS * qS;
                         if (uLowResMode > 0.5) {
                             // Blok shading low-res kasar untuk LOD rumah desa
                             vec3 blk = floor(vCelWorldPos / 0.65);
@@ -418,18 +420,17 @@ class World {
                         float castShadowMask = smoothstep(0.30, 0.62, engineLightRatio);
                         outgoingLight = mix(coolShadow * 0.88, celColor, castShadowMask);
 
-                        // 5) T3 Crisp 1px Ink Edge & Silhouette Outline (tanpa FBO / draw call tambahan)
+                        // 5) Subtle surface crease ink + Campfire bounce + Emissive preservation (outer 1px silhouette handled cleanly in T3 post-pass)
                         float edgeN = length(fwidth(N));
-                        float sil = smoothstep(0.66, 0.88, 1.0 - max(dot(N, V), 0.0));
-                        float crease = uLowResMode > 0.5 ? smoothstep(0.55, 1.05, edgeN) : smoothstep(0.40, 0.85, edgeN);
-                        float inkMask = clamp(max(crease * uInkStrength, sil * (uInkStrength * 0.55)), 0.0, 0.72);
+                        float crease = uLowResMode > 0.5 ? smoothstep(0.55, 1.05, edgeN) : smoothstep(0.45, 0.90, edgeN);
+                        float inkMask = clamp(crease * uInkStrength * 0.55, 0.0, 0.48);
                         vec3 inkCol = vec3(0.09, 0.07, 0.11) * max(0.35, uSceneBrightness);
                         outgoingLight = mix(outgoingLight, inkCol, inkMask);
 
-                        // Campfire warm bounce light
+                        // Campfire warm bounce light + preserve emissive crystal/lantern radiance
                         float fireDist = length(uCampfirePos - vCelWorldPos);
                         float fireGlow = (1.0 - smoothstep(1.5, 13.5, fireDist)) * uCampfireStrength;
-                        outgoingLight += diffuseColor.rgb * uCampfireColor * smoothstep(0.10, 0.65, fireGlow) * 0.44;
+                        outgoingLight += diffuseColor.rgb * uCampfireColor * smoothstep(0.10, 0.65, fireGlow) * 0.44 + totalEmissiveRadiance;
 
                         gl_FragColor = vec4(outgoingLight, diffuseColor.a);
                         #include <tonemapping_fragment>
@@ -438,6 +439,7 @@ class World {
                 }
             };
         }
+        HC.applyStylizedCelShading = applyStylizedCelShading;
 
         // ============================================================================
         // 3. PAINTERLY SKYDOME (BLUE CLOUDY MORNING, ZERO MALI-G57 GLITCH) & SUN/MOON
@@ -1688,10 +1690,13 @@ class World {
                         '    float flBlend = (flHi > flLo) ? smoothstep(flLo, flHi, flDiff) : step(flThresh, flDiff);',
                         '    flStepped = clamp(mix(flThresh, min(flThresh + flCut, 1.0), flBlend), 0.0, 1.0);',
                         '}',
-                        'vec3 flBase = diffuseColor.rgb * uSceneBrightness;',
-                        'vec3 flShadowCol = mix(flBase * uShadowTint * 1.22, flBase * 0.44, 0.45);',
-                        'vec3 flSunCol = flBase * mix(vec3(1.04), uSunColor * 1.08, 0.28);',
-                        'outgoingLight = mix(flShadowCol, flSunCol, mix(0.20, 1.0, flStepped));',
+                        'vec3 flSq = sqrt(max(diffuseColor.rgb, vec3(0.0)));',
+                        'vec3 flSqQ = floor(flSq * 28.0 + 0.5) / 28.0;',
+                        'vec3 flBase = (flSqQ * flSqQ) * uSceneBrightness;',
+                        'float flCelTier = flStepped > 0.66 ? 1.0 : (flStepped > 0.28 ? 0.75 : 0.45);',
+                        'vec3 flShadowCol = mix(flBase * uShadowTint * 1.18, flBase * 0.46, 0.45);',
+                        'vec3 flSunCol = flBase * (0.36 + 0.64 * flCelTier) * mix(vec3(1.04), uSunColor * 1.06, 0.26);',
+                        'outgoingLight = mix(flShadowCol, flSunCol, smoothstep(0.45, 1.0, flCelTier));',
                         'float flFireDist = length(uCampfirePos - vTerrainWorldPos);',
                         'float flFireGlow = (1.0 - smoothstep(1.5, 13.5, flFireDist)) * uCampfireStrength;',
                         'outgoingLight += diffuseColor.rgb * uCampfireColor * smoothstep(0.10, 0.65, flFireGlow) * 0.44;',

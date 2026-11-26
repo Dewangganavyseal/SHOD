@@ -211,27 +211,39 @@ function applyStylizedCelShading(material, options = {}) {
                     shader.fragmentShader = shader.fragmentShader.replace(
                         '#include <tonemapping_fragment>',
                         `
-                        vec3 N = normalize(vStylizedWorldNormal);
+                        // T3 Hybrid Faceted Voxel Normals + 3-Tier Cel-AO + Palette Quantization
+                        vec3 dpx = dFdx(vStylizedWorldPos);
+                        vec3 dpy = dFdy(vStylizedWorldPos);
+                        vec3 fCross = cross(dpx, dpy);
+                        vec3 vN = normalize(vStylizedWorldNormal);
+                        vec3 fN = length(fCross) > 1e-6 ? normalize(fCross) : vN;
+                        if (dot(fN, vN) < 0.0) fN = -fN;
+                        vec3 N = normalize(mix(vN, fN, 0.80));
                         vec3 L = normalize(uSunDir);
                         vec3 V = normalize(cameraPosition - vStylizedWorldPos);
 
-                        float NdotL = dot(N, L) * 0.5 + 0.5;
-                        float band1 = smoothstep(0.32, 0.44, NdotL);
-                        float band2 = smoothstep(0.68, 0.78, NdotL);
-                        float celStep = band1 * 0.65 + band2 * 0.35;
+                        vec3 sqA = sqrt(max(diffuseColor.rgb, vec3(0.0)));
+                        vec3 qS = floor(sqA * 26.0 + 0.5) / 26.0;
+                        vec3 qAlbedo = qS * qS;
+                        float ndl = max(dot(N, L), 0.0);
+                        float cel = ndl > 0.62 ? 1.0 : (ndl > 0.22 ? 0.75 : 0.45);
+                        float ao = mix(0.76, 1.0, clamp(N.y * 0.5 + 0.5, 0.0, 1.0));
+                        vec3 baseCol = qAlbedo * (0.34 + 0.66 * cel) * ao;
+                        vec3 shadowCol = mix(baseCol * uShadowTint * 1.15, baseCol * ${shadowLift.toFixed(2)}, 0.45);
+                        vec3 litCol = baseCol * mix(vec3(1.0), uSunColor * 1.04, 0.24);
+                        vec3 celResult = mix(shadowCol, litCol, smoothstep(0.45, 1.0, cel));
 
-                        vec3 shadowCol = mix(diffuseColor.rgb * uShadowTint * 1.4, diffuseColor.rgb * ${shadowLift.toFixed(2)}, 0.5);
-                        vec3 litCol = diffuseColor.rgb * mix(vec3(1.0), uSunColor, 0.32) * 1.08;
-                        vec3 celResult = mix(shadowCol, litCol, celStep);
-
-                        float rim = pow(1.0 - max(dot(N, V), 0.0), 3.0) * smoothstep(0.3, 0.8, NdotL);
-                        celResult += uRimTint * rim * ${rimStrength.toFixed(2)};
+                        float rim = pow(1.0 - max(dot(N, V), 0.0), 2.0);
+                        celResult += mix(vec3(1.0, 0.96, 0.88), uRimTint, 0.45) * rim * ${Math.max(rimStrength, 0.16).toFixed(2)};
 
                         float fireDist = length(uCampfirePos - vStylizedWorldPos);
                         float fireAtten = (1.0 - smoothstep(1.5, 13.5, fireDist)) * uCampfireStrength;
-                        celResult += diffuseColor.rgb * uCampfireColor * fireAtten * 0.65;
+                        celResult += diffuseColor.rgb * uCampfireColor * smoothstep(0.10, 0.65, fireAtten) * 0.48;
 
-                        outgoingLight = mix(outgoingLight, celResult, 0.68);
+                        float expectedBase = max(length(diffuseColor.rgb) * 0.85, 0.001);
+                        float engineRatio = clamp(length(outgoingLight) / expectedBase, 0.25, 1.25);
+                        float castMask = smoothstep(0.30, 0.62, engineRatio);
+                        outgoingLight = mix(shadowCol * 0.88, celResult, castMask) + totalEmissiveRadiance;
                         gl_FragColor = vec4(outgoingLight, diffuseColor.a);
                         #include <tonemapping_fragment>
                         `
@@ -618,29 +630,26 @@ function injectBranchSocketWindShader(shader) {
                     vec3 L = normalize(uSunDir);
                     vec3 V = normalize(cameraPosition - vPineWorldPos);
 
-                    // Smooth Half-Lambert off the projected evergreen cone normal + Tier Ambient Occlusion
-                    float halfLambert = dot(N, L) * 0.5 + 0.5;
-                    float shadedVal = halfLambert * mix(0.56, 1.10, vTierAO);
-
-                    // Signature BotW 3-Tier Soft Cel-Shading (Cool Deep Pine Shadow -> Lush Midtone -> Sunlit Rim)
-                    float band1 = smoothstep(0.28, 0.44, shadedVal);
-                    float band2 = smoothstep(0.62, 0.78, shadedVal);
-                    float toonStep = band1 * 0.58 + band2 * 0.42;
+                    // T3 Hybrid 3-Tier Quantized Cel Shading for Pine Canopy
+                    float ndl = max(dot(N, L), 0.0) * mix(0.62, 1.12, vTierAO);
+                    float cel = ndl > 0.62 ? 1.0 : (ndl > 0.22 ? 0.75 : 0.45);
 
                     float crownLift = mix(0.86, 1.14, smoothstep(0.0, 1.0, vHeightNorm));
-                    vec3 baseLeaf = diffuseColor.rgb * crownLift;
+                    vec3 pineSq = sqrt(max(diffuseColor.rgb * crownLift, vec3(0.0)));
+                    vec3 pineSqQ = floor(pineSq * 24.0 + 0.5) / 24.0;
+                    vec3 baseLeaf = pineSqQ * pineSqQ;
 
-                    vec3 coolShadow = mix(baseLeaf * uShadowTint * 1.42, baseLeaf * 0.58, 0.48);
-                    vec3 sunlitPine = baseLeaf * mix(vec3(1.0), uSunColor, 0.32) * 1.15;
-                    vec3 celColor = mix(coolShadow, sunlitPine, toonStep);
+                    vec3 coolShadow = mix(baseLeaf * uShadowTint * 1.28, baseLeaf * 0.54, 0.46);
+                    vec3 sunlitPine = baseLeaf * (0.36 + 0.64 * cel) * mix(vec3(1.0), uSunColor, 0.28) * 1.10;
+                    vec3 celColor = mix(coolShadow, sunlitPine, smoothstep(0.45, 1.0, cel));
 
                     // Warm Subsurface Backlight Glow on outer drooping pine tips
                     float sss = pow(clamp(dot(V, -L), 0.0, 1.0), 2.1) * smoothstep(0.35, 0.95, vTierAO);
-                    celColor += baseLeaf * uSunColor * sss * 0.36;
+                    celColor += baseLeaf * uSunColor * sss * 0.30;
 
-                    // Crisp BotW Rim Highlight along the sunlit silhouette fringe
-                    float rim = pow(1.0 - max(dot(N, V), 0.0), 2.6) * smoothstep(0.20, 0.85, N.y * 0.5 + 0.5) * vTipMask;
-                    celColor += uRimTint * rim * 0.24;
+                    // Crisp T3 Rim Highlight along sunlit silhouette fringe
+                    float rim = pow(1.0 - max(dot(N, V), 0.0), 2.0) * smoothstep(0.20, 0.85, N.y * 0.5 + 0.5) * vTipMask;
+                    celColor += uRimTint * rim * 0.22;
 
                     // Gently honor directional cast shadows from neighboring trees
                     float engineLightRatio = clamp(length(outgoingLight) / max(length(diffuseColor.rgb), 0.001), 0.35, 1.35);
@@ -1155,29 +1164,26 @@ function injectFluffyZeldaLeafShader(shader) {
                     vec3 L = normalize(uSunDir);
                     vec3 V = normalize(cameraPosition - vFluffyWorldPos);
 
-                    // Smooth spherical Half-Lambert from the projected scatter-surface normal
-                    float halfLambert = dot(N, L) * 0.5 + 0.5;
-                    float shadedVal = halfLambert * mix(0.62, 1.08, vFoliageAO);
-
-                    // Soft Zelda/Ghibli 3-Band Pillowy Gradient
-                    float band1 = smoothstep(0.32, 0.46, shadedVal);
-                    float band2 = smoothstep(0.64, 0.78, shadedVal);
-                    float toonFactor = band1 * 0.56 + band2 * 0.44;
+                    // T3 Hybrid 3-Tier Quantized Cel Shading for Deciduous Foliage
+                    float ndl = max(dot(N, L), 0.0) * mix(0.65, 1.10, vFoliageAO);
+                    float cel = ndl > 0.62 ? 1.0 : (ndl > 0.22 ? 0.75 : 0.45);
 
                     float crownLift = mix(0.90, 1.12, smoothstep(0.0, 1.0, vHeightNorm));
-                    vec3 baseLeaf = diffuseColor.rgb * crownLift;
+                    vec3 decSq = sqrt(max(diffuseColor.rgb * crownLift, vec3(0.0)));
+                    vec3 decSqQ = floor(decSq * 24.0 + 0.5) / 24.0;
+                    vec3 baseLeaf = decSqQ * decSqQ;
 
-                    vec3 deepCanopyShadow = mix(baseLeaf * uShadowTint * 1.48, baseLeaf * 0.64, 0.52);
-                    vec3 sunlitCanopy = baseLeaf * mix(vec3(1.0), uSunColor, 0.34) * 1.16;
-                    vec3 fluffyColor = mix(deepCanopyShadow, sunlitCanopy, toonFactor);
+                    vec3 deepCanopyShadow = mix(baseLeaf * uShadowTint * 1.32, baseLeaf * 0.58, 0.48);
+                    vec3 sunlitCanopy = baseLeaf * (0.36 + 0.64 * cel) * mix(vec3(1.0), uSunColor, 0.30) * 1.12;
+                    vec3 fluffyColor = mix(deepCanopyShadow, sunlitCanopy, smoothstep(0.45, 1.0, cel));
 
                     // Subsurface Scattering (Warm translucent glow on backlit leaf puffs)
                     float sss = pow(clamp(dot(V, -L), 0.0, 1.0), 2.0) * smoothstep(0.35, 0.95, vFoliageAO);
-                    fluffyColor += baseLeaf * uSunColor * sss * 0.42;
+                    fluffyColor += baseLeaf * uSunColor * sss * 0.34;
 
-                    // Soft top-hemisphere rim highlight
-                    float rim = pow(1.0 - max(dot(N, V), 0.0), 2.6) * smoothstep(0.2, 0.85, N.y * 0.5 + 0.5);
-                    fluffyColor += uRimTint * rim * 0.22;
+                    // Crisp T3 rim highlight
+                    float rim = pow(1.0 - max(dot(N, V), 0.0), 2.0) * smoothstep(0.2, 0.85, N.y * 0.5 + 0.5);
+                    fluffyColor += uRimTint * rim * 0.20;
 
                     // Blend gently with Three.js cast shadow map
                     float engineLightRatio = clamp(length(outgoingLight) / max(length(diffuseColor.rgb), 0.001), 0.35, 1.35);
@@ -1737,13 +1743,16 @@ grassMat.onBeforeCompile = (shader) => {
                     vec3 gradCol = mix(uBaseColor, tipCol, smoothstep(0.05, 0.92, vGrassUv.y));
                     gradCol *= mix(0.86, 1.06, bladeCrease);
 
-                    // Golden Wind Wave Shimmer across the Meadow
-                    gradCol += uSunColor * vWindShimmer * 0.24;
+                    // Golden Wind Wave Shimmer across the Meadow + Perceptual T3 Quantization
+                    gradCol += uSunColor * vWindShimmer * 0.22;
+                    vec3 grSq = sqrt(max(gradCol, vec3(0.0)));
+                    vec3 grSqQ = floor(grSq * 24.0 + 0.5) / 24.0;
+                    gradCol = grSqQ * grSqQ;
 
-                    // Incorporate Directional Cast Shadows while keeping BotW Cel-Shaded Vibrancy
-                    float shadowMask = clamp(length(outgoingLight) / 1.15, 0.48, 1.18);
-                    float steppedShadow = mix(0.62, 1.08, smoothstep(0.52, 0.78, shadowMask));
-                    outgoingLight = gradCol * mix(vec3(1.0), uSunColor, 0.26) * steppedShadow;
+                    // 3-tier T3 stepped directional cast shadows
+                    float shadowMask = clamp(length(outgoingLight) / 1.15, 0.42, 1.18);
+                    float steppedShadow = shadowMask > 0.78 ? 1.05 : (shadowMask > 0.56 ? 0.82 : 0.58);
+                    outgoingLight = gradCol * mix(vec3(1.0), uSunColor, 0.24) * steppedShadow;
 
                     // Warm Campfire Bounce Glow on Nearby Grass Blades
                     float fireDist = length(uCampfirePos - vGrassWorldPos);

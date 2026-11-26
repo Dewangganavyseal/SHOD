@@ -36,8 +36,9 @@ export const QUALITY_PRESETS = {
     treeFar: 120,
     villageLod: 68,
     villageFar: 165,
-    t3VirtualHeight: 200,
+    t3VirtualHeight: 240,
     t3Crease: false,
+    t3HybridWorld: true,
     hintKey: 'quality_low_hint',
     hint: 'HP kelas bawah: bayangan mati, resolusi tetap 100%, rumput 30%, pohon >45 m jadi versi low-detail (bukan billboard)'
   },
@@ -61,8 +62,9 @@ export const QUALITY_PRESETS = {
     treeFar: 140,
     villageLod: 92,
     villageFar: 225,
-    t3VirtualHeight: 240,
+    t3VirtualHeight: 300,
     t3Crease: true,
+    t3HybridWorld: true,
     hintKey: 'quality_med_hint',
     hint: 'HP menengah: bayangan diperbarui berkala, rumput 62%, pohon >60 m versi low-detail'
   },
@@ -85,8 +87,9 @@ export const QUALITY_PRESETS = {
     treeFar: 160,
     villageLod: 122,
     villageFar: 300,
-    t3VirtualHeight: 270,
+    t3VirtualHeight: 360,
     t3Crease: true,
+    t3HybridWorld: true,
     hintKey: 'quality_high_hint',
     hint: 'PC/HP kencang: semua detail dekat, pohon >80 m versi low-detail, NPC utuh, bayangan penuh'
   }

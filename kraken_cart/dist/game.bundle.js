@@ -2263,7 +2263,8 @@ const __MOD_MAP = (() => {
      tetapi isi peta tidak boleh bergeser bersama kuda.
    - Kamp pengganti kota memakai `kind:'settlement'`. Kalau kota sungguhan sudah
      ada, ganti bangunannya; koordinat situs + kelompok NPC-nya tetap di sini.
-   ============================================================================ */// Interpolasi Hermite pada stasiun x yang berurutan (kurva halus, tanpa random).
+   ============================================================================ */
+// Interpolasi Hermite pada stasiun x yang berurutan (kurva halus, tanpa random).
 function spline(points, x) {
   const n = points.length;
   if (x <= points[0][0]) return points[0][1];
@@ -13763,7 +13764,7 @@ function createCrystalCavern(ctx = {}) {
   for (let p = 0; p < 2; p++) {
     for (let c = 0; c < crystalColors.length; c++) {
       const def = crystalColors[c];
-      const mat = new THREE.MeshStandardMaterial({
+      const mat = applyCel(ctx, new THREE.MeshStandardMaterial({
         map: crystalTex,
         emissiveMap: crystalTex,
         color: def.hex,
@@ -13772,7 +13773,7 @@ function createCrystalCavern(ctx = {}) {
         roughness: 0.16,
         metalness: 0.16,
         vertexColors: true,
-      });
+      }), { rimStrength: 0.26, shadowLift: 0.64, inkStrength: 0.40 });
       crystalMats.push({ mat, phase: p * 1.7 + c * 1.15, baseIntensity: 0.82 });
     }
   }
@@ -17027,9 +17028,11 @@ class World {
                         vec3 L = normalize(uSunDir);
                         vec3 V = normalize(cameraPosition - vCelWorldPos);
 
-                        // 2) Kuantisasi palet warna (lebih kasar pada LOD rumah jauh agar terasa low-res)
+                        // 2) Kuantisasi palet warna persepsi (agar warna gelap kayu/batu/baju tetap kaya detail)
                         float palSteps = uLowResMode > 0.5 ? 10.0 : 26.0;
-                        vec3 qAlbedo = floor(diffuseColor.rgb * palSteps + 0.5) / palSteps;
+                        vec3 sqA = sqrt(max(diffuseColor.rgb, vec3(0.0)));
+                        vec3 qS = floor(sqA * palSteps + 0.5) / palSteps;
+                        vec3 qAlbedo = qS * qS;
                         if (uLowResMode > 0.5) {
                             // Blok shading low-res kasar untuk LOD rumah desa
                             vec3 blk = floor(vCelWorldPos / 0.65);
@@ -17056,18 +17059,17 @@ class World {
                         float castShadowMask = smoothstep(0.30, 0.62, engineLightRatio);
                         outgoingLight = mix(coolShadow * 0.88, celColor, castShadowMask);
 
-                        // 5) T3 Crisp 1px Ink Edge & Silhouette Outline (tanpa FBO / draw call tambahan)
+                        // 5) Subtle surface crease ink + Campfire bounce + Emissive preservation (outer 1px silhouette handled cleanly in T3 post-pass)
                         float edgeN = length(fwidth(N));
-                        float sil = smoothstep(0.66, 0.88, 1.0 - max(dot(N, V), 0.0));
-                        float crease = uLowResMode > 0.5 ? smoothstep(0.55, 1.05, edgeN) : smoothstep(0.40, 0.85, edgeN);
-                        float inkMask = clamp(max(crease * uInkStrength, sil * (uInkStrength * 0.55)), 0.0, 0.72);
+                        float crease = uLowResMode > 0.5 ? smoothstep(0.55, 1.05, edgeN) : smoothstep(0.45, 0.90, edgeN);
+                        float inkMask = clamp(crease * uInkStrength * 0.55, 0.0, 0.48);
                         vec3 inkCol = vec3(0.09, 0.07, 0.11) * max(0.35, uSceneBrightness);
                         outgoingLight = mix(outgoingLight, inkCol, inkMask);
 
-                        // Campfire warm bounce light
+                        // Campfire warm bounce light + preserve emissive crystal/lantern radiance
                         float fireDist = length(uCampfirePos - vCelWorldPos);
                         float fireGlow = (1.0 - smoothstep(1.5, 13.5, fireDist)) * uCampfireStrength;
-                        outgoingLight += diffuseColor.rgb * uCampfireColor * smoothstep(0.10, 0.65, fireGlow) * 0.44;
+                        outgoingLight += diffuseColor.rgb * uCampfireColor * smoothstep(0.10, 0.65, fireGlow) * 0.44 + totalEmissiveRadiance;
 
                         gl_FragColor = vec4(outgoingLight, diffuseColor.a);
                         #include <tonemapping_fragment>
@@ -17076,6 +17078,7 @@ class World {
                 }
             };
         }
+        HC.applyStylizedCelShading = applyStylizedCelShading;
 
         // ============================================================================
         // 3. PAINTERLY SKYDOME (BLUE CLOUDY MORNING, ZERO MALI-G57 GLITCH) & SUN/MOON
@@ -18326,10 +18329,13 @@ class World {
                         '    float flBlend = (flHi > flLo) ? smoothstep(flLo, flHi, flDiff) : step(flThresh, flDiff);',
                         '    flStepped = clamp(mix(flThresh, min(flThresh + flCut, 1.0), flBlend), 0.0, 1.0);',
                         '}',
-                        'vec3 flBase = diffuseColor.rgb * uSceneBrightness;',
-                        'vec3 flShadowCol = mix(flBase * uShadowTint * 1.22, flBase * 0.44, 0.45);',
-                        'vec3 flSunCol = flBase * mix(vec3(1.04), uSunColor * 1.08, 0.28);',
-                        'outgoingLight = mix(flShadowCol, flSunCol, mix(0.20, 1.0, flStepped));',
+                        'vec3 flSq = sqrt(max(diffuseColor.rgb, vec3(0.0)));',
+                        'vec3 flSqQ = floor(flSq * 28.0 + 0.5) / 28.0;',
+                        'vec3 flBase = (flSqQ * flSqQ) * uSceneBrightness;',
+                        'float flCelTier = flStepped > 0.66 ? 1.0 : (flStepped > 0.28 ? 0.75 : 0.45);',
+                        'vec3 flShadowCol = mix(flBase * uShadowTint * 1.18, flBase * 0.46, 0.45);',
+                        'vec3 flSunCol = flBase * (0.36 + 0.64 * flCelTier) * mix(vec3(1.04), uSunColor * 1.06, 0.26);',
+                        'outgoingLight = mix(flShadowCol, flSunCol, smoothstep(0.45, 1.0, flCelTier));',
                         'float flFireDist = length(uCampfirePos - vTerrainWorldPos);',
                         'float flFireGlow = (1.0 - smoothstep(1.5, 13.5, flFireDist)) * uCampfireStrength;',
                         'outgoingLight += diffuseColor.rgb * uCampfireColor * smoothstep(0.10, 0.65, flFireGlow) * 0.44;',
@@ -29869,7 +29875,8 @@ const THREE = HC.THREE, S = HC.vs;
    IS_MOBILE, lerp/clamp/rand, serta sistem FX/Monsters/Player/NPCS/Game/CFG/Sfx.
    Modul ini menyediakan versi aman (no-op) supaya build() & animate() jalan di
    SHOD tanpa mesin tempur Sylvan. Urutan impor penting: modul ini HARUS masuk
-   sebelum file model mana pun dievaluasi. */const T = HC.THREE;
+   sebelum file model mana pun dievaluasi. */
+const T = HC.THREE;
 
 if (!window.THREE) window.THREE = T;
 window.IS_MOBILE = false;
@@ -41346,7 +41353,8 @@ if (typeof window !== 'undefined') {
    Semua 18 file di folder ini adalah salinan apa adanya dari
    sylvandominion.web.id/js/entities/npc_*.js (build v0.2.169). Tiap file
    memasang window.NPC_<Id> berisi {build(), animate(n,dt)}.
-   `shim.js` WAJIB dievaluasi lebih dulu (urutan impor di bawah). *//* Role id -> entitas model. Nama window mengikuti kapitalisasi Sylvan:
+   `shim.js` WAJIB dievaluasi lebih dulu (urutan impor di bawah). */
+/* Role id -> entitas model. Nama window mengikuti kapitalisasi Sylvan:
    dungeonmaster -> NPC_Dungeonmaster, lionknight -> NPC_Lionknight, dst. */
 const IDS = [
   'guard', 'hunter', 'miner', 'farmer', 'herbal', 'warrior', 'guardian',
@@ -41391,7 +41399,7 @@ const THREE = HC.THREE;
           + exact gl_FragDepth integration with the 3D scene).
    ============================================================================ */
 
-const MAX_PARTS = 12;
+const MAX_PARTS = 14;
 const GRID = 24;
 const HALF_GRID = 12;
 
@@ -41421,7 +41429,7 @@ class T3VoxelAtlas {
     this.voxelCount = 0;
   }
 
-  setGrid(partIdx, gx, gy, gz, r, g, b) {
+  setGrid(partIdx, gx, gy, gz, r, g, b, a = 255) {
     if (partIdx < 0 || partIdx >= this.partCount) return;
     if (gx < 0 || gx >= GRID || gy < 0 || gy >= GRID || gz < 0 || gz >= GRID) return;
     const zSlice = partIdx * GRID + gz;
@@ -41430,7 +41438,7 @@ class T3VoxelAtlas {
     this.data[idx] = r;
     this.data[idx + 1] = g;
     this.data[idx + 2] = b;
-    this.data[idx + 3] = 255;
+    this.data[idx + 3] = a;
   }
 
   toTexture() {
@@ -41459,7 +41467,13 @@ const _vP = new THREE.Vector3();
 const _vMin = new THREE.Vector3();
 const _vMax = new THREE.Vector3();
 const _mPartInv = new THREE.Matrix4();
+const _mRootInv = new THREE.Matrix4();
+const _mRelRoot = new THREE.Matrix4();
 const _mMeshRel = new THREE.Matrix4();
+const _mPartScale = new THREE.Matrix4();
+const _bakePos = new THREE.Vector3();
+const _bakeQuat = new THREE.Quaternion();
+const _bakeScale = new THREE.Vector3();
 const _mBoxInv = new THREE.Matrix4();
 const _mBox = new THREE.Matrix4();
 const _mBasis = new THREE.Matrix4();
@@ -41474,11 +41488,22 @@ function toByte(v) {
 
 /**
  * Collects all oriented boxes (center, 3 axes with half-lengths, RGB bytes)
- * owned directly by `partNode` (stopping traversal at any other partNode).
+ * owned directly by `partNode` (stopping traversal at any other partNode),
+ * pre-scaled into `root` metric space so scaled Sylvan/Rabbit rigs bake at exact final size.
  */
-function collectPartBoxes(partNode, partSet) {
+function collectPartBoxes(partNode, partSet, rootInv) {
   partNode.updateMatrixWorld(true);
   _mPartInv.copy(partNode.matrixWorld).invert();
+  if (rootInv) {
+    _mRelRoot.multiplyMatrices(rootInv, partNode.matrixWorld);
+    _mRelRoot.decompose(_bakePos, _bakeQuat, _bakeScale);
+    const sx = Math.abs(_bakeScale.x) > 1e-4 ? _bakeScale.x : 1.0;
+    const sy = Math.abs(_bakeScale.y) > 1e-4 ? _bakeScale.y : 1.0;
+    const sz = Math.abs(_bakeScale.z) > 1e-4 ? _bakeScale.z : 1.0;
+    _mPartScale.makeScale(sx, sy, sz);
+  } else {
+    _mPartScale.identity();
+  }
   const boxes = [];
 
   function walk(node) {
@@ -41490,6 +41515,7 @@ function collectPartBoxes(partNode, partSet) {
       const posAttr = geo.attributes.position;
       const colAttr = geo.attributes.color;
       _mMeshRel.multiplyMatrices(_mPartInv, node.matrixWorld);
+      if (rootInv) _mMeshRel.premultiply(_mPartScale);
 
       // Case 1: Merged non-indexed boxes (bandit_models.js createVoxelBuilder: 36 verts per box)
       if (!geo.index && colAttr && posAttr.count >= 36 && posAttr.count % 36 === 0) {
@@ -41518,8 +41544,13 @@ function collectPartBoxes(partNode, partSet) {
           const eY = _vA.clone().sub(_vC).multiplyScalar(0.5);
           const eZ = _vA.clone().sub(_vD).multiplyScalar(0.5);
 
-          // Linear -> sRGB-ish bright display color matching MeshLambertMaterial
+          const mat = Array.isArray(node.material) ? node.material[0] : node.material;
+          const isEmissive = !!(mat && (mat.isMeshBasicMaterial || (mat.emissiveIntensity && mat.emissiveIntensity > 0.35)))
+            || !!(node.userData && node.userData.isEnergyGlow);
+
+          // Linear color bytes matching Three.js r160 Color pipeline
           _tmpCol.setRGB(colAttr.getX(base), colAttr.getY(base), colAttr.getZ(base));
+          if (mat && mat.color) _tmpCol.multiply(mat.color);
           boxes.push({
             center,
             eX,
@@ -41528,10 +41559,11 @@ function collectPartBoxes(partNode, partSet) {
             r: toByte(_tmpCol.r),
             g: toByte(_tmpCol.g),
             b: toByte(_tmpCol.b),
+            emissive: isEmissive,
           });
         }
       } else {
-        // Case 2: Standard Three.js BoxGeometry / Mesh with material.color (e.g. buildVoxelBoarRig)
+        // Case 2: Standard Three.js BoxGeometry / Mesh with material.color (e.g. buildVoxelBoarRig / Rabbit)
         if (!geo.boundingBox) geo.computeBoundingBox();
         const bb = geo.boundingBox;
         if (bb) {
@@ -41549,8 +41581,15 @@ function collectPartBoxes(partNode, partSet) {
           eZ.set(el[8] * localHalf.z, el[9] * localHalf.z, el[10] * localHalf.z);
 
           const mat = Array.isArray(node.material) ? node.material[0] : node.material;
+          const isEmissive = !!(mat && (mat.isMeshBasicMaterial || (mat.emissiveIntensity && mat.emissiveIntensity > 0.35)))
+            || !!(node.userData && node.userData.isEnergyGlow);
           if (mat && mat.color) _tmpCol.copy(mat.color);
           else _tmpCol.setHex(0x888888);
+          if (mat && mat.emissive && mat.emissiveIntensity && !mat.isMeshBasicMaterial) {
+            _tmpCol.addScaledVector ? null : (_tmpCol.r = Math.min(1, _tmpCol.r + mat.emissive.r * mat.emissiveIntensity * 0.5),
+              _tmpCol.g = Math.min(1, _tmpCol.g + mat.emissive.g * mat.emissiveIntensity * 0.5),
+              _tmpCol.b = Math.min(1, _tmpCol.b + mat.emissive.b * mat.emissiveIntensity * 0.5));
+          }
 
           boxes.push({
             center,
@@ -41560,6 +41599,7 @@ function collectPartBoxes(partNode, partSet) {
             r: toByte(_tmpCol.r),
             g: toByte(_tmpCol.g),
             b: toByte(_tmpCol.b),
+            emissive: isEmissive,
           });
         }
       }
@@ -41577,11 +41617,16 @@ function collectPartBoxes(partNode, partSet) {
  * Rasterizes collected boxes of all parts into a shared 24x24x(24*N) 3D texture,
  * auto-centering each part's local grid so long weapons/limbs never clip.
  */
-function bakeRigPartsToAtlas(partNodes, voxelSize) {
+function bakeRigPartsToAtlas(partNodes, voxelSize, root = null) {
   const count = Math.min(MAX_PARTS, partNodes.length);
   const partSet = new Set(partNodes.slice(0, count));
   const atlas = new T3VoxelAtlas(count);
   const partCenters = [];
+  if (root) {
+    root.updateMatrixWorld(true);
+    _mRootInv.copy(root.matrixWorld).invert();
+  }
+  const rootInv = root ? _mRootInv : null;
 
   for (let pIdx = 0; pIdx < count; pIdx++) {
     const node = partNodes[pIdx];
@@ -41589,7 +41634,7 @@ function bakeRigPartsToAtlas(partNodes, voxelSize) {
       partCenters.push(new THREE.Vector3());
       continue;
     }
-    const boxes = collectPartBoxes(node, partSet);
+    const boxes = collectPartBoxes(node, partSet, rootInv);
     if (!boxes.length) {
       partCenters.push(new THREE.Vector3());
       continue;
@@ -41662,7 +41707,7 @@ function bakeRigPartsToAtlas(partNodes, voxelSize) {
             if (py > hy) continue;
             const pz = Math.abs(wx * _axZ.x + wy * _axZ.y + wz * _axZ.z);
             if (pz > hz) continue;
-            atlas.setGrid(pIdx, gx, gy, gz, bx.r, bx.g, bx.b);
+            atlas.setGrid(pIdx, gx, gy, gz, bx.r, bx.g, bx.b, bx.emissive ? 180 : 255);
           }
         }
       }
@@ -41697,10 +41742,9 @@ uniform vec3 uPartPos[${MAX_PARTS}];
 uniform mat3 uPartRot[${MAX_PARTS}];
 uniform float uVoxelSize;
 uniform mat4 uMVP;
+uniform mat4 uInvMVP;
 uniform mat3 uModelRot;
-uniform mat4 uInvModel;
-uniform mat4 uInvViewProj;
-uniform vec2 uResolution;
+uniform vec4 uViewport;
 uniform float uVirtualHeight;
 uniform vec3 uSunDir;
 uniform vec3 uOutlineColor;
@@ -41722,6 +41766,7 @@ struct Hit {
   vec3 normal;
   float ao;
   int partIdx;
+  bool emissive;
 };
 
 bool isSolid(int partIdx, ivec3 c) {
@@ -41733,14 +41778,12 @@ vec4 fetchVoxel(int partIdx, ivec3 c) {
   return texelFetch(uVoxelTex, ivec3(c.x, c.y, partIdx * ${GRID} + c.z), 0);
 }
 
-void makePixelRay(vec2 fragXY, out vec3 ro, out vec3 rd) {
-  vec2 ndc = (fragXY / max(uResolution, vec2(1.0))) * 2.0 - 1.0;
-  vec4 nearW = uInvViewProj * vec4(ndc, -1.0, 1.0);
-  vec4 farW  = uInvViewProj * vec4(ndc,  1.0, 1.0);
-  vec3 p0 = nearW.xyz / nearW.w;
-  vec3 p1 = farW.xyz / farW.w;
-  vec3 l0 = (uInvModel * vec4(p0, 1.0)).xyz;
-  vec3 l1 = (uInvModel * vec4(p1, 1.0)).xyz;
+void makePixelRay(vec2 localFrag, out vec3 ro, out vec3 rd) {
+  vec2 ndc = (localFrag / max(uViewport.zw, vec2(1.0))) * 2.0 - 1.0;
+  vec4 nearL = uInvMVP * vec4(ndc, -1.0, 1.0);
+  vec4 midL  = uInvMVP * vec4(ndc,  0.5, 1.0);
+  vec3 l0 = nearL.xyz / nearL.w;
+  vec3 l1 = midL.xyz  / midL.w;
   ro = l0 / uVoxelSize;
   rd = normalize(l1 - l0);
 }
@@ -41753,6 +41796,7 @@ Hit traceAllParts(vec3 ro, vec3 rd, bool needShading) {
   best.normal = vec3(0.0, 1.0, 0.0);
   best.ao = 1.0;
   best.partIdx = -1;
+  best.emissive = false;
 
   for (int i = 0; i < ${MAX_PARTS}; i++) {
     if (i >= uPartCount) break;
@@ -41811,6 +41855,7 @@ Hit traceAllParts(vec3 ro, vec3 rd, bool needShading) {
         best.ok = true;
         best.t = tCur;
         best.partIdx = i;
+        best.emissive = vx.a < 0.85;
         if (needShading) {
           best.albedo = vx.rgb;
           best.normal = normalize(uPartRot[i] * localN);
@@ -41861,14 +41906,17 @@ void writeHitDepth(vec3 ro, vec3 rd, float t) {
 }
 
 void main() {
-  // Pass 05 Pixel Snap: quantize screen fragment onto consistent virtual pixel grid
-  float aspect = uResolution.x / max(uResolution.y, 1.0);
+  // Pass 05 Pixel Snap: use exact framebuffer viewport pixels; only quantize when rendering above virtual height
+  vec2 res = max(uViewport.zw, vec2(1.0));
+  vec2 localFrag = gl_FragCoord.xy - uViewport.xy;
+  bool isVirtualBuf = res.y <= uVirtualHeight + 2.0;
+  float aspect = res.x / max(res.y, 1.0);
   float vH = max(120.0, uVirtualHeight);
-  float vW = min(640.0, vH * aspect);
-  vec2 pixSize = uResolution / vec2(vW, vH);
-  vec2 sampleXY = (uPassMode >= 5)
-    ? (floor(gl_FragCoord.xy / pixSize) + 0.5) * pixSize
-    : gl_FragCoord.xy;
+  float vW = max(120.0, vH * aspect);
+  vec2 pixSize = isVirtualBuf ? vec2(1.0) : (res / vec2(vW, vH));
+  vec2 sampleXY = (uPassMode >= 5 && !isVirtualBuf)
+    ? (floor(localFrag / pixSize) + 0.5) * pixSize
+    : localFrag;
 
   vec3 ro, rd;
   makePixelRay(sampleXY, ro, rd);
@@ -41929,7 +41977,7 @@ void main() {
   // Pass 03: CEL-AO (3-tier quantized cel 0.45 / 0.75 / 1.0 + neighbor voxel AO)
   float ndl = max(dot(worldN, sunDir), 0.0);
   float cel = ndl > 0.62 ? 1.0 : (ndl > 0.22 ? 0.75 : 0.45);
-  vec3 col = h.albedo * (0.34 + 0.66 * cel) * h.ao;
+  vec3 col = h.emissive ? (h.albedo * 1.18) : (h.albedo * (0.34 + 0.66 * cel) * h.ao);
 
   if (uPassMode == 3) {
     fragColor = vec4(col, 1.0);
@@ -41939,7 +41987,11 @@ void main() {
   // Pass 04: SHADOW-RIM + combat hit flash / telegraph glow
   float rim = pow(1.0 - max(dot(worldN, viewDir), 0.0), 2.0);
   float groundShade = mix(0.86, 1.0, clamp(worldN.y * 0.5 + 0.5, 0.0, 1.0));
-  col = col * groundShade + vec3(1.0, 0.96, 0.88) * rim * 0.22;
+  if (!h.emissive) {
+    col = col * groundShade + vec3(1.0, 0.96, 0.88) * rim * 0.22;
+  } else {
+    col += vec3(0.95, 0.98, 1.0) * rim * 0.14;
+  }
 
   if (uTelegraph > 0.01) {
     col = mix(col, vec3(1.0, 0.36, 0.14), clamp(uTelegraph * 0.48, 0.0, 0.55));
@@ -41984,9 +42036,8 @@ const _syncQuat = new THREE.Quaternion();
 const _syncScale = new THREE.Vector3();
 const _syncRotMat4 = new THREE.Matrix4();
 const _syncCenterOff = new THREE.Vector3();
-const _tmpInvViewProj = new THREE.Matrix4();
 const _tmpVP = new THREE.Matrix4();
-const _tmpInvModel = new THREE.Matrix4();
+const _tmpVp = new THREE.Vector4();
 const _tmpSize = new THREE.Vector2();
 const _defaultSun = new THREE.Vector3(0.55, 0.78, 0.30).normalize();
 
@@ -42016,10 +42067,9 @@ class T3SpriteStackActor {
       uPartRot: { value: this.partRot },
       uVoxelSize: { value: voxelSize },
       uMVP: { value: new THREE.Matrix4() },
+      uInvMVP: { value: new THREE.Matrix4() },
       uModelRot: { value: new THREE.Matrix3() },
-      uInvModel: { value: new THREE.Matrix4() },
-      uInvViewProj: { value: new THREE.Matrix4() },
-      uResolution: { value: new THREE.Vector2(1280, 720) },
+      uViewport: { value: new THREE.Vector4(0, 0, 1280, 720) },
       uVirtualHeight: { value: virtualHeight },
       uSunDir: { value: _defaultSun.clone() },
       uOutlineColor: { value: new THREE.Color(outlineColor) },
@@ -42031,6 +42081,8 @@ class T3SpriteStackActor {
 
     const geo = new THREE.BoxGeometry(bw, bh, bd);
     geo.translate(0, cy, 0);
+    geo.computeBoundingBox();
+    geo.computeBoundingSphere();
 
     this.material = new THREE.ShaderMaterial({
       glslVersion: THREE.GLSL3 || '300 es',
@@ -42050,18 +42102,23 @@ class T3SpriteStackActor {
     this.mesh.userData.isT3SpriteStack = true;
 
     this.mesh.onBeforeRender = (renderer, _scene, camera) => {
-      if (renderer && renderer.getDrawingBufferSize) {
+      if (renderer && typeof renderer.getCurrentViewport === 'function') {
+        renderer.getCurrentViewport(_tmpVp);
+        this.uniforms.uViewport.value.set(
+          _tmpVp.x,
+          _tmpVp.y,
+          Math.max(1, _tmpVp.z),
+          Math.max(1, _tmpVp.w)
+        );
+      } else if (renderer && renderer.getDrawingBufferSize) {
         renderer.getDrawingBufferSize(_tmpSize);
-        this.uniforms.uResolution.value.set(Math.max(1, _tmpSize.x), Math.max(1, _tmpSize.y));
+        this.uniforms.uViewport.value.set(0, 0, Math.max(1, _tmpSize.x), Math.max(1, _tmpSize.y));
       }
       if (camera) {
         _tmpVP.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
-        _tmpInvViewProj.copy(_tmpVP).invert();
-        this.uniforms.uInvViewProj.value.copy(_tmpInvViewProj);
         this.uniforms.uMVP.value.multiplyMatrices(_tmpVP, this.mesh.matrixWorld);
+        this.uniforms.uInvMVP.value.copy(this.uniforms.uMVP.value).invert();
       }
-      _tmpInvModel.copy(this.mesh.matrixWorld).invert();
-      this.uniforms.uInvModel.value.copy(_tmpInvModel);
       this.uniforms.uModelRot.value.setFromMatrix4(this.mesh.matrixWorld);
       const q = HC.QUALITY;
       if (q) {
@@ -42130,10 +42187,10 @@ function hideOriginalMeshes(root, excludeMesh) {
   });
 }
 
-function getOrBakeArchetype(key, partNodes, voxelSize) {
+function getOrBakeArchetype(key, partNodes, voxelSize, root = null) {
   let cached = _bakedCache.get(key);
   if (!cached) {
-    cached = bakeRigPartsToAtlas(partNodes, voxelSize);
+    cached = bakeRigPartsToAtlas(partNodes, voxelSize, root);
     _bakedCache.set(key, cached);
   }
   return cached;
@@ -42161,13 +42218,13 @@ function attachT3ToOriginalBoar(rig) {
     rig.dizzyHalo.traverse((o) => { o.userData.keepVisibleWithT3 = true; });
   }
 
-  const baked = getOrBakeArchetype('boar', partNodes, 0.048);
+  const baked = getOrBakeArchetype('boar', partNodes, 0.048, rig.root);
   const actor = new T3SpriteStackActor({
     texture: baked.texture,
     partCenters: baked.partCenters,
     partCount: baked.partCount,
     voxelSize: baked.voxelSize,
-    bounds: { w: 2.6, h: 2.2, d: 3.0, cy: 0.95 },
+    bounds: { w: 3.0, h: 2.6, d: 3.4, cy: 1.1 },
     outlineColor: 0x1e1410,
     virtualHeight: 270,
   });
@@ -42202,15 +42259,15 @@ function attachT3ToOriginalBandit(built, variant = 'small') {
   ];
 
   const voxelSize = isBig ? 0.064 : 0.048;
-  const baked = getOrBakeArchetype(isBig ? 'bandit_big' : 'bandit_small', partNodes, voxelSize);
+  const baked = getOrBakeArchetype(isBig ? 'bandit_big' : 'bandit_small', partNodes, voxelSize, built.mesh);
   const actor = new T3SpriteStackActor({
     texture: baked.texture,
     partCenters: baked.partCenters,
     partCount: baked.partCount,
     voxelSize: baked.voxelSize,
     bounds: isBig
-      ? { w: 3.6, h: 3.6, d: 3.8, cy: 1.55 }
-      : { w: 2.6, h: 2.6, d: 2.8, cy: 1.15 },
+      ? { w: 4.4, h: 4.2, d: 4.4, cy: 1.75 }
+      : { w: 3.2, h: 3.0, d: 3.2, cy: 1.25 },
     outlineColor: isBig ? 0x141016 : 0x16131a,
     virtualHeight: 270,
   });
@@ -42310,7 +42367,7 @@ function attachT3ToOriginalNPC(root, state) {
   }
 
   const cacheKey = `npc_${roleId}_${pose}`;
-  const baked = getOrBakeArchetype(cacheKey, partNodes, voxelSize);
+  const baked = getOrBakeArchetype(cacheKey, partNodes, voxelSize, root);
 
   if (savedLegRx.length) {
     for (let i = 0; i < savedLegRx.length; i++) {
@@ -42318,16 +42375,16 @@ function attachT3ToOriginalNPC(root, state) {
     }
   }
 
-  const bw = Math.max(1.8, targetH * 1.15);
-  const bh = Math.max(2.0, targetH * 1.30);
-  const bd = Math.max(1.8, targetH * 1.15);
+  const bw = Math.max(2.2, targetH * 1.45);
+  const bh = Math.max(2.0, targetH * 1.28);
+  const bd = Math.max(2.2, targetH * 1.45);
 
   const actor = new T3SpriteStackActor({
     texture: baked.texture,
     partCenters: baked.partCenters,
     partCount: baked.partCount,
     voxelSize: baked.voxelSize,
-    bounds: { w: bw, h: bh, d: bd, cy: targetH * 0.52 },
+    bounds: { w: bw, h: bh, d: bd, cy: targetH * 0.56 },
     outlineColor: 0x18151d,
     virtualHeight: (HC.QUALITY && HC.QUALITY.t3VirtualHeight) || 270,
   });
@@ -42342,7 +42399,279 @@ function attachT3ToOriginalNPC(root, state) {
   return { actor, partNodes };
 }
 
+/**
+ * Wraps Solar Relic Stone Golem or Crystal Prism Golem in Sprite·Stack T3 Hybrid
+ * (preserving solar core / crystal emissives and smooth animated limbs/halos/shards).
+ */
+function attachT3ToOriginalGolem(built, variant = 'ruins_golem') {
+  if (!built || !built.mesh || !built.parts) return null;
+  const isCrystal = variant === 'crystal_golem';
+  const p = built.parts;
+  const partNodes = isCrystal
+    ? [
+        p.body,
+        p.head,
+        p.armL,
+        p.foreL,
+        p.armR,
+        p.foreR,
+        p.legs[0],
+        p.shins[0],
+        p.legs[1],
+        p.shins[1],
+        ...((p.orbitShards || []).slice(0, 4)),
+      ].filter(Boolean)
+    : [
+        p.body,
+        p.head,
+        p.innerHaloRing,
+        p.outerRing,
+        p.shoulderPadL,
+        p.armL,
+        p.foreL,
+        p.shoulderPadR,
+        p.armR,
+        p.foreR,
+        p.legs[0],
+        p.shins[0],
+        p.legs[1],
+        p.shins[1],
+      ].filter(Boolean);
+
+  const voxelSize = isCrystal ? 0.084 : 0.088;
+  const baked = getOrBakeArchetype(isCrystal ? 'golem_crystal' : 'golem_ruins', partNodes, voxelSize, built.mesh);
+  const actor = new T3SpriteStackActor({
+    texture: baked.texture,
+    partCenters: baked.partCenters,
+    partCount: baked.partCount,
+    voxelSize: baked.voxelSize,
+    bounds: { w: 4.4, h: 4.18, d: 4.4, cy: 2.08 },
+    outlineColor: isCrystal ? 0x101324 : 0x1b1612,
+    virtualHeight: (HC.QUALITY && HC.QUALITY.t3VirtualHeight) || 360,
+  });
+
+  hideOriginalMeshes(built.mesh, actor.mesh);
+  built.mesh.add(actor.mesh);
+  actor.syncFromNodes(built.mesh, partNodes);
+
+  p.t3Actor = actor;
+  p.t3PartNodes = partNodes;
+  return { actor, partNodes };
+}
+
+/**
+ * Wraps the ORIGINAL Forest Rabbit rig (`buildVoxelRabbitRig`) in Sprite·Stack T3 Hybrid.
+ */
+function attachT3ToOriginalRabbit(rig) {
+  if (!rig || !rig.root || !rig.body) return null;
+  const partNodes = [
+    rig.body,
+    rig.head,
+    rig.snout,
+    rig.ears && rig.ears.L && rig.ears.L.base,
+    rig.ears && rig.ears.R && rig.ears.R.base,
+    rig.hindLegs && rig.hindLegs.L && rig.hindLegs.L.thigh,
+    rig.hindLegs && rig.hindLegs.R && rig.hindLegs.R.thigh,
+    rig.frontLegs && rig.frontLegs.L && rig.frontLegs.L.upper,
+    rig.frontLegs && rig.frontLegs.R && rig.frontLegs.R.upper,
+    rig.tail,
+  ].filter(Boolean);
+
+  const baked = getOrBakeArchetype(`rabbit_${rig.palette && rig.palette.id ? rig.palette.id : 'white'}`, partNodes, 0.032, rig.root);
+  const actor = new T3SpriteStackActor({
+    texture: baked.texture,
+    partCenters: baked.partCenters,
+    partCount: baked.partCount,
+    voxelSize: baked.voxelSize,
+    bounds: { w: 1.8, h: 1.9, d: 1.8, cy: 0.78 },
+    outlineColor: 0x261d19,
+    virtualHeight: (HC.QUALITY && HC.QUALITY.t3VirtualHeight) || 360,
+  });
+
+  hideOriginalMeshes(rig.root, actor.mesh);
+  rig.root.add(actor.mesh);
+  actor.syncFromNodes(rig.root, partNodes);
+
+  return { actor, partNodes };
+}
+
+// ---- Universal Screen-Space T3 Hybrid Composite Pass for Buildings & Environments ----
+const T3_POST_VERT = /* glsl */ `
+varying vec2 vUv;
+void main() {
+  vUv = uv;
+  gl_Position = vec4(position.xy, 0.0, 1.0);
+}
+`;
+
+const T3_POST_FRAG = /* glsl */ `
+precision highp float;
+
+uniform sampler2D tDiffuse;
+uniform sampler2D tDepth;
+uniform vec2 uTexel;
+uniform float uNear;
+uniform float uFar;
+uniform vec3 uOutlineColor;
+uniform float uSilStrength;
+uniform float uCreaseStrength;
+uniform float uQuantSteps;
+uniform float uEnabled;
+
+varying vec2 vUv;
+
+float linearizeDepth(float d) {
+  float ndc = d * 2.0 - 1.0;
+  return (2.0 * uNear * uFar) / max(0.0001, uFar + uNear - ndc * (uFar - uNear));
+}
+
+void main() {
+  vec4 baseSample = texture2D(tDiffuse, vUv);
+  vec3 col = baseSample.rgb;
+
+  if (uEnabled > 0.5) {
+    float dC = texture2D(tDepth, vUv).r;
+    if (dC < 0.99985) {
+      float zC = linearizeDepth(dC);
+      float zL = linearizeDepth(texture2D(tDepth, vUv - vec2(uTexel.x, 0.0)).r);
+      float zR = linearizeDepth(texture2D(tDepth, vUv + vec2(uTexel.x, 0.0)).r);
+      float zD = linearizeDepth(texture2D(tDepth, vUv - vec2(0.0, uTexel.y)).r);
+      float zU = linearizeDepth(texture2D(tDepth, vUv + vec2(0.0, uTexel.y)).r);
+
+      // Forward-side depth jump + second-order Laplacian keeps continuous hill slopes 0-outline
+      float dzOut = max(0.0, max(max(zL, zR), max(zU, zD)) - zC);
+      float lapX = abs(zL + zR - 2.0 * zC);
+      float lapY = abs(zU + zD - 2.0 * zC);
+      float lap = lapX + lapY;
+
+      // Reject planar sloped terrain/roads where zL < zC < zR symmetrically
+      float slopeGate = smoothstep(0.08, 0.24, lap / max(0.28, zC * 0.042));
+
+      float silThresh = max(0.42, zC * 0.055);
+      float creaseThresh = max(0.22, zC * 0.030);
+      float silMask = smoothstep(silThresh, silThresh * 1.45, dzOut) * slopeGate;
+      float creaseMask = smoothstep(creaseThresh, creaseThresh * 1.65, lap) * slopeGate;
+
+      // Neighbor color discontinuity boost helps crisp architectural roof/wall trim edges
+      vec3 cL = texture2D(tDiffuse, vUv - vec2(uTexel.x, 0.0)).rgb;
+      vec3 cR = texture2D(tDiffuse, vUv + vec2(uTexel.x, 0.0)).rgb;
+      vec3 cU = texture2D(tDiffuse, vUv + vec2(0.0, uTexel.y)).rgb;
+      float colDiff = max(length(col - cL), max(length(col - cR), length(col - cU)));
+      creaseMask = max(creaseMask * 0.85, creaseMask * smoothstep(0.03, 0.14, colDiff));
+
+      float distFade = 1.0 - smoothstep(62.0, 125.0, zC);
+      float edgeMix = clamp(max(silMask * uSilStrength, creaseMask * uCreaseStrength) * distFade, 0.0, 0.78);
+      col = mix(col, uOutlineColor, edgeMix);
+    }
+  }
+
+  gl_FragColor = vec4(col, 1.0);
+  #include <tonemapping_fragment>
+  #include <colorspace_fragment>
+  if (uEnabled > 0.5 && uQuantSteps > 1.0) {
+    gl_FragColor.rgb = floor(gl_FragColor.rgb * uQuantSteps + 0.5) / uQuantSteps;
+  }
+}
+`;
+
+function createT3HybridPostProcessor(renderer) {
+  if (!renderer || !renderer.capabilities || !renderer.capabilities.isWebGL2) return null;
+  const gl = renderer.getContext();
+  const hasHalfFloat = !!(
+    renderer.extensions && (renderer.extensions.get('EXT_color_buffer_half_float') || renderer.extensions.get('EXT_color_buffer_float'))
+  ) || !!(gl && (gl.getExtension('EXT_color_buffer_half_float') || gl.getExtension('EXT_color_buffer_float')));
+  if (!hasHalfFloat) return null;
+
+  const target = new THREE.WebGLRenderTarget(640, 360, {
+    minFilter: THREE.NearestFilter,
+    magFilter: THREE.NearestFilter,
+    format: THREE.RGBAFormat,
+    type: THREE.HalfFloatType,
+    depthBuffer: true,
+    stencilBuffer: false,
+  });
+  target.texture.generateMipmaps = false;
+  target.depthTexture = new THREE.DepthTexture(640, 360, THREE.UnsignedIntType);
+  target.depthTexture.minFilter = THREE.NearestFilter;
+  target.depthTexture.magFilter = THREE.NearestFilter;
+
+  const postScene = new THREE.Scene();
+  const postCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  const uniforms = {
+    tDiffuse: { value: target.texture },
+    tDepth: { value: target.depthTexture },
+    uTexel: { value: new THREE.Vector2(1 / 640, 1 / 360) },
+    uNear: { value: 0.2 },
+    uFar: { value: 450.0 },
+    uOutlineColor: { value: new THREE.Color(0x16121b) },
+    uSilStrength: { value: 0.72 },
+    uCreaseStrength: { value: 0.44 },
+    uQuantSteps: { value: 36.0 },
+    uEnabled: { value: 1.0 },
+  };
+  const postMat = new THREE.ShaderMaterial({
+    vertexShader: T3_POST_VERT,
+    fragmentShader: T3_POST_FRAG,
+    uniforms,
+    depthWrite: false,
+    depthTest: false,
+    toneMapped: true,
+  });
+  const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), postMat);
+  quad.frustumCulled = false;
+  postScene.add(quad);
+
+  let curW = 640;
+  let curH = 360;
+  const canvasSize = new THREE.Vector2();
+
+  return {
+    render(scene, camera) {
+      if (!scene || !camera) return;
+      const q = HC.QUALITY || {};
+      const enabled = q.t3HybridWorld !== false;
+      if (!enabled) {
+        renderer.setRenderTarget(null);
+        renderer.render(scene, camera);
+        return;
+      }
+
+      renderer.getSize(canvasSize);
+      const aspect = Math.max(0.25, canvasSize.x / Math.max(1, canvasSize.y));
+      const vH = Math.max(180, Math.min(540, (q.t3VirtualHeight || 360) | 0));
+      const vW = Math.max(180, Math.min(1920, Math.round(vH * aspect)));
+
+      if (vW !== curW || vH !== curH) {
+        curW = vW;
+        curH = vH;
+        target.setSize(vW, vH);
+      }
+
+      uniforms.uTexel.value.set(1 / curW, 1 / curH);
+      uniforms.uNear.value = camera.near || 0.2;
+      uniforms.uFar.value = camera.far || 450.0;
+      uniforms.uCreaseStrength.value = q.t3Crease === false ? 0.0 : 0.44;
+      uniforms.uSilStrength.value = q.t3Crease === false ? 0.58 : 0.72;
+      uniforms.uEnabled.value = 1.0;
+
+      const prevAutoClear = renderer.autoClear;
+      renderer.autoClear = true;
+      renderer.setRenderTarget(target);
+      renderer.render(scene, camera);
+      renderer.setRenderTarget(null);
+      renderer.render(postScene, postCam);
+      renderer.autoClear = prevAutoClear;
+    },
+    dispose() {
+      target.dispose();
+      postMat.dispose();
+      quad.geometry.dispose();
+    },
+  };
+}
+
 HC.attachT3ToOriginalNPC = attachT3ToOriginalNPC;
+HC.createT3HybridPostProcessor = createT3HybridPostProcessor;
 
 return {
   setT3Pass,
@@ -42352,7 +42681,10 @@ return {
   bakeRigPartsToAtlas,
   attachT3ToOriginalBoar,
   attachT3ToOriginalBandit,
+  attachT3ToOriginalGolem,
+  attachT3ToOriginalRabbit,
   attachT3ToOriginalNPC,
+  createT3HybridPostProcessor,
 };
 
 })();
@@ -48476,6 +48808,8 @@ const {
 const {
   attachT3ToOriginalBoar,
   attachT3ToOriginalBandit,
+  attachT3ToOriginalGolem,
+  attachT3ToOriginalRabbit,
 } = __MOD_T3_SPRITE_STACK;
 const {
   buildSunRuinsGolem,
@@ -49733,6 +50067,9 @@ class RabbitMob {
     this.world = world;
     this.vfx = vfx;
     this.rig = buildVoxelRabbitRig(palette, scene);
+    const t3Rabbit = attachT3ToOriginalRabbit(this.rig);
+    this.t3Actor = t3Rabbit ? t3Rabbit.actor : null;
+    this.t3PartNodes = t3Rabbit ? t3Rabbit.partNodes : null;
     this.homeX = homeX;
     this.homeZ = homeZ;
     this.x = homeX;
@@ -50292,8 +50629,14 @@ class RabbitMob {
     r.frontLegs.R.upper.rotation.set(p.armRX, 0, p.armRZ);
     r.frontLegs.R.fore.rotation.set(p.foreRX, 0, p.foreRZ);
     r.tail.rotation.set(p.tailRotX, p.tailRotY, 0);
+    if (this.t3Actor && this.t3PartNodes) {
+      this.t3Actor.syncFromNodes(r.root, this.t3PartNodes);
+    }
   }
   dispose() {
+    if (this.t3Actor) {
+      this.t3Actor.dispose();
+    }
     if (this.rig && this.rig.root && this.scene) {
       this.scene.remove(this.rig.root);
     }
@@ -51400,7 +51743,9 @@ class BanditMob {
       : isCrystalGolem
         ? buildCrystalGolem(isMobile)
         : (isBig ? buildBigBandit(isMobile) : buildSmallBandit(isMobile));
-    if (!isGolem) {
+    if (isGolem) {
+      attachT3ToOriginalGolem(built, this.variant);
+    } else {
       attachT3ToOriginalBandit(built, this.variant);
     }
     this.mesh = built.mesh;
@@ -51938,6 +52283,9 @@ class BanditMob {
     this.hpBar.updateTransform(this.x, this.y + this.hpBarOffset, this.z, dt);
   }
   dispose() {
+    if (this.parts && this.parts.t3Actor) {
+      this.parts.t3Actor.dispose();
+    }
     if (this.mesh && this.scene) {
       this.scene.remove(this.mesh);
     }
@@ -56989,8 +57337,9 @@ const QUALITY_PRESETS = {
     treeFar: 120,
     villageLod: 68,
     villageFar: 165,
-    t3VirtualHeight: 200,
+    t3VirtualHeight: 240,
     t3Crease: false,
+    t3HybridWorld: true,
     hintKey: 'quality_low_hint',
     hint: 'HP kelas bawah: bayangan mati, resolusi tetap 100%, rumput 30%, pohon >45 m jadi versi low-detail (bukan billboard)'
   },
@@ -57014,8 +57363,9 @@ const QUALITY_PRESETS = {
     treeFar: 140,
     villageLod: 92,
     villageFar: 225,
-    t3VirtualHeight: 240,
+    t3VirtualHeight: 300,
     t3Crease: true,
+    t3HybridWorld: true,
     hintKey: 'quality_med_hint',
     hint: 'HP menengah: bayangan diperbarui berkala, rumput 62%, pohon >60 m versi low-detail'
   },
@@ -57038,8 +57388,9 @@ const QUALITY_PRESETS = {
     treeFar: 160,
     villageLod: 122,
     villageFar: 300,
-    t3VirtualHeight: 270,
+    t3VirtualHeight: 360,
     t3Crease: true,
+    t3HybridWorld: true,
     hintKey: 'quality_high_hint',
     hint: 'PC/HP kencang: semua detail dekat, pohon >80 m versi low-detail, NPC utuh, bayangan penuh'
   }
@@ -57510,6 +57861,12 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 0.92;
 container.appendChild(renderer.domElement);
+const t3Post = HC.createT3HybridPostProcessor ? HC.createT3HybridPostProcessor(renderer) : null;
+HC.t3Post = t3Post;
+function renderScene(s, c) {
+  if (t3Post) t3Post.render(s, c);
+  else renderer.render(s, c);
+}
 
 // ---------------- upgrade store & rig ----------------
 const store = new UpgradeStore();
@@ -60946,7 +61303,7 @@ function stepSim(dt) {
     if (world.syncCamera) world.syncCamera(camera);
     updateWheelHpOverlay();
     updateCargoLabelOverlay();
-    renderer.render(scene, camera);
+    renderScene(scene, camera);
     return;
   }
   if (gameMode === 'cutscene') {
@@ -61033,7 +61390,7 @@ function stepSim(dt) {
     if (world.syncCamera) world.syncCamera(camera);
     updateWheelHpOverlay();
     updateCargoLabelOverlay();
-    renderer.render(scene, camera);
+    renderScene(scene, camera);
     return;
   }
   animator.menuIdleMode = false;
@@ -61444,7 +61801,7 @@ function stepSim(dt) {
     portraitRender.renderer.render(portraitRender.scene, portraitRender.camera);
   }
 
-  renderer.render(scene, camera);
+  renderScene(scene, camera);
   updateWheelHpOverlay();
   updateCargoLabelOverlay();
 }
@@ -61454,7 +61811,7 @@ function frame(now) {
   last = now;
   if (!window.__manualSim) {
     if (window.__freeze) {
-      renderer.render(scene, camera);
+      renderScene(scene, camera);
     } else {
       const dt = Math.min(0.033, Math.max(0.001, rawDt));
       stepSim(dt);

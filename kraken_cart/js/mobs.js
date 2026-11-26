@@ -8,6 +8,8 @@ import {
 import {
   attachT3ToOriginalBoar,
   attachT3ToOriginalBandit,
+  attachT3ToOriginalGolem,
+  attachT3ToOriginalRabbit,
 } from './models/t3_sprite_stack.js';
 import {
   buildSunRuinsGolem,
@@ -1266,6 +1268,9 @@ class RabbitMob {
     this.world = world;
     this.vfx = vfx;
     this.rig = buildVoxelRabbitRig(palette, scene);
+    const t3Rabbit = attachT3ToOriginalRabbit(this.rig);
+    this.t3Actor = t3Rabbit ? t3Rabbit.actor : null;
+    this.t3PartNodes = t3Rabbit ? t3Rabbit.partNodes : null;
     this.homeX = homeX;
     this.homeZ = homeZ;
     this.x = homeX;
@@ -1825,8 +1830,14 @@ class RabbitMob {
     r.frontLegs.R.upper.rotation.set(p.armRX, 0, p.armRZ);
     r.frontLegs.R.fore.rotation.set(p.foreRX, 0, p.foreRZ);
     r.tail.rotation.set(p.tailRotX, p.tailRotY, 0);
+    if (this.t3Actor && this.t3PartNodes) {
+      this.t3Actor.syncFromNodes(r.root, this.t3PartNodes);
+    }
   }
   dispose() {
+    if (this.t3Actor) {
+      this.t3Actor.dispose();
+    }
     if (this.rig && this.rig.root && this.scene) {
       this.scene.remove(this.rig.root);
     }
@@ -2933,7 +2944,9 @@ class BanditMob {
       : isCrystalGolem
         ? buildCrystalGolem(isMobile)
         : (isBig ? buildBigBandit(isMobile) : buildSmallBandit(isMobile));
-    if (!isGolem) {
+    if (isGolem) {
+      attachT3ToOriginalGolem(built, this.variant);
+    } else {
       attachT3ToOriginalBandit(built, this.variant);
     }
     this.mesh = built.mesh;
@@ -3471,6 +3484,9 @@ class BanditMob {
     this.hpBar.updateTransform(this.x, this.y + this.hpBarOffset, this.z, dt);
   }
   dispose() {
+    if (this.parts && this.parts.t3Actor) {
+      this.parts.t3Actor.dispose();
+    }
     if (this.mesh && this.scene) {
       this.scene.remove(this.mesh);
     }

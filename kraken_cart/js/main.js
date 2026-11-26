@@ -55,6 +55,12 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 0.92;
 container.appendChild(renderer.domElement);
+const t3Post = HC.createT3HybridPostProcessor ? HC.createT3HybridPostProcessor(renderer) : null;
+HC.t3Post = t3Post;
+function renderScene(s, c) {
+  if (t3Post) t3Post.render(s, c);
+  else renderer.render(s, c);
+}
 
 // ---------------- upgrade store & rig ----------------
 const store = new UpgradeStore();
@@ -3491,7 +3497,7 @@ function stepSim(dt) {
     if (world.syncCamera) world.syncCamera(camera);
     updateWheelHpOverlay();
     updateCargoLabelOverlay();
-    renderer.render(scene, camera);
+    renderScene(scene, camera);
     return;
   }
   if (gameMode === 'cutscene') {
@@ -3578,7 +3584,7 @@ function stepSim(dt) {
     if (world.syncCamera) world.syncCamera(camera);
     updateWheelHpOverlay();
     updateCargoLabelOverlay();
-    renderer.render(scene, camera);
+    renderScene(scene, camera);
     return;
   }
   animator.menuIdleMode = false;
@@ -3989,7 +3995,7 @@ function stepSim(dt) {
     portraitRender.renderer.render(portraitRender.scene, portraitRender.camera);
   }
 
-  renderer.render(scene, camera);
+  renderScene(scene, camera);
   updateWheelHpOverlay();
   updateCargoLabelOverlay();
 }
@@ -3999,7 +4005,7 @@ function frame(now) {
   last = now;
   if (!window.__manualSim) {
     if (window.__freeze) {
-      renderer.render(scene, camera);
+      renderScene(scene, camera);
     } else {
       const dt = Math.min(0.033, Math.max(0.001, rawDt));
       stepSim(dt);

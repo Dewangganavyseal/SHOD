@@ -672,7 +672,7 @@ function createCrystalCavern(ctx = {}) {
   for (let p = 0; p < 2; p++) {
     for (let c = 0; c < crystalColors.length; c++) {
       const def = crystalColors[c];
-      const mat = new THREE.MeshStandardMaterial({
+      const mat = applyCel(ctx, new THREE.MeshStandardMaterial({
         map: crystalTex,
         emissiveMap: crystalTex,
         color: def.hex,
@@ -681,7 +681,7 @@ function createCrystalCavern(ctx = {}) {
         roughness: 0.16,
         metalness: 0.16,
         vertexColors: true,
-      });
+      }), { rimStrength: 0.26, shadowLift: 0.64, inkStrength: 0.40 });
       crystalMats.push({ mat, phase: p * 1.7 + c * 1.15, baseIntensity: 0.82 });
     }
   }
