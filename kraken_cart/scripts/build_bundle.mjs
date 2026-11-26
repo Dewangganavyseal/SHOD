@@ -196,6 +196,12 @@ function buildMobs() {
   );
   src = mustReplace(
     src,
+    /^\s*import\s*\{([\s\S]*?)\}\s*from\s*'\.\/models\/t3_sprite_stack\.js';\s*\r?\n/m,
+    'const {$1} = __MOD_T3_SPRITE_STACK;\n',
+    'js/mobs.js (t3_sprite_stack)'
+  );
+  src = mustReplace(
+    src,
     /^\s*import\s*\{([\s\S]*?)\}\s*from\s*'\.\/models\/sun_ruins_golem_model\.js';\s*\r?\n/m,
     'const {$1} = __MOD_RUINS_GOLEM;\n',
     'js/mobs.js (sun_ruins_golem_model)'
@@ -339,6 +345,7 @@ const chunks = [
   buildShim(),
   ...SYLVAN_NPCS.map((id) => wrapIIFE(`js/sylvan/npc_${id}.js`, read(`js/sylvan/npc_${id}.js`))),
   buildSylvanModels(),
+  buildModelModule('js/models/t3_sprite_stack.js', '__MOD_T3_SPRITE_STACK'),
   buildSideEffectModule('js/npc.js'),
   buildModelModule('js/models/bandit_models.js', '__MOD_BANDIT_MODELS'),
   buildModelModule('js/models/sun_ruins_golem_model.js', '__MOD_RUINS_GOLEM'),

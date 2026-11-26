@@ -466,24 +466,18 @@ function computeCargoSupports(items, boxesByItem, maxGap = 0.035, maxPenetration
       this.cTrace = 6200;     // N·s/m
       this.kThill = 36000;     // N/m — batang kayu menyalurkan gaya samping
       this.cThill = 6800;     // N·s/m
-      this.tireLatK = 5600;   // N per m/s slip lateral
-      this.tireMu = 0.86;
+      this.tireLatK = 9200;   // N per m/s slip lateral — ban kuat mencengkeram, tidak ngesot
+      this.tireMu = 1.05;
 
-      // ---- bolster depan (turntable) ----
-      // Roda depan nggak kaku nempel bodi: porosnya berputar di kingpin, diputar
-      // oleh gaya samping batang penarik yang nyangkut di ujung poros.
-      // Ini yang bikin gerobak belok kayak wagon beneran, bukan geser kaku.
+      // ---- bolster depan (turntable steering alami) ----
+      // Poros depan berputar di kingpin mengikuti arah tarikan kuda, sementara poros belakang
+      // mencengkeram lurus sebagai sumbu pivot -> belokan melengkung natural tanpa geser samping.
       this.kingpinX = 16.0 * S;     // sumbu putar = garis poros depan
       this.Iaxle = 14;              // kg·m² (poros + 2 roda + singletree)
       this.kAxle = 34000;            // N·m/rad — balik ke tengah (geometri trek)
       this.cAxle = 4200;             // N·m·s/rad
       this.axleTrail = 0.07;        // m — jejak ban: bikin poros self-aligning
-      // RODA TIDAK MEMBELOK. Keempat roda selalu segaris bodi (seperti wagon
-      // barang beneran yang porosnya dipatri ke rangka). Belok terjadi karena
-      // kuda menarik batang ke samping -> bodi yaw, ban nyeret, lalu bodi
-      // miring ke luar tikungan. Kalau tikungannya terlalu tajam, miringnya
-      // lewat titik kritis dan gerobak terguling.
-      this.axleMax = 0;             // rad — 0 = poros dipatri, tidak ada steering
+      this.axleMax = 0.56;          // rad (~32°) — poros depan berbelok halus mengikuti kuda
       // kemiringan badan saat belok (efek sentrifugal di titik berat)
       this.leanMax = 0.50;          // rad (~28,6°) plafon kemiringan mekanis
       this.leanPerG = 0.20;         // rad per m/s² percepatan lateral
@@ -561,21 +555,23 @@ function computeCargoSupports(items, boxesByItem, maxGap = 0.035, maxPenetration
       const lying = Math.abs(this.roll) > FLIP_ANG;
       this._lying = lying;
 
-      // arah bolster depan (diputar axleYaw sekitar sumbu tegak bodi)
+      // arah bolster depan (diputar +axleYaw sekitar sumbu +Y bodi — konvensi rotasi Y Three.js)
       const ca = Math.cos(this.axleYaw), sa = Math.sin(this.axleYaw);
-      const fwdF = this._w7.set(fwd.x * ca + leftA.x * sa, fwd.y * ca + leftA.y * sa, fwd.z * ca + leftA.z * sa);
-      const leftF = this._w8.set(leftA.x * ca - fwd.x * sa, leftA.y * ca - fwd.y * sa, leftA.z * ca - fwd.z * sa);
+      const fwdF = this._w7.set(fwd.x * ca - leftA.x * sa, fwd.y * ca - leftA.y * sa, fwd.z * ca - leftA.z * sa);
+      const leftF = this._w8.set(leftA.x * ca + fwd.x * sa, leftA.y * ca + fwd.y * sa, leftA.z * ca + fwd.z * sa);
 
       // ---------- (2) kontak roda: axle rigid Lv1 / suspensi Lv2+ + friksi ban ----------
       this._src = 'wheel';
+      let groundedRear = 0;
+      let rearXSum = 0;
       for (const w of this.wheels) {
         if (lying || w.detached) { w.contact = false; continue; }   // rebah / roda lepas: gak napak
-        // roda depan berputar mengelilingi kingpin saat bolster membelok
+        // roda depan berputar mengelilingi kingpin saat bolster membelok (+axleYaw sekitar +Y)
         let lx = w.wa.x, lz = w.wa.z;
         if (w.ref.front) {
           const dxk = w.wa.x - this.kingpinX;
-          lx = this.kingpinX + dxk * ca - w.wa.z * sa;
-          lz = dxk * sa + w.wa.z * ca;
+          lx = this.kingpinX + dxk * ca + w.wa.z * sa;
+          lz = -dxk * sa + w.wa.z * ca;
         }
         const rl = this._w1.set(lx, w.wa.y, lz).applyQuaternion(q);
         const wx = this.pos.x + rl.x, wy = rootY + rl.y, wz = this.pos.z + rl.z;
@@ -637,13 +633,16 @@ function computeCargoSupports(items, boxesByItem, maxGap = 0.035, maxPenetration
         const wl = w.ref.front ? leftF : leftA;
         const vLong = vAt.x * wf.x + vAt.y * wf.y + vAt.z * wf.z;
         // kecepatan samping ban depan juga kena tambahan karena poros sedang berputar (axleYawV)
-        const vLatExtra = w.ref.front ? (-this.axleYawV * this.axleTrail) : 0;
+        const vLatExtra = w.ref.front ? (this.axleYawV * this.axleTrail) : 0;
         const vLat = (vAt.x * wl.x + vAt.y * wl.y + vAt.z * wl.z) + vLatExtra;
         const capF = this.tireMu * N;
-        // ban depan di bolster lebih mudah mengikuti belokan dan melurus di belakang kuda
-        const latScale = w.ref.front ? 0.35 : 1.05;
+        // Roda belakang punya cengkeraman lateral sangat kuat (no-slip pivot) agar gerobak tidak sliding
+        // ke samping saat belok; roda depan membelok halus lewat bolster mengikuti kuda.
+        const latScale = w.ref.front ? 1.15 : 2.65;
+        const latCap = w.ref.front ? capF : capF * 1.55;
         let fLat = -vLat * (this.tireLatK * latScale);
-        fLat = Math.max(-capF, Math.min(capF, fLat));
+        fLat = Math.max(-latCap, Math.min(latCap, fLat));
+        if (!w.ref.front && !w.detached) { groundedRear++; rearXSum += w.wa.x; }
         let fLong = -Math.sign(vLong) * Math.min(Math.abs(vLong) * 420, 0.055 * N);
         fLong = Math.max(-capF * 0.85, Math.min(capF * 0.85, fLong));
         // beban samping (nabrak batu / nyeret miring) juga bikin roda rusak
@@ -735,11 +734,11 @@ function computeCargoSupports(items, boxesByItem, maxGap = 0.035, maxPenetration
         const vCz = hvz - hYawRate * rCx;
         const vB = velAt(bx, by, bz, this._w6);
 
-        // 1) Gaya pemusat lateral batang ke kalung (rest = 0 murni, simetris)
+        // 1) Gaya pemusat lateral batang ke kalung (halus, memutar hidung gerobak bukan menyeret roda belakang)
         const dLat = (bx - colMidX) * latX + (bz - colMidZ) * latZ;
         const relLat = (vCx - vB.x) * latX + (vCz - vB.z) * latZ;
-        let fLatThill = -this.kThill * 1.45 * dLat + this.cThill * 1.45 * relLat;
-        fLatThill = Math.max(-26000, Math.min(26000, fLatThill));
+        let fLatThill = -this.kThill * 0.78 * dLat + this.cThill * 0.92 * relLat;
+        fLatThill = Math.max(-13500, Math.min(13500, fLatThill));
         addForce(latX * fLatThill, 0, latZ * fLatThill, bx, axleY, bz);
 
         // 2) Breeching (rem belakang batang tarik) saat gerobak menyusul kuda yang ngerem,
@@ -756,23 +755,16 @@ function computeCargoSupports(items, boxesByItem, maxGap = 0.035, maxPenetration
           if (fBrake > 0) addForce(-hfx * fBrake, 0, -hfz * fBrake, com.x, com.y, com.z);
         }
 
-        // 3) Torsi penyearah alami (self-aligning trail): hidung gerobak selalu meluruskan diri ke kalung
+        // 3) Torsi penyearah alami (trailer follow): sebanding laju maju agar memutar mulus di poros belakang
         const toColX = colMidX - this.pos.x;
         const toColZ = colMidZ - this.pos.z;
         const toColDist = Math.hypot(toColX, toColZ);
         if (toColDist > 1.2) {
           const wantYaw = Math.atan2(-toColZ, toColX);
           const yawErr = this._wrapAngle(wantYaw - this.yaw);
-          const tAlign = Math.max(-14000, Math.min(14000, 11000 * yawErr - 2600 * this.yawV));
+          const alignGain = Math.min(1.0, 0.22 + this._hSpeed * 0.42);
+          const tAlign = Math.max(-11000, Math.min(11000, (9500 * alignGain) * yawErr - 3200 * this.yawV));
           Ty += tAlign;
-        }
-
-        // 4) Tarikan pemusat lembut di jalur lurus maju supaya gerobak cepat kembali di belakang kuda
-        if (hFwdSpeed > 0.35 && Math.abs(hYawRate) < 0.15) {
-          const hLx = -hfz, hLz = hfx;
-          const latOff = (this.pos.x - horsePos.x) * hLx + (this.pos.z - horsePos.z) * hLz;
-          const fCenter = Math.max(-4500, Math.min(4500, -latOff * 2200));
-          addForce(hLx * fCenter, 0, hLz * fCenter, this.pos.x, axleY, this.pos.z);
         }
 
         // 5) Redaman parkir halus saat kuda benar-benar berhenti agar gerobak cepat tenang
@@ -900,31 +892,57 @@ function computeCargoSupports(items, boxesByItem, maxGap = 0.035, maxPenetration
       this.pitchV = Math.max(-pvCap, Math.min(pvCap, this.pitchV));
       this.yawV = Math.max(-yvCap, Math.min(yvCap, this.yawV));
 
-      // ---- bolster depan: castor yang ngejar arah tarikan ----
-      // Poros depan bebas berputar di kingpin; tali (traces) dari sabuk perut kuda
-      // menarik singletree, jadi poros selalu menyelaraskan diri ke arah tarik itu.
-      // Ini constraint beneran (castor), bukan animasi: gerobak belok karena porosnya
-      // dipaksa sejajar tali, bukan karena bodinya diputar script.
-      // titik singletree (pusat ikatan tali) di dunia, ikut putaran bolster
+      // Konstrain no-slip poros belakang (rigid-body point impulse di garis roda belakang):
+      // membunuh geser samping (crabbing) sambil menyalurkan momen putar alami ke yawV
+      // sehingga gerobak benar-benar membelok berporos di roda belakang seperti kereta kuda asli.
+      if (!lying && !this.flipped && groundedRear >= 1) {
+        const rearLocalX = rearXSum / groundedRear;
+        const relRearX = rearLocalX - this.comLocal.x; // negatif = di belakang COM
+        const rRx = fwd.x * relRearX;
+        const rRz = fwd.z * relRearX;
+        const vRx = this.vel.x + this.yawV * rRz;
+        const vRz = this.vel.z - this.yawV * rRx;
+        const vRearLat = vRx * leftA.x + vRz * leftA.z;
+        const crossY = rRz * leftA.x - rRx * leftA.z;
+        const invEff = (1 / Math.max(40, m)) + (crossY * crossY) / Math.max(40, this.Iyaw);
+        const kill = 1 - Math.exp(-28.0 * h);
+        const jImp = -(vRearLat * kill) / invEff;
+        this.vel.x += leftA.x * (jImp / Math.max(40, m));
+        this.vel.z += leftA.z * (jImp / Math.max(40, m));
+        this.yawV += (jImp * crossY) / Math.max(40, this.Iyaw);
+      }
+
+      // ---- bolster depan: steering halus mengikuti sudut belok kuda & arah tarikan kalung ----
       {
         const cmx = (this.traceLocal[0].x + this.traceLocal[1].x) * 0.5;
         const cmy = (this.traceLocal[0].y + this.traceLocal[1].y) * 0.5;
         this._axleSing.set(
           this.kingpinX + (cmx - this.kingpinX) * ca,
           cmy,
-          0
+          -(cmx - this.kingpinX) * sa
         ).applyQuaternion(q).add(this._rp.set(this.pos.x, rootY, this.pos.z));
       }
-      // Arah yang "benar" buat roda depan = arah gerak titik poros depan itu sendiri.
-      // Poros depan yang bebas (castor + trail) selalu nyari posisi ini: ban depan
-      // nggak nyeret, jadi gerobak belok mulus ngikutin kuda tanpa ngelawan.
-      // Roda depan di poros putar (kingpin) selaras dengan arah lari titik poros itu sendiri
-      // + arah kalung kuda (karena batang nyangkut di poros depan). Jadi ban depan menggelinding
-      // ke arah belok, sementara roda belakang tetap lurus ke bak -> bak ngikutin dengan trail alami.
-      // Poros dipatri: tidak ada castor, tidak ada steering. axleYaw selalu 0,
-      // jadi keempat roda tetap sejajar bodi berapa pun tajam beloknya.
-      this.axleYaw = 0;
-      this.axleYawV = 0;
+      if (this.axleMax > 0 && this.hitched && !lying && hitchColL && hitchColR) {
+        const colMidX = (hitchColL.x + hitchColR.x) * 0.5;
+        const colMidZ = (hitchColL.z + hitchColR.z) * 0.5;
+        const kpX = this.pos.x + fwd.x * this.kingpinX;
+        const kpZ = this.pos.z + fwd.z * this.kingpinX;
+        const dxK = colMidX - kpX;
+        const dzK = colMidZ - kpZ;
+        const horseDelta = this._wrapAngle(horseYaw - this.yaw);
+        const collarDelta = Math.hypot(dxK, dzK) > 0.35
+          ? this._wrapAngle(Math.atan2(-dzK, dxK) - this.yaw)
+          : horseDelta;
+        const wantSteer = horseDelta * 0.72 + collarDelta * 0.28;
+        const clampedSteer = Math.max(-this.axleMax, Math.min(this.axleMax, wantSteer));
+        const prevAxle = this.axleYaw;
+        this.axleYaw += (clampedSteer - this.axleYaw) * (1 - Math.exp(-12.0 * h));
+        this.axleYawV = (this.axleYaw - prevAxle) / Math.max(h, 1e-4);
+      } else {
+        const prevAxle = this.axleYaw;
+        this.axleYaw *= Math.exp(-8.0 * h);
+        this.axleYawV = (this.axleYaw - prevAxle) / Math.max(h, 1e-4);
+      }
 
       // Begitu latch guling aktif, kontak roda TIDAK boleh melawan jatuhnya:
       // tanpa ini torsi kontak (penetrasi roda sisi luar) menahan bodi tegak

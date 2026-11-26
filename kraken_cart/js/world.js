@@ -55,13 +55,13 @@ class World {
     const PERF_PROFILES = {
       // treeLod  = jarak mulai pakai geometri pohon gabungan (low-detail, 1 draw call per jenis)
       // treeFar  = jarak maksimum pohon low-detail masih digambar (siluet cakrawala)
-      potato:   { label: 'Kentang',  pixelRatio: 1.0,  cullDistance: 42.0, grassRatio: 0.30, treeLod: 40.0, treeFar: 165.0 },
-      medium:   { label: 'Menengah', pixelRatio: 1.25, cullDistance: 72.0, grassRatio: 0.62, treeLod: 54.0, treeFar: 220.0 },
-      high:     { label: 'Ultra PC', pixelRatio: 2.0,  cullDistance: 118.0, grassRatio: 1.0, treeLod: 72.0, treeFar: 290.0 },
+      potato:   { label: 'Kentang',  pixelRatio: 1.0,  cullDistance: 42.0, grassRatio: 0.30, treeLod: 40.0, treeFar: 165.0, villageLod: 68.0, villageFar: 165.0 },
+      medium:   { label: 'Menengah', pixelRatio: 1.25, cullDistance: 72.0, grassRatio: 0.62, treeLod: 54.0, treeFar: 220.0, villageLod: 92.0, villageFar: 225.0 },
+      high:     { label: 'Ultra PC', pixelRatio: 2.0,  cullDistance: 118.0, grassRatio: 1.0, treeLod: 72.0, treeFar: 290.0, villageLod: 122.0, villageFar: 300.0 },
       // alias lama supaya kode/probe yang masih menyebut nama ini tetap jalan
-      mobile:   { label: 'Kentang',  pixelRatio: 1.0,  cullDistance: 42.0, grassRatio: 0.30, treeLod: 40.0, treeFar: 165.0 },
-      balanced: { label: 'Menengah', pixelRatio: 1.25, cullDistance: 72.0, grassRatio: 0.62, treeLod: 54.0, treeFar: 220.0 },
-      ultra:    { label: 'Ultra PC', pixelRatio: 2.0,  cullDistance: 118.0, grassRatio: 1.0, treeLod: 72.0, treeFar: 290.0 }
+      mobile:   { label: 'Kentang',  pixelRatio: 1.0,  cullDistance: 42.0, grassRatio: 0.30, treeLod: 40.0, treeFar: 165.0, villageLod: 68.0, villageFar: 165.0 },
+      balanced: { label: 'Menengah', pixelRatio: 1.25, cullDistance: 72.0, grassRatio: 0.62, treeLod: 54.0, treeFar: 220.0, villageLod: 92.0, villageFar: 225.0 },
+      ultra:    { label: 'Ultra PC', pixelRatio: 2.0,  cullDistance: 118.0, grassRatio: 1.0, treeLod: 72.0, treeFar: 290.0, villageLod: 122.0, villageFar: 300.0 }
     };
     let currentPerfMode = QUALITY ? QUALITY.key : (isMobileDevice ? 'medium' : 'high');
     this._quality = QUALITY;
@@ -323,8 +323,10 @@ class World {
         };
 
         function applyStylizedCelShading(material, options = {}) {
-            const rimStrength = options.rimStrength !== undefined ? options.rimStrength : 0.13;
+            const rimStrength = options.rimStrength !== undefined ? options.rimStrength : 0.18;
             const shadowLift = options.shadowLift !== undefined ? options.shadowLift : 0.60;
+            const lowRes = !!options.lowRes;
+            const inkStrength = options.inkStrength !== undefined ? options.inkStrength : (lowRes ? 0.55 : 0.68);
 
             material.onBeforeCompile = (shader) => {
                 shader.uniforms.uSunDir = celShaderUniforms.uSunDir;
@@ -337,6 +339,8 @@ class World {
                 shader.uniforms.uCampfireStrength = celShaderUniforms.uCampfireStrength;
                 shader.uniforms.uRimStrength = { value: rimStrength };
                 shader.uniforms.uShadowLift = { value: shadowLift };
+                shader.uniforms.uLowResMode = { value: lowRes ? 1.0 : 0.0 };
+                shader.uniforms.uInkStrength = { value: inkStrength };
 
                 shader.vertexShader = `
                     varying vec3 vCelWorldPos;
@@ -364,6 +368,8 @@ class World {
                         uniform float uCampfireStrength;
                         uniform float uRimStrength;
                         uniform float uShadowLift;
+                        uniform float uLowResMode;
+                        uniform float uInkStrength;
                         varying vec3 vCelWorldPos;
                         varying vec3 vCelWorldNormal;
                     ` + shader.fragmentShader;
@@ -371,30 +377,56 @@ class World {
                     shader.fragmentShader = shader.fragmentShader.replace(
                         '#include <tonemapping_fragment>',
                         `
-                        vec3 N = normalize(vCelWorldNormal);
+                        // Sprite-Stack T3 Hybrid style (diselaraskan dengan shader Bandit & NPC):
+                        // 1) Normal facet voxel tajam via dFdx/dFdy
+                        vec3 dpx = dFdx(vCelWorldPos);
+                        vec3 dpy = dFdy(vCelWorldPos);
+                        vec3 faceCross = cross(dpx, dpy);
+                        vec3 vN = normalize(vCelWorldNormal);
+                        vec3 fN = length(faceCross) > 1e-6 ? normalize(faceCross) : vN;
+                        if (dot(fN, vN) < 0.0) fN = -fN;
+                        vec3 N = normalize(mix(vN, fN, uLowResMode > 0.5 ? 0.95 : 0.82));
                         vec3 L = normalize(uSunDir);
                         vec3 V = normalize(cameraPosition - vCelWorldPos);
 
-                        float halfLambert = dot(N, L) * 0.5 + 0.5;
-                        float band1 = smoothstep(0.24, 0.48, halfLambert);
-                        float band2 = smoothstep(0.56, 0.82, halfLambert);
-                        float toonStep = band1 * 0.60 + band2 * 0.40;
+                        // 2) Kuantisasi palet warna (lebih kasar pada LOD rumah jauh agar terasa low-res)
+                        float palSteps = uLowResMode > 0.5 ? 10.0 : 26.0;
+                        vec3 qAlbedo = floor(diffuseColor.rgb * palSteps + 0.5) / palSteps;
+                        if (uLowResMode > 0.5) {
+                            // Blok shading low-res kasar untuk LOD rumah desa
+                            vec3 blk = floor(vCelWorldPos / 0.65);
+                            float blkHash = fract(sin(dot(blk, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
+                            qAlbedo *= mix(0.92, 1.08, blkHash);
+                        }
 
-                        vec3 baseCol = diffuseColor.rgb * uSceneBrightness;
-                        vec3 coolShadow = mix(baseCol * uShadowTint * 1.18, baseCol * 0.44, 0.46);
-                        vec3 sunlitCol = baseCol * mix(vec3(1.0), uSunColor * 1.04, 0.24);
-                        vec3 celColor = mix(coolShadow, sunlitCol, toonStep);
+                        // 3) T3 Cel-AO 3 tingkat (0.45 / 0.75 / 1.0) + AO arah atas/bawah
+                        float ndl = max(dot(N, L), 0.0);
+                        float cel = ndl > 0.62 ? 1.0 : (ndl > 0.22 ? 0.75 : 0.45);
+                        float ao = mix(0.76, 1.0, clamp(N.y * 0.5 + 0.5, 0.0, 1.0));
+                        vec3 baseCol = qAlbedo * (0.34 + 0.66 * cel) * ao * uSceneBrightness;
+                        vec3 coolShadow = mix(baseCol * uShadowTint * 1.12, baseCol * 0.56, 0.45);
+                        vec3 sunlitCol = baseCol * mix(vec3(1.0), uSunColor * 1.04, 0.22);
+                        vec3 celColor = mix(coolShadow, sunlitCol, smoothstep(0.45, 1.0, cel));
 
-                        float rim = pow(1.0 - max(dot(N, V), 0.0), 3.0) * smoothstep(0.18, 0.85, N.y * 0.5 + 0.5);
-                        celColor += uRimTint * rim * uRimStrength * uSceneBrightness;
+                        // 4) T3 Rim Light (pow(1 - dot(N, V), 2))
+                        float rim = pow(1.0 - max(dot(N, V), 0.0), 2.0);
+                        celColor += mix(vec3(1.0, 0.96, 0.88), uRimTint, 0.45) * rim * max(uRimStrength, 0.16) * uSceneBrightness;
 
-                        // Honor directional shadow map smoothly without crushing brightness at calmer light levels
+                        // Honor directional shadow map cleanly
                         float expectedBase = max(length(diffuseColor.rgb) * uSceneBrightness * 0.85, 0.001);
                         float engineLightRatio = clamp(length(outgoingLight) / expectedBase, 0.25, 1.25);
                         float castShadowMask = smoothstep(0.30, 0.62, engineLightRatio);
-                        outgoingLight = mix(coolShadow * 0.90, celColor, castShadowMask);
+                        outgoingLight = mix(coolShadow * 0.88, celColor, castShadowMask);
 
-                        // Campfire warm bounce light (no expensive 6-pass cubemap shadow!)
+                        // 5) T3 Crisp 1px Ink Edge & Silhouette Outline (tanpa FBO / draw call tambahan)
+                        float edgeN = length(fwidth(N));
+                        float sil = smoothstep(0.66, 0.88, 1.0 - max(dot(N, V), 0.0));
+                        float crease = uLowResMode > 0.5 ? smoothstep(0.55, 1.05, edgeN) : smoothstep(0.40, 0.85, edgeN);
+                        float inkMask = clamp(max(crease * uInkStrength, sil * (uInkStrength * 0.55)), 0.0, 0.72);
+                        vec3 inkCol = vec3(0.09, 0.07, 0.11) * max(0.35, uSceneBrightness);
+                        outgoingLight = mix(outgoingLight, inkCol, inkMask);
+
+                        // Campfire warm bounce light
                         float fireDist = length(uCampfirePos - vCelWorldPos);
                         float fireGlow = (1.0 - smoothstep(1.5, 13.5, fireDist)) * uCampfireStrength;
                         outgoingLight += diffuseColor.rgb * uCampfireColor * smoothstep(0.10, 0.65, fireGlow) * 0.44;
@@ -6424,6 +6456,7 @@ class World {
                 };
             }
 
+            let _activeVillageRec = null;
             function registerModelMeta(group, wx, wy, wz, yaw, fallbackType = 'house', scale = 1.0) {
                 const ud = group.userData || {};
                 if (Array.isArray(ud.lanterns)) {
@@ -6431,12 +6464,30 @@ class World {
                 }
                 if (ud.animated) {
                     if (Array.isArray(ud.animated.smokePuffs)) {
-                        for (const sp of ud.animated.smokePuffs) villageAnimated.smokePuffs.push(sp);
+                        for (const sp of ud.animated.smokePuffs) {
+                            if (sp && sp.userData) sp.userData._vRec = _activeVillageRec;
+                            villageAnimated.smokePuffs.push(sp);
+                        }
                     }
-                    if (ud.animated.signPivot) villageAnimated.signPivots.push(ud.animated.signPivot);
-                    if (ud.animated.embers) villageAnimated.embers.push(ud.animated.embers);
-                    if (ud.animated.wellWater) villageAnimated.wellWaters.push(ud.animated.wellWater);
-                    if (ud.animated.bucketPivot) villageAnimated.bucketPivots.push(ud.animated.bucketPivot);
+                    if (ud.animated.signPivot) {
+                        ud.animated.signPivot.userData = ud.animated.signPivot.userData || {};
+                        ud.animated.signPivot.userData._vRec = _activeVillageRec;
+                        villageAnimated.signPivots.push(ud.animated.signPivot);
+                    }
+                    if (ud.animated.embers) {
+                        ud.animated.embers._vRec = _activeVillageRec;
+                        villageAnimated.embers.push(ud.animated.embers);
+                    }
+                    if (ud.animated.wellWater) {
+                        ud.animated.wellWater.userData = ud.animated.wellWater.userData || {};
+                        ud.animated.wellWater.userData._vRec = _activeVillageRec;
+                        villageAnimated.wellWaters.push(ud.animated.wellWater);
+                    }
+                    if (ud.animated.bucketPivot) {
+                        ud.animated.bucketPivot.userData = ud.animated.bucketPivot.userData || {};
+                        ud.animated.bucketPivot.userData._vRec = _activeVillageRec;
+                        villageAnimated.bucketPivots.push(ud.animated.bucketPivot);
+                    }
                 }
                 if (Array.isArray(ud.colliders)) {
                     const cosY = Math.cos(yaw);
@@ -6460,6 +6511,127 @@ class World {
                 }
             }
 
+            // Helper: Bake 1-draw-call Ultra-Low-Res LOD persis dari bentuk asli setiap rumah & gerbang desa
+            const lodBaseBox = new THREE.BoxGeometry(1, 1, 1).toNonIndexed();
+            const lodSharedMat = new THREE.MeshLambertMaterial({ color: 0xffffff, vertexColors: true });
+            applyStylizedCelShading(lodSharedMat, { lowRes: true, rimStrength: 0.18, inkStrength: 0.55 });
+            const lodN3 = new THREE.Matrix3();
+            const lodV = new THREE.Vector3();
+            const lodN = new THREE.Vector3();
+            const lodC = new THREE.Color();
+            const lodS = new THREE.Vector3();
+            const lodQ = new THREE.Quaternion();
+            const lodP = new THREE.Vector3();
+            const lodM = new THREE.Matrix4();
+            const lodPosAttr = lodBaseBox.attributes.position;
+            const lodNormAttr = lodBaseBox.attributes.normal;
+
+            function bakeExactLowResVillageLod(villageGroup, vId) {
+                villageGroup.updateMatrixWorld(true);
+                const p = [];
+                const n = [];
+                const c = [];
+                const quant = 0.20; // kuantisasi grid 20cm -> siluet rumah asli persis, resolusi sangat rendah & ringan!
+                const qCoord = (v) => Math.round(v / quant) * quant;
+
+                villageGroup.traverse((obj) => {
+                    if (!obj.isMesh || !obj.visible) return;
+                    if (obj.isInstancedMesh || obj.isSprite) return;
+                    const mat = Array.isArray(obj.material) ? obj.material[0] : obj.material;
+                    if (!mat) return;
+                    if (mat.transparent && (mat.opacity !== undefined && mat.opacity < 0.75)) return;
+                    if (obj.userData && (obj.userData.baseScale !== undefined || obj.userData.isSmoke || obj.userData.isGlow)) return;
+
+                    const geo = obj.geometry;
+                    if (!geo || !geo.attributes || !geo.attributes.position) return;
+                    if (!geo.boundingBox) geo.computeBoundingBox();
+                    const bb = geo.boundingBox;
+                    if (!bb) return;
+
+                    obj.matrixWorld.decompose(lodP, lodQ, lodS);
+                    const szX = (bb.max.x - bb.min.x) * Math.abs(lodS.x);
+                    const szY = (bb.max.y - bb.min.y) * Math.abs(lodS.y);
+                    const szZ = (bb.max.z - bb.min.z) * Math.abs(lodS.z);
+                    const maxDim = Math.max(szX, szY, szZ);
+                    // Abaikan detail super mungil (< 24cm: paku, kelopak bunga, gagang kecil) agar sangat ringan
+                    if (maxDim < 0.24) return;
+
+                    if (mat.color) lodC.copy(mat.color);
+                    else lodC.setHex(0xb8a690);
+                    // Kuantisasi warna kasar ala low-res
+                    const r = Math.round(lodC.r * 10) / 10;
+                    const g = Math.round(lodC.g * 10) / 10;
+                    const b = Math.round(lodC.b * 10) / 10;
+
+                    const posAttr = geo.attributes.position;
+                    const idxAttr = geo.index;
+                    const triCount = idxAttr ? (idxAttr.count / 3) : (posAttr.count / 3);
+                    const colAttr = geo.attributes.color;
+
+                    if (triCount > 0 && triCount <= 48) {
+                        // Bentuk struktur rumah asli (atap miring/gable, cerobong, dinding, beranda, gerbang, kusen):
+                        // salin segitiga aslinya dengan kuantisasi posisi kasar agar bentuk persis sama aslinya!
+                        const vA = new THREE.Vector3();
+                        const vB = new THREE.Vector3();
+                        const vC = new THREE.Vector3();
+                        const e1 = new THREE.Vector3();
+                        const e2 = new THREE.Vector3();
+                        const fn = new THREE.Vector3();
+                        const total = idxAttr ? idxAttr.count : posAttr.count;
+                        for (let i = 0; i + 2 < total; i += 3) {
+                            const i0 = idxAttr ? idxAttr.getX(i) : i;
+                            const i1 = idxAttr ? idxAttr.getX(i + 1) : i + 1;
+                            const i2 = idxAttr ? idxAttr.getX(i + 2) : i + 2;
+                            vA.fromBufferAttribute(posAttr, i0).applyMatrix4(obj.matrixWorld);
+                            vB.fromBufferAttribute(posAttr, i1).applyMatrix4(obj.matrixWorld);
+                            vC.fromBufferAttribute(posAttr, i2).applyMatrix4(obj.matrixWorld);
+                            vA.set(qCoord(vA.x), qCoord(vA.y), qCoord(vA.z));
+                            vB.set(qCoord(vB.x), qCoord(vB.y), qCoord(vB.z));
+                            vC.set(qCoord(vC.x), qCoord(vC.y), qCoord(vC.z));
+                            e1.subVectors(vB, vA);
+                            e2.subVectors(vC, vA);
+                            fn.crossVectors(e1, e2);
+                            if (fn.lengthSq() < 1e-8) continue;
+                            fn.normalize();
+                            const cr = colAttr ? Math.round(colAttr.getX(i0) * lodC.r * 10) / 10 : r;
+                            const cg = colAttr ? Math.round(colAttr.getY(i0) * lodC.g * 10) / 10 : g;
+                            const cb = colAttr ? Math.round(colAttr.getZ(i0) * lodC.b * 10) / 10 : b;
+                            p.push(vA.x, vA.y, vA.z, vB.x, vB.y, vB.z, vC.x, vC.y, vC.z);
+                            n.push(fn.x, fn.y, fn.z, fn.x, fn.y, fn.z, fn.x, fn.y, fn.z);
+                            c.push(cr, cg, cb, cr, cg, cb, cr, cg, cb);
+                        }
+                    } else {
+                        // Mesh melengkung poligon banyak (tong, pilar bulat, sumur bulat) -> ganti 1 kotak terorientasi low-poly
+                        const locCenter = bb.getCenter(new THREE.Vector3());
+                        const locSize = bb.getSize(new THREE.Vector3());
+                        lodM.compose(locCenter, new THREE.Quaternion(), locSize);
+                        lodM.premultiply(obj.matrixWorld);
+                        lodN3.getNormalMatrix(lodM);
+                        for (let i = 0; i < lodPosAttr.count; i++) {
+                            lodV.fromBufferAttribute(lodPosAttr, i).applyMatrix4(lodM);
+                            lodN.fromBufferAttribute(lodNormAttr, i).applyMatrix3(lodN3).normalize();
+                            p.push(qCoord(lodV.x), qCoord(lodV.y), qCoord(lodV.z));
+                            n.push(lodN.x, lodN.y, lodN.z);
+                            c.push(r, g, b);
+                        }
+                    }
+                });
+
+                if (!p.length) return null;
+                const lodGeo = new THREE.BufferGeometry();
+                lodGeo.setAttribute('position', new THREE.Float32BufferAttribute(p, 3));
+                lodGeo.setAttribute('normal', new THREE.Float32BufferAttribute(n, 3));
+                lodGeo.setAttribute('color', new THREE.Float32BufferAttribute(c, 3));
+                lodGeo.computeBoundingSphere();
+                const lodMesh = new THREE.Mesh(lodGeo, lodSharedMat);
+                lodMesh.name = `${vId}-lod`;
+                lodMesh.visible = false;
+                lodMesh.castShadow = false;
+                lodMesh.receiveShadow = false;
+                lodMesh.userData.isVillageLod = true;
+                return lodMesh;
+            }
+
             for (let vIdx = 0; vIdx < VILLAGES.length; vIdx++) {
                 const v = VILLAGES[vIdx];
                 const villageGroup = new THREE.Group();
@@ -6475,6 +6647,9 @@ class World {
                     fighterRole: v.fighterRole,
                     merchantRole: v.merchantRole,
                     farmerRoles: v.farmerRoles,
+                    group: villageGroup,
+                    lodMesh: null,
+                    isNear: true,
                     buildings: {},
                     buildingList: [],
                     stations: {
@@ -6483,6 +6658,7 @@ class World {
                     },
                     indoorsCount: 0,
                 };
+                _activeVillageRec = vRec;
 
                 // Helper koordinat sepanjang poros jalan desa: along (maju/mundur), lat (kanan +, kiri -)
                 const streetPt = (along, lat = 0) => {
@@ -7033,11 +7209,18 @@ class World {
                 vRec.stations.tavernPorch = vRec.stations.tavernPorch || vRec.stations.plaza;
                 vRec.stations.forge = vRec.stations.forge || vRec.stations.tavernPorch;
 
+                const lodMesh = bakeExactLowResVillageLod(villageGroup, v.id);
+                if (lodMesh) {
+                    scene.add(lodMesh);
+                    vRec.lodMesh = lodMesh;
+                }
+
                 villageData.villages.push(vRec);
                 if (vIdx === 0) {
                     Object.assign(villageData.stations, vRec.stations);
                 }
             }
+            lodBaseBox.dispose();
         })();
 
         const interactiveMushrooms = [];
@@ -9276,8 +9459,33 @@ class World {
       bush.visible = (dist <= prof.cullDistance + 8.0) && this._cameraFrustum.intersectsSphere(sphere);
     }
 
-    // Tahap akhir: pohon jauh ditukar jadi instance geometri low-detail (3D).
+    // Tahap akhir: pohon & desa jauh ditukar jadi siluet geometri low-detail (3D).
     this._updateTreeLod(camera);
+    this._updateVillageLod(camera);
+  }
+
+  _updateVillageLod(camera) {
+    const villages = this.villageData && this.villageData.villages;
+    if (!Array.isArray(villages) || !villages.length || !camera) return;
+    const prof = (this.PERF_PROFILES && (this.PERF_PROFILES[this.currentPerfMode] || this.PERF_PROFILES.ultra)) || {};
+    const q = this._quality || {};
+    const vLod = Math.max(45, q.villageLod || prof.villageLod || 85);
+    const vFar = Math.max(vLod + 40, q.villageFar || prof.villageFar || 220);
+    const camPos = camera.position;
+
+    for (let i = 0; i < villages.length; i++) {
+      const vRec = villages[i];
+      if (!vRec || !vRec.group) continue;
+      const dist = Math.hypot(camPos.x - vRec.cx, camPos.z - vRec.cz);
+      const hyst = vRec.isNear ? 4.0 : -4.0;
+      const near = dist <= (vLod + hyst);
+      const inFar = dist <= vFar;
+      vRec.isNear = near;
+      vRec.group.visible = near;
+      if (vRec.lodMesh) {
+        vRec.lodMesh.visible = !near && inFar;
+      }
+    }
   }
 
   syncCamera(camera) {
@@ -9675,13 +9883,13 @@ class World {
       }
     }
 
-    // Animasi halus Desa Lemnos (asap cerobong, papan ayun, bara pandai besi, air sumur)
+    // Animasi halus desa (hanya di-update untuk desa dekat agar CPU device kentang ringan)
     if (this.villageAnimated) {
       const va = this.villageAnimated;
       for (let i = 0; i < va.smokePuffs.length; i++) {
         const sp = va.smokePuffs[i];
         const ud = sp.userData;
-        if (!ud) continue;
+        if (!ud || (ud._vRec && !ud._vRec.isNear)) continue;
         const cycle = (elapsed * (ud.speed || 0.28) + (ud.phase || 0)) % 1.0;
         const maxRise = ud.maxRise || 2.1;
         sp.position.y = ud.baseY + cycle * maxRise;
@@ -9693,13 +9901,14 @@ class World {
       for (let i = 0; i < va.signPivots.length; i++) {
         const piv = va.signPivots[i];
         const ud = piv.userData || {};
+        if (ud._vRec && !ud._vRec.isNear) continue;
         const angle = Math.sin(elapsed * (ud.speed || 1.35) + (ud.phase || i)) * (ud.maxAngle || 0.12) * Math.min(1.5, windFactor);
         if (ud.axis === 'x') piv.rotation.x = angle;
         else piv.rotation.z = angle;
       }
       for (let i = 0; i < va.embers.length; i++) {
         const eb = va.embers[i];
-        if (!eb) continue;
+        if (!eb || (eb._vRec && !eb._vRec.isNear)) continue;
         const pulse = 0.86 + 0.18 * Math.sin(elapsed * 7.5 + i * 2.1) + 0.10 * Math.cos(elapsed * 13.0 + i);
         if (eb.glowSprite) {
           const bs = eb.baseScale || 1.55;
@@ -9718,20 +9927,23 @@ class World {
       }
       for (let i = 0; i < va.wellWaters.length; i++) {
         const ww = va.wellWaters[i];
-        if (ww) ww.rotation.y = elapsed * 0.14;
+        if (!ww || (ww.userData && ww.userData._vRec && !ww.userData._vRec.isNear)) continue;
+        ww.rotation.y = elapsed * 0.14;
       }
       for (let i = 0; i < va.bucketPivots.length; i++) {
         const bp = va.bucketPivots[i];
-        if (bp) bp.rotation.z = Math.sin(elapsed * 1.1 + i) * 0.04 * windFactor;
+        if (!bp || (bp.userData && bp.userData._vRec && !bp.userData._vRec.isNear)) continue;
+        bp.rotation.z = Math.sin(elapsed * 1.1 + i) * 0.04 * windFactor;
       }
     }
 
-    // Animasi ayunan pintu berengsel saat warga desa keluar / masuk rumah
+    // Animasi ayunan pintu berengsel saat warga desa keluar / masuk rumah (skip desa jauh)
     if (this.villageData && Array.isArray(this.villageData.buildingList)) {
       const doorRate = Math.min(1, delta * 5.2);
       const list = this.villageData.buildingList;
       for (let i = 0; i < list.length; i++) {
         const b = list[i];
+        if (b.mesh && b.mesh.parent && !b.mesh.parent.visible) continue;
         b.doorOpenAmt += ((b.doorTarget || 0) - b.doorOpenAmt) * doorRate;
         const swing = b.doorOpenAmt * 1.26;
         if (b.doorPivot) b.doorPivot.rotation.y = -swing;

@@ -302,6 +302,9 @@ HC.buildNPC = function (role, pose = 'stand') {
   root.userData.npc = state;
   root.userData.npcRoleId = role.id;
   root.userData.npcPose = pose;
+  if (typeof HC.attachT3ToOriginalNPC === 'function' && HC.SD_NPC_MODELS[role.id]) {
+    HC.attachT3ToOriginalNPC(root, state);
+  }
   return root;
 };
 
@@ -381,6 +384,10 @@ HC.animateNPC = function (root, dt) {
   st.vel.x = rawVx;
   st.vel.z = rawVz;
   if (st.pose === 'sit') for (const lg of st._legs) lg.rotation.x = -Math.PI / 2;
+  if (st.t3Actor && st.t3PartNodes) {
+    st.t3Actor.setFlash(st.flash > 0 ? Math.min(1, st.flash * 4.5) : 0);
+    st.t3Actor.syncFromNodes(root, st.t3PartNodes);
+  }
 };
 
 /* ============================================================================

@@ -34,6 +34,10 @@ export const QUALITY_PRESETS = {
     npcCull: 34,
     treeLod: 55,
     treeFar: 120,
+    villageLod: 68,
+    villageFar: 165,
+    t3VirtualHeight: 200,
+    t3Crease: false,
     hintKey: 'quality_low_hint',
     hint: 'HP kelas bawah: bayangan mati, resolusi tetap 100%, rumput 30%, pohon >45 m jadi versi low-detail (bukan billboard)'
   },
@@ -55,6 +59,10 @@ export const QUALITY_PRESETS = {
     npcCull: 48,
     treeLod: 70,
     treeFar: 140,
+    villageLod: 92,
+    villageFar: 225,
+    t3VirtualHeight: 240,
+    t3Crease: true,
     hintKey: 'quality_med_hint',
     hint: 'HP menengah: bayangan diperbarui berkala, rumput 62%, pohon >60 m versi low-detail'
   },
@@ -75,6 +83,10 @@ export const QUALITY_PRESETS = {
     npcCull: 0,
     treeLod: 90,
     treeFar: 160,
+    villageLod: 122,
+    villageFar: 300,
+    t3VirtualHeight: 270,
+    t3Crease: true,
     hintKey: 'quality_high_hint',
     hint: 'PC/HP kencang: semua detail dekat, pohon >80 m versi low-detail, NPC utuh, bayangan penuh'
   }
@@ -421,6 +433,12 @@ export function bakeNpcLod(root, THREE) {
   if (!root || !THREE) return { ok: false, reason: 'no-root' };
   const prev = root.userData && root.userData.__npcLod;
   if (prev) return { ok: true, cached: true, ...prev.stats };
+  // Sprite-Stack T3 Hybrid NPC sudah 1 draw call; jangan dibake jadi box statis.
+  if (root.userData && (root.userData.t3Actor || (root.userData.npc && root.userData.npc.t3Actor))) {
+    const stats = { meshes: 1, lods: 0, t3: true };
+    root.userData.__npcLod = { lod: [], orig: [], on: false, stats };
+    return { ok: true, ...stats };
+  }
 
   root.updateMatrixWorld(true);
   const inv = new THREE.Matrix4().copy(root.matrixWorld).invert();

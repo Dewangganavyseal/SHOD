@@ -6,6 +6,10 @@ import {
   animateBigBandit,
 } from './models/bandit_models.js';
 import {
+  attachT3ToOriginalBoar,
+  attachT3ToOriginalBandit,
+} from './models/t3_sprite_stack.js';
+import {
   buildSunRuinsGolem,
   animateSunRuinsGolem,
 } from './models/sun_ruins_golem_model.js';
@@ -1893,7 +1897,7 @@ function buildVoxelBoarRig(scene) {
     dizzyStars: [],
   };
 
-  rig.root.scale.setScalar(0.92);
+  rig.root.scale.setScalar(1.08);
   rig.root.add(rig.squash);
   rig.body.position.set(0, BBODY_BASE_Y, 0);
   rig.squash.add(rig.body);
@@ -2133,6 +2137,9 @@ class BoarMob {
     this.world = world;
     this.vfx = vfx;
     this.rig = buildVoxelBoarRig(scene);
+    const t3Boar = attachT3ToOriginalBoar(this.rig);
+    this.t3Actor = t3Boar.actor;
+    this.t3PartNodes = t3Boar.partNodes;
     this.hpBar = new HealthBar3D(scene, { isEnemy: true, width: 1.15 });
 
     this.homeX = homeX;
@@ -2309,6 +2316,10 @@ class BoarMob {
 
   _applyFlash(dt) {
     if (this.flashTimer > 0) this.flashTimer = Math.max(0, this.flashTimer - dt);
+    if (this.t3Actor) {
+      this.t3Actor.setFlash(this.flashTimer > 0 ? Math.min(1, this.flashTimer * 4.5) : 0);
+      this.t3Actor.setTelegraph(this.isTelegraphing ? 0.72 : 0);
+    }
     const hex = this.flashTimer > 0 ? 0xff7055 : 0x000000;
     if (hex !== this._lastFlashHex) {
       this._lastFlashHex = hex;
@@ -2797,6 +2808,9 @@ class BoarMob {
     }
 
     const isDead = this.dead;
+    if (this.t3Actor && this.t3PartNodes) {
+      this.t3Actor.syncFromNodes(this.rig.root, this.t3PartNodes);
+    }
     r.eyesAlive.L.visible = !isDead; r.eyesAlive.R.visible = !isDead;
     r.eyelids.L.visible = !isDead; r.eyelids.R.visible = !isDead;
     r.eyesDead.L.visible = isDead; r.eyesDead.R.visible = isDead;
@@ -2829,6 +2843,9 @@ class BoarMob {
     }
   }
   dispose() {
+    if (this.t3Actor) {
+      this.t3Actor.dispose();
+    }
     if (this.rig && this.rig.root && this.scene) {
       this.scene.remove(this.rig.root);
     }
@@ -2916,6 +2933,9 @@ class BanditMob {
       : isCrystalGolem
         ? buildCrystalGolem(isMobile)
         : (isBig ? buildBigBandit(isMobile) : buildSmallBandit(isMobile));
+    if (!isGolem) {
+      attachT3ToOriginalBandit(built, this.variant);
+    }
     this.mesh = built.mesh;
     this.parts = built.parts;
     this.material = built.material;
@@ -2995,6 +3015,11 @@ class BanditMob {
     else if (this.variant === 'crystal_golem') animateCrystalGolem(this.animState, dt);
     else if (this.variant === 'big') animateBigBandit(this.animState, dt);
     else animateSmallBandit(this.animState, dt);
+    if (this.parts && this.parts.t3Actor && this.parts.t3PartNodes) {
+      this.parts.t3Actor.setFlash(this.animState.flash > 0 ? Math.min(1, this.animState.flash * 4.5) : 0);
+      this.parts.t3Actor.setTelegraph(this.animState.telegraph || 0);
+      this.parts.t3Actor.syncFromNodes(this.mesh, this.parts.t3PartNodes);
+    }
   }
 
   _setState(next, dur = 1.0) {
@@ -4327,12 +4352,12 @@ class ForestMobs {
 
   _isValidZonePos(x, z, allowNearCamp = false) {
     if (Math.abs(x) > 705 || Math.abs(z) > 705) return false;
-    if (Math.hypot(x - POND.x, z - POND.z) < POND.safeR + 2.4) return false;
-    if (!allowNearCamp && Math.hypot(x, z) < 13.0) return false;
+    if (Math.hypot(x - POND.x, z - POND.z) < POND.safeR + 2.2) return false;
+    if (!allowNearCamp && Math.hypot(x, z) < 10.5) return false;
     const w = this.world;
     if (w) {
       if (typeof w.waterDepthAt === 'function' && w.waterDepthAt(x, z) > 0.15) return false;
-      if (typeof w._getRoadDistance === 'function' && w._getRoadDistance(x, z) < 5.5) return false;
+      if (typeof w._getRoadDistance === 'function' && w._getRoadDistance(x, z) < (allowNearCamp ? 3.8 : 4.6)) return false;
       if (typeof w.isInsideVillage === 'function') {
         if (w.isInsideVillage(x, z, 4.0)) return false;
       } else {
@@ -4347,11 +4372,14 @@ class ForestMobs {
 
   _buildWorldZones() {
     const seeds = [
-      // Hutan & padang rumput sekitar area awal (radius 8..32 m)
+      // Hutan & padang rumput sekitar area awal (radius 8..36 m — babi hutan terlihat jelas di pinggir padang rumput)
       { x: -13.5, z: -4.8, kind: 'rabbit', count: 2 },
       { x:   3.2, z: -12.5, kind: 'rabbit', count: 2 },
+      { x: -15.0, z: -13.0, kind: 'boar', count: 2 },
       { x: -14.8, z:  8.5, kind: 'boar', count: 2 },
       { x:  16.5, z: -4.5, kind: 'boar', count: 2 },
+      { x:  11.5, z: 16.5, kind: 'boar', count: 2 },
+      { x: -17.5, z: 34.0, kind: 'boar', count: 2 },
       { x: -24.5, z: -10.5, kind: 'bandit_camp', variants: ['big', 'small'] },
       { x:  23.5, z: -6.5, kind: 'bandit_camp', variants: ['big', 'small'] },
       { x: -25.0, z:  15.5, kind: 'bandit_camp', variants: ['small', 'small'] },
@@ -4434,7 +4462,7 @@ class ForestMobs {
     const zones = [];
     for (let i = 0; i < seeds.length; i++) {
       const s = seeds[i];
-      if (s.kind !== 'golem_site' && !this._isValidZonePos(s.x, s.z, s.kind === 'rabbit')) continue;
+      if (s.kind !== 'golem_site' && !this._isValidZonePos(s.x, s.z, s.kind === 'rabbit' || s.kind === 'boar')) continue;
       zones.push({
         id: i,
         x: s.x,
@@ -4467,8 +4495,8 @@ class ForestMobs {
         spawned.push(r);
       }
     } else if (z.kind === 'boar') {
-      if (this.boars.length >= 8) return;
-      const room = Math.min(z.count, 8 - this.boars.length);
+      if (this.boars.length >= 10) return;
+      const room = Math.min(z.count, 10 - this.boars.length);
       for (let k = 0; k < room; k++) {
         const ang = (z.id * 2.1 + k * 3.1) % (Math.PI * 2);
         const sp = this._clearSpawn(z.x + Math.cos(ang) * (2.6 + k * 1.8), z.z + Math.sin(ang) * (2.6 + k * 1.8), 0.70);
@@ -4562,7 +4590,7 @@ class ForestMobs {
       const z = this._zones[i];
       if (z.spawned) continue;
       const d = Math.hypot(z.x - hx, z.z - hz);
-      const spawnLim = z.kind === 'golem_site' ? 88.0 : SPAWN_DIST;
+      const spawnLim = z.kind === 'golem_site' ? 88.0 : (z.kind === 'boar' ? 66.0 : SPAWN_DIST);
       if (d <= spawnLim) candidates.push({ z, d });
     }
     candidates.sort((a, b) => a.d - b.d);
